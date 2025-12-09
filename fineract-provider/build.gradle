@@ -147,6 +147,29 @@ project.ext.mysqlPassword='mysql'
 project.ext.pgUser='root'
 project.ext.pgPassword='postgres'
 
+// Helper function to load .env file
+def loadEnvFile() {
+    def envFile = file("${project.rootDir}/.env")
+    def envVars = [:]
+    if (envFile.exists()) {
+        println "Loading environment variables from .env file..."
+        envFile.readLines().each { line ->
+            // Skip empty lines and comments
+            if (line && !line.trim().startsWith("#") && line.contains("=")) {
+                // Handle export statements
+                def cleanLine = line.replaceFirst(/^export\s+/, '')
+                def (key, value) = cleanLine.split("=", 2)
+                if (key && value) {
+                    // Remove quotes if present
+                    value = value.replaceAll(/^["']|["']$/, '')
+                    envVars[key.trim()] = value.trim()
+                }
+            }
+        }
+    }
+    return envVars
+}
+
 configurations {
     driver
 }
@@ -162,10 +185,72 @@ configurations.driver.each {File file ->
 }
 
 tasks.register('createDB') {
-    description = "Creates the MariaDB Database. Needs database name to be passed (like: -PdbName=someDBname)"
+    description = "Creates the Database (auto-detects PostgreSQL or MariaDB from .env file). Needs database name to be passed (like: -PdbName=someDBname)"
     doLast {
-        def sql = Sql.newInstance('jdbc:mariadb://localhost:3306/', mysqlUser, mysqlPassword, 'org.mariadb.jdbc.Driver')
-        sql.execute('CREATE DATABASE ' + "`$dbName` CHARACTER SET utf8mb4")
+        def envVars = loadEnvFile()
+        
+        // Get database configuration from environment variables or use defaults
+        def jdbcUrl = envVars['FINERACT_HIKARI_JDBC_URL'] ?: System.getenv('FINERACT_HIKARI_JDBC_URL') ?: 'jdbc:mariadb://localhost:3306/'
+        def username = envVars['FINERACT_HIKARI_USERNAME'] ?: System.getenv('FINERACT_HIKARI_USERNAME') ?: (envVars['FINERACT_DEFAULT_TENANTDB_UID'] ?: System.getenv('FINERACT_DEFAULT_TENANTDB_UID') ?: 'root')
+        def password = envVars['FINERACT_HIKARI_PASSWORD'] ?: System.getenv('FINERACT_HIKARI_PASSWORD') ?: (envVars['FINERACT_DEFAULT_TENANTDB_PWD'] ?: System.getenv('FINERACT_DEFAULT_TENANTDB_PWD') ?: 'mysql')
+        
+        // Extract host and port from JDBC URL or use environment variables
+        def host = envVars['FINERACT_DEFAULT_TENANTDB_HOSTNAME'] ?: System.getenv('FINERACT_DEFAULT_TENANTDB_HOSTNAME') ?: 'localhost'
+        def port = envVars['FINERACT_DEFAULT_TENANTDB_PORT'] ?: System.getenv('FINERACT_DEFAULT_TENANTDB_PORT') ?: '3306'
+        
+        // Determine database type from JDBC URL
+        def driver
+        def baseUrl
+        def createStatement
+        
+        if (jdbcUrl.contains('postgresql')) {
+            driver = 'org.postgresql.Driver'
+            port = envVars['FINERACT_DEFAULT_TENANTDB_PORT'] ?: System.getenv('FINERACT_DEFAULT_TENANTDB_PORT') ?: '5432'
+            baseUrl = "jdbc:postgresql://${host}:${port}/"
+            username = envVars['FINERACT_HIKARI_USERNAME'] ?: System.getenv('FINERACT_HIKARI_USERNAME') ?: (envVars['FINERACT_DEFAULT_TENANTDB_UID'] ?: System.getenv('FINERACT_DEFAULT_TENANTDB_UID') ?: 'postgres')
+            password = envVars['FINERACT_HIKARI_PASSWORD'] ?: System.getenv('FINERACT_HIKARI_PASSWORD') ?: (envVars['FINERACT_DEFAULT_TENANTDB_PWD'] ?: System.getenv('FINERACT_DEFAULT_TENANTDB_PWD') ?: '')
+            // PostgreSQL requires the database name to be quoted if it contains special characters
+            def dbNameQuoted = dbName.contains('-') ? "\"${dbName}\"" : dbName
+            createStatement = "CREATE DATABASE ${dbNameQuoted}"
+        } else if (jdbcUrl.contains('mariadb')) {
+            driver = 'org.mariadb.jdbc.Driver'
+            baseUrl = "jdbc:mariadb://${host}:${port}/"
+            createStatement = "CREATE DATABASE `$dbName` CHARACTER SET utf8mb4"
+        } else if (jdbcUrl.contains('mysql')) {
+            driver = 'com.mysql.cj.jdbc.Driver'
+            baseUrl = "jdbc:mysql://${host}:${port}/"
+            createStatement = "CREATE DATABASE `$dbName` CHARACTER SET utf8mb4"
+        } else {
+            throw new GradleException("Unsupported database type in JDBC URL: ${jdbcUrl}")
+        }
+        
+        println "Connecting to database at ${baseUrl} with user ${username}"
+        def sql = Sql.newInstance(baseUrl, username, password, driver)
+        
+        // Check if database already exists
+        def dbExists = false
+        try {
+            if (jdbcUrl.contains('postgresql')) {
+                // Query pg_database to check if database exists
+                def result = sql.firstRow("SELECT 1 FROM pg_database WHERE datname = '${dbName}'")
+                dbExists = (result != null)
+            } else if (jdbcUrl.contains('mariadb') || jdbcUrl.contains('mysql')) {
+                // Query information_schema to check if database exists
+                def result = sql.firstRow("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = '${dbName}'")
+                dbExists = (result != null)
+            }
+        } catch (Exception e) {
+            // If query fails, assume database doesn't exist and proceed
+            println "Could not check if database exists, proceeding with creation..."
+        }
+        
+        if (dbExists) {
+            println "Database '${dbName}' already exists. Skipping creation."
+        } else {
+            // Use connection.execute() directly to avoid prepared statement parameterization for DDL
+            sql.connection.createStatement().execute(createStatement.toString())
+            println "Database '${dbName}' created successfully"
+        }
     }
 }
 
@@ -178,18 +263,61 @@ tasks.register('dropDB') {
 }
 
 tasks.register('createPGDB') {
-    description = "Creates the PostgreSQL Database. Needs database name to be passed (like: -PdbName=someDBname)"
+    description = "Creates the PostgreSQL Database. Needs database name to be passed (like: -PdbName=someDBname). Reads configuration from .env file."
     doLast {
-        def sql = Sql.newInstance('jdbc:postgresql://localhost:5432/', pgUser, pgPassword, 'org.postgresql.Driver')
-        sql.execute('create database ' + "$dbName")
+        def envVars = loadEnvFile()
+        
+        // Get PostgreSQL configuration from environment variables or use defaults
+        def host = envVars['FINERACT_DEFAULT_TENANTDB_HOSTNAME'] ?: System.getenv('FINERACT_DEFAULT_TENANTDB_HOSTNAME') ?: 'localhost'
+        def port = envVars['FINERACT_DEFAULT_TENANTDB_PORT'] ?: System.getenv('FINERACT_DEFAULT_TENANTDB_PORT') ?: '5432'
+        def username = envVars['FINERACT_HIKARI_USERNAME'] ?: System.getenv('FINERACT_HIKARI_USERNAME') ?: (envVars['FINERACT_DEFAULT_TENANTDB_UID'] ?: System.getenv('FINERACT_DEFAULT_TENANTDB_UID') ?: 'postgres')
+        def password = envVars['FINERACT_HIKARI_PASSWORD'] ?: System.getenv('FINERACT_HIKARI_PASSWORD') ?: (envVars['FINERACT_DEFAULT_TENANTDB_PWD'] ?: System.getenv('FINERACT_DEFAULT_TENANTDB_PWD') ?: '')
+        
+        def baseUrl = "jdbc:postgresql://${host}:${port}/"
+        // PostgreSQL requires the database name to be quoted if it contains special characters
+        def dbNameQuoted = dbName.contains('-') ? "\"${dbName}\"" : dbName
+        println "Connecting to PostgreSQL at ${baseUrl} with user ${username}"
+        def sql = Sql.newInstance(baseUrl, username, password, 'org.postgresql.Driver')
+        
+        // Check if database already exists
+        def dbExists = false
+        try {
+            def result = sql.firstRow("SELECT 1 FROM pg_database WHERE datname = '${dbName}'")
+            dbExists = (result != null)
+        } catch (Exception e) {
+            // If query fails, assume database doesn't exist and proceed
+            println "Could not check if database exists, proceeding with creation..."
+        }
+        
+        if (dbExists) {
+            println "Database '${dbName}' already exists. Skipping creation."
+        } else {
+            // Use connection.execute() directly to avoid prepared statement parameterization for DDL
+            sql.connection.createStatement().execute("CREATE DATABASE ${dbNameQuoted}")
+            println "PostgreSQL database '${dbName}' created successfully"
+        }
     }
 }
 
 tasks.register('dropPGDB') {
-    description = "Drops the specified PostgreSQL database. The database name has to be passed (like: -PdbName=someDBname)"
+    description = "Drops the specified PostgreSQL database. The database name has to be passed (like: -PdbName=someDBname). Reads configuration from .env file."
     doLast {
-        def sql = Sql.newInstance('jdbc:postgresql://localhost:5432/', pgUser, pgPassword, 'org.postgresql.Driver')
-        sql.execute('DROP DATABASE ' + "$dbName")
+        def envVars = loadEnvFile()
+        
+        // Get PostgreSQL configuration from environment variables or use defaults
+        def host = envVars['FINERACT_DEFAULT_TENANTDB_HOSTNAME'] ?: System.getenv('FINERACT_DEFAULT_TENANTDB_HOSTNAME') ?: 'localhost'
+        def port = envVars['FINERACT_DEFAULT_TENANTDB_PORT'] ?: System.getenv('FINERACT_DEFAULT_TENANTDB_PORT') ?: '5432'
+        def username = envVars['FINERACT_HIKARI_USERNAME'] ?: System.getenv('FINERACT_HIKARI_USERNAME') ?: (envVars['FINERACT_DEFAULT_TENANTDB_UID'] ?: System.getenv('FINERACT_DEFAULT_TENANTDB_UID') ?: 'postgres')
+        def password = envVars['FINERACT_HIKARI_PASSWORD'] ?: System.getenv('FINERACT_HIKARI_PASSWORD') ?: (envVars['FINERACT_DEFAULT_TENANTDB_PWD'] ?: System.getenv('FINERACT_DEFAULT_TENANTDB_PWD') ?: '')
+        
+        def baseUrl = "jdbc:postgresql://${host}:${port}/"
+        // PostgreSQL requires the database name to be quoted if it contains special characters
+        def dbNameQuoted = dbName.contains('-') ? "\"${dbName}\"" : dbName
+        println "Connecting to PostgreSQL at ${baseUrl} with user ${username}"
+        def sql = Sql.newInstance(baseUrl, username, password, 'org.postgresql.Driver')
+        // Use connection.execute() directly to avoid prepared statement parameterization for DDL
+        sql.connection.createStatement().execute("DROP DATABASE ${dbNameQuoted}")
+        println "PostgreSQL database '${dbName}' dropped successfully"
     }
 }
 
@@ -218,9 +346,34 @@ tasks.register('setBlankPassword') {
 }
 
 bootRun {
+    // Use Java 21 toolchain (same as compilation)
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    
     jvmArgs = [
             "-Dspring.output.ansi.enabled=ALWAYS"
     ]
+
+    // Load .env file if it exists
+    def envFile = file("${project.rootDir}/.env")
+    if (envFile.exists()) {
+        println "Loading environment variables from .env file..."
+        envFile.readLines().each { line ->
+            // Skip empty lines and comments
+            if (line && !line.trim().startsWith("#") && line.contains("=")) {
+                // Handle export statements
+                def cleanLine = line.replaceFirst(/^export\s+/, '')
+                def (key, value) = cleanLine.split("=", 2)
+                if (key && value) {
+                    // Remove quotes if present
+                    value = value.replaceAll(/^["']|["']$/, '')
+                    // Set environment variable
+                    environment key.trim(), value.trim()
+                }
+            }
+        }
+    }
 
     dependencies {
         implementation 'org.mariadb.jdbc:mariadb-java-client'
@@ -348,9 +501,24 @@ tasks.register('devRun', org.springframework.boot.gradle.tasks.run.BootRun) {
     description = 'Runs the application quickly for development by skipping quality checks'
     group = 'Application'
 
+    // Use Java 21 toolchain (same as compilation)
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+
     // Configure the build to skip quality checks
     gradle.taskGraph.whenReady { graph ->
         if (graph.hasTask(devRun)) {
+            // Remove resolve dependency from resolveMainClassName for devRun (resolve is only for API docs)
+            tasks.named('resolveMainClassName').configure {
+                setDependsOn(getDependsOn().findAll { it.name != 'resolve' })
+            }
+            
+            // Skip resolve task entirely for devRun - not needed to run the application
+            tasks.named('resolve').configure {
+                enabled = false
+            }
+            
             tasks.matching { task ->
                 task.name in ['checkstyle', 'checkstyleMain', 'checkstyleTest',
                               'spotlessCheck', 'spotlessApply',
@@ -372,6 +540,26 @@ tasks.register('devRun', org.springframework.boot.gradle.tasks.run.BootRun) {
     classpath = bootRun.classpath
     mainClass = bootRun.mainClass
     jvmArgs = bootRun.jvmArgs
+
+    // Load .env file if it exists (same as bootRun)
+    def envFile = file("${project.rootDir}/.env")
+    if (envFile.exists()) {
+        println "Loading environment variables from .env file..."
+        envFile.readLines().each { line ->
+            // Skip empty lines and comments
+            if (line && !line.trim().startsWith("#") && line.contains("=")) {
+                // Handle export statements
+                def cleanLine = line.replaceFirst(/^export\s+/, '')
+                def (key, value) = cleanLine.split("=", 2)
+                if (key && value) {
+                    // Remove quotes if present
+                    value = value.replaceAll(/^["']|["']$/, '')
+                    // Set environment variable
+                    environment key.trim(), value.trim()
+                }
+            }
+        }
+    }
 
     doFirst {
         println "Running in development mode - quality checks are disabled"

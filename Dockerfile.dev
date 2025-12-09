@@ -1,0 +1,32 @@
+# Development Dockerfile for Fineract
+# This image includes Gradle and allows for hot reload during development
+
+FROM gradle:8.5-jdk17 AS development
+
+# Install additional tools
+RUN apt-get update && apt-get install -y \
+    netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy Gradle wrapper and build files first (for caching)
+COPY gradlew .
+COPY gradle/ gradle/
+COPY build.gradle .
+COPY settings.gradle .
+COPY gradle.properties .
+
+# Copy all source code (will be overridden by volume mount in docker-compose)
+COPY . .
+
+# Make gradlew executable
+RUN chmod +x gradlew
+
+# Expose ports
+EXPOSE 8443 5000
+
+# Default command (can be overridden in docker-compose)
+CMD ["./gradlew", "bootRun", "--args=--spring.profiles.active=test,diagnostics"]
+

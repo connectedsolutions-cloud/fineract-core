@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  fineract:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: fineract-dev
+    ports:
+      - "8443:8443"
+      - "5000:5000"  # Debug port
+    volumes:
+      # Mount source code for hot reload
+      - .:/app
+      - /app/.gradle
+      - /app/build
+      # Mount logback configuration
+      - ./config/docker/logback/logback-override.xml:/app/logback-override.xml:ro
+      # Mount logs directory
+      - ./build/fineract/logs:/var/logs/fineract:rw
+    environment:
+      # Database connection (external database)
+      - FINERACT_HIKARI_USERNAME=${FINERACT_HIKARI_USERNAME:-root}
+      - FINERACT_HIKARI_PASSWORD=${FINERACT_HIKARI_PASSWORD}
+      - FINERACT_HIKARI_DS_URL=${FINERACT_HIKARI_DS_URL:-jdbc:mysql://host.docker.internal:3306/fineract_tenants?useSSL=false&serverTimezone=UTC&useLegacyDatetimeCode=false&sessionVariables=time_zone='-00:00'}
+      - FINERACT_HIKARI_DRIVER_SOURCE_CLASS_NAME=${FINERACT_HIKARI_DRIVER_SOURCE_CLASS_NAME:-com.mysql.cj.jdbc.Driver}
+      # Common settings
+      - FINERACT_USER=${FINERACT_USER:-1000}
+      - FINERACT_GROUP=${FINERACT_GROUP:-1000}
+      - FINERACT_HIKARI_MINIMUM_IDLE=${FINERACT_HIKARI_MINIMUM_IDLE:-3}
+      - FINERACT_HIKARI_MAXIMUM_POOL_SIZE=${FINERACT_HIKARI_MAXIMUM_POOL_SIZE:-10}
+      - FINERACT_HIKARI_IDLE_TIMEOUT=${FINERACT_HIKARI_IDLE_TIMEOUT:-60000}
+      - FINERACT_HIKARI_CONNECTION_TIMEOUT=${FINERACT_HIKARI_CONNECTION_TIMEOUT:-20000}
+      - FINERACT_SERVER_SSL_ENABLED=${FINERACT_SERVER_SSL_ENABLED:-true}
+      # Default tenant database
+      - FINERACT_DEFAULT_TENANTDB_HOSTNAME=${FINERACT_DEFAULT_TENANTDB_HOSTNAME:-host.docker.internal}
+      - FINERACT_DEFAULT_TENANTDB_NAME=${FINERACT_DEFAULT_TENANTDB_NAME:-fineract_default}
+      - FINERACT_DEFAULT_TENANTDB_IDENTIFIER=${FINERACT_DEFAULT_TENANTDB_IDENTIFIER:-default}
+      - FINERACT_DEFAULT_TENANTDB_PWD=${FINERACT_DEFAULT_TENANTDB_PWD}
+      - FINERACT_DEFAULT_MASTER_PASSWORD=${FINERACT_DEFAULT_MASTER_PASSWORD:-fineract}
+      # Development settings
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-test,diagnostics}
+      - FINERACT_NODE_ID=${FINERACT_NODE_ID:-1}
+      - FINERACT_MANAGEMENT_ENDPOINT_WEB_EXPOSURE_INCLUDE=${FINERACT_MANAGEMENT_ENDPOINT_WEB_EXPOSURE_INCLUDE:-health,info,prometheus}
+      - FINERACT_MANAGEMENT_METRICS_TAGS_APPLICATION=${FINERACT_MANAGEMENT_METRICS_TAGS_APPLICATION:-fineract}
+      - FINERACT_REMOTE_JOB_MESSAGE_HANDLER_SPRING_EVENTS_ENABLED=${FINERACT_REMOTE_JOB_MESSAGE_HANDLER_SPRING_EVENTS_ENABLED:-true}
+      - FINERACT_INSECURE_HTTP_CLIENT=${FINERACT_INSECURE_HTTP_CLIENT:-true}
+      # Java options with debug enabled
+      - JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:--Xmx2G -Xms2G -Dlogging.config=/app/logback-override.xml -XX:TieredStopAtLevel=1 -XX:+UseContainerSupport -XX:+UseStringDeduplication -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5000}
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-fineract}
+    command: ./gradlew bootRun --args='--spring.profiles.active=test,diagnostics'
+    stdin_open: true
+    tty: true
+    networks:
+      - mifos-fineract-dev
+    healthcheck:
+      test: ["CMD", "sh", "-c", "echo -e 'Checking for the availability of Fineract server deployment'; while ! nc -z localhost 8443; do sleep 1; printf '-'; done; echo -e ' >> Fineract server has started';"]
+      timeout: 1s
+      interval: 10s
+      retries: 60
+      start_period: 60s
+
+networks:
+  mifos-fineract-dev:
+    name: mifos-fineract-dev
+    driver: bridge
+
