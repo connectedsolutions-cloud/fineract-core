@@ -32,7 +32,7 @@ import org.apache.fineract.infrastructure.core.exception.PlatformApiDataValidati
  */
 
 public record GLAccountCommand(Long id, String name, Long parentId, String glCode, Boolean disabled, Boolean manualEntriesAllowed,
-        Integer type, Integer usage, String description, Long tagId) {
+        Integer type, Integer usage, String description, Long tagId, Integer accLevel, Integer accLastLevel) {
 
     public void validateForCreate() {
 
@@ -62,6 +62,9 @@ public record GLAccountCommand(Long id, String name, Long parentId, String glCod
 
         baseDataValidator.reset().parameter(GLAccountJsonInputParams.TAGID.getValue()).value(this.tagId).ignoreIfNull()
                 .longGreaterThanZero();
+
+        baseDataValidator.reset().parameter(GLAccountJsonInputParams.ACC_LEVEL.getValue()).value(this.accLevel).ignoreIfNull();
+        baseDataValidator.reset().parameter(GLAccountJsonInputParams.ACC_LAST_LEVEL.getValue()).value(this.accLastLevel).ignoreIfNull();
 
         if (!dataValidationErrors.isEmpty()) {
             throw new PlatformApiDataValidationException("validation.msg.validation.errors.exist", "Validation errors exist.",
@@ -93,7 +96,11 @@ public record GLAccountCommand(Long id, String name, Long parentId, String glCod
 
         baseDataValidator.reset().parameter(GLAccountJsonInputParams.DISABLED.getValue()).value(this.disabled).ignoreIfNull();
 
-        baseDataValidator.reset().anyOfNotNull(this.name, this.glCode, this.parentId, this.type, this.description, this.disabled);
+        baseDataValidator.reset().parameter(GLAccountJsonInputParams.ACC_LEVEL.getValue()).value(this.accLevel).ignoreIfNull();
+        baseDataValidator.reset().parameter(GLAccountJsonInputParams.ACC_LAST_LEVEL.getValue()).value(this.accLastLevel).ignoreIfNull();
+
+        baseDataValidator.reset().anyOfNotNull(this.name, this.glCode, this.parentId, this.type, this.description, this.disabled,
+                this.accLevel, this.accLastLevel);
 
         if (!dataValidationErrors.isEmpty()) {
             throw new PlatformApiDataValidationException("validation.msg.validation.errors.exist", "Validation errors exist.",

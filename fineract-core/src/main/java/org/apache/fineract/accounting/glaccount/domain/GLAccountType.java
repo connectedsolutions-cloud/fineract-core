@@ -26,7 +26,8 @@ public enum GLAccountType {
     LIABILITY(2, "accountType.liability"), //
     EQUITY(3, "accountType.equity"), //
     INCOME(4, "accountType.income"), //
-    EXPENSE(5, "accountType.expense"); //
+    EXPENSE(5, "accountType.expense"), //
+    ORDER_ACCOUNT(6, "accountType.orderAccount"); //
 
     private final Integer value;
     private final String code;
@@ -80,6 +81,9 @@ public enum GLAccountType {
         } else if (accountType != null && accountType.equalsIgnoreCase(EXPENSE.toString())) {
             accountTypeId = 5L;
             return new EnumOptionData(accountTypeId, null, null);
+        } else if (accountType != null && accountType.equalsIgnoreCase(ORDER_ACCOUNT.toString())) {
+            accountTypeId = 6L;
+            return new EnumOptionData(accountTypeId, null, null);
         } else {
             return null;
         }
@@ -101,6 +105,8 @@ public enum GLAccountType {
                 return INCOME;
             case 5:
                 return EXPENSE;
+            case 6:
+                return ORDER_ACCOUNT;
             default:
                 return null;
         }
@@ -137,6 +143,10 @@ public enum GLAccountType {
 
     public boolean isExpenseType() {
         return this.value.equals(GLAccountType.EXPENSE.getValue());
+    }
+
+    public boolean isOrderAccountType() {
+        return this.value.equals(GLAccountType.ORDER_ACCOUNT.getValue());
     }
 
 }

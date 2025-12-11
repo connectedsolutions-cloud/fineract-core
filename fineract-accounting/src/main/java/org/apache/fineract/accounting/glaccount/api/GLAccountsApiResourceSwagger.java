@@ -95,11 +95,13 @@ final class GLAccountsApiResourceSwagger {
         public List<GLAccountData> liabilityHeaderAccountOptions;
         public List<GLAccountData> equityHeaderAccountOptions;
         public List<GLAccountData> expenseHeaderAccountOptions;
+        public List<GLAccountData> orderAccountHeaderAccountOptions;
         public Collection<CodeValueData> allowedAssetsTagOptions;
         public Collection<CodeValueData> allowedLiabilitiesTagOptions;
         public Collection<CodeValueData> allowedEquityTagOptions;
         public Collection<CodeValueData> allowedIncomeTagOptions;
         public Collection<CodeValueData> allowedExpensesTagOptions;
+        public Collection<CodeValueData> allowedOrderAccountTagOptions;
 
     }
 

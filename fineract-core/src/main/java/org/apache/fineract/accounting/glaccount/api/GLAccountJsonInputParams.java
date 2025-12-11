@@ -35,7 +35,9 @@ public enum GLAccountJsonInputParams {
     TYPE("type"), //
     USAGE("usage"), //
     DESCRIPTION("description"), //
-    TAGID("tagId"); //
+    TAGID("tagId"), //
+    ACC_LEVEL("accLevel"), //
+    ACC_LAST_LEVEL("accLastLevel"); //
 
     private final String value;
 

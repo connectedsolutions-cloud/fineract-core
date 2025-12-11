@@ -53,6 +53,8 @@ public class GLAccountData implements Serializable {
     private String nameDecorated;
     private CodeValueData tagId;
     private Long organizationRunningBalance;
+    private Integer accLevel;
+    private Integer accLastLevel;
 
     // templates
     private List<EnumOptionData> accountTypeOptions;
@@ -62,11 +64,13 @@ public class GLAccountData implements Serializable {
     private List<GLAccountData> equityHeaderAccountOptions;
     private List<GLAccountData> incomeHeaderAccountOptions;
     private List<GLAccountData> expenseHeaderAccountOptions;
+    private List<GLAccountData> orderAccountHeaderAccountOptions;
     private Collection<CodeValueData> allowedAssetsTagOptions;
     private Collection<CodeValueData> allowedLiabilitiesTagOptions;
     private Collection<CodeValueData> allowedEquityTagOptions;
     private Collection<CodeValueData> allowedIncomeTagOptions;
     private Collection<CodeValueData> allowedExpensesTagOptions;
+    private Collection<CodeValueData> allowedOrderAccountTagOptions;
 
     // import fields
     private transient Integer rowIndex;
@@ -75,6 +79,13 @@ public class GLAccountData implements Serializable {
             EnumOptionData usage, String description, CodeValueData tagId, Integer rowIndex) {
         return new GLAccountData().setName(name).setParentId(parentId).setGlCode(glCode).setManualEntriesAllowed(manualEntriesAllowed)
                 .setType(type).setUsage(usage).setDescription(description).setTagId(tagId).setRowIndex(rowIndex);
+    }
+
+    public static GLAccountData importInstance(String name, Long parentId, String glCode, Boolean manualEntriesAllowed, EnumOptionData type,
+            EnumOptionData usage, String description, CodeValueData tagId, Integer rowIndex, Integer accLevel, Integer accLastLevel) {
+        return new GLAccountData().setName(name).setParentId(parentId).setGlCode(glCode).setManualEntriesAllowed(manualEntriesAllowed)
+                .setType(type).setUsage(usage).setDescription(description).setTagId(tagId).setRowIndex(rowIndex)
+                .setAccLevel(accLevel).setAccLastLevel(accLastLevel);
     }
 
     public static GLAccountData createFrom(final Long id) {

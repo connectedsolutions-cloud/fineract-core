@@ -258,6 +258,9 @@ public class GLAccountWritePlatformServiceJpaRepositoryImpl implements GLAccount
         } else if (accountType.isExpenseType()) {
             glAccountTagType = this.codeValueRepositoryWrapper
                     .findOneByCodeNameAndIdWithNotFoundDetection(AccountingConstants.EXPENSES_TAG_OPTION_CODE_NAME, tagId);
+        } else if (accountType.isOrderAccountType()) {
+            glAccountTagType = this.codeValueRepositoryWrapper
+                    .findOneByCodeNameAndIdWithNotFoundDetection(AccountingConstants.ORDER_ACCOUNT_TAG_OPTION_CODE_NAME, tagId);
         }
         return glAccountTagType;
     }

@@ -51,5 +51,9 @@ public final class ChartOfAcountsConstants {
     public static final int LOOKUP_OFFICE_COL = 23; // X
     public static final int LOOKUP_OFFICE_ID_COL = 24; // Y
 
+    // Optional columns for acc_level and acc_last_level (if added to Excel template)
+    public static final int ACC_LEVEL_COL = 25; // Z (0-based: A=0, B=1, ..., Z=25)
+    public static final int ACC_LAST_LEVEL_COL = 26; // AA (0-based: A=0, B=1, ..., Z=25, AA=26)
+
     public static final int STATUS_COL = 25;
 }

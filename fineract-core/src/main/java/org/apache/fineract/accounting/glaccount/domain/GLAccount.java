@@ -83,6 +83,12 @@ public class GLAccount extends AbstractPersistableCustom<Long> {
     @JoinColumn(name = "tag_id")
     private CodeValue tagId;
 
+    @Column(name = "acc_level", nullable = true)
+    private Integer accLevel;
+
+    @Column(name = "acc_last_level", nullable = true)
+    private Integer accLastLevel;
+
     public static GLAccount fromJson(final GLAccount parent, final JsonCommand command, final CodeValue glAccountTagType) {
         final String name = command.stringValueOfParameterNamed(GLAccountJsonInputParams.NAME.getValue());
         final String glCode = command.stringValueOfParameterNamed(GLAccountJsonInputParams.GL_CODE.getValue());
@@ -92,9 +98,11 @@ public class GLAccount extends AbstractPersistableCustom<Long> {
         final Integer usage = command.integerValueSansLocaleOfParameterNamed(GLAccountJsonInputParams.USAGE.getValue());
         final Integer type = command.integerValueSansLocaleOfParameterNamed(GLAccountJsonInputParams.TYPE.getValue());
         final String description = command.stringValueOfParameterNamed(GLAccountJsonInputParams.DESCRIPTION.getValue());
+        final Integer accLevel = command.integerValueSansLocaleOfParameterNamed(GLAccountJsonInputParams.ACC_LEVEL.getValue());
+        final Integer accLastLevel = command.integerValueSansLocaleOfParameterNamed(GLAccountJsonInputParams.ACC_LAST_LEVEL.getValue());
         return new GLAccount().setParent(parent).setName(name).setGlCode(glCode).setDisabled(disabled)
                 .setManualEntriesAllowed(manualEntriesAllowed).setType(type).setUsage(usage).setDescription(description)
-                .setTagId(glAccountTagType);
+                .setTagId(glAccountTagType).setAccLevel(accLevel).setAccLastLevel(accLastLevel);
     }
 
     public Map<String, Object> update(final JsonCommand command) {
@@ -109,6 +117,8 @@ public class GLAccount extends AbstractPersistableCustom<Long> {
         handlePropertyUpdate(command, actualChanges, GLAccountJsonInputParams.USAGE.getValue(), this.usage, true);
         handlePropertyUpdate(command, actualChanges, GLAccountJsonInputParams.TAGID.getValue(),
                 this.tagId == null ? 0L : this.tagId.getId());
+        handlePropertyUpdate(command, actualChanges, GLAccountJsonInputParams.ACC_LEVEL.getValue(), this.accLevel, true);
+        handlePropertyUpdate(command, actualChanges, GLAccountJsonInputParams.ACC_LAST_LEVEL.getValue(), this.accLastLevel, true);
         return actualChanges;
     }
 
@@ -133,6 +143,10 @@ public class GLAccount extends AbstractPersistableCustom<Long> {
                 this.type = newValue;
             } else if (paramName.equals(GLAccountJsonInputParams.USAGE.getValue())) {
                 this.usage = newValue;
+            } else if (paramName.equals(GLAccountJsonInputParams.ACC_LEVEL.getValue())) {
+                this.accLevel = newValue;
+            } else if (paramName.equals(GLAccountJsonInputParams.ACC_LAST_LEVEL.getValue())) {
+                this.accLastLevel = newValue;
             }
         }
     }

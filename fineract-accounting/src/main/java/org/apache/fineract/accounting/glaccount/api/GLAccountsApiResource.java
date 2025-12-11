@@ -67,6 +67,8 @@ import org.apache.fineract.infrastructure.core.serialization.DefaultToApiJsonSer
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Path("/v1/glaccounts")
@@ -77,6 +79,8 @@ import org.springframework.stereotype.Component;
         """)
 @RequiredArgsConstructor
 public class GLAccountsApiResource {
+
+    private static final Logger LOG = LoggerFactory.getLogger(GLAccountsApiResource.class);
 
     private static final String RESOURCE_NAME_FOR_PERMISSION = "GLACCOUNT";
 
@@ -105,13 +109,14 @@ public class GLAccountsApiResource {
                     glaccounts/template
                     glaccounts/template?type=1
 
-                    type is optional and integer value from 1 to 5.
+                    type is optional and integer value from 1 to 6.
 
                     1.Assets
                     2.Liabilities
                     3.Equity
                     4.Income
                     5.Expenses
+                    6.Order Account
                     """)
 
     @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = GLAccountsApiResourceSwagger.GetGLAccountsTemplateResponse.class)))
@@ -236,9 +241,19 @@ public class GLAccountsApiResource {
     public Long postGlAccountsTemplate(@FormDataParam("file") InputStream uploadedInputStream,
             @FormDataParam("file") FormDataContentDisposition fileDetail, @FormDataParam("locale") final String locale,
             @FormDataParam("dateFormat") final String dateFormat) {
-        this.context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME_FOR_PERMISSION);
-        return bulkImportWorkbookService.importWorkbook(GlobalEntityType.CHART_OF_ACCOUNTS.toString(), uploadedInputStream, fileDetail,
-                locale, dateFormat);
+        LOG.info("GL Accounts upload template called - fileName: {}, locale: {}, dateFormat: {}", 
+                fileDetail != null ? fileDetail.getFileName() : "null", locale, dateFormat);
+        try {
+            this.context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME_FOR_PERMISSION);
+            LOG.info("Permission validated, calling importWorkbook");
+            Long result = bulkImportWorkbookService.importWorkbook(GlobalEntityType.CHART_OF_ACCOUNTS.toString(), uploadedInputStream, fileDetail,
+                    locale, dateFormat);
+            LOG.info("Import workbook completed successfully, documentId: {}", result);
+            return result;
+        } catch (Exception e) {
+            LOG.error("Error in postGlAccountsTemplate", e);
+            throw e;
+        }
     }
 
     private GLAccountData handleTemplate(final GLAccountData glAccountData) {
@@ -254,6 +269,8 @@ public class GLAccountsApiResource {
                 this.glAccountReadPlatformService.retrieveAllEnabledHeaderGLAccounts(GLAccountType.INCOME));
         final List<GLAccountData> expenseHeaderAccountOptions = defaultIfEmpty(
                 this.glAccountReadPlatformService.retrieveAllEnabledHeaderGLAccounts(GLAccountType.EXPENSE));
+        final List<GLAccountData> orderAccountHeaderAccountOptions = defaultIfEmpty(
+                this.glAccountReadPlatformService.retrieveAllEnabledHeaderGLAccounts(GLAccountType.ORDER_ACCOUNT));
         final Collection<CodeValueData> allowedAssetsTagOptions = this.codeValueReadPlatformService
                 .retrieveCodeValuesByCode(AccountingConstants.ASSESTS_TAG_OPTION_CODE_NAME);
         final Collection<CodeValueData> allowedLiabilitiesTagOptions = this.codeValueReadPlatformService
@@ -264,6 +281,8 @@ public class GLAccountsApiResource {
                 .retrieveCodeValuesByCode(AccountingConstants.INCOME_TAG_OPTION_CODE_NAME);
         final Collection<CodeValueData> allowedExpensesTagOptions = this.codeValueReadPlatformService
                 .retrieveCodeValuesByCode(AccountingConstants.EXPENSES_TAG_OPTION_CODE_NAME);
+        final Collection<CodeValueData> allowedOrderAccountTagOptions = this.codeValueReadPlatformService
+                .retrieveCodeValuesByCode(AccountingConstants.ORDER_ACCOUNT_TAG_OPTION_CODE_NAME);
 
         return new GLAccountData().setId(glAccountData.getId()).setName(glAccountData.getName()).setParentId(glAccountData.getParentId())
                 .setGlCode(glAccountData.getGlCode()).setDisabled(glAccountData.getDisabled())
@@ -274,9 +293,10 @@ public class GLAccountsApiResource {
                 .setUsageOptions(usageOptions).setAssetHeaderAccountOptions(assetHeaderAccountOptions)
                 .setLiabilityHeaderAccountOptions(liabilityHeaderAccountOptions).setEquityHeaderAccountOptions(equityHeaderAccountOptions)
                 .setIncomeHeaderAccountOptions(incomeHeaderAccountOptions).setExpenseHeaderAccountOptions(expenseHeaderAccountOptions)
+                .setOrderAccountHeaderAccountOptions(orderAccountHeaderAccountOptions)
                 .setAllowedAssetsTagOptions(allowedAssetsTagOptions).setAllowedLiabilitiesTagOptions(allowedLiabilitiesTagOptions)
                 .setAllowedEquityTagOptions(allowedEquityTagOptions).setAllowedIncomeTagOptions(allowedIncomeTagOptions)
-                .setAllowedExpensesTagOptions(allowedExpensesTagOptions);
+                .setAllowedExpensesTagOptions(allowedExpensesTagOptions).setAllowedOrderAccountTagOptions(allowedOrderAccountTagOptions);
     }
 
     private List<GLAccountData> defaultIfEmpty(final List<GLAccountData> list) {

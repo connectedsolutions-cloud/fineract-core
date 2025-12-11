@@ -75,9 +75,10 @@ public class AccountingDropdownReadPlatformServiceImpl implements AccountingDrop
         boolean includeAssetAccounts = false;
         boolean includeExpenseAccounts = false;
         boolean includeEquityAccounts = false;
+        boolean includeOrderAccounts = false;
 
         return retrieveAccountMappingOptions(includeAssetAccounts, includeIncomeAccounts, includeExpenseAccounts, includeLiabilityAccounts,
-                includeEquityAccounts);
+                includeEquityAccounts, includeOrderAccounts);
     }
 
     @Override
@@ -87,8 +88,9 @@ public class AccountingDropdownReadPlatformServiceImpl implements AccountingDrop
         boolean includeExpenseAccounts = true;
         boolean includeLiabilityAccounts = true;
         boolean includeEquityAccounts = true;
+        boolean includeOrderAccounts = true;
         return retrieveAccountMappingOptions(includeAssetAccounts, includeIncomeAccounts, includeExpenseAccounts, includeLiabilityAccounts,
-                includeEquityAccounts);
+                includeEquityAccounts, includeOrderAccounts);
     }
 
     @Override
@@ -102,7 +104,7 @@ public class AccountingDropdownReadPlatformServiceImpl implements AccountingDrop
     }
 
     private Map<String, List<GLAccountData>> retrieveAccountMappingOptions(boolean includeAssetAccounts, boolean includeIncomeAccounts,
-            boolean includeExpenseAccounts, boolean includeLiabilityAccounts, boolean includeEquityAccounts) {
+            boolean includeExpenseAccounts, boolean includeLiabilityAccounts, boolean includeEquityAccounts, boolean includeOrderAccounts) {
         final Map<String, List<GLAccountData>> accountOptions = new HashMap<>();
 
         if (includeAssetAccounts) {
@@ -149,6 +151,15 @@ public class AccountingDropdownReadPlatformServiceImpl implements AccountingDrop
             }
             accountOptions.put("equityAccountOptions", equityAccountOptions);
         }
+
+        if (includeOrderAccounts) {
+            List<GLAccountData> orderAccountOptions = this.accountReadPlatformService
+                    .retrieveAllEnabledDetailGLAccounts(GLAccountType.ORDER_ACCOUNT);
+            if (orderAccountOptions.isEmpty()) {
+                orderAccountOptions = null;
+            }
+            accountOptions.put("orderAccountOptions", orderAccountOptions);
+        }
         return accountOptions;
     }
 
@@ -159,8 +170,9 @@ public class AccountingDropdownReadPlatformServiceImpl implements AccountingDrop
         boolean includeExpenseAccounts = false;
         boolean includeLiabilityAccounts = true;
         boolean includeEquityAccounts = true;
+        boolean includeOrderAccounts = true;
         return retrieveAccountMappingOptions(includeAssetAccounts, includeIncomeAccounts, includeExpenseAccounts, includeLiabilityAccounts,
-                includeEquityAccounts);
+                includeEquityAccounts, includeOrderAccounts);
     }
 
 }

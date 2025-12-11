@@ -68,7 +68,7 @@ public class GLAccountReadPlatformServiceImpl implements GLAccountReadPlatformSe
                     " gl.id as id, name as name, parent_id as parentId, gl_code as glCode, disabled as disabled, manual_journal_entries_allowed as manualEntriesAllowed, ")
                     .append("classification_enum as classification, account_usage as accountUsage, gl.description as description, ")
                     .append(NAME_DECORATED_BASE_ON_HIERARCHY).append(" as nameDecorated, ")
-                    .append("cv.id as codeId, cv.code_value as codeValue ");
+                    .append("cv.id as codeId, cv.code_value as codeValue, gl.acc_level as accLevel, gl.acc_last_level as accLastLevel ");
             if (this.associationParametersData.isRunningBalanceRequired()) {
                 sb.append(",gl_j.organization_running_balance as organizationRunningBalance ");
             }
@@ -97,13 +97,16 @@ public class GLAccountReadPlatformServiceImpl implements GLAccountReadPlatformSe
             final Long codeId = rs.wasNull() ? null : rs.getLong("codeId");
             final String codeValue = rs.getString("codeValue");
             final CodeValueData tagId = CodeValueData.instance(codeId, codeValue);
+            final Integer accLevel = JdbcSupport.getInteger(rs, "accLevel");
+            final Integer accLastLevel = JdbcSupport.getInteger(rs, "accLastLevel");
             Long organizationRunningBalance = null;
             if (associationParametersData.isRunningBalanceRequired()) {
                 organizationRunningBalance = rs.getLong("organizationRunningBalance");
             }
             return new GLAccountData().setId(id).setName(name).setParentId(parentId).setGlCode(glCode).setDisabled(disabled)
                     .setManualEntriesAllowed(manualEntriesAllowed).setType(accountType).setUsage(usage).setDescription(description)
-                    .setNameDecorated(nameDecorated).setTagId(tagId).setOrganizationRunningBalance(organizationRunningBalance);
+                    .setNameDecorated(nameDecorated).setTagId(tagId).setOrganizationRunningBalance(organizationRunningBalance)
+                    .setAccLevel(accLevel).setAccLastLevel(accLastLevel);
         }
     }
 

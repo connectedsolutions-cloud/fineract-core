@@ -49,6 +49,7 @@ import org.apache.fineract.infrastructure.documentmanagement.service.DocumentWri
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.tika.Tika;
 import org.apache.tika.io.TikaInputStream;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
@@ -86,25 +87,41 @@ public class BulkImportWorkbookServiceImpl implements BulkImportWorkbookService 
     @Override
     public Long importWorkbook(String entity, InputStream inputStream, FormDataContentDisposition fileDetail, final String locale,
             final String dateFormat) {
+        LOG.info("importWorkbook called - entity: {}, fileName: {}, locale: {}, dateFormat: {}", 
+                entity, fileDetail != null ? fileDetail.getFileName() : "null", locale, dateFormat);
         try {
             if (entity != null && inputStream != null && fileDetail != null && locale != null && dateFormat != null) {
+                LOG.info("All parameters validated, reading file stream");
                 final ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 IOUtils.copy(inputStream, baos);
                 final byte[] bytes = baos.toByteArray();
+                LOG.info("File read successfully, size: {} bytes", bytes.length);
                 InputStream clonedInputStream = new ByteArrayInputStream(bytes);
                 final BufferedInputStream bis = new BufferedInputStream(new ByteArrayInputStream(bytes));
                 final Tika tika = new Tika();
                 final TikaInputStream tikaInputStream = TikaInputStream.get(bis);
                 final String fileType = tika.detect(tikaInputStream);
-                if (!fileType.contains("msoffice") && !fileType.contains("application/vnd.ms-excel")) {
+                LOG.info("File type detected: {}", fileType);
+                if (!fileType.contains("msoffice") && !fileType.contains("application/vnd.ms-excel") 
+                        && !fileType.contains("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
                     // We had a problem where we tried to upload the downloaded
                     // file from the import options, it was somehow changed the
                     // extension we use this fix.
+                    LOG.error("Invalid file type detected: {}", fileType);
                     throw new GeneralPlatformDomainRuleException("error.msg.invalid.file.extension",
-                            "Uploaded file extension is not recognized.");
+                            "Uploaded file extension is not recognized. Detected type: " + fileType);
 
                 }
-                Workbook workbook = new HSSFWorkbook(clonedInputStream);
+                Workbook workbook;
+                try {
+                    LOG.info("Creating workbook from input stream");
+                    workbook = WorkbookFactory.create(clonedInputStream);
+                    LOG.info("Workbook created successfully");
+                } catch (Exception e) {
+                    LOG.error("Error creating workbook", e);
+                    throw new GeneralPlatformDomainRuleException("error.msg.invalid.file.format",
+                            "Unable to read Excel file. Please ensure the file is a valid .xls or .xlsx format. Error: " + e.getMessage());
+                }
                 GlobalEntityType entityType = null;
                 int primaryColumn = 0;
                 if (entity.trim().equalsIgnoreCase(GlobalEntityType.CLIENTS_PERSON.toString())) {
@@ -132,6 +149,7 @@ public class BulkImportWorkbookServiceImpl implements BulkImportWorkbookService 
                     entityType = GlobalEntityType.OFFICES;
                     primaryColumn = 0;
                 } else if (entity.trim().equalsIgnoreCase(GlobalEntityType.CHART_OF_ACCOUNTS.toString())) {
+                    LOG.info("Entity type matched: CHART_OF_ACCOUNTS");
                     entityType = GlobalEntityType.CHART_OF_ACCOUNTS;
                     primaryColumn = 0;
                 } else if (entity.trim().equalsIgnoreCase(GlobalEntityType.GL_JOURNAL_ENTRIES.toString())) {
@@ -165,18 +183,26 @@ public class BulkImportWorkbookServiceImpl implements BulkImportWorkbookService 
                     entityType = GlobalEntityType.USERS;
                     primaryColumn = 0;
                 } else {
+                    LOG.error("Unknown entity type: {}", entity);
                     workbook.close();
                     throw new GeneralPlatformDomainRuleException("error.msg.unable.to.find.resource", "Unable to find requested resource");
 
                 }
-                return publishEvent(primaryColumn, fileDetail, bis, entityType, workbook, locale, dateFormat);
+                LOG.info("Publishing import event for entityType: {}", entityType);
+                Long result = publishEvent(primaryColumn, fileDetail, bis, entityType, workbook, locale, dateFormat);
+                LOG.info("Import event published successfully, documentId: {}", result);
+                return result;
             }
+            LOG.error("One or more parameters are null - entity: {}, inputStream: {}, fileDetail: {}, locale: {}, dateFormat: {}", 
+                    entity, inputStream != null, fileDetail != null, locale, dateFormat);
             throw new GeneralPlatformDomainRuleException("error.msg.null", "One or more of the given parameters not found");
         } catch (IOException e) {
-            LOG.error("Problem occurred in importWorkbook function", e);
+            LOG.error("IO Problem occurred in importWorkbook function", e);
             throw new GeneralPlatformDomainRuleException("error.msg.io.exception",
-                    "IO exception occured with " + fileDetail.getFileName() + " " + e.getMessage(), e);
-
+                    "IO exception occured with " + (fileDetail != null ? fileDetail.getFileName() : "unknown") + " " + e.getMessage(), e);
+        } catch (Exception e) {
+            LOG.error("Unexpected exception in importWorkbook function", e);
+            throw e;
         }
     }
 

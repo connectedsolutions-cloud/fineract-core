@@ -109,7 +109,18 @@ public class ChartOfAccountsImportHandler implements ImportHandler {
     private GLAccountData readGlAccounts(final Row row) {
 
         String accountType = ImportHandlerUtils.readAsString(ChartOfAcountsConstants.ACCOUNT_TYPE_COL, row);
+        LOG.debug("Reading GL account from row {}, accountType: {}", row.getRowNum(), accountType);
         EnumOptionData accountTypeEnum = GLAccountType.fromString(accountType);
+        if (accountTypeEnum == null && accountType != null) {
+            LOG.error("Invalid account type '{}' in row {}. Valid types are: ASSET, LIABILITY, EQUITY, INCOME, EXPENSE, ORDER_ACCOUNT", 
+                    accountType, row.getRowNum());
+            throw new RuntimeException("Invalid account type: " + accountType + ". Valid types are: ASSET, LIABILITY, EQUITY, INCOME, EXPENSE, ORDER_ACCOUNT");
+        }
+        if (accountTypeEnum == null) {
+            LOG.warn("Account type is null in row {}", row.getRowNum());
+        } else {
+            LOG.debug("Account type parsed successfully: {} (id: {})", accountType, accountTypeEnum.getId());
+        }
         String accountName = ImportHandlerUtils.readAsString(ChartOfAcountsConstants.ACCOUNT_NAME_COL, row);
         String usage = ImportHandlerUtils.readAsString(ChartOfAcountsConstants.ACCOUNT_USAGE_COL, row);
         Long usageId = null;
@@ -135,9 +146,35 @@ public class ChartOfAccountsImportHandler implements ImportHandler {
             tagIdCodeValueData = new CodeValueData().setId(tagId);
         }
         String description = ImportHandlerUtils.readAsString(ChartOfAcountsConstants.DESCRIPTION_COL, row);
-        return new GLAccountData().setName(accountName).setParentId(parentId).setGlCode(glCode)
+        // Optional: Read accLevel and accLastLevel if columns exist in Excel template
+        Integer accLevel = null;
+        Integer accLastLevel = null;
+        try {
+            String accLevelStr = ImportHandlerUtils.readAsString(ChartOfAcountsConstants.ACC_LEVEL_COL, row);
+            if (accLevelStr != null && !accLevelStr.isEmpty()) {
+                accLevel = Integer.parseInt(accLevelStr);
+            }
+        } catch (Exception e) {
+            // Column may not exist in template, ignore
+        }
+        try {
+            String accLastLevelStr = ImportHandlerUtils.readAsString(ChartOfAcountsConstants.ACC_LAST_LEVEL_COL, row);
+            LOG.debug("Reading accLastLevel from column {} (row {}): '{}'", ChartOfAcountsConstants.ACC_LAST_LEVEL_COL, row.getRowNum(), accLastLevelStr);
+            if (accLastLevelStr != null && !accLastLevelStr.isEmpty()) {
+                accLastLevel = Integer.parseInt(accLastLevelStr);
+                LOG.debug("Parsed accLastLevel value: {}", accLastLevel);
+            } else {
+                LOG.debug("accLastLevel is null or empty for row {}", row.getRowNum());
+            }
+        } catch (Exception e) {
+            LOG.warn("Error reading accLastLevel from column {} in row {}: {}", ChartOfAcountsConstants.ACC_LAST_LEVEL_COL, row.getRowNum(), e.getMessage());
+            // Column may not exist in template, ignore
+        }
+        GLAccountData accountData = new GLAccountData().setName(accountName).setParentId(parentId).setGlCode(glCode)
                 .setManualEntriesAllowed(manualEntriesAllowed).setType(accountTypeEnum).setUsage(usageEnum).setDescription(description)
-                .setTagId(tagIdCodeValueData).setRowIndex(row.getRowNum());
+                .setTagId(tagIdCodeValueData).setRowIndex(row.getRowNum()).setAccLevel(accLevel).setAccLastLevel(accLastLevel);
+        LOG.debug("Created GLAccountData for row {} - accLevel: {}, accLastLevel: {}", row.getRowNum(), accountData.getAccLevel(), accountData.getAccLastLevel());
+        return accountData;
     }
 
     private Count importEntity(final Workbook workbook, final List<GLAccountData> glAccounts, final List<JournalEntryData> glTransactions,
@@ -158,6 +195,9 @@ public class ChartOfAccountsImportHandler implements ImportHandler {
             for (GLAccountData glAccount : glAccounts) {
                 try {
                     String payload = gsonBuilder.create().toJson(glAccount);
+                    LOG.debug("JSON payload for row {}: accLevel={}, accLastLevel={}", 
+                            glAccount.getRowIndex(), glAccount.getAccLevel(), glAccount.getAccLastLevel());
+                    LOG.debug("Full JSON payload: {}", payload);
                     final CommandWrapper commandRequest = new CommandWrapperBuilder() //
                             .createGLAccount() //
                             .withJson(payload) //
