@@ -77,9 +77,22 @@ public class GLAccountWritePlatformServiceJpaRepositoryImpl implements GLAccount
 
             // check parent is valid
             final Long parentId = command.longValueOfParameterNamed(GLAccountJsonInputParams.PARENT_ID.getValue());
+            final String glCode = command.stringValueOfParameterNamed(GLAccountJsonInputParams.GL_CODE.getValue());
+            final String name = command.stringValueOfParameterNamed(GLAccountJsonInputParams.NAME.getValue());
+            
+            LOG.debug("Creating GL account: name={}, glCode={}, parentId={}", name, glCode, parentId);
+            
             GLAccount parentGLAccount = null;
             if (parentId != null) {
+                LOG.debug("Validating parent account with ID: {}", parentId);
                 parentGLAccount = validateParentGLAccount(parentId);
+                if (parentGLAccount != null) {
+                    LOG.debug("Parent account found: name={}, glCode={}, usage={}", 
+                            parentGLAccount.getName(), parentGLAccount.getGlCode(), 
+                            parentGLAccount.isHeaderAccount() ? "HEADER" : "DETAIL");
+                }
+            } else {
+                LOG.debug("No parent specified for account: name={}, glCode={}", name, glCode);
             }
 
             CodeValue glAccountTagType = null;
@@ -93,17 +106,32 @@ public class GLAccountWritePlatformServiceJpaRepositoryImpl implements GLAccount
 
             final GLAccount glAccount = GLAccount.fromJson(parentGLAccount, command, glAccountTagType);
 
+            LOG.debug("Saving GL account to database: name={}, glCode={}", glAccount.getName(), glAccount.getGlCode());
             this.glAccountRepository.saveAndFlush(glAccount);
 
             glAccount.generateHierarchy();
+            LOG.debug("Generated hierarchy for account ID {}: {}", glAccount.getId(), glAccount.getHierarchy());
 
             this.glAccountRepository.saveAndFlush(glAccount);
 
+            LOG.info("Successfully created GL account: id={}, name={}, glCode={}, parentId={}", 
+                    glAccount.getId(), glAccount.getName(), glAccount.getGlCode(), parentId);
+            
             return new CommandProcessingResultBuilder().withCommandId(command.commandId()).withEntityId(glAccount.getId()).build();
         } catch (final JpaSystemException | DataIntegrityViolationException dve) {
             final Throwable throwable = dve.getMostSpecificCause();
+            final String glCode = command.stringValueOfParameterNamed(GLAccountJsonInputParams.GL_CODE.getValue());
+            final String name = command.stringValueOfParameterNamed(GLAccountJsonInputParams.NAME.getValue());
+            LOG.error("Failed to create GL account: name={}, glCode={}. Error: {}", 
+                    name, glCode, throwable.getMessage(), dve);
             handleGLAccountDataIntegrityIssues(command, throwable, dve);
             return CommandProcessingResult.empty();
+        } catch (final Exception e) {
+            final String glCode = command.stringValueOfParameterNamed(GLAccountJsonInputParams.GL_CODE.getValue());
+            final String name = command.stringValueOfParameterNamed(GLAccountJsonInputParams.NAME.getValue());
+            LOG.error("Unexpected error creating GL account: name={}, glCode={}. Error: {}", 
+                    name, glCode, e.getMessage(), e);
+            throw e;
         }
     }
 
@@ -215,12 +243,20 @@ public class GLAccountWritePlatformServiceJpaRepositoryImpl implements GLAccount
     private GLAccount validateParentGLAccount(final Long parentAccountId) {
         GLAccount parentGLAccount = null;
         if (parentAccountId != null) {
+            LOG.debug("Looking up parent account with ID: {}", parentAccountId);
             parentGLAccount = this.glAccountRepository.findById(parentAccountId)
-                    .orElseThrow(() -> new GLAccountNotFoundException(parentAccountId));
+                    .orElseThrow(() -> {
+                        LOG.error("Parent account not found with ID: {}", parentAccountId);
+                        return new GLAccountNotFoundException(parentAccountId);
+                    });
             // ensure parent is not a detail account
             if (parentGLAccount.isDetailAccount()) {
+                LOG.error("Invalid parent account: ID {} is a DETAIL account and cannot be a parent. Account: name={}, glCode={}", 
+                        parentAccountId, parentGLAccount.getName(), parentGLAccount.getGlCode());
                 throw new GLAccountInvalidParentException(parentAccountId);
             }
+            LOG.debug("Parent account validated successfully: ID={}, name={}, glCode={}, usage=HEADER", 
+                    parentAccountId, parentGLAccount.getName(), parentGLAccount.getGlCode());
         }
         return parentGLAccount;
     }

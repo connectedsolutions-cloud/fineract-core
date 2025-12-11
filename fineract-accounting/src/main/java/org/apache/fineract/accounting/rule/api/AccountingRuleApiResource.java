@@ -184,7 +184,7 @@ public class AccountingRuleApiResource {
     }
 
     private AccountingRuleData handleTemplate(AccountingRuleData accountingRuleData) {
-        final List<GLAccountData> allowedAccounts = accountReadPlatformService.retrieveAllEnabledDetailGLAccounts();
+        final List<GLAccountData> allowedAccounts = accountReadPlatformService.retrieveAllEnabledGLAccounts();
         final List<OfficeData> allowedOffices = (List<OfficeData>) officeReadPlatformService.retrieveAllOfficesForDropdown();
         final Collection<CodeValueData> allowedTagOptions = codeValueReadPlatformService
                 .retrieveCodeValuesByCode(AccountingConstants.ASSESTS_TAG_OPTION_CODE_NAME);

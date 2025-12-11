@@ -95,12 +95,12 @@ public class AccountingDropdownReadPlatformServiceImpl implements AccountingDrop
 
     @Override
     public List<GLAccountData> retrieveExpenseAccountOptions() {
-        return accountReadPlatformService.retrieveAllEnabledDetailGLAccounts(GLAccountType.EXPENSE);
+        return accountReadPlatformService.retrieveAllEnabledGLAccounts(GLAccountType.EXPENSE);
     }
 
     @Override
     public List<GLAccountData> retrieveAssetAccountOptions() {
-        return accountReadPlatformService.retrieveAllEnabledDetailGLAccounts(GLAccountType.ASSET);
+        return accountReadPlatformService.retrieveAllEnabledGLAccounts(GLAccountType.ASSET);
     }
 
     private Map<String, List<GLAccountData>> retrieveAccountMappingOptions(boolean includeAssetAccounts, boolean includeIncomeAccounts,
@@ -109,7 +109,7 @@ public class AccountingDropdownReadPlatformServiceImpl implements AccountingDrop
 
         if (includeAssetAccounts) {
             List<GLAccountData> assetAccountOptions = this.accountReadPlatformService
-                    .retrieveAllEnabledDetailGLAccounts(GLAccountType.ASSET);
+                    .retrieveAllEnabledGLAccounts(GLAccountType.ASSET);
             if (assetAccountOptions.isEmpty()) {
                 assetAccountOptions = null;
             }
@@ -118,7 +118,7 @@ public class AccountingDropdownReadPlatformServiceImpl implements AccountingDrop
 
         if (includeIncomeAccounts) {
             List<GLAccountData> incomeAccountOptions = this.accountReadPlatformService
-                    .retrieveAllEnabledDetailGLAccounts(GLAccountType.INCOME);
+                    .retrieveAllEnabledGLAccounts(GLAccountType.INCOME);
             if (incomeAccountOptions.isEmpty()) {
                 incomeAccountOptions = null;
             }
@@ -127,7 +127,7 @@ public class AccountingDropdownReadPlatformServiceImpl implements AccountingDrop
 
         if (includeExpenseAccounts) {
             List<GLAccountData> expenseAccountOptions = this.accountReadPlatformService
-                    .retrieveAllEnabledDetailGLAccounts(GLAccountType.EXPENSE);
+                    .retrieveAllEnabledGLAccounts(GLAccountType.EXPENSE);
             if (expenseAccountOptions.isEmpty()) {
                 expenseAccountOptions = null;
             }
@@ -136,7 +136,7 @@ public class AccountingDropdownReadPlatformServiceImpl implements AccountingDrop
 
         if (includeLiabilityAccounts) {
             List<GLAccountData> liabilityAccountOptions = this.accountReadPlatformService
-                    .retrieveAllEnabledDetailGLAccounts(GLAccountType.LIABILITY);
+                    .retrieveAllEnabledGLAccounts(GLAccountType.LIABILITY);
             if (liabilityAccountOptions.isEmpty()) {
                 liabilityAccountOptions = null;
             }
@@ -145,7 +145,7 @@ public class AccountingDropdownReadPlatformServiceImpl implements AccountingDrop
 
         if (includeEquityAccounts) {
             List<GLAccountData> equityAccountOptions = this.accountReadPlatformService
-                    .retrieveAllEnabledDetailGLAccounts(GLAccountType.EQUITY);
+                    .retrieveAllEnabledGLAccounts(GLAccountType.EQUITY);
             if (equityAccountOptions.isEmpty()) {
                 equityAccountOptions = null;
             }
@@ -154,7 +154,7 @@ public class AccountingDropdownReadPlatformServiceImpl implements AccountingDrop
 
         if (includeOrderAccounts) {
             List<GLAccountData> orderAccountOptions = this.accountReadPlatformService
-                    .retrieveAllEnabledDetailGLAccounts(GLAccountType.ORDER_ACCOUNT);
+                    .retrieveAllEnabledGLAccounts(GLAccountType.ORDER_ACCOUNT);
             if (orderAccountOptions.isEmpty()) {
                 orderAccountOptions = null;
             }

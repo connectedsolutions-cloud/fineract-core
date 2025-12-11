@@ -37,6 +37,10 @@ public interface GLAccountReadPlatformService {
 
     List<GLAccountData> retrieveAllEnabledHeaderGLAccounts(GLAccountType accountType);
 
+    List<GLAccountData> retrieveAllEnabledGLAccounts(GLAccountType accountType);
+
+    List<GLAccountData> retrieveAllEnabledGLAccounts();
+
     GLAccountData retrieveNewGLAccountDetails(Integer type);
 
     List<GLAccountDataForLookup> retrieveAccountsByTagId(Long ruleId, Integer transactionType);

@@ -253,6 +253,18 @@ public class GLAccountReadPlatformServiceImpl implements GLAccountReadPlatformSe
     }
 
     @Override
+    public List<GLAccountData> retrieveAllEnabledGLAccounts(final GLAccountType accountType) {
+        return retrieveAllGLAccounts(accountType.getValue(), null, null, null, false,
+                new JournalEntryAssociationParametersData());
+    }
+
+    @Override
+    public List<GLAccountData> retrieveAllEnabledGLAccounts() {
+        return retrieveAllGLAccounts(null, null, null, null, false,
+                new JournalEntryAssociationParametersData());
+    }
+
+    @Override
     public List<GLAccountDataForLookup> retrieveAccountsByTagId(final Long ruleId, final Integer transactionType) {
         final GLAccountDataLookUpMapper mapper = new GLAccountDataLookUpMapper();
         final String sql = "Select " + GLAccountDataLookUpMapper.LOOKUP_SCHEMA + " where rule.id=? and tags.acc_type_enum=?";
