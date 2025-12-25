@@ -61,7 +61,7 @@ public class TaxAssembler {
         final BigDecimal percentage = this.fromApiJsonHelper.extractBigDecimalWithLocaleNamed(TaxApiConstants.percentageParamName, element);
         final Integer debitAccountType = this.fromApiJsonHelper.extractIntegerSansLocaleNamed(TaxApiConstants.debitAccountTypeParamName,
                 element);
-        final Long debitAccountId = this.fromApiJsonHelper.extractLongNamed(TaxApiConstants.debitAcountIdParamName, element);
+        final Long debitAccountId = this.fromApiJsonHelper.extractLongNamed(TaxApiConstants.debitAccountIdParamName, element);
         GLAccountType debitGlAccountType = null;
         if (debitAccountType != null) {
             debitGlAccountType = GLAccountType.fromInt(debitAccountType);
@@ -69,8 +69,10 @@ public class TaxAssembler {
         GLAccount debitGlAccount = null;
         if (debitAccountId != null) {
             debitGlAccount = this.glAccountRepositoryWrapper.findOneWithNotFoundDetection(debitAccountId);
-            if (!debitGlAccount.getType().equals(debitAccountType) || debitGlAccount.isHeaderAccount()) {
-                baseDataValidator.parameter(TaxApiConstants.debitAcountIdParamName).value(debitAccountId)
+            // Validate that the account type matches the provided account type
+            // Header accounts are now allowed for tax components
+            if (debitAccountType != null && !debitGlAccount.getType().equals(debitAccountType)) {
+                baseDataValidator.parameter(TaxApiConstants.debitAccountIdParamName).value(debitAccountId)
                         .failWithCode("not.a.valid.account");
             }
         }
@@ -81,12 +83,14 @@ public class TaxAssembler {
         if (creditAccountType != null) {
             creditGlAccountType = GLAccountType.fromInt(creditAccountType);
         }
-        final Long creditAccountId = this.fromApiJsonHelper.extractLongNamed(TaxApiConstants.creditAcountIdParamName, element);
+        final Long creditAccountId = this.fromApiJsonHelper.extractLongNamed(TaxApiConstants.creditAccountIdParamName, element);
         GLAccount creditGlAccount = null;
         if (creditAccountId != null) {
             creditGlAccount = this.glAccountRepositoryWrapper.findOneWithNotFoundDetection(creditAccountId);
-            if (!creditGlAccount.getType().equals(creditAccountType) || creditGlAccount.isHeaderAccount()) {
-                baseDataValidator.parameter(TaxApiConstants.creditAcountIdParamName).value(creditAccountId)
+            // Validate that the account type matches the provided account type
+            // Header accounts are now allowed for tax components
+            if (creditAccountType != null && !creditGlAccount.getType().equals(creditAccountType)) {
+                baseDataValidator.parameter(TaxApiConstants.creditAccountIdParamName).value(creditAccountId)
                         .failWithCode("not.a.valid.account");
             }
         }

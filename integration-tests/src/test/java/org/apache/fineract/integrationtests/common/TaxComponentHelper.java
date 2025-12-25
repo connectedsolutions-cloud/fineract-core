@@ -57,7 +57,7 @@ public final class TaxComponentHelper {
         final HashMap<String, String> map = getBasicTaxComponentMap(percentage);
         if (creditAccountId != null) {
             map.put("creditAccountType", Account.AccountType.LIABILITY.toString());
-            map.put("creditAcountId", String.valueOf(creditAccountId));
+            map.put("creditAccountId", String.valueOf(creditAccountId));
         }
         LOG.info("map :  {}", map);
         return new Gson().toJson(map);

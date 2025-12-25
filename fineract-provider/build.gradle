@@ -411,6 +411,20 @@ jib {
             "${project.version}",
             'latest'
         ]
+        // Allow credentials to be passed via system properties
+        // Jib reads -Djib.to.auth.username and -Djib.to.auth.password automatically
+        // But we can also configure them explicitly in the auth block
+        def authUsername = System.getProperty('jib.to.auth.username')
+        def authPassword = System.getProperty('jib.to.auth.password')
+        if (authUsername && authPassword) {
+            println "[jib] using explicit credentials -> user length: ${authUsername.length()}, pass length: ${authPassword.length()}"
+            auth {
+                username = authUsername
+                password = authPassword
+            }
+        } else {
+            println "[jib] no explicit credentials provided; relying on Docker credential helper if available"
+        }
     }
 
     container {
@@ -468,8 +482,29 @@ cucumber {
     ]
 }
 
-tasks.jib.dependsOn(bootJar, resolve)
-tasks.jibDockerBuild.dependsOn(bootJar, resolve)
+// Jib doesn't need resolve task (only for API docs generation, not required for Docker image)
+// Configure jib tasks to skip resolve (similar to devRun and prodLikeRun)
+gradle.taskGraph.whenReady { graph ->
+    if (graph.hasTask(tasks.jib) || graph.hasTask(tasks.jibDockerBuild)) {
+        // Remove resolve dependency from bootJar when building Docker images
+        tasks.named('bootJar').configure {
+            setDependsOn(getDependsOn().findAll { it.name != 'resolve' })
+        }
+        
+        // Remove resolve dependency from resolveMainClassName
+        tasks.named('resolveMainClassName').configure {
+            setDependsOn(getDependsOn().findAll { it.name != 'resolve' })
+        }
+        
+        // Skip resolve task entirely for jib builds - not needed for Docker image
+        tasks.named('resolve').configure {
+            enabled = false
+        }
+    }
+}
+
+tasks.jib.dependsOn(bootJar)
+tasks.jibDockerBuild.dependsOn(bootJar)
 
 // Configuration for git properties gradle plugin
 // https://github.com/n0mer/gradle-git-properties
@@ -563,5 +598,100 @@ tasks.register('devRun', org.springframework.boot.gradle.tasks.run.BootRun) {
 
     doFirst {
         println "Running in development mode - quality checks are disabled"
+    }
+}
+
+// Production-like run task for testing production settings locally
+tasks.register('prodLikeRun', org.springframework.boot.gradle.tasks.run.BootRun) {
+    description = 'Runs the application with production-like settings for local testing'
+    group = 'Application'
+
+    // Use Java 21 toolchain (same as compilation)
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+
+    // Configure the build to skip quality checks (same as devRun)
+    gradle.taskGraph.whenReady { graph ->
+        if (graph.hasTask(prodLikeRun)) {
+            // Remove resolve dependency from resolveMainClassName
+            tasks.named('resolveMainClassName').configure {
+                setDependsOn(getDependsOn().findAll { it.name != 'resolve' })
+            }
+            
+            // Skip resolve task entirely
+            tasks.named('resolve').configure {
+                enabled = false
+            }
+            
+            tasks.matching { task ->
+                task.name in ['checkstyle', 'checkstyleMain', 'checkstyleTest',
+                              'spotlessCheck', 'spotlessApply',
+                              'spotbugsMain', 'spotbugsTest',
+                              'javadoc', 'javadocJar',
+                              'modernizer',
+                              'testClasses']
+            }.configureEach {
+                enabled = false
+            }
+            // Also disable error prone compilation flags
+            tasks.withType(JavaCompile).configureEach {
+                options.errorprone.enabled = false
+            }
+        }
+    }
+
+    // Inherit all bootRun settings
+    classpath = bootRun.classpath
+    mainClass = bootRun.mainClass
+    
+    // Production-like JVM args (no debug, optimized settings)
+    jvmArgs = [
+        "-Dspring.output.ansi.enabled=ALWAYS",
+        "-Xmx2G",
+        "-Xms2G",
+        "-XX:+UseStringDeduplication"
+    ]
+
+    // Load .env.production.local file if it exists, otherwise fall back to .env
+    def envFile = file("${project.rootDir}/.env.production.local")
+    if (!envFile.exists()) {
+        envFile = file("${project.rootDir}/.env")
+    }
+    
+    if (envFile.exists()) {
+        println "Loading environment variables from ${envFile.name}..."
+        envFile.readLines().each { line ->
+            // Skip empty lines and comments
+            if (line && !line.trim().startsWith("#") && line.contains("=")) {
+                // Handle export statements
+                def cleanLine = line.replaceFirst(/^export\s+/, '')
+                def (key, value) = cleanLine.split("=", 2)
+                if (key && value) {
+                    // Remove quotes if present
+                    value = value.replaceAll(/^["']|["']$/, '')
+                    // Set environment variable
+                    environment key.trim(), value.trim()
+                }
+            }
+        }
+    }
+
+    // Override with production-like settings if not in env file
+    if (!System.getenv("SPRING_PROFILES_ACTIVE")) {
+        environment "SPRING_PROFILES_ACTIVE", "production"
+    }
+    if (!System.getenv("FINERACT_INSECURE_HTTP_CLIENT")) {
+        environment "FINERACT_INSECURE_HTTP_CLIENT", "false"
+    }
+
+    doFirst {
+        println "Running in PRODUCTION-LIKE mode for local testing"
+        println "  - Spring Profile: ${environment.get('SPRING_PROFILES_ACTIVE') ?: 'production'}"
+        println "  - Insecure HTTP Client: ${environment.get('FINERACT_INSECURE_HTTP_CLIENT') ?: 'false'}"
+        println "  - Quality checks are disabled"
+        println ""
+        println "⚠️  WARNING: This uses production settings but is still running locally."
+        println "   Make sure your database and environment variables are configured correctly."
     }
 }
