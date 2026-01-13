@@ -370,6 +370,7 @@ public final class ClientData implements Comparable<ClientData>, Serializable {
                 clientData.clientNonPersonMainBusinessLineOptions, clientData.clientNonPersonDetails, clientData.clientLegalFormOptions,
                 clientData.familyMemberOptions, clientData.legalForm, clientData.address, clientData.isAddressEnabled, null,
                 clientData.isStaff, clientCollateralManagements);
+        mergedData.tags = clientData.tags;
         mergedData.tagOptions = clientData.tagOptions;
         return mergedData;
 

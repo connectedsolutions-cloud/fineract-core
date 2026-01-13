@@ -223,9 +223,19 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
             // Fetch tags separately using a dedicated query to avoid JOIN FETCH issues with collections
             // This is more reliable and performs better with large tag lists
             final List<ClientTagMapping> tagMappings = clientTagMappingRepository.findByClientIdWithTag(clientId);
-            final Set<ClientTagData> tags = tagMappings.stream().map(mapping -> ClientTagData.from(mapping.getTag()))
-                    .collect(Collectors.toSet());
-            clientData.setTags(tags.isEmpty() ? null : tags);
+            
+            final Set<ClientTagData> tags;
+            if (tagMappings != null && !tagMappings.isEmpty()) {
+                tags = tagMappings.stream()
+                        .map(mapping -> ClientTagData.from(mapping.getTag()))
+                        .collect(Collectors.toSet());
+            } else {
+                tags = new HashSet<>();
+            }
+            
+            if (clientData != null) {
+                clientData.setTags(tags.isEmpty() ? null : tags);
+            }
 
             // Get client collaterals
             final Collection<ClientCollateralManagement> clientCollateralManagements = this.clientCollateralManagementRepositoryWrapper
