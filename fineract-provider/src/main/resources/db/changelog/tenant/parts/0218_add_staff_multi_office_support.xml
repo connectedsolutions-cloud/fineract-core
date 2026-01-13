@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <!-- Create junction table for ManyToMany relationship between staff and offices -->
+    <changeSet id="1" author="fineract">
+        <validCheckSum>9:d8dc97ea9a14b120fa6ac6a0efaf85ce</validCheckSum>
+        <validCheckSum>9:faba596147538c041fa06332f090f716</validCheckSum>
+        <createTable tableName="m_staff_office">
+            <column name="staff_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="office_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addPrimaryKey tableName="m_staff_office" columnNames="staff_id,office_id" constraintName="pk_m_staff_office"/>
+        <addForeignKeyConstraint baseTableName="m_staff_office" baseColumnNames="staff_id"
+                                 constraintName="fk_m_staff_office_staff"
+                                 referencedTableName="m_staff" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="m_staff_office" baseColumnNames="office_id"
+                                 constraintName="fk_m_staff_office_office"
+                                 referencedTableName="m_office" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <createIndex indexName="idx_m_staff_office_staff" tableName="m_staff_office">
+            <column name="staff_id"/>
+        </createIndex>
+        <createIndex indexName="idx_m_staff_office_office" tableName="m_staff_office">
+            <column name="office_id"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- Migrate existing office_id relationships to junction table -->
+    <changeSet id="2" author="fineract">
+        <validCheckSum>9:82e4512d3ff4a037f131722f0b3b9cf0</validCheckSum>
+        <validCheckSum>9:a4faf565372bf7a151f3c06ff0caa563</validCheckSum>
+        <sql>
+            INSERT INTO m_staff_office (staff_id, office_id)
+            SELECT id, office_id
+            FROM m_staff
+            WHERE office_id IS NOT NULL
+            AND NOT EXISTS (
+                SELECT 1 FROM m_staff_office 
+                WHERE m_staff_office.staff_id = m_staff.id 
+                AND m_staff_office.office_id = m_staff.office_id
+            );
+        </sql>
+    </changeSet>
+
+    <!-- Make office_id nullable to allow staff without primary office -->
+    <!-- Note: Error message may show "primary_office_id" but actual column is "office_id" -->
+    <!-- For PostgreSQL: Drop NOT NULL constraint on both office_id and primary_office_id -->
+    <changeSet id="3" author="fineract">
+        <validCheckSum>9:a4faf565372bf7a151f3c06ff0caa563</validCheckSum>
+        <validCheckSum>9:c87d81a4cb475e8c3fb51120bb5bc69f</validCheckSum>
+        <preConditions onFail="MARK_RAN">
+            <dbms type="postgresql"/>
+        </preConditions>
+        <sql>
+            -- Drop NOT NULL constraint on office_id (actual column name in schema)
+            -- PostgreSQL allows DROP NOT NULL even if constraint doesn't exist - it just does nothing
+            ALTER TABLE m_staff ALTER COLUMN office_id DROP NOT NULL;
+            
+            -- Also try to drop NOT NULL on primary_office_id if column exists (error message shows this name)
+            -- Using DO block to handle case where column doesn't exist gracefully
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_schema = current_schema()
+                    AND table_name = 'm_staff' 
+                    AND column_name = 'primary_office_id'
+                ) THEN
+                    ALTER TABLE m_staff ALTER COLUMN primary_office_id DROP NOT NULL;
+                END IF;
+            EXCEPTION
+                WHEN OTHERS THEN
+                    -- Ignore any errors (column might not exist, or already nullable)
+                    NULL;
+            END $$;
+        </sql>
+    </changeSet>
+    
+    <!-- Force drop NOT NULL using raw SQL for MySQL/MariaDB -->
+    <changeSet id="4" author="fineract">
+        <validCheckSum>9:46bc04511f5bbc7fd2cc600b535c415f</validCheckSum>
+        <validCheckSum>9:13a6ae228594aea0185120261d3a849f</validCheckSum>
+        <preConditions onFail="MARK_RAN">
+            <dbms type="mysql"/>
+            <columnExists tableName="m_staff" columnName="office_id"/>
+        </preConditions>
+        <sql>
+            -- Force make office_id nullable (MODIFY will work even if already nullable)
+            ALTER TABLE m_staff MODIFY COLUMN office_id BIGINT NULL;
+        </sql>
+    </changeSet>
+    
+    <!-- Also handle primary_office_id for MySQL if it exists -->
+    <changeSet id="5" author="fineract">
+        <validCheckSum>9:e69dc970792698ff6c50009994f701df</validCheckSum>
+        <validCheckSum>9:2c9f81cf4c196f74ebdbce596c748763</validCheckSum>
+        <preConditions onFail="MARK_RAN">
+            <dbms type="mysql"/>
+            <columnExists tableName="m_staff" columnName="primary_office_id"/>
+        </preConditions>
+        <sql>
+            -- Force make primary_office_id nullable
+            ALTER TABLE m_staff MODIFY COLUMN primary_office_id BIGINT NULL;
+        </sql>
+    </changeSet>
+    
+    <!-- Use standard dropNotNullConstraint as fallback (without preconditions checking nullability) -->
+    <!-- This will work if the column exists and has NOT NULL constraint -->
+    <!-- Note: This changeset will attempt to run but PostgreSQL should already be handled by changeset 3 -->
+    <changeSet id="6" author="fineract">
+        <validCheckSum>9:7bc74d16131315ab9f0af57f5835ee4b</validCheckSum>
+        <validCheckSum>9:ab5bc90f4835f3bec52ba66f981d7447</validCheckSum>
+        <preConditions onFail="MARK_RAN">
+            <columnExists tableName="m_staff" columnName="office_id"/>
+        </preConditions>
+        <dropNotNullConstraint tableName="m_staff" columnName="office_id" columnDataType="BIGINT"/>
+    </changeSet>
+    
+    <!-- Also handle primary_office_id with standard dropNotNullConstraint -->
+    <changeSet id="7" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <columnExists tableName="m_staff" columnName="primary_office_id"/>
+        </preConditions>
+        <dropNotNullConstraint tableName="m_staff" columnName="primary_office_id" columnDataType="BIGINT"/>
+    </changeSet>
+
+</databaseChangeLog>

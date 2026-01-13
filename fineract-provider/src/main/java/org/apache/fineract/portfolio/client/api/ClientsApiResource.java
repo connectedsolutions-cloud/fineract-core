@@ -491,8 +491,12 @@ public class ClientsApiResource {
             commandRequest = builder.activateClient(clientId).build();
         } else if (CommandParameterUtil.is(commandParam, "assignStaff")) {
             commandRequest = builder.assignClientStaff(clientId).build();
+        } else if (CommandParameterUtil.is(commandParam, "assignGestor")) {
+            commandRequest = builder.assignClientGestor(clientId).build();
         } else if (CommandParameterUtil.is(commandParam, "unassignStaff")) {
             commandRequest = builder.unassignClientStaff(clientId).build();
+        } else if (CommandParameterUtil.is(commandParam, "unassignGestor")) {
+            commandRequest = builder.unassignClientGestor(clientId).build();
         } else if (CommandParameterUtil.is(commandParam, "close")) {
             commandRequest = builder.closeClient(clientId).build();
         } else if (CommandParameterUtil.is(commandParam, "proposeTransfer")) {
@@ -521,7 +525,7 @@ public class ClientsApiResource {
 
         if (commandRequest == null) {
             throw new UnrecognizedQueryParamException("command", commandParam,
-                    new Object[] { "activate", "unassignStaff", "assignStaff", "close", "proposeTransfer", "withdrawTransfer",
+                    new Object[] { "activate", "unassignStaff", "assignStaff", "unassignGestor", "assignGestor", "close", "proposeTransfer", "withdrawTransfer",
                             "acceptTransfer", "rejectTransfer", "updateSavingsAccount", "reject", "withdraw", "reactivate" });
         }
 

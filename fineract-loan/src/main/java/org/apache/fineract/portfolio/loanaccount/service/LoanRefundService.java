@@ -78,7 +78,7 @@ public class LoanRefundService {
 
         final LocalDate loanTransactionDate = extractTransactionDate(loan, loanTransaction);
 
-        loanRefundValidator.validateTransactionDateNotInFuture(loanTransactionDate);
+        loanRefundValidator.validateTransactionDateNotInFuture(loanTransactionDate, loan);
         loanRefundValidator.validateTransactionAmountThreshold(loan, null);
 
         loadTransactionProcessingService.processLatestTransaction(loan.getTransactionProcessingStrategyCode(), loanTransaction,

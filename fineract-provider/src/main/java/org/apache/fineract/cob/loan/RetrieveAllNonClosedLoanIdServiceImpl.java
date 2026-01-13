@@ -53,7 +53,7 @@ public class RetrieveAllNonClosedLoanIdServiceImpl implements RetrieveLoanIdServ
         StringBuilder sql = new StringBuilder();
         sql.append("select min(id) as min, max(id) as max, page, count(id) as count from ");
         sql.append("  (select floor(((row_number() over(order by id))-1) / :pageSize) as page, t.* from ");
-        sql.append("      (select id from m_loan where loan_status_id in (:statusIds) and ");
+        sql.append("      (select id from m_loan where loan_status_id in (:statusIds) and is_simulation = false and ");
         if (isCatchUp) {
             sql.append("last_closed_business_date = :businessDate ");
         } else {

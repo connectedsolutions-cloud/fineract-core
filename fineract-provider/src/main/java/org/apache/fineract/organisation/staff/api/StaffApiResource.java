@@ -102,7 +102,8 @@ public class StaffApiResource {
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     @Operation(summary = "Create a staff member", description = "Creates a staff member.\n" + "\n" + "Mandatory Fields: \n"
-            + "officeId, firstname, lastname\n" + "\n" + "Optional Fields: \n" + "isLoanOfficer, isActive")
+            + "officeId (or officeIds array), firstname, lastname\n" + "\n" + "Optional Fields: \n" + "isLoanOfficer, isActive\n" + "\n"
+            + "Note: Use officeIds array to assign multiple offices, or officeId for single office (backward compatible)")
     @RequestBody(required = true, content = @Content(schema = @Schema(implementation = StaffRequest.class)))
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = StaffApiResourceSwagger.CreateStaffResponse.class))) })

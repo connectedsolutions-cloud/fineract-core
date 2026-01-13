@@ -18,14 +18,18 @@
  */
 package org.apache.fineract.portfolio.client.service;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import jakarta.persistence.PersistenceException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -71,6 +75,8 @@ import org.apache.fineract.portfolio.client.domain.ClientNonPersonRepositoryWrap
 import org.apache.fineract.portfolio.client.domain.ClientRepositoryWrapper;
 import org.apache.fineract.portfolio.client.domain.ClientStatus;
 import org.apache.fineract.portfolio.client.domain.LegalForm;
+import org.apache.fineract.portfolio.client.domain.ClientTag;
+import org.apache.fineract.portfolio.client.domain.ClientTagRepository;
 import org.apache.fineract.portfolio.client.exception.ClientActiveForUpdateException;
 import org.apache.fineract.portfolio.client.exception.ClientHasNoStaffException;
 import org.apache.fineract.portfolio.client.exception.ClientMustBePendingToBeDeletedException;
@@ -124,6 +130,7 @@ public class ClientWritePlatformServiceJpaRepositoryImpl implements ClientWriteP
     private final BusinessEventNotifierService businessEventNotifierService;
     private final EntityDatatableChecksWritePlatformService entityDatatableChecksWritePlatformService;
     private final ExternalIdFactory externalIdFactory;
+    private final ClientTagRepository clientTagRepository;
 
     @Transactional
     @Override
@@ -209,6 +216,12 @@ public class ClientWritePlatformServiceJpaRepositoryImpl implements ClientWriteP
                 staff = this.staffRepository.findByOfficeHierarchyWithNotFoundDetection(staffId, clientOffice.getHierarchy());
             }
 
+            Staff gestor = null;
+            final Long gestorId = command.longValueOfParameterNamed(ClientApiConstants.gestorIdParamName);
+            if (gestorId != null) {
+                gestor = this.staffRepository.findByOfficeHierarchyWithNotFoundDetection(gestorId, clientOffice.getHierarchy());
+            }
+
             CodeValue gender = null;
             final Long genderId = command.longValueOfParameterNamed(ClientApiConstants.genderIdParamName);
             if (genderId != null) {
@@ -287,6 +300,36 @@ public class ClientWritePlatformServiceJpaRepositoryImpl implements ClientWriteP
                     lastname, fullname, activationDate, officeJoiningDate, externalId, mobileNo, emailAddress, staff, submittedOnDate,
                     savingsProductId, savingsAccountId, dataOfBirth, gender, clientType, clientClassification, legalForm.getValue(),
                     isStaff);
+
+            // Set gestor if provided
+            if (gestor != null) {
+                newClient.updateGestor(gestor);
+            }
+
+            // Handle tags if provided
+            if (command.hasParameter(ClientApiConstants.tagIdsParamName)) {
+                final JsonElement element = this.fromApiJsonHelper.parse(command.json());
+                final JsonArray tagIdsArray = this.fromApiJsonHelper.extractJsonArrayNamed(ClientApiConstants.tagIdsParamName, element);
+                if (tagIdsArray != null && !tagIdsArray.isEmpty()) {
+                    final Set<ClientTag> tags = new HashSet<>();
+                    for (final JsonElement tagIdElement : tagIdsArray) {
+                        if (tagIdElement.isJsonPrimitive()) {
+                            final Long tagId = tagIdElement.getAsJsonPrimitive().getAsLong();
+                            if (tagId != null) {
+                                final ClientTag tag = this.clientTagRepository.findById(tagId)
+                                        .orElseThrow(() -> new PlatformDataIntegrityException("error.msg.client.tag.not.found",
+                                                "Client tag not found with id: " + tagId, "tagId", tagId));
+                                if (!tag.isActive()) {
+                                    throw new PlatformDataIntegrityException("error.msg.client.tag.not.active",
+                                            "Client tag with id " + tagId + " is not active", "tagId", tagId);
+                                }
+                                tags.add(tag);
+                            }
+                        }
+                    }
+                    newClient.setTags(tags);
+                }
+            }
 
             // Account Number generation
             this.clientRepository.saveAndFlush(newClient);
@@ -413,6 +456,9 @@ public class ClientWritePlatformServiceJpaRepositoryImpl implements ClientWriteP
             final String clientHierarchy = clientForUpdate.getOffice().getHierarchy();
 
             this.context.validateAccessRights(clientHierarchy);
+            
+            // Ensure tagMappings are loaded before updating tags
+            clientForUpdate.getTags().size();
 
             final Map<String, Object> changes = new LinkedHashMap<>(9);
 
@@ -474,6 +520,11 @@ public class ClientWritePlatformServiceJpaRepositoryImpl implements ClientWriteP
             if (command.isChangeInLongParameterNamed(ClientApiConstants.staffIdParamName, clientForUpdate.staffId())) {
                 final Long newValue = command.longValueOfParameterNamed(ClientApiConstants.staffIdParamName);
                 changes.put(ClientApiConstants.staffIdParamName, newValue);
+            }
+
+            if (command.isChangeInLongParameterNamed(ClientApiConstants.gestorIdParamName, clientForUpdate.gestorId())) {
+                final Long newValue = command.longValueOfParameterNamed(ClientApiConstants.gestorIdParamName);
+                changes.put(ClientApiConstants.gestorIdParamName, newValue);
             }
 
             if (command.isChangeInLongParameterNamed(ClientApiConstants.genderIdParamName, clientForUpdate.genderId())) {
@@ -548,6 +599,37 @@ public class ClientWritePlatformServiceJpaRepositoryImpl implements ClientWriteP
                 clientForUpdate.setSubmittedOnDate(command.localDateValueOfParameterNamed(ClientApiConstants.submittedOnDateParamName));
             }
 
+            // Handle tags update if provided
+            if (command.hasParameter(ClientApiConstants.tagIdsParamName)) {
+                final JsonElement element = this.fromApiJsonHelper.parse(command.json());
+                final JsonArray tagIdsArray = this.fromApiJsonHelper.extractJsonArrayNamed(ClientApiConstants.tagIdsParamName, element);
+                final Set<ClientTag> newTags = new HashSet<>();
+                if (tagIdsArray != null && !tagIdsArray.isEmpty()) {
+                    for (final JsonElement tagIdElement : tagIdsArray) {
+                        if (tagIdElement.isJsonPrimitive()) {
+                            final Long tagId = tagIdElement.getAsJsonPrimitive().getAsLong();
+                            if (tagId != null) {
+                                final ClientTag tag = this.clientTagRepository.findById(tagId)
+                                        .orElseThrow(() -> new PlatformDataIntegrityException("error.msg.client.tag.not.found",
+                                                "Client tag not found with id: " + tagId, "tagId", tagId));
+                                if (!tag.isActive()) {
+                                    throw new PlatformDataIntegrityException("error.msg.client.tag.not.active",
+                                            "Client tag with id " + tagId + " is not active", "tagId", tagId);
+                                }
+                                newTags.add(tag);
+                            }
+                        }
+                    }
+                }
+                // Check if tags have changed
+                final Set<Long> currentTagIds = clientForUpdate.getTags().stream().map(ClientTag::getId).collect(Collectors.toSet());
+                final Set<Long> newTagIds = newTags.stream().map(ClientTag::getId).collect(Collectors.toSet());
+                if (!currentTagIds.equals(newTagIds)) {
+                    changes.put(ClientApiConstants.tagIdsParamName, newTagIds);
+                    clientForUpdate.setTags(newTags);
+                }
+            }
+
             clientForUpdate.validateUpdate();
 
             clientForUpdate.deriveDisplayName();
@@ -561,6 +643,17 @@ public class ClientWritePlatformServiceJpaRepositoryImpl implements ClientWriteP
                             clientForUpdate.getOffice().getHierarchy());
                 }
                 clientForUpdate.updateStaff(newStaff);
+            }
+
+            if (changes.containsKey(ClientApiConstants.gestorIdParamName)) {
+
+                final Long newValue = command.longValueOfParameterNamed(ClientApiConstants.gestorIdParamName);
+                Staff newGestor = null;
+                if (newValue != null) {
+                    newGestor = this.staffRepository.findByOfficeHierarchyWithNotFoundDetection(newValue,
+                            clientForUpdate.getOffice().getHierarchy());
+                }
+                clientForUpdate.updateGestor(newGestor);
             }
 
             if (changes.containsKey(ClientApiConstants.genderIdParamName)) {
@@ -800,7 +893,7 @@ public class ClientWritePlatformServiceJpaRepositoryImpl implements ClientWriteP
 
         final Map<String, Object> actualChanges = new LinkedHashMap<>(5);
 
-        this.fromApiJsonDeserializer.validateForAssignStaff(command.json());
+        this.fromApiJsonDeserializer.validateForAssignGestor(command.json());
 
         final Client clientForUpdate = this.clientRepository.findOneWithNotFoundDetection(clientId);
         Staff staff = null;
@@ -822,6 +915,73 @@ public class ClientWritePlatformServiceJpaRepositoryImpl implements ClientWriteP
                 .withOfficeId(clientForUpdate.officeId()) //
                 .withEntityExternalId(clientForUpdate.getExternalId()) //
                 .withEntityId(clientForUpdate.getId()) //
+                .withClientId(clientId) //
+                .with(actualChanges) //
+                .build();
+    }
+
+    @Transactional
+    @Override
+    public CommandProcessingResult assignClientGestor(final Long clientId, final JsonCommand command) {
+
+        this.context.authenticatedUser();
+
+        final Map<String, Object> actualChanges = new LinkedHashMap<>(5);
+
+        this.fromApiJsonDeserializer.validateForAssignGestor(command.json());
+
+        final Client clientForUpdate = this.clientRepository.findOneWithNotFoundDetection(clientId);
+        Staff gestor = null;
+        final Long gestorId = command.longValueOfParameterNamed(ClientApiConstants.gestorIdParamName);
+        if (gestorId != null) {
+            gestor = this.staffRepository.findByOfficeHierarchyWithNotFoundDetection(gestorId, clientForUpdate.getOffice().getHierarchy());
+            clientForUpdate.assignGestor(gestor);
+        }
+
+        this.clientRepository.saveAndFlush(clientForUpdate);
+
+        actualChanges.put(ClientApiConstants.gestorIdParamName, gestorId);
+        return new CommandProcessingResultBuilder() //
+                .withCommandId(command.commandId()) //
+                .withOfficeId(clientForUpdate.officeId()) //
+                .withEntityExternalId(clientForUpdate.getExternalId()) //
+                .withEntityId(clientForUpdate.getId()) //
+                .withClientId(clientId) //
+                .with(actualChanges) //
+                .build();
+    }
+
+    @Transactional
+    @Override
+    public CommandProcessingResult unassignClientGestor(final Long clientId, final JsonCommand command) {
+
+        this.context.authenticatedUser();
+
+        final Map<String, Object> actualChanges = new LinkedHashMap<>(5);
+
+        this.fromApiJsonDeserializer.validateForUnassignGestor(command.json());
+
+        final Client clientForUpdate = this.clientRepository.findOneWithNotFoundDetection(clientId);
+
+        final Staff presentGestor = clientForUpdate.getGestor();
+        Long presentGestorId = null;
+        if (presentGestor == null) {
+            throw new ClientHasNoStaffException(clientId);
+        }
+        presentGestorId = presentGestor.getId();
+        final String gestorIdParamName = ClientApiConstants.gestorIdParamName;
+        if (!command.isChangeInLongParameterNamed(gestorIdParamName, presentGestorId)) {
+            clientForUpdate.unassignGestor();
+        }
+        this.clientRepository.saveAndFlush(clientForUpdate);
+
+        actualChanges.put(gestorIdParamName, presentGestorId);
+
+        return new CommandProcessingResultBuilder() //
+                .withCommandId(command.commandId()) //
+                .withOfficeId(clientForUpdate.officeId()) //
+                .withEntityId(clientForUpdate.getId()) //
+                .withEntityExternalId(clientForUpdate.getExternalId()) //
                 .withClientId(clientId) //
                 .with(actualChanges) //
                 .build();

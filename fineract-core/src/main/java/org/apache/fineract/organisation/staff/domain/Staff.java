@@ -20,14 +20,19 @@ package org.apache.fineract.organisation.staff.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
@@ -62,8 +67,12 @@ public class Staff extends AbstractPersistableCustom<Long> {
     private String emailAddress;
 
     @ManyToOne
-    @JoinColumn(name = "office_id", nullable = false)
+    @JoinColumn(name = "office_id", nullable = true)
     private Office office;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "m_staff_office", joinColumns = @JoinColumn(name = "staff_id"), inverseJoinColumns = @JoinColumn(name = "office_id"))
+    private Set<Office> offices = new HashSet<>();
 
     @Column(name = "is_loan_officer", nullable = false)
     private boolean loanOfficer;
@@ -115,13 +124,43 @@ public class Staff extends AbstractPersistableCustom<Long> {
         return new Staff(staffOffice, firstname, lastname, externalId, mobileNo, isLoanOfficer, isActive, joiningDate);
     }
 
+    // Overloaded method to allow creating staff without primary office
+    public static Staff fromJsonWithoutPrimaryOffice(final JsonCommand command) {
+        final String firstnameParamName = "firstname";
+        final String firstname = command.stringValueOfParameterNamed(firstnameParamName);
+
+        final String lastnameParamName = "lastname";
+        final String lastname = command.stringValueOfParameterNamed(lastnameParamName);
+
+        final String externalIdParamName = "externalId";
+        final String externalId = command.stringValueOfParameterNamedAllowingNull(externalIdParamName);
+
+        final String mobileNoParamName = "mobileNo";
+        final String mobileNo = command.stringValueOfParameterNamedAllowingNull(mobileNoParamName);
+
+        final String isLoanOfficerParamName = "isLoanOfficer";
+        final boolean isLoanOfficer = command.booleanPrimitiveValueOfParameterNamed(isLoanOfficerParamName);
+
+        final String isActiveParamName = "isActive";
+        final Boolean isActive = command.booleanObjectValueOfParameterNamed(isActiveParamName);
+
+        LocalDate joiningDate = null;
+
+        final String joiningDateParamName = "joiningDate";
+        if (command.hasParameter(joiningDateParamName)) {
+            joiningDate = command.localDateValueOfParameterNamed(joiningDateParamName);
+        }
+
+        return new Staff(null, firstname, lastname, externalId, mobileNo, isLoanOfficer, isActive, joiningDate);
+    }
+
     protected Staff() {
-        //
+        this.offices = new HashSet<>();
     }
 
     private Staff(final Office staffOffice, final String firstname, final String lastname, final String externalId, final String mobileNo,
             final boolean isLoanOfficer, final Boolean isActive, final LocalDate joiningDate) {
-        this.office = staffOffice;
+        this.office = staffOffice; // Can be null now
         this.firstname = StringUtils.defaultIfEmpty(firstname, null);
         this.lastname = StringUtils.defaultIfEmpty(lastname, null);
         this.externalId = StringUtils.defaultIfEmpty(externalId, null);
@@ -130,6 +169,11 @@ public class Staff extends AbstractPersistableCustom<Long> {
         this.active = isActive == null ? true : isActive;
         deriveDisplayName(firstname);
         this.joiningDate = joiningDate;
+        // Initialize offices set with primary office if provided
+        if (staffOffice != null) {
+            this.offices = new HashSet<>();
+            this.offices.add(staffOffice);
+        }
     }
 
     public EnumOptionData organisationalRoleData() {
@@ -142,16 +186,84 @@ public class Staff extends AbstractPersistableCustom<Long> {
 
     public void changeOffice(final Office newOffice) {
         this.office = newOffice;
+        // Ensure primary office is in offices set
+        if (newOffice != null && !this.offices.contains(newOffice)) {
+            this.offices.add(newOffice);
+        }
+    }
+
+    public void setOffice(final Office office) {
+        this.office = office;
+        // Ensure primary office is in offices set
+        if (office != null && !this.offices.contains(office)) {
+            this.offices.add(office);
+        }
+    }
+
+    public Set<Office> getOffices() {
+        return this.offices;
+    }
+
+    public void setOffices(final Set<Office> offices) {
+        this.offices = offices != null ? new HashSet<>(offices) : new HashSet<>();
+        // If primary office is null but we have offices, set first office as primary
+        if (this.office == null && !this.offices.isEmpty()) {
+            this.office = this.offices.iterator().next();
+        }
+        // Ensure primary office is in the set
+        if (this.office != null && !this.offices.contains(this.office)) {
+            this.offices.add(this.office);
+        }
+    }
+
+    public void addOffice(final Office office) {
+        if (office != null) {
+            this.offices.add(office);
+        }
+    }
+
+    public void removeOffice(final Office office) {
+        if (office != null && !office.equals(this.office)) {
+            // Don't allow removing primary office
+            this.offices.remove(office);
+        }
     }
 
     public Map<String, Object> update(final JsonCommand command) {
 
         final Map<String, Object> actualChanges = new LinkedHashMap<>(7);
 
-        final String officeIdParamName = "officeId";
-        if (command.isChangeInLongParameterNamed(officeIdParamName, this.office.getId())) {
-            final Long newValue = command.longValueOfParameterNamed(officeIdParamName);
-            actualChanges.put(officeIdParamName, newValue);
+        // Handle officeIds array (multiple offices)
+        final String officeIdsParamName = "officeIds";
+        if (command.hasParameter(officeIdsParamName)) {
+            final String[] newOfficeIdsStr = command.arrayValueOfParameterNamed(officeIdsParamName);
+            final Set<Long> currentOfficeIds = new HashSet<>();
+            // Ensure offices collection is initialized (trigger lazy loading if needed)
+            if (this.offices != null) {
+                for (Office office : this.offices) {
+                    if (office != null) {
+                        currentOfficeIds.add(office.getId());
+                    }
+                }
+            }
+            // If no offices found in collection, add primary office for comparison
+            if (currentOfficeIds.isEmpty() && this.office != null) {
+                currentOfficeIds.add(this.office.getId());
+            }
+            final Set<Long> newOfficeIdsSet = new HashSet<>();
+            for (String officeIdStr : newOfficeIdsStr) {
+                newOfficeIdsSet.add(Long.parseLong(officeIdStr));
+            }
+            if (!currentOfficeIds.equals(newOfficeIdsSet)) {
+                actualChanges.put(officeIdsParamName, newOfficeIdsStr);
+            }
+        } else {
+            // Backward compatibility: handle single officeId
+            final String officeIdParamName = "officeId";
+            if (command.isChangeInLongParameterNamed(officeIdParamName, this.office.getId())) {
+                final Long newValue = command.longValueOfParameterNamed(officeIdParamName);
+                actualChanges.put(officeIdParamName, newValue);
+            }
         }
 
         boolean firstnameChanged = false;
@@ -247,7 +359,7 @@ public class Staff extends AbstractPersistableCustom<Long> {
     }
 
     public Long officeId() {
-        return this.office.getId();
+        return this.office != null ? this.office.getId() : null;
     }
 
     public String displayName() {

@@ -41,6 +41,8 @@ import org.apache.fineract.infrastructure.core.exception.PlatformApiDataValidati
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.portfolio.client.api.ClientApiConstants;
+import org.apache.fineract.portfolio.client.domain.ClientTag;
+import org.apache.fineract.portfolio.client.domain.ClientTagRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -49,12 +51,15 @@ public final class ClientDataValidator {
 
     private final FromJsonHelper fromApiJsonHelper;
     private final ConfigurationReadPlatformService configurationReadPlatformService;
+    private final ClientTagRepository clientTagRepository;
 
     @Autowired
     public ClientDataValidator(final FromJsonHelper fromApiJsonHelper,
-            final ConfigurationReadPlatformService configurationReadPlatformService) {
+            final ConfigurationReadPlatformService configurationReadPlatformService,
+            final ClientTagRepository clientTagRepository) {
         this.fromApiJsonHelper = fromApiJsonHelper;
         this.configurationReadPlatformService = configurationReadPlatformService;
+        this.clientTagRepository = clientTagRepository;
     }
 
     public void validateForCreate(final String json) {
@@ -93,6 +98,11 @@ public final class ClientDataValidator {
         if (this.fromApiJsonHelper.parameterExists(ClientApiConstants.staffIdParamName, element)) {
             final Long staffId = this.fromApiJsonHelper.extractLongNamed(ClientApiConstants.staffIdParamName, element);
             baseDataValidator.reset().parameter(ClientApiConstants.staffIdParamName).value(staffId).ignoreIfNull().longGreaterThanZero();
+        }
+
+        if (this.fromApiJsonHelper.parameterExists(ClientApiConstants.gestorIdParamName, element)) {
+            final Long gestorId = this.fromApiJsonHelper.extractLongNamed(ClientApiConstants.gestorIdParamName, element);
+            baseDataValidator.reset().parameter(ClientApiConstants.gestorIdParamName).value(gestorId).ignoreIfNull().longGreaterThanZero();
         }
 
         if (this.fromApiJsonHelper.parameterExists(ClientApiConstants.accountNoParamName, element)) {
@@ -223,6 +233,29 @@ public final class ClientDataValidator {
         if (this.fromApiJsonHelper.parameterExists("isStaff", element)) {
             final Boolean isStaffFlag = this.fromApiJsonHelper.extractBooleanNamed("isStaff", element);
             baseDataValidator.reset().parameter("isStaff").value(isStaffFlag).notNull();
+        }
+
+        // Validate tagIds if provided
+        if (this.fromApiJsonHelper.parameterExists(ClientApiConstants.tagIdsParamName, element)) {
+            final JsonArray tagIdsArray = this.fromApiJsonHelper.extractJsonArrayNamed(ClientApiConstants.tagIdsParamName, element);
+            if (tagIdsArray != null && !tagIdsArray.isEmpty()) {
+                for (final JsonElement tagIdElement : tagIdsArray) {
+                    if (tagIdElement.isJsonPrimitive()) {
+                        final Long tagId = tagIdElement.getAsJsonPrimitive().getAsLong();
+                        if (tagId != null) {
+                            baseDataValidator.reset().parameter(ClientApiConstants.tagIdsParamName).value(tagId).longGreaterThanZero();
+                            final ClientTag tag = this.clientTagRepository.findById(tagId).orElse(null);
+                            if (tag == null) {
+                                baseDataValidator.reset().parameter(ClientApiConstants.tagIdsParamName)
+                                        .failWithCode("error.msg.client.tag.not.found", "Client tag not found with id: " + tagId);
+                            } else if (!tag.isActive()) {
+                                baseDataValidator.reset().parameter(ClientApiConstants.tagIdsParamName)
+                                        .failWithCode("error.msg.client.tag.not.active", "Client tag with id " + tagId + " is not active");
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         if (this.configurationReadPlatformService.retrieveGlobalConfiguration(GlobalConfigurationConstants.ENABLE_ADDRESS).isEnabled()) {
@@ -459,6 +492,12 @@ public final class ClientDataValidator {
             baseDataValidator.reset().parameter(ClientApiConstants.staffIdParamName).value(staffId).ignoreIfNull().longGreaterThanZero();
         }
 
+        if (this.fromApiJsonHelper.parameterExists(ClientApiConstants.gestorIdParamName, element)) {
+            atLeastOneParameterPassedForUpdate = true;
+            final Long gestorId = this.fromApiJsonHelper.extractLongNamed(ClientApiConstants.gestorIdParamName, element);
+            baseDataValidator.reset().parameter(ClientApiConstants.gestorIdParamName).value(gestorId).ignoreIfNull().longGreaterThanZero();
+        }
+
         if (this.fromApiJsonHelper.parameterExists(ClientApiConstants.savingsProductIdParamName, element)) {
             atLeastOneParameterPassedForUpdate = true;
             final Long savingsProductId = this.fromApiJsonHelper.extractLongNamed(ClientApiConstants.savingsProductIdParamName, element);
@@ -511,6 +550,30 @@ public final class ClientDataValidator {
         if (this.fromApiJsonHelper.parameterExists("isStaff", element)) {
             final Boolean isStaffFlag = this.fromApiJsonHelper.extractBooleanNamed("isStaff", element);
             baseDataValidator.reset().parameter("isStaff").value(isStaffFlag).notNull();
+        }
+
+        // Validate tagIds if provided
+        if (this.fromApiJsonHelper.parameterExists(ClientApiConstants.tagIdsParamName, element)) {
+            atLeastOneParameterPassedForUpdate = true;
+            final JsonArray tagIdsArray = this.fromApiJsonHelper.extractJsonArrayNamed(ClientApiConstants.tagIdsParamName, element);
+            if (tagIdsArray != null && !tagIdsArray.isEmpty()) {
+                for (final JsonElement tagIdElement : tagIdsArray) {
+                    if (tagIdElement.isJsonPrimitive()) {
+                        final Long tagId = tagIdElement.getAsJsonPrimitive().getAsLong();
+                        if (tagId != null) {
+                            baseDataValidator.reset().parameter(ClientApiConstants.tagIdsParamName).value(tagId).longGreaterThanZero();
+                            final ClientTag tag = this.clientTagRepository.findById(tagId).orElse(null);
+                            if (tag == null) {
+                                baseDataValidator.reset().parameter(ClientApiConstants.tagIdsParamName)
+                                        .failWithCode("error.msg.client.tag.not.found", "Client tag not found with id: " + tagId);
+                            } else if (!tag.isActive()) {
+                                baseDataValidator.reset().parameter(ClientApiConstants.tagIdsParamName)
+                                        .failWithCode("error.msg.client.tag.not.active", "Client tag with id " + tagId + " is not active");
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         Map<String, Object> parameterUpdateStatusDetails = getParameterUpdateStatusAndDataValidationErrorsForUpdateOnClientNonPerson(
@@ -660,6 +723,62 @@ public final class ClientDataValidator {
         final String staffIdParameterName = ClientApiConstants.staffIdParamName;
         final Long staffId = this.fromApiJsonHelper.extractLongNamed(staffIdParameterName, element);
         baseDataValidator.reset().parameter(staffIdParameterName).value(staffId).notNull().longGreaterThanZero();
+
+        if (!dataValidationErrors.isEmpty()) {
+            throw new PlatformApiDataValidationException(dataValidationErrors);
+        }
+
+    }
+
+    public void validateForAssignGestor(final String json) {
+
+        if (StringUtils.isBlank(json)) {
+            throw new InvalidJsonException();
+        }
+
+        final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
+
+        final Set<String> supportedParametersAssignGestor = new HashSet<>(Arrays.asList(ClientApiConstants.gestorIdParamName));
+
+        this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, supportedParametersAssignGestor);
+        final JsonElement element = this.fromApiJsonHelper.parse(json);
+
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
+
+        final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
+                .resource(ClientApiCollectionConstants.CLIENT_RESOURCE_NAME);
+
+        final String gestorIdParameterName = ClientApiConstants.gestorIdParamName;
+        final Long gestorId = this.fromApiJsonHelper.extractLongNamed(gestorIdParameterName, element);
+        baseDataValidator.reset().parameter(gestorIdParameterName).value(gestorId).notNull().longGreaterThanZero();
+
+        if (!dataValidationErrors.isEmpty()) {
+            throw new PlatformApiDataValidationException(dataValidationErrors);
+        }
+
+    }
+
+    public void validateForUnassignGestor(final String json) {
+
+        if (StringUtils.isBlank(json)) {
+            throw new InvalidJsonException();
+        }
+
+        final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
+
+        final Set<String> supportedParametersUnassignGestor = new HashSet<>(Arrays.asList(ClientApiConstants.gestorIdParamName));
+
+        this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, supportedParametersUnassignGestor);
+        final JsonElement element = this.fromApiJsonHelper.parse(json);
+
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
+
+        final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
+                .resource(ClientApiConstants.CLIENT_RESOURCE_NAME);
+
+        final String gestorIdParameterName = ClientApiConstants.gestorIdParamName;
+        final Long gestorId = this.fromApiJsonHelper.extractLongNamed(gestorIdParameterName, element);
+        baseDataValidator.reset().parameter(gestorIdParameterName).value(gestorId).notNull().longGreaterThanZero();
 
         if (!dataValidationErrors.isEmpty()) {
             throw new PlatformApiDataValidationException(dataValidationErrors);

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <!-- Create junction table for ManyToMany relationship between users and offices -->
+    <changeSet id="1" author="fineract">
+        <createTable tableName="m_appuser_office">
+            <column name="appuser_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="office_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addPrimaryKey tableName="m_appuser_office" columnNames="appuser_id,office_id" constraintName="pk_m_appuser_office"/>
+        <addForeignKeyConstraint baseTableName="m_appuser_office" baseColumnNames="appuser_id"
+                                 constraintName="fk_m_appuser_office_appuser"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="m_appuser_office" baseColumnNames="office_id"
+                                 constraintName="fk_m_appuser_office_office"
+                                 referencedTableName="m_office" referencedColumnNames="id"/>
+        <createIndex indexName="idx_m_appuser_office_appuser" tableName="m_appuser_office">
+            <column name="appuser_id"/>
+        </createIndex>
+        <createIndex indexName="idx_m_appuser_office_office" tableName="m_appuser_office">
+            <column name="office_id"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- Add current_office_id column to m_appuser (nullable initially for migration) -->
+    <changeSet id="2" author="fineract">
+        <addColumn tableName="m_appuser">
+            <column name="current_office_id" type="BIGINT">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!-- Migrate existing office_id relationships to junction table -->
+    <changeSet id="3" author="fineract">
+        <sql>
+            INSERT INTO m_appuser_office (appuser_id, office_id)
+            SELECT id, office_id
+            FROM m_appuser
+            WHERE office_id IS NOT NULL
+            AND NOT EXISTS (
+                SELECT 1 FROM m_appuser_office 
+                WHERE m_appuser_office.appuser_id = m_appuser.id 
+                AND m_appuser_office.office_id = m_appuser.office_id
+            );
+        </sql>
+    </changeSet>
+
+    <!-- Set current_office_id = office_id for all users -->
+    <changeSet id="4" author="fineract">
+        <sql>
+            UPDATE m_appuser
+            SET current_office_id = office_id
+            WHERE office_id IS NOT NULL AND current_office_id IS NULL;
+        </sql>
+    </changeSet>
+
+    <!-- Add foreign key constraint for current_office_id -->
+    <changeSet id="5" author="fineract">
+        <addForeignKeyConstraint baseTableName="m_appuser" baseColumnNames="current_office_id"
+                                 constraintName="fk_m_appuser_current_office"
+                                 referencedTableName="m_office" referencedColumnNames="id"/>
+        <createIndex indexName="idx_m_appuser_current_office" tableName="m_appuser">
+            <column name="current_office_id"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- Make current_office_id NOT NULL after migration -->
+    <changeSet id="6" author="fineract">
+        <addNotNullConstraint tableName="m_appuser" columnName="current_office_id" columnDataType="BIGINT"/>
+    </changeSet>
+
+</databaseChangeLog>
+

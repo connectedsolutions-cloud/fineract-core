@@ -29,6 +29,7 @@ import org.apache.fineract.infrastructure.core.domain.JdbcSupport;
 import org.apache.fineract.infrastructure.core.exception.UnrecognizedQueryParamException;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.infrastructure.security.utils.SQLBuilder;
+import org.apache.fineract.organisation.office.data.OfficeData;
 import org.apache.fineract.organisation.staff.data.StaffData;
 import org.apache.fineract.organisation.staff.exception.StaffNotFoundException;
 import org.apache.fineract.portfolio.client.domain.ClientStatus;
@@ -148,8 +149,8 @@ public class StaffReadPlatformServiceImpl implements StaffReadPlatformService {
     @Override
     public List<StaffData> retrieveAllLoanOfficersInOfficeById(final Long officeId) {
         SQLBuilder extraCriteria = new SQLBuilder();
-        extraCriteria.addCriteria(" office_id = ", officeId);
-        extraCriteria.addCriteria(" is_loan_officer = ", true);
+        extraCriteria.addCriteria(" s.office_id = ", officeId);
+        extraCriteria.addCriteria(" s.is_loan_officer = ", true);
         return retrieveAllStaff(extraCriteria);
     }
 
@@ -188,7 +189,34 @@ public class StaffReadPlatformServiceImpl implements StaffReadPlatformService {
             final StaffMapper rm = new StaffMapper();
             final String sql = "select " + rm.schema() + " where s.id = ? and o.hierarchy like ? ";
 
-            return this.jdbcTemplate.queryForObject(sql, rm, staffId, hierarchy); // NOSONAR
+            final StaffData staff = this.jdbcTemplate.queryForObject(sql, rm, staffId, hierarchy); // NOSONAR
+
+            // Fetch all offices for this staff from junction table
+            final String officesSql = "select so.office_id, o.name from m_staff_office so "
+                    + "join m_office o on o.id = so.office_id where so.staff_id = ?";
+            final List<Map<String, Object>> officeRows = this.jdbcTemplate.queryForList(officesSql, staffId);
+
+            final List<Long> officeIds = new ArrayList<>();
+            final List<OfficeData> offices = new ArrayList<>();
+            for (Map<String, Object> row : officeRows) {
+                final Long officeId = ((Number) row.get("office_id")).longValue();
+                final String officeName = (String) row.get("name");
+                officeIds.add(officeId);
+                offices.add(OfficeData.dropdown(officeId, officeName, null));
+            }
+
+            // Return StaffData with all offices (if no offices found in junction table, fallback to primary office)
+            if (officeIds.isEmpty() && staff.getOfficeId() != null) {
+                officeIds.add(staff.getOfficeId());
+                if (staff.getOfficeName() != null) {
+                    offices.add(OfficeData.dropdown(staff.getOfficeId(), staff.getOfficeName(), null));
+                }
+            }
+            
+            return StaffData.instance(staff.getId(), staff.getFirstname(), staff.getLastname(), staff.getDisplayName(),
+                    staff.getOfficeId(), staff.getOfficeName(), officeIds.isEmpty() ? null : officeIds,
+                    offices.isEmpty() ? null : offices, staff.getIsLoanOfficer(), staff.getExternalId(),
+                    staff.getMobileNo(), staff.getIsActive() != null ? staff.getIsActive() : false, staff.getJoiningDate());
         } catch (final EmptyResultDataAccessException e) {
             throw new StaffNotFoundException(staffId, e);
         }

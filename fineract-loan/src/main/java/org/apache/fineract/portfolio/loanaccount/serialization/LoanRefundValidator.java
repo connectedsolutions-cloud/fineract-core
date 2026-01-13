@@ -100,6 +100,13 @@ public final class LoanRefundValidator {
         }
     }
 
+    public void validateTransactionDateNotInFuture(final LocalDate transactionDate, final Loan loan) {
+        if (DateUtils.isDateInTheFutureForLoan(transactionDate, loan.getIsSimulation(), loan.getSimulatedDate())) {
+            final String errorMessage = "The transaction date cannot be in the future.";
+            throw new InvalidLoanStateTransitionException("transaction", "cannot.be.a.future.date", errorMessage, transactionDate);
+        }
+    }
+
     public void validateTransactionAmountThreshold(final Loan loan, final LoanTransaction adjustedTransaction) {
         if (loan.getLoanProduct().isMultiDisburseLoan() && adjustedTransaction == null) {
             final BigDecimal totalDisbursed = loan.getDisbursedAmount();

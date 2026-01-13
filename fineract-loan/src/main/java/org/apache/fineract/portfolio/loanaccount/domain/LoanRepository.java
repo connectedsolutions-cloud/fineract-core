@@ -90,16 +90,16 @@ public interface LoanRepository extends JpaRepository<Loan, Long>, JpaSpecificat
     String FIND_IDS_BY_EXTERNAL_IDS = "SELECT loan.id FROM Loan loan WHERE loan.externalId IN :externalIds ORDER BY loan.id ASC";
 
     // should follow the logic of `FIND_ALL_LOANS_BY_LAST_CLOSED_BUSINESS_DATE` query
-    String FIND_OLDEST_COB_PROCESSED_LOAN = "select loan.id, loan.lastClosedBusinessDate from Loan loan where loan.loanStatus in :loanStatuses and loan.lastClosedBusinessDate = (select min(l.lastClosedBusinessDate) from Loan l where l"
-            + ".loanStatus in :loanStatuses and l.lastClosedBusinessDate < :cobBusinessDate)";
+    String FIND_OLDEST_COB_PROCESSED_LOAN = "select loan.id, loan.lastClosedBusinessDate from Loan loan where loan.loanStatus in :loanStatuses and loan.isSimulation = false and loan.lastClosedBusinessDate = (select min(l.lastClosedBusinessDate) from Loan l where l"
+            + ".loanStatus in :loanStatuses and l.isSimulation = false and l.lastClosedBusinessDate < :cobBusinessDate)";
 
-    String FIND_ALL_LOANS_BEHIND_OR_NULL_BY_LOAN_IDS_AND_STATUSES = "select loan.id, loan.lastClosedBusinessDate from Loan loan where loan.id IN :loanIds and loan.loanStatus in :loanStatuses and (loan.lastClosedBusinessDate < :cobBusinessDate or "
+    String FIND_ALL_LOANS_BEHIND_OR_NULL_BY_LOAN_IDS_AND_STATUSES = "select loan.id, loan.lastClosedBusinessDate from Loan loan where loan.id IN :loanIds and loan.loanStatus in :loanStatuses and loan.isSimulation = false and (loan.lastClosedBusinessDate < :cobBusinessDate or "
             + "loan.lastClosedBusinessDate is null)";
 
-    String FIND_ALL_LOANS_BY_LAST_CLOSED_BUSINESS_DATE_AND_MIN_AND_MAX_LOAN_ID_AND_STATUSES = "select loan.id from Loan loan where loan.id BETWEEN :minLoanId and :maxLoanId and loan.loanStatus in :loanStatuses and (:cobBusinessDate = loan.lastClosedBusinessDate or loan.lastClosedBusinessDate is NULL)";
+    String FIND_ALL_LOANS_BY_LAST_CLOSED_BUSINESS_DATE_AND_MIN_AND_MAX_LOAN_ID_AND_STATUSES = "select loan.id from Loan loan where loan.id BETWEEN :minLoanId and :maxLoanId and loan.loanStatus in :loanStatuses and loan.isSimulation = false and (:cobBusinessDate = loan.lastClosedBusinessDate or loan.lastClosedBusinessDate is NULL)";
 
-    String FIND_ALL_LOANS_BY_LAST_CLOSED_BUSINESS_DATE_NOT_NULL_AND_MIN_AND_MAX_LOAN_ID_AND_STATUSES = "select loan.id from Loan loan where loan.id BETWEEN :minLoanId and :maxLoanId and loan.loanStatus in :loanStatuses and :cobBusinessDate = loan.lastClosedBusinessDate";
-    String FIND_ALL_LOANS_BEHIND_BY_LOAN_IDS_AND_STATUSES = "select loan.id, loan.lastClosedBusinessDate from Loan loan where loan.id IN :loanIds and loan.loanStatus in :loanStatuses and loan.lastClosedBusinessDate < :cobBusinessDate";
+    String FIND_ALL_LOANS_BY_LAST_CLOSED_BUSINESS_DATE_NOT_NULL_AND_MIN_AND_MAX_LOAN_ID_AND_STATUSES = "select loan.id from Loan loan where loan.id BETWEEN :minLoanId and :maxLoanId and loan.loanStatus in :loanStatuses and loan.isSimulation = false and :cobBusinessDate = loan.lastClosedBusinessDate";
+    String FIND_ALL_LOANS_BEHIND_BY_LOAN_IDS_AND_STATUSES = "select loan.id, loan.lastClosedBusinessDate from Loan loan where loan.id IN :loanIds and loan.loanStatus in :loanStatuses and loan.isSimulation = false and loan.lastClosedBusinessDate < :cobBusinessDate";
 
     String FIND_ALL_STAYED_LOCKED_BY_COB_BUSINESS_DATE = "select loan.id, loan.externalId, loan.accountNumber from LoanAccountLock lock left join Loan loan on lock.loanId = loan.id where lock.lockPlacedOnCobBusinessDate = :cobBusinessDate";
 

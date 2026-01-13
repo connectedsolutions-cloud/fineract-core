@@ -72,7 +72,7 @@ public class LoanInlineCOBConfig {
     @Bean
     public InlineLoanCOBBuildExecutionContextTasklet inlineLoanCOBBuildExecutionContextTasklet() {
         return new InlineLoanCOBBuildExecutionContextTasklet(cobBusinessStepService, customJobParameterRepository,
-                customJobParameterResolver);
+                customJobParameterResolver, loanRepository);
     }
 
     @Bean

@@ -28,6 +28,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.codes.data.CodeValueData;
@@ -47,11 +48,14 @@ import org.apache.fineract.infrastructure.security.utils.ColumnValidator;
 import org.apache.fineract.portfolio.client.data.ClientCollateralManagementData;
 import org.apache.fineract.portfolio.client.data.ClientData;
 import org.apache.fineract.portfolio.client.data.ClientNonPersonData;
+import org.apache.fineract.portfolio.client.data.ClientTagData;
 import org.apache.fineract.portfolio.client.data.ClientTimelineData;
 import org.apache.fineract.portfolio.client.domain.Client;
 import org.apache.fineract.portfolio.client.domain.ClientEnumerations;
 import org.apache.fineract.portfolio.client.domain.ClientRepositoryWrapper;
 import org.apache.fineract.portfolio.client.domain.ClientStatus;
+import org.apache.fineract.portfolio.client.domain.ClientTagMapping;
+import org.apache.fineract.portfolio.client.domain.ClientTagMappingRepository;
 import org.apache.fineract.portfolio.client.exception.ClientNotFoundException;
 import org.apache.fineract.portfolio.client.mapper.ClientMapper;
 import org.apache.fineract.portfolio.collateralmanagement.domain.ClientCollateralManagement;
@@ -82,6 +86,7 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
     private final ClientCollateralManagementRepositoryWrapper clientCollateralManagementRepositoryWrapper;
     private final ClientRepositoryWrapper clientRepositoryWrapper;
     private final ClientMapper clientMapper;
+    private final ClientTagMappingRepository clientTagMappingRepository;
 
     @Override
     public Page<ClientData> retrieveAll(final SearchParameters searchParameters) {
@@ -215,6 +220,13 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
             final Client client = clientRepositoryWrapper.getClientByClientIdAndHierarchy(clientId, hierarchySearchString);
             final ClientData clientData = clientMapper.map(client);
 
+            // Fetch tags separately using a dedicated query to avoid JOIN FETCH issues with collections
+            // This is more reliable and performs better with large tag lists
+            final List<ClientTagMapping> tagMappings = clientTagMappingRepository.findByClientIdWithTag(clientId);
+            final Set<ClientTagData> tags = tagMappings.stream().map(mapping -> ClientTagData.from(mapping.getTag()))
+                    .collect(Collectors.toSet());
+            clientData.setTags(tags.isEmpty() ? null : tags);
+
             // Get client collaterals
             final Collection<ClientCollateralManagement> clientCollateralManagements = this.clientCollateralManagementRepositoryWrapper
                     .getCollateralsPerClient(clientId);
@@ -314,7 +326,8 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
             sqlBuilder.append("cvclassification.code_value as classificationValue, ");
             sqlBuilder.append("c.legal_form_enum as legalFormEnum, ");
             sqlBuilder.append("c.activation_date as activationDate, c.image_id as imageId, ");
-            sqlBuilder.append("c.staff_id as staffId, s.display_name as staffName,");
+            sqlBuilder.append("c.staff_id as staffId, s.display_name as staffName, ");
+            sqlBuilder.append("c.gestor_id as gestorId, g.display_name as gestorName, ");
             sqlBuilder.append("c.default_savings_product as savingsProductId, sp.name as savingsProductName, ");
             sqlBuilder.append("c.default_savings_account as savingsAccountId, ");
 
@@ -345,6 +358,7 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
             sqlBuilder.append("left join m_client_non_person cnp on cnp.client_id = c.id ");
             sqlBuilder.append("join m_group_client pgc on pgc.client_id = c.id ");
             sqlBuilder.append("left join m_staff s on s.id = c.staff_id ");
+            sqlBuilder.append("left join m_staff g on g.id = c.gestor_id ");
             sqlBuilder.append("left join m_savings_product sp on sp.id = c.default_savings_product ");
             sqlBuilder.append("left join m_office transferToOffice on transferToOffice.id = c.transfer_to_office_id ");
 
@@ -393,7 +407,7 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
             final String displayName = rs.getString("displayName");
             final ExternalId externalId = ExternalIdFactory.produce(rs.getString("externalId"));
             final String mobileNo = rs.getString("mobileNo");
-            final boolean isStaff = rs.getBoolean("isStaff");
+            final Boolean isStaff = rs.getBoolean("isStaff");
             final String emailAddress = rs.getString("emailAddress");
             final LocalDate dateOfBirth = JdbcSupport.getLocalDate(rs, "dateOfBirth");
             final Long genderId = JdbcSupport.getLong(rs, "genderId");
@@ -412,6 +426,8 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
             final Long imageId = JdbcSupport.getLong(rs, "imageId");
             final Long staffId = JdbcSupport.getLong(rs, "staffId");
             final String staffName = rs.getString("staffName");
+            final Long gestorId = JdbcSupport.getLong(rs, "gestorId");
+            final String gestorName = rs.getString("gestorName");
 
             final Long savingsProductId = JdbcSupport.getLong(rs, "savingsProductId");
             final String savingsProductName = rs.getString("savingsProductName");
@@ -457,7 +473,7 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
 
             return ClientData.instance(accountNo, status, subStatus, officeId, officeName, transferToOfficeId, transferToOfficeName, id,
                     firstname, middlename, lastname, fullname, displayName, externalId, mobileNo, emailAddress, dateOfBirth, gender,
-                    activationDate, imageId, staffId, staffName, timeline, savingsProductId, savingsProductName, savingsAccountId,
+                    activationDate, imageId, staffId, staffName, gestorId, gestorName, timeline, savingsProductId, savingsProductName, savingsAccountId,
                     clienttype, classification, legalForm, clientNonPerson, isStaff);
 
         }
@@ -577,7 +593,7 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
         final Collection<CodeValueData> clientNonPersonMainBusinessLineOptions = null;
         final List<EnumOptionData> clientLegalFormOptions = null;
         return ClientData.template(null, null, null, null, narrations, null, null, clientTypeOptions, clientClassificationOptions,
-                clientNonPersonConstitutionOptions, clientNonPersonMainBusinessLineOptions, clientLegalFormOptions, null, null, null, null);
+                clientNonPersonConstitutionOptions, clientNonPersonMainBusinessLineOptions, clientLegalFormOptions, null, null, null, null, null);
     }
 
     @Override
@@ -652,12 +668,14 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
 
             builder.append("c.activation_date as activationDate, c.image_id as imageId, ");
             builder.append("c.staff_id as staffId, s.display_name as staffName, ");
+            builder.append("c.gestor_id as gestorId, g.display_name as gestorName, ");
             builder.append("c.default_savings_product as savingsProductId, sp.name as savingsProductName, ");
             builder.append("c.default_savings_account as savingsAccountId ");
             builder.append("from m_client c ");
             builder.append("join m_office o on o.id = c.office_id ");
             builder.append("left join m_client_non_person cnp on cnp.client_id = c.id ");
             builder.append("left join m_staff s on s.id = c.staff_id ");
+            builder.append("left join m_staff g on g.id = c.gestor_id ");
             builder.append("left join m_savings_product sp on sp.id = c.default_savings_product ");
             builder.append("left join m_office transferToOffice on transferToOffice.id = c.transfer_to_office_id ");
             builder.append("left join m_appuser sbu on sbu.id = c.created_by ");
@@ -705,7 +723,7 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
             final String displayName = rs.getString("displayName");
             final ExternalId externalId = ExternalIdFactory.produce(rs.getString("externalId"));
             final String mobileNo = rs.getString("mobileNo");
-            final boolean isStaff = rs.getBoolean("isStaff");
+            final Boolean isStaff = rs.getBoolean("isStaff");
             final String emailAddress = rs.getString("emailAddress");
             final LocalDate dateOfBirth = JdbcSupport.getLocalDate(rs, "dateOfBirth");
             final Long genderId = JdbcSupport.getLong(rs, "genderId");
@@ -724,6 +742,8 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
             final Long imageId = JdbcSupport.getLong(rs, "imageId");
             final Long staffId = JdbcSupport.getLong(rs, "staffId");
             final String staffName = rs.getString("staffName");
+            final Long gestorId = JdbcSupport.getLong(rs, "gestorId");
+            final String gestorName = rs.getString("gestorName");
 
             final Long savingsProductId = JdbcSupport.getLong(rs, "savingsProductId");
             final String savingsProductName = rs.getString("savingsProductName");
@@ -768,7 +788,7 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
 
             return ClientData.instance(accountNo, status, subStatus, officeId, officeName, transferToOfficeId, transferToOfficeName, id,
                     firstname, middlename, lastname, fullname, displayName, externalId, mobileNo, emailAddress, dateOfBirth, gender,
-                    activationDate, imageId, staffId, staffName, timeline, savingsProductId, savingsProductName, savingsAccountId,
+                    activationDate, imageId, staffId, staffName, gestorId, gestorName, timeline, savingsProductId, savingsProductName, savingsAccountId,
                     clienttype, classification, legalForm, clientNonPerson, isStaff);
 
         }

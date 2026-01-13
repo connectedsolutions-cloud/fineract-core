@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet author="fineract" id="1">
+        <insert tableName="stretchy_report">
+            <column name="report_name" value="Daily Journal Ledger Report"/>
+            <column name="report_type" value="Table"/>
+            <column name="report_subtype"/>
+            <column name="report_category" value="Accounting"/>
+            <column name="report_sql" value="SELECT je.entry_date AS TransactionDate, je.transaction_id AS TransactionId, gl.gl_code AS AccountCode, gl.name AS AccountName, CASE WHEN je.type_enum = 1 THEN 'CREDIT' WHEN je.type_enum = 2 THEN 'DEBIT' END AS EntryType, je.amount AS Amount, je.description AS Description, o.name AS OfficeName, je.ref_num AS ReferenceNumber, COALESCE(ml.account_no, '') AS LoanAccountNumber FROM acc_gl_journal_entry je JOIN acc_gl_account gl ON je.account_id = gl.id JOIN m_office o ON je.office_id = o.id LEFT JOIN m_loan ml ON ml.id = je.entity_id AND je.entity_type_enum = 1 WHERE je.entry_date &gt;= '${startDate}' AND je.entry_date &lt;= '${endDate}' AND (je.office_id = ${officeId} OR ${officeId} = -1) AND (${loanId} = -1 OR ml.id = ${loanId}) AND je.reversed = false ORDER BY je.entry_date, je.transaction_id, je.type_enum"/>
+            <column name="description" value="Daily Journal Ledger Report"/>
+            <column name="core_report" valueBoolean="false"/>
+            <column name="use_report" valueBoolean="true"/>
+            <column name="self_service_user_report" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet author="fineract" id="2">
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name) VALUES
+            ((SELECT id FROM stretchy_report WHERE report_name = 'Daily Journal Ledger Report'), 1, 'startDate');
+        </sql>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name) VALUES
+            ((SELECT id FROM stretchy_report WHERE report_name = 'Daily Journal Ledger Report'), 2, 'endDate');
+        </sql>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name) VALUES
+            ((SELECT id FROM stretchy_report WHERE report_name = 'Daily Journal Ledger Report'), 5, 'officeId');
+        </sql>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name) VALUES
+            ((SELECT id FROM stretchy_report WHERE report_name = 'Daily Journal Ledger Report'), 1017, 'loanId');
+        </sql>
+    </changeSet>
+    <changeSet author="fineract" id="3">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'READ_Daily Journal Ledger Report'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="report"/>
+            <column name="code" value="READ_Daily Journal Ledger Report"/>
+            <column name="entity_name" value="Daily Journal Ledger Report"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet author="fineract" id="4">
+        <update tableName="stretchy_report">
+            <column name="report_sql" value="SELECT je.entry_date AS TransactionDate, je.transaction_id AS TransactionId, gl.gl_code AS AccountCode, gl.name AS AccountName, CASE WHEN je.type_enum = 1 THEN 'CREDIT' WHEN je.type_enum = 2 THEN 'DEBIT' END AS EntryType, je.amount AS Amount, je.description AS Description, o.name AS OfficeName, je.ref_num AS ReferenceNumber, COALESCE(ml.account_no, '') AS LoanAccountNumber FROM acc_gl_journal_entry je JOIN acc_gl_account gl ON je.account_id = gl.id JOIN m_office o ON je.office_id = o.id LEFT JOIN m_loan ml ON ml.id = je.entity_id AND je.entity_type_enum = 1 WHERE je.entry_date &gt;= '${startDate}' AND je.entry_date &lt;= '${endDate}' AND (je.office_id = ${officeId} OR ${officeId} = -1) AND (${loanId} = -1 OR ml.id = ${loanId}) AND je.reversed = false ORDER BY je.entry_date, je.transaction_id, je.type_enum"/>
+            <where>report_name = 'Daily Journal Ledger Report'</where>
+        </update>
+    </changeSet>
+    <changeSet author="fineract" id="5">
+        <update tableName="stretchy_parameter">
+            <column name="parameter_displayType" value="select"/>
+            <where>id = 1017 AND parameter_name = 'DefaultLoan'</where>
+        </update>
+    </changeSet>
+    <changeSet author="fineract" id="6">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report WHERE report_name = 'DefaultLoan'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="stretchy_report">
+            <column name="report_name" value="DefaultLoan"/>
+            <column name="report_type" value="Table"/>
+            <column name="report_subtype"/>
+            <column name="report_category"/>
+            <column name="report_sql" value="select ml.id, ml.account_no AS name from m_loan ml order by ml.account_no"/>
+            <column name="description" value="Loan dropdown options"/>
+            <column name="core_report" valueBoolean="false"/>
+            <column name="use_report" valueBoolean="false"/>
+            <column name="self_service_user_report" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet author="fineract" id="7">
+        <sql>
+            UPDATE stretchy_parameter SET parent_id = NULL WHERE id = 1017 AND parameter_name = 'DefaultLoan';
+        </sql>
+    </changeSet>
+    <changeSet author="fineract" id="8">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report_parameter srp
+                JOIN stretchy_report sr ON sr.id = srp.report_id
+                WHERE sr.report_name = 'Daily Journal Ledger Report'
+                  AND srp.parameter_id = 1017
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+            SELECT sr.id, 1017, 'loanId'
+            FROM stretchy_report sr
+            WHERE sr.report_name = 'Daily Journal Ledger Report'
+              AND NOT EXISTS (
+                  SELECT 1 FROM stretchy_report_parameter srp2
+                  WHERE srp2.report_id = sr.id AND srp2.parameter_id = 1017
+              );
+        </sql>
+    </changeSet>
+    <changeSet author="fineract" id="9">
+        <update tableName="stretchy_report">
+            <column name="report_sql" value="select ml.id, ml.account_no AS name from m_loan ml order by ml.account_no"/>
+            <where>report_name = 'DefaultLoan'</where>
+        </update>
+    </changeSet>
+    <changeSet author="fineract" id="10">
+        <update tableName="stretchy_parameter">
+            <column name="parameter_sql" value="select ml.id, ml.account_no AS name from m_loan ml order by ml.account_no"/>
+            <where>id = 1017 AND parameter_name = 'DefaultLoan'</where>
+        </update>
+    </changeSet>
+</databaseChangeLog>
+

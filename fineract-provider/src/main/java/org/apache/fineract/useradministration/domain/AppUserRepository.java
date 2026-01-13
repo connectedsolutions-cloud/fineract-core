@@ -30,5 +30,6 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long>, JpaSpec
     @Query("Select appUser from AppUser appUser where appUser.username = :username")
     AppUser findAppUserByName(@Param("username") String username);
 
-    Collection<AppUser> findByOfficeId(Long officeId);
+    @Query("Select appUser from AppUser appUser join appUser.offices office where office.id = :officeId")
+    Collection<AppUser> findByOfficeId(@Param("officeId") Long officeId);
 }

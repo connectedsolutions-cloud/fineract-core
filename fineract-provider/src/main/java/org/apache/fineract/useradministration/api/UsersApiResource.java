@@ -75,7 +75,7 @@ public class UsersApiResource {
     /**
      * The set of parameters that are supported in response for {@link AppUserData}.
      */
-    private static final Set<String> RESPONSE_DATA_PARAMETERS = new HashSet<>(Arrays.asList("id", "officeId", "officeName", "username",
+    private static final Set<String> RESPONSE_DATA_PARAMETERS = new HashSet<>(Arrays.asList("id", "officeId", "officeName", "currentOfficeId", "offices", "username",
             "firstname", "lastname", "email", "allowedOffices", "availableRoles", "selectedRoles", "staff"));
 
     private static final String RESOURCE_NAME_FOR_PERMISSIONS = "USER";
@@ -203,6 +203,27 @@ public class UsersApiResource {
 
         final CommandWrapper commandRequest = new CommandWrapperBuilder() //
                 .changeUserPassword(userId) //
+                .withJson(apiRequestBodyAsJson) //
+                .build();
+
+        final CommandProcessingResult result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+
+        return this.toApiJsonSerializer.serialize(result);
+    }
+
+    @POST
+    @Path("{userId}/switchOffice")
+    @Operation(summary = "Switch User Office Context", description = "Switches the current office context for a user. The user must have access to the requested office.")
+    @RequestBody(required = true, content = @Content(schema = @Schema(implementation = UsersApiResourceSwagger.SwitchOfficeUsersUserIdRequest.class)))
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = UsersApiResourceSwagger.SwitchOfficeUsersUserIdResponse.class))) })
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    public String switchOffice(@PathParam("userId") @Parameter(description = "userId") final Long userId,
+            @Parameter(hidden = true) final String apiRequestBodyAsJson) {
+
+        final CommandWrapper commandRequest = new CommandWrapperBuilder() //
+                .switchUserOffice(userId) //
                 .withJson(apiRequestBodyAsJson) //
                 .build();
 

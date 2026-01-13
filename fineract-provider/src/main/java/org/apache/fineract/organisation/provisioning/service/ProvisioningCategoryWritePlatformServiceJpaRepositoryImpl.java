@@ -66,16 +66,17 @@ public class ProvisioningCategoryWritePlatformServiceJpaRepositoryImpl implement
 
     @Override
     public CommandProcessingResult deleteProvisioningCateogry(JsonCommand command) {
-        this.fromApiJsonDeserializer.validateForCreate(command.json());
-        final ProvisioningCategory provisioningCategory = ProvisioningCategory.fromJson(command);
-        boolean isProvisioningCategoryInUse = isAnyLoanProductsAssociateWithThisProvisioningCategory(provisioningCategory.getId());
+        final Long categoryId = command.entityId();
+        final ProvisioningCategory provisioningCategory = this.provisioningCategoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ProvisioningCategoryNotFoundException(categoryId));
+        boolean isProvisioningCategoryInUse = isAnyLoanProductsAssociateWithThisProvisioningCategory(categoryId);
         if (isProvisioningCategoryInUse) {
             throw new ProvisioningCategoryCannotBeDeletedException(
                     "error.msg.provisioningcategory.cannot.be.deleted.it.is.already.used.in.loanproduct",
                     "This provisioning category cannot be deleted, it is already used in loan product");
         }
         this.provisioningCategoryRepository.delete(provisioningCategory);
-        return new CommandProcessingResultBuilder().withEntityId(provisioningCategory.getId()).build();
+        return new CommandProcessingResultBuilder().withEntityId(categoryId).build();
     }
 
     @Override
@@ -100,9 +101,10 @@ public class ProvisioningCategoryWritePlatformServiceJpaRepositoryImpl implement
     }
 
     private boolean isAnyLoanProductsAssociateWithThisProvisioningCategory(final Long categoryID) {
-        final String sql = "select (CASE WHEN (exists (select 1 from m_loanproduct_provisioning_details lpd where lpd.category_id = ?)) = 1 THEN 'true' ELSE 'false' END)";
-        final String isLoansUsingCharge = this.jdbcTemplate.queryForObject(sql, String.class, new Object[] { categoryID });
-        return Boolean.valueOf(isLoansUsingCharge);
+        // Check if category is used in provisioning entries or criteria definitions
+        final String sql = "select (CASE WHEN exists (select 1 from m_loanproduct_provisioning_entry lpe where lpe.category_id = ?) OR exists (select 1 from m_provisioning_criteria_definition pcd where pcd.category_id = ?) THEN 'true' ELSE 'false' END)";
+        final String isCategoryInUse = this.jdbcTemplate.queryForObject(sql, String.class, new Object[] { categoryID, categoryID });
+        return Boolean.valueOf(isCategoryInUse);
     }
 
     /*

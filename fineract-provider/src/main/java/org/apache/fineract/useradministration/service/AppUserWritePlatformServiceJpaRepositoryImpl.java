@@ -25,6 +25,7 @@ import com.google.gson.JsonElement;
 import jakarta.persistence.PersistenceException;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -93,10 +94,28 @@ public class AppUserWritePlatformServiceJpaRepositoryImpl implements AppUserWrit
 
             this.fromApiJsonDeserializer.validateForCreate(command.json());
 
-            final String officeIdParamName = "officeId";
-            final Long officeId = command.longValueOfParameterNamed(officeIdParamName);
-
-            final Office userOffice = this.officeRepositoryWrapper.findOneWithNotFoundDetection(officeId);
+            // Handle officeIds array (multi-office) or single officeId (backward compatibility)
+            final Set<Office> userOffices = new HashSet<>();
+            final Set<Long> userOfficeIds = new HashSet<>();
+            
+            final String officeIdsParamName = "officeIds";
+            if (command.hasParameter(officeIdsParamName)) {
+                // Multi-office support
+                final String[] officeIdsStr = command.arrayValueOfParameterNamed(officeIdsParamName);
+                for (String officeIdStr : officeIdsStr) {
+                    final Long officeId = Long.parseLong(officeIdStr);
+                    final Office office = this.officeRepositoryWrapper.findOneWithNotFoundDetection(officeId);
+                    userOffices.add(office);
+                    userOfficeIds.add(officeId);
+                }
+            } else {
+                // Backward compatibility: single officeId
+                final String officeIdParamName = "officeId";
+                final Long officeId = command.longValueOfParameterNamed(officeIdParamName);
+                final Office userOffice = this.officeRepositoryWrapper.findOneWithNotFoundDetection(officeId);
+                userOffices.add(userOffice);
+                userOfficeIds.add(officeId);
+            }
 
             final String[] roles = command.arrayValueOfParameterNamed("roles");
             final Set<Role> allRoles = assembleSetOfRoles(roles);
@@ -106,7 +125,8 @@ public class AppUserWritePlatformServiceJpaRepositoryImpl implements AppUserWrit
 
             Staff linkedStaff;
             if (staffId != null) {
-                linkedStaff = this.staffRepositoryWrapper.findByOfficeWithNotFoundDetection(staffId, userOffice.getId());
+                // Use overlap validation to check if staff has any office in common with user
+                linkedStaff = this.staffRepositoryWrapper.findByAnyOfficeWithNotFoundDetection(staffId, userOfficeIds);
             } else {
                 linkedStaff = null;
             }
@@ -125,15 +145,17 @@ public class AppUserWritePlatformServiceJpaRepositoryImpl implements AppUserWrit
                 clients = null;
             }
 
-            AppUser appUser = AppUser.fromJson(userOffice, linkedStaff, allRoles, clients, command);
+            AppUser appUser = AppUser.fromJson(userOffices, linkedStaff, allRoles, clients, command);
 
             final Boolean sendPasswordToEmail = command.booleanObjectValueOfParameterNamed("sendPasswordToEmail");
             this.userDomainService.create(appUser, sendPasswordToEmail);
 
+            // Use first office for return value (backward compatibility)
+            final Office firstOffice = userOffices.iterator().next();
             return new CommandProcessingResultBuilder() //
                     .withCommandId(command.commandId()) //
                     .withEntityId(appUser.getId()) //
-                    .withOfficeId(userOffice.getId()) //
+                    .withOfficeId(firstOffice.getId()) //
                     .build();
         } catch (final DataIntegrityViolationException dve) {
             throw handleDataIntegrityIssues(command, dve.getMostSpecificCause(), dve);
@@ -220,11 +242,31 @@ public class AppUserWritePlatformServiceJpaRepositoryImpl implements AppUserWrit
                 userToUpdate.changeOffice(office);
             }
 
+            if (changes.containsKey("officeIds")) {
+                // Handle multiple offices assignment
+                final String[] officeIdsStr = (String[]) changes.get("officeIds");
+                final Set<Office> userOffices = new HashSet<>();
+                final Set<Long> userOfficeIds = new HashSet<>();
+                for (String officeIdStr : officeIdsStr) {
+                    final Long officeId = Long.parseLong(officeIdStr);
+                    final Office office = this.officeRepositoryWrapper.findOneWithNotFoundDetection(officeId);
+                    userOffices.add(office);
+                    userOfficeIds.add(officeId);
+                }
+                userToUpdate.setOffices(userOffices);
+            }
+
             if (changes.containsKey("staffId")) {
                 final Long staffId = (Long) changes.get("staffId");
                 Staff linkedStaff = null;
                 if (staffId != null) {
-                    linkedStaff = this.staffRepositoryWrapper.findByOfficeWithNotFoundDetection(staffId, userToUpdate.getOffice().getId());
+                    // Collect all user office IDs for overlap validation
+                    final Set<Long> userOfficeIds = new HashSet<>();
+                    for (final Office office : userToUpdate.getOffices()) {
+                        userOfficeIds.add(office.getId());
+                    }
+                    // Use overlap validation to check if staff has any office in common with user
+                    linkedStaff = this.staffRepositoryWrapper.findByAnyOfficeWithNotFoundDetection(staffId, userOfficeIds);
                 }
                 userToUpdate.changeStaff(linkedStaff);
             }
@@ -296,6 +338,47 @@ public class AppUserWritePlatformServiceJpaRepositoryImpl implements AppUserWrit
         }
 
         return allRoles;
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = { @CacheEvict(value = "users", allEntries = true), @CacheEvict(value = "usersByUsername", allEntries = true) })
+    public CommandProcessingResult switchOffice(final Long userId, final JsonCommand command) {
+        try {
+            this.context.authenticatedUser();
+
+            final AppUser user = this.appUserRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
+
+            final String officeIdParamName = "officeId";
+            final Long officeId = command.longValueOfParameterNamed(officeIdParamName);
+
+            final Office targetOffice = this.officeRepositoryWrapper.findOneWithNotFoundDetection(officeId);
+
+            // Validate that user has access to the target office
+            if (!user.hasAccessToOffice(targetOffice)) {
+                throw new PlatformApiDataValidationException("error.msg.user.office.access.denied",
+                        "User does not have access to office: " + targetOffice.getName(), List.of());
+            }
+
+            // Switch the current office
+            user.changeOffice(targetOffice);
+            this.appUserRepository.saveAndFlush(user);
+
+            final Map<String, Object> changes = new LinkedHashMap<>();
+            changes.put("currentOfficeId", officeId);
+
+            return new CommandProcessingResultBuilder() //
+                    .withEntityId(userId) //
+                    .withOfficeId(officeId) //
+                    .with(changes) //
+                    .build();
+        } catch (final DataIntegrityViolationException dve) {
+            throw handleDataIntegrityIssues(command, dve.getMostSpecificCause(), dve);
+        } catch (final JpaSystemException | PersistenceException | AuthenticationServiceException dve) {
+            log.error("switchOffice: JpaSystemException | PersistenceException | AuthenticationServiceException", dve);
+            Throwable throwable = ExceptionUtils.getRootCause(dve.getCause());
+            throw handleDataIntegrityIssues(command, throwable, dve);
+        }
     }
 
     @Override

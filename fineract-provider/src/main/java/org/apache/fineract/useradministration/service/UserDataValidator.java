@@ -53,6 +53,7 @@ public final class UserDataValidator {
     public static final String LASTNAME = "lastname";
     public static final String EMAIL = "email";
     public static final String OFFICE_ID = "officeId";
+    public static final String OFFICE_IDS = "officeIds";
     public static final String NOT_SELECTED_ROLES = "notSelectedRoles";
     public static final String ROLES = "roles";
     public static final String SEND_PASSWORD_TO_EMAIL = "sendPasswordToEmail";
@@ -62,10 +63,10 @@ public final class UserDataValidator {
      * The parameters supported for this command.
      */
     private static final Set<String> CREATE_SUPPORTED_PARAMETERS = new HashSet<>(
-            Arrays.asList(USERNAME, FIRSTNAME, LASTNAME, PASSWORD, REPEAT_PASSWORD, EMAIL, OFFICE_ID, NOT_SELECTED_ROLES, ROLES,
+            Arrays.asList(USERNAME, FIRSTNAME, LASTNAME, PASSWORD, REPEAT_PASSWORD, EMAIL, OFFICE_ID, OFFICE_IDS, NOT_SELECTED_ROLES, ROLES,
                     SEND_PASSWORD_TO_EMAIL, STAFF_ID, PASSWORD_NEVER_EXPIRES, AppUserConstants.IS_SELF_SERVICE_USER, CLIENTS));
     private static final Set<String> UPDATE_SUPPORTED_PARAMETERS = new HashSet<>(
-            Arrays.asList(USERNAME, FIRSTNAME, LASTNAME, PASSWORD, REPEAT_PASSWORD, EMAIL, OFFICE_ID, NOT_SELECTED_ROLES, ROLES,
+            Arrays.asList(USERNAME, FIRSTNAME, LASTNAME, PASSWORD, REPEAT_PASSWORD, EMAIL, OFFICE_ID, OFFICE_IDS, NOT_SELECTED_ROLES, ROLES,
                     SEND_PASSWORD_TO_EMAIL, STAFF_ID, PASSWORD_NEVER_EXPIRES, AppUserConstants.IS_SELF_SERVICE_USER, CLIENTS));
     private static final Set<String> CHANGE_PASSWORD_SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList(PASSWORD, REPEAT_PASSWORD));
     public static final String PASSWORD_NEVER_EXPIRE = "passwordNeverExpire";
@@ -116,8 +117,24 @@ public final class UserDataValidator {
             baseDataValidator.reset().parameter(SEND_PASSWORD_TO_EMAIL).value(sendPasswordToEmail).trueOrFalseRequired(false);
         }
 
-        final Long officeId = this.fromApiJsonHelper.extractLongNamed(OFFICE_ID, element);
-        baseDataValidator.reset().parameter(OFFICE_ID).value(officeId).notNull().integerGreaterThanZero();
+        // Validate officeIds (multiple offices) or officeId (single office for backward compatibility)
+        if (this.fromApiJsonHelper.parameterExists(OFFICE_IDS, element)) {
+            final String[] officeIds = this.fromApiJsonHelper.extractArrayNamed(OFFICE_IDS, element);
+            baseDataValidator.reset().parameter(OFFICE_IDS).value(officeIds).arrayNotEmpty();
+            for (String officeIdStr : officeIds) {
+                try {
+                    Long officeId = Long.parseLong(officeIdStr);
+                    baseDataValidator.reset().parameter(OFFICE_IDS).value(officeId).integerGreaterThanZero();
+                } catch (NumberFormatException e) {
+                    baseDataValidator.reset().parameter(OFFICE_IDS).value(officeIdStr).failWithCode("not.a.valid.integer",
+                            "Office ID must be a valid integer");
+                }
+            }
+        } else {
+            // Backward compatibility: single officeId
+            final Long officeId = this.fromApiJsonHelper.extractLongNamed(OFFICE_ID, element);
+            baseDataValidator.reset().parameter(OFFICE_ID).value(officeId).notNull().integerGreaterThanZero();
+        }
 
         if (this.fromApiJsonHelper.parameterExists(STAFF_ID, element)) {
             final Long staffId = this.fromApiJsonHelper.extractLongNamed(STAFF_ID, element);
@@ -227,7 +244,21 @@ public final class UserDataValidator {
 
         final JsonElement element = this.fromApiJsonHelper.parse(json);
 
-        if (this.fromApiJsonHelper.parameterExists(OFFICE_ID, element)) {
+        // Validate officeIds (multiple offices) or officeId (single office for backward compatibility)
+        if (this.fromApiJsonHelper.parameterExists(OFFICE_IDS, element)) {
+            final String[] officeIds = this.fromApiJsonHelper.extractArrayNamed(OFFICE_IDS, element);
+            baseDataValidator.reset().parameter(OFFICE_IDS).value(officeIds).arrayNotEmpty();
+            for (String officeIdStr : officeIds) {
+                try {
+                    Long officeId = Long.parseLong(officeIdStr);
+                    baseDataValidator.reset().parameter(OFFICE_IDS).value(officeId).integerGreaterThanZero();
+                } catch (NumberFormatException e) {
+                    baseDataValidator.reset().parameter(OFFICE_IDS).value(officeIdStr).failWithCode("not.a.valid.integer",
+                            "Office ID must be a valid integer");
+                }
+            }
+        } else if (this.fromApiJsonHelper.parameterExists(OFFICE_ID, element)) {
+            // Backward compatibility: single officeId
             final Long officeId = this.fromApiJsonHelper.extractLongNamed(OFFICE_ID, element);
             baseDataValidator.reset().parameter(OFFICE_ID).value(officeId).notNull().integerGreaterThanZero();
         }

@@ -21,7 +21,9 @@ package org.apache.fineract.organisation.staff.data;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import lombok.Getter;
 import org.apache.fineract.organisation.office.data.OfficeData;
 
@@ -40,8 +42,10 @@ public final class StaffData implements Serializable {
     private final String lastname;
     private final String displayName;
     private final String mobileNo;
-    private final Long officeId;
-    private final String officeName;
+    private final Long officeId; // Backward compatibility: represents primary office
+    private final String officeName; // Backward compatibility: represents primary office name
+    private final List<Long> officeIds; // All assigned office IDs
+    private final Collection<OfficeData> offices; // All assigned office details
     private final Boolean isLoanOfficer;
     private final Boolean isActive;
     private final LocalDate joiningDate;
@@ -66,6 +70,8 @@ public final class StaffData implements Serializable {
         this.lastname = lastname;
         this.mobileNo = mobileNo;
         this.officeId = officeId;
+        this.officeIds = officeId != null ? List.of(officeId) : null;
+        this.offices = null;
         this.isLoanOfficer = isLoanOfficer;
         this.isActive = isActive;
         this.joiningDate = joiningDate;
@@ -87,31 +93,46 @@ public final class StaffData implements Serializable {
 
     public static StaffData templateData(final StaffData staff, final Collection<OfficeData> allowedOffices) {
         return new StaffData(staff.id, staff.firstname, staff.lastname, staff.displayName, staff.officeId, staff.officeName,
-                staff.isLoanOfficer, staff.externalId, staff.mobileNo, allowedOffices, staff.isActive, staff.joiningDate);
+                staff.officeIds, staff.offices, staff.isLoanOfficer, staff.externalId, staff.mobileNo, allowedOffices, staff.isActive,
+                staff.joiningDate);
     }
 
     public static StaffData lookup(final Long id, final String displayName) {
-        return new StaffData(id, null, null, displayName, null, null, null, null, null, null, null, null);
+        return new StaffData(id, null, null, displayName, null, null, null, null, null, null, null, null, null, null);
     }
 
+    // Backward compatibility method - single office
     public static StaffData instance(final Long id, final String firstname, final String lastname, final String displayName,
             final Long officeId, final String officeName, final Boolean isLoanOfficer, final String externalId, final String mobileNo,
             final boolean isActive, final LocalDate joiningDate) {
-        return new StaffData(id, firstname, lastname, displayName, officeId, officeName, isLoanOfficer, externalId, mobileNo, null,
-                isActive, joiningDate);
+        final List<Long> officeIdsList = officeId != null ? List.of(officeId) : null;
+        return new StaffData(id, firstname, lastname, displayName, officeId, officeName, officeIdsList, null, isLoanOfficer, externalId,
+                mobileNo, null, isActive, joiningDate);
+    }
+
+    // New method with multiple offices support
+    public static StaffData instance(final Long id, final String firstname, final String lastname, final String displayName,
+            final Long officeId, final String officeName, final List<Long> officeIds, final Collection<OfficeData> offices,
+            final Boolean isLoanOfficer, final String externalId, final String mobileNo, final boolean isActive,
+            final LocalDate joiningDate) {
+        return new StaffData(id, firstname, lastname, displayName, officeId, officeName, officeIds, offices, isLoanOfficer, externalId,
+                mobileNo, null, isActive, joiningDate);
     }
 
     private StaffData(final Long id, final String firstname, final String lastname, final String displayName, final Long officeId,
-            final String officeName, final Boolean isLoanOfficer, final String externalId, final String mobileNo,
-            final Collection<OfficeData> allowedOffices, final Boolean isActive, final LocalDate joiningDate) {
+            final String officeName, final List<Long> officeIds, final Collection<OfficeData> offices, final Boolean isLoanOfficer,
+            final String externalId, final String mobileNo, final Collection<OfficeData> allowedOffices, final Boolean isActive,
+            final LocalDate joiningDate) {
         this.id = id;
         this.firstname = firstname;
         this.lastname = lastname;
         this.displayName = displayName;
         this.officeName = officeName;
+        this.officeId = officeId != null ? officeId : (officeIds != null && !officeIds.isEmpty() ? officeIds.get(0) : null);
+        this.officeIds = officeIds != null ? new ArrayList<>(officeIds) : (officeId != null ? List.of(officeId) : null);
+        this.offices = offices != null ? new ArrayList<>(offices) : null;
         this.isLoanOfficer = isLoanOfficer;
         this.externalId = externalId;
-        this.officeId = officeId;
         this.mobileNo = mobileNo;
         this.allowedOffices = allowedOffices;
         this.isActive = isActive;
@@ -144,5 +165,13 @@ public final class StaffData implements Serializable {
 
     public Long getOfficeId() {
         return this.officeId;
+    }
+
+    public List<Long> getOfficeIds() {
+        return this.officeIds != null ? new ArrayList<>(this.officeIds) : null;
+    }
+
+    public Collection<OfficeData> getOffices() {
+        return this.offices != null ? new ArrayList<>(this.offices) : null;
     }
 }

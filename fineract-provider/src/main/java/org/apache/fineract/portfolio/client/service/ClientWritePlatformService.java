@@ -33,9 +33,13 @@ public interface ClientWritePlatformService {
 
     CommandProcessingResult unassignClientStaff(Long clientId, JsonCommand command);
 
+    CommandProcessingResult unassignClientGestor(Long clientId, JsonCommand command);
+
     CommandProcessingResult closeClient(Long clientId, JsonCommand command);
 
     CommandProcessingResult assignClientStaff(Long clientId, JsonCommand command);
+
+    CommandProcessingResult assignClientGestor(Long clientId, JsonCommand command);
 
     CommandProcessingResult updateDefaultSavingsAccount(Long clientId, JsonCommand command);
 

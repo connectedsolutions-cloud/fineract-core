@@ -18,11 +18,13 @@
  */
 package org.apache.fineract.cob.loan;
 
+import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.fineract.cob.exceptions.BusinessStepException;
 import org.apache.fineract.infrastructure.core.exception.MultiException;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
+import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.service.LoanAccrualsProcessingService;
 import org.springframework.stereotype.Component;
@@ -36,13 +38,18 @@ public class AddPeriodicAccrualEntriesBusinessStep implements LoanCOBBusinessSte
 
     @Override
     public Loan execute(Loan loan) {
-        log.debug("start processing period accrual business step for loan with Id [{}]", loan.getId());
+        LocalDate businessDate = DateUtils.getBusinessLocalDate();
+        LocalDate simulatedDate = ThreadLocalContextUtil.getLoanSimulatedDate();
+        log.info("Processing period accrual for loan [{}]: businessDate={}, simulatedDate={}, isSimulation={}, simulatedDate={}, lastClosedBusinessDate={}, accruedTill={}", 
+            loan.getId(), businessDate, simulatedDate, loan.getIsSimulation(), loan.getSimulatedDate(), 
+            loan.getLastClosedBusinessDate(), loan.getAccruedTill());
         try {
-            loanAccrualsProcessingService.addPeriodicAccruals(DateUtils.getBusinessLocalDate(), loan);
+            loanAccrualsProcessingService.addPeriodicAccruals(businessDate, loan);
         } catch (MultiException e) {
+            log.error("Failed to process period accrual for loan [{}]", loan.getId(), e);
             throw new BusinessStepException(String.format("Fail to process period accrual for loan id [%s]", loan.getId()), e);
         }
-        log.debug("end processing period accrual business step for loan Id [{}]", loan.getId());
+        log.info("Completed period accrual processing for loan [{}]", loan.getId());
         return loan;
     }
 

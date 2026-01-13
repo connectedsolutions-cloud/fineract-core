@@ -19,7 +19,9 @@
 package org.apache.fineract.organisation.staff.service;
 
 import jakarta.persistence.PersistenceException;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -54,16 +56,88 @@ public class StaffWritePlatformServiceJpaRepositoryImpl implements StaffWritePla
         try {
             this.fromApiJsonDeserializer.validateForCreate(command.json());
 
-            final Long officeId = command.longValueOfParameterNamed("officeId");
+            Office primaryOffice = null;
+            Set<Office> offices = new HashSet<>();
+            Long primaryOfficeId = null;
 
-            final Office staffOffice = this.officeRepositoryWrapper.findOneWithNotFoundDetection(officeId);
-            final Staff staff = Staff.fromJson(staffOffice, command);
+            // Handle officeIds array (multiple offices) or single officeId for backward compatibility
+            if (command.hasParameter("officeIds")) {
+                final String[] officeIdsStr = command.arrayValueOfParameterNamed("officeIds");
+                if (officeIdsStr != null && officeIdsStr.length > 0) {
+                    // Parse all office IDs and fetch offices
+                    for (String officeIdStr : officeIdsStr) {
+                        final Long officeId = Long.parseLong(officeIdStr);
+                        final Office office = this.officeRepositoryWrapper.findOneWithNotFoundDetection(officeId);
+                        offices.add(office);
+                    }
+                    // First office becomes primary office (if offices exist)
+                    if (!offices.isEmpty()) {
+                        primaryOffice = offices.iterator().next();
+                        primaryOfficeId = primaryOffice.getId();
+                    }
+                }
+            } else if (command.hasParameter("officeId")) {
+                // Backward compatibility: single officeId
+                primaryOfficeId = command.longValueOfParameterNamed("officeId");
+                primaryOffice = this.officeRepositoryWrapper.findOneWithNotFoundDetection(primaryOfficeId);
+                offices.add(primaryOffice);
+            }
+
+            // Validate that at least one office is provided
+            if (offices.isEmpty() && primaryOffice == null) {
+                throw new PlatformDataIntegrityException("error.msg.staff.office.required",
+                        "At least one office must be assigned to the staff");
+            }
+
+            // Create staff - always use a primary office for now (even though migration makes it nullable)
+            // This ensures backward compatibility and avoids constraint issues until migration runs
+            final Staff staff;
+            if (!offices.isEmpty()) {
+                // Use first office as primary for creation (will be stored in office_id column)
+                if (primaryOffice == null) {
+                    primaryOffice = offices.iterator().next();
+                    primaryOfficeId = primaryOffice.getId();
+                }
+                staff = Staff.fromJson(primaryOffice, command);
+                // Set all offices after creation - this will ensure primary office is in the set
+                staff.setOffices(offices);
+            } else if (primaryOffice != null) {
+                // Backward compatibility: single officeId provided
+                staff = Staff.fromJson(primaryOffice, command);
+                if (!offices.isEmpty()) {
+                    staff.setOffices(offices);
+                }
+            } else {
+                // This shouldn't happen due to validation above, but handle it
+                throw new PlatformDataIntegrityException("error.msg.staff.office.required",
+                        "At least one office must be assigned to the staff");
+            }
+
+            // Final check: ensure office is set before saving (required until migration makes it nullable)
+            // This should not happen if fromJson was called with a non-null primaryOffice, but handle edge cases
+            if (staff.getOffice() == null) {
+                if (primaryOffice != null) {
+                    staff.setOffice(primaryOffice);
+                    primaryOfficeId = primaryOffice.getId();
+                } else {
+                    // If primaryOffice is null, offices should not be empty (validated above)
+                    // Access offices directly since we know it's not empty due to validation
+                    final Office firstOffice = offices.iterator().next();
+                    staff.setOffice(firstOffice);
+                    primaryOfficeId = firstOffice.getId();
+                }
+            }
+            
+            // Ensure primaryOfficeId is set from the office for return value
+            if (primaryOfficeId == null && staff.getOffice() != null) {
+                primaryOfficeId = staff.getOffice().getId();
+            }
 
             this.staffRepository.saveAndFlush(staff);
 
             return new CommandProcessingResultBuilder() //
                     .withCommandId(command.commandId()) //
-                    .withEntityId(staff.getId()).withOfficeId(officeId) //
+                    .withEntityId(staff.getId()).withOfficeId(primaryOfficeId) //
                     .build();
         } catch (final JpaSystemException | DataIntegrityViolationException dve) {
             handleStaffDataIntegrityIssues(command, dve.getMostSpecificCause(), dve);
@@ -85,18 +159,40 @@ public class StaffWritePlatformServiceJpaRepositoryImpl implements StaffWritePla
             final Staff staffForUpdate = this.staffRepository.findById(staffId).orElseThrow(() -> new StaffNotFoundException(staffId));
             final Map<String, Object> changesOnly = staffForUpdate.update(command);
 
-            if (changesOnly.containsKey("officeId")) {
+            // Handle officeIds array (multiple offices)
+            if (changesOnly.containsKey("officeIds")) {
+                final String[] officeIdsStr = (String[]) changesOnly.get("officeIds");
+                if (officeIdsStr != null && officeIdsStr.length > 0) {
+                    final Set<Office> newOffices = new HashSet<>();
+                    // Parse all office IDs and fetch offices
+                    for (String officeIdStr : officeIdsStr) {
+                        final Long officeId = Long.parseLong(officeIdStr);
+                        final Office office = this.officeRepositoryWrapper.findOneWithNotFoundDetection(officeId);
+                        newOffices.add(office);
+                    }
+                    // First office becomes primary office
+                    final Office newPrimaryOffice = newOffices.iterator().next();
+                    staffForUpdate.changeOffice(newPrimaryOffice);
+                    staffForUpdate.setOffices(newOffices);
+                }
+            } else if (changesOnly.containsKey("officeId")) {
+                // Backward compatibility: handle single officeId
                 final Long officeId = (Long) changesOnly.get("officeId");
                 final Office newOffice = this.officeRepositoryWrapper.findOneWithNotFoundDetection(officeId);
                 staffForUpdate.changeOffice(newOffice);
+                // Ensure primary office is in offices set
+                if (!staffForUpdate.getOffices().contains(newOffice)) {
+                    staffForUpdate.addOffice(newOffice);
+                }
             }
 
             if (!changesOnly.isEmpty()) {
                 this.staffRepository.saveAndFlush(staffForUpdate);
             }
 
+            final Long finalOfficeId = staffForUpdate.getOffice() != null ? staffForUpdate.getOffice().getId() : null;
             return new CommandProcessingResultBuilder().withCommandId(command.commandId()).withEntityId(staffId)
-                    .withOfficeId(staffForUpdate.officeId()).with(changesOnly).build();
+                    .withOfficeId(finalOfficeId).with(changesOnly).build();
         } catch (final JpaSystemException | DataIntegrityViolationException dve) {
             handleStaffDataIntegrityIssues(command, dve.getMostSpecificCause(), dve);
             return CommandProcessingResult.empty();

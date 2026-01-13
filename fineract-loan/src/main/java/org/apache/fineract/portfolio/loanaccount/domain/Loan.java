@@ -410,6 +410,18 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
     @Column(name = "last_closed_business_date")
     private LocalDate lastClosedBusinessDate;
 
+    @Setter()
+    @Column(name = "is_simulation", nullable = false)
+    private Boolean isSimulation = false;
+
+    @Setter()
+    @Column(name = "simulated_date")
+    private LocalDate simulatedDate;
+
+    @Setter()
+    @Column(name = "simulation_start_last_closed_business_date")
+    private LocalDate simulationStartLastClosedBusinessDate;
+
     @Column(name = "is_charged_off", nullable = false)
     private boolean chargedOff;
 
@@ -1833,5 +1845,19 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
 
     public boolean hasReAgingTransaction() {
         return getLoanTransactions().stream().anyMatch(t -> t.isReAge() && t.isNotReversed());
+    }
+
+    /**
+     * Validates that the simulated date can only move forward (not backward).
+     *
+     * @param newDate
+     *            the new simulated date to validate
+     * @throws IllegalArgumentException
+     *             if the new date is before the current simulated date
+     */
+    public void validateSimulatedDate(LocalDate newDate) {
+        if (newDate != null && this.simulatedDate != null && DateUtils.isBefore(newDate, this.simulatedDate)) {
+            throw new IllegalArgumentException("Simulated date can only move forward. Current: " + this.simulatedDate + ", New: " + newDate);
+        }
     }
 }

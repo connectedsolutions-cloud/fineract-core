@@ -94,9 +94,13 @@ public class AppUser extends AbstractPersistableCustom<Long> implements Platform
     @Column(name = "is_deleted", nullable = false)
     private boolean deleted;
 
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "m_appuser_office", joinColumns = @JoinColumn(name = "appuser_id"), inverseJoinColumns = @JoinColumn(name = "office_id"))
+    private Set<Office> offices = new HashSet<>();
+
     @ManyToOne
-    @JoinColumn(name = "office_id", nullable = false)
-    private Office office;
+    @JoinColumn(name = "current_office_id", nullable = false)
+    private Office currentOffice;
 
     @ManyToOne
     @JoinColumn(name = "staff_id", nullable = true)
@@ -121,7 +125,7 @@ public class AppUser extends AbstractPersistableCustom<Long> implements Platform
     @Column(name = "cannot_change_password", nullable = true)
     private Boolean cannotChangePassword;
 
-    public static AppUser fromJson(final Office userOffice, final Staff linkedStaff, final Set<Role> allRoles,
+    public static AppUser fromJson(final Set<Office> userOffices, final Staff linkedStaff, final Set<Role> allRoles,
             final Collection<Client> clients, final JsonCommand command) {
 
         final String username = command.stringValueOfParameterNamed("username");
@@ -156,7 +160,13 @@ public class AppUser extends AbstractPersistableCustom<Long> implements Platform
 
         final boolean isSelfServiceUser = command.booleanPrimitiveValueOfParameterNamed(AppUserConstants.IS_SELF_SERVICE_USER);
 
-        return new AppUser(userOffice, user, allRoles, email, firstname, lastname, linkedStaff, passwordNeverExpire, isSelfServiceUser,
+        // Set first office as current office if not specified
+        Office currentOffice = null;
+        if (userOffices != null && !userOffices.isEmpty()) {
+            currentOffice = userOffices.iterator().next();
+        }
+
+        return new AppUser(userOffices, currentOffice, user, allRoles, email, firstname, lastname, linkedStaff, passwordNeverExpire, isSelfServiceUser,
                 clients, cannotChangePassword);
     }
 
@@ -164,12 +174,18 @@ public class AppUser extends AbstractPersistableCustom<Long> implements Platform
         this.accountNonLocked = false;
         this.credentialsNonExpired = false;
         this.roles = new HashSet<>();
+        this.offices = new HashSet<>();
     }
 
-    public AppUser(final Office office, final User user, final Set<Role> roles, final String email, final String firstname,
+    public AppUser(final Set<Office> offices, final Office currentOffice, final User user, final Set<Role> roles, final String email, final String firstname,
             final String lastname, final Staff staff, final boolean passwordNeverExpire, final boolean isSelfServiceUser,
             final Collection<Client> clients, final Boolean cannotChangePassword) {
-        this.office = office;
+        if (offices != null) {
+            this.offices = new HashSet<>(offices);
+        } else {
+            this.offices = new HashSet<>();
+        }
+        this.currentOffice = currentOffice;
         this.email = email.trim();
         this.username = user.getUsername().trim();
         this.firstname = firstname.trim();
@@ -228,7 +244,36 @@ public class AppUser extends AbstractPersistableCustom<Long> implements Platform
     }
 
     public void changeOffice(final Office differentOffice) {
-        this.office = differentOffice;
+        setCurrentOffice(differentOffice);
+    }
+
+    public void setCurrentOffice(final Office office) {
+        if (office != null && !hasAccessToOffice(office)) {
+            throw new NoAuthorizationException("User does not have access to office: " + office.getName());
+        }
+        this.currentOffice = office;
+    }
+
+    public Set<Office> getOffices() {
+        return this.offices;
+    }
+
+    public void setOffices(final Set<Office> offices) {
+        if (offices == null || offices.isEmpty()) {
+            throw new IllegalArgumentException("User must have at least one office assigned");
+        }
+        this.offices = new HashSet<>(offices);
+        // If current office is not in the new set, set first office as current
+        if (this.currentOffice == null || !offices.contains(this.currentOffice)) {
+            this.currentOffice = offices.iterator().next();
+        }
+    }
+
+    public boolean hasAccessToOffice(final Office office) {
+        if (office == null) {
+            return false;
+        }
+        return this.offices.contains(office);
     }
 
     public void changeStaff(final Staff differentStaff) {
@@ -248,10 +293,40 @@ public class AppUser extends AbstractPersistableCustom<Long> implements Platform
 
         // unencoded password provided
         updatePassword(command, platformPasswordEncoder, actualChanges);
+        
+        // Handle officeIds array (multiple offices)
+        final String officeIdsParamName = "officeIds";
+        if (command.hasParameter(officeIdsParamName)) {
+            final String[] newOfficeIdsStr = command.arrayValueOfParameterNamed(officeIdsParamName);
+            final Set<Long> currentOfficeIds = new HashSet<>();
+            for (Office office : this.offices) {
+                currentOfficeIds.add(office.getId());
+            }
+            final Set<Long> newOfficeIdsSet = new HashSet<>();
+            for (String officeIdStr : newOfficeIdsStr) {
+                newOfficeIdsSet.add(Long.parseLong(officeIdStr));
+            }
+            if (!currentOfficeIds.equals(newOfficeIdsSet)) {
+                actualChanges.put(officeIdsParamName, newOfficeIdsStr);
+            }
+        }
+        
+        // Handle currentOfficeId (office switching)
+        final String currentOfficeIdParamName = "currentOfficeId";
+        if (command.hasParameter(currentOfficeIdParamName)) {
+            final Long newCurrentOfficeId = command.longValueOfParameterNamed(currentOfficeIdParamName);
+            if (this.currentOffice == null || !this.currentOffice.getId().equals(newCurrentOfficeId)) {
+                actualChanges.put(currentOfficeIdParamName, newCurrentOfficeId);
+            }
+        }
+        
+        // Backward compatibility: handle single officeId
         final String officeIdParamName = "officeId";
-        if (command.isChangeInLongParameterNamed(officeIdParamName, this.office.getId())) {
+        if (command.hasParameter(officeIdParamName) && !command.hasParameter(officeIdsParamName)) {
             final Long newValue = command.longValueOfParameterNamed(officeIdParamName);
-            actualChanges.put(officeIdParamName, newValue);
+            if (this.currentOffice == null || !this.currentOffice.getId().equals(newValue)) {
+                actualChanges.put(officeIdParamName, newValue);
+            }
         }
 
         final String staffIdParamName = "staffId";
@@ -457,7 +532,11 @@ public class AppUser extends AbstractPersistableCustom<Long> implements Platform
     }
 
     public Office getOffice() {
-        return this.office;
+        return this.currentOffice;
+    }
+
+    public Office getCurrentOffice() {
+        return this.currentOffice;
     }
 
     public Staff getStaff() {

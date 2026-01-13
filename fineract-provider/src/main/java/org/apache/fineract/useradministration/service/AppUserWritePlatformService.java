@@ -30,4 +30,6 @@ public interface AppUserWritePlatformService {
     CommandProcessingResult updateUser(Long userId, JsonCommand command);
 
     CommandProcessingResult deleteUser(Long userId);
+
+    CommandProcessingResult switchOffice(Long userId, JsonCommand command);
 }

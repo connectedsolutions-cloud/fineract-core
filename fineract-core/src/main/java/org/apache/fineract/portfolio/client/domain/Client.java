@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
@@ -130,6 +131,10 @@ public class Client extends AbstractAuditableWithUTCDateTimeCustom<Long> {
     @JoinColumn(name = "staff_id")
     private Staff staff;
 
+    @ManyToOne
+    @JoinColumn(name = "gestor_id")
+    private Staff gestor;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "m_group_client", joinColumns = @JoinColumn(name = "client_id"), inverseJoinColumns = @JoinColumn(name = "group_id"))
     private Set<Group> groups;
@@ -210,6 +215,9 @@ public class Client extends AbstractAuditableWithUTCDateTimeCustom<Long> {
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "client", orphanRemoval = true, fetch = FetchType.LAZY)
     protected Set<ClientIdentifier> identifiers = new HashSet<>();
+
+    @OneToMany(mappedBy = "client", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Set<ClientTagMapping> tagMappings = new HashSet<>();
 
     public static Client instance(final AppUser currentUser, final ClientStatus status, final Office office, final Group clientParentGroup,
             final String accountNo, final String firstname, final String middlename, final String lastname, final String fullname,
@@ -558,6 +566,26 @@ public class Client extends AbstractAuditableWithUTCDateTimeCustom<Long> {
         this.staff = staff;
     }
 
+    public Long gestorId() {
+        Long gestorId = null;
+        if (this.gestor != null) {
+            gestorId = this.gestor.getId();
+        }
+        return gestorId;
+    }
+
+    public void updateGestor(final Staff gestor) {
+        this.gestor = gestor;
+    }
+
+    public void unassignGestor() {
+        this.gestor = null;
+    }
+
+    public void assignGestor(final Staff gestor) {
+        this.gestor = gestor;
+    }
+
     public void close(final AppUser currentUser, final CodeValue closureReason, final LocalDate closureDate) {
         this.closureReason = closureReason;
         this.closureDate = closureDate;
@@ -725,6 +753,54 @@ public class Client extends AbstractAuditableWithUTCDateTimeCustom<Long> {
             setFirstname(null);
             setLastname(null);
             setDisplayName(null);
+        }
+    }
+
+    public Set<ClientTag> getTags() {
+        return this.tagMappings.stream().map(ClientTagMapping::getTag).collect(Collectors.toSet());
+    }
+
+    public void addTag(final ClientTag tag) {
+        if (tag != null && tag.isActive()) {
+            // Check if mapping already exists
+            boolean exists = this.tagMappings.stream()
+                    .anyMatch(mapping -> mapping.getTag().getId().equals(tag.getId()));
+            if (!exists) {
+                this.tagMappings.add(ClientTagMapping.instance(this, tag));
+            }
+        }
+    }
+
+    public void removeTag(final ClientTag tag) {
+        if (tag != null) {
+            this.tagMappings.removeIf(mapping -> mapping.getTag().getId().equals(tag.getId()));
+        }
+    }
+
+    public void setTags(final Set<ClientTag> tags) {
+        final Set<ClientTag> tagsToSet = tags != null ? tags : new HashSet<>();
+        
+        // Get the set of tag IDs we want to keep
+        final Set<Long> desiredTagIds = tagsToSet.stream()
+                .filter(tag -> tag != null && tag.isActive())
+                .map(ClientTag::getId)
+                .collect(Collectors.toSet());
+        
+        // Remove mappings for tags that are no longer desired
+        this.tagMappings.removeIf(mapping -> {
+            final Long tagId = mapping.getTag().getId();
+            return !desiredTagIds.contains(tagId);
+        });
+        
+        // Add mappings for tags that don't already exist
+        for (final ClientTag tag : tagsToSet) {
+            if (tag != null && tag.isActive()) {
+                final boolean exists = this.tagMappings.stream()
+                        .anyMatch(mapping -> mapping.getTag().getId().equals(tag.getId()));
+                if (!exists) {
+                    this.tagMappings.add(ClientTagMapping.instance(this, tag));
+                }
+            }
         }
     }
 }

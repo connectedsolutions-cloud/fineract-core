@@ -35,6 +35,7 @@ public class ResetContextTasklet implements Tasklet {
     @Override
     public RepeatStatus execute(@NonNull StepContribution contribution, @NonNull ChunkContext chunkContext) throws Exception {
         ThreadLocalContextUtil.setActionContext(ActionContext.DEFAULT);
+        ThreadLocalContextUtil.clearLoanSimulatedDate();
         return RepeatStatus.FINISHED;
     }
 }

@@ -135,7 +135,7 @@ public class LoanChargeService {
 
     public void makeChargePayment(final Loan loan, final Long chargeId, final LoanTransaction paymentTransaction,
             final Integer installmentNumber) {
-        loanChargeValidator.validateChargePaymentNotInFuture(paymentTransaction);
+        loanChargeValidator.validateChargePaymentNotInFuture(paymentTransaction, loan);
         LoanCharge charge = null;
         for (final LoanCharge loanCharge : loan.getCharges()) {
             if (loanCharge.isActive() && chargeId.equals(loanCharge.getId())) {

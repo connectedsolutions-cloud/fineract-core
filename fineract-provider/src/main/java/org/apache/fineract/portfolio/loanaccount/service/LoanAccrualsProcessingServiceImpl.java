@@ -324,17 +324,26 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
 
     private void addAccruals(@NonNull final Loan loan, @NonNull LocalDate tillDate, final boolean periodic, final boolean isFinal,
             final boolean addJournal, final boolean chargeOnDueDate) {
+        log.info("ENTERING addAccruals for loan [{}]: tillDate={}, periodic={}, isFinal={}, addJournal={}, chargeOnDueDate={}", 
+            loan.getId(), tillDate, periodic, isFinal, addJournal, chargeOnDueDate);
+        log.info("Loan [{}] state: isOpen={}, isNpa={}, isChargedOff={}, isPeriodicAccrualAccountingEnabled={}, isContractTermination={}", 
+            loan.getId(), loan.isOpen(), loan.isNpa(), loan.isChargedOff(), 
+            loan.isPeriodicAccrualAccountingEnabledOnLoanProduct(), loan.isContractTermination());
+        
         if ((!isFinal && !loan.isOpen()) || loan.isNpa() || loan.isChargedOff() || !loan.isPeriodicAccrualAccountingEnabledOnLoanProduct()
                 || loan.isContractTermination()) {
+            log.info("EXITING addAccruals early for loan [{}]: loan state check failed", loan.getId());
             return;
         }
 
         final LoanInterestRecalculationDetails recalculationDetails = loan.getLoanInterestRecalculationDetails();
         if (recalculationDetails != null && recalculationDetails.isCompoundingToBePostedAsTransaction()) {
+            log.info("EXITING addAccruals early for loan [{}]: compounding to be posted as transaction", loan.getId());
             return;
         }
 
         final LocalDate lastDueDate = loan.getLastLoanRepaymentScheduleInstallment().getDueDate();
+        log.info("Loan [{}] lastDueDate={}, about to reverse transactions after lastDueDate", loan.getId(), lastDueDate);
         reverseTransactionsAfter(loan, ACCRUAL_TYPES, lastDueDate, addJournal);
         ensureAccrualTransactionMappings(loan, chargeOnDueDate);
         if (DateUtils.isAfter(tillDate, lastDueDate)) {
@@ -348,17 +357,26 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
                 ? (progressiveAccrual ? (DateUtils.isBefore(lastDueDate, businessDate) ? lastDueDate : businessDate)
                         : getFinalAccrualTransactionDate(loan))
                 : tillDate;
+        log.info("Accrual processing for loan [{}]: progressiveAccrual={}, accruedTill={}, tillDate={}, accrualDate={}, businessDate={}, isFinal={}", 
+            loan.getId(), progressiveAccrual, accruedTill, tillDate, accrualDate, businessDate, isFinal);
         if (progressiveAccrual && accruedTill != null && !DateUtils.isAfter(tillDate, accruedTill)) {
             if (isFinal) {
                 reverseTransactionsAfter(loan, ACCRUAL_TYPES, accrualDate, addJournal);
-            } else if (loanTransactionRepository.existsNonReversedByLoanAndTypesAndOnOrAfterDate(loan, ACCRUAL_TYPES, accrualDate)
-                    && hasNoActiveChargeOnDate(loan, accrualDate)) {
-                return;
+            } else {
+                boolean transactionExists = loanTransactionRepository.existsNonReversedByLoanAndTypesAndOnOrAfterDate(loan, ACCRUAL_TYPES, accrualDate);
+                boolean hasNoActiveCharge = hasNoActiveChargeOnDate(loan, accrualDate);
+                if (transactionExists && hasNoActiveCharge) {
+                    log.info("Skipping accrual processing for loan [{}]: progressiveAccrual=true, accruedTill={}, tillDate={}, accrualDate={}, transactionExists={}, hasNoActiveCharge={}", 
+                        loan.getId(), accruedTill, tillDate, accrualDate, transactionExists, hasNoActiveCharge);
+                    return;
+                }
             }
         }
 
         final AccrualPeriodsData accrualPeriods = calculateAccrualAmounts(loan, tillDate, periodic, isFinal, chargeOnDueDate);
         final boolean mergeTransactions = isFinal || progressiveAccrual;
+        log.info("Accrual transaction creation for loan [{}]: mergeTransactions={} (isFinal={}, progressiveAccrual={}), accrualPeriods.count={}", 
+            loan.getId(), mergeTransactions, isFinal, progressiveAccrual, accrualPeriods.getPeriods().size());
         final MonetaryCurrency currency = loan.getLoanProductRelatedDetail().getCurrency();
         List<LoanTransaction> accrualTransactions = new ArrayList<>();
         Money totalInterestPortion = null;
@@ -409,15 +427,21 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
                     null, null, false);
         }
         if (accrualTransactions.isEmpty()) {
+            log.info("EXITING addAccruals early for loan [{}]: accrualTransactions list is empty", loan.getId());
             return;
         }
 
+        log.info("Loan [{}] has {} accrual transactions to save, accruedTill will be set to: {}", 
+            loan.getId(), accrualTransactions.size(), isFinal ? accrualDate : tillDate);
         if (!isFinal || progressiveAccrual) {
             loan.setAccruedTill(isFinal ? accrualDate : tillDate);
         }
 
+        log.info("Saving {} accrual transactions for loan [{}] on date {}", accrualTransactions.size(), loan.getId(), tillDate);
         accrualTransactions = loanTransactionRepository.saveAll(accrualTransactions);
         loanTransactionRepository.flush();
+        log.info("COMPLETED addAccruals for loan [{}]: Saved {} accrual transactions on date {}, new accruedTill={}", 
+            loan.getId(), accrualTransactions.size(), tillDate, loan.getAccruedTill());
 
         if (addJournal) {
             for (LoanTransaction accrualTransaction : accrualTransactions) {

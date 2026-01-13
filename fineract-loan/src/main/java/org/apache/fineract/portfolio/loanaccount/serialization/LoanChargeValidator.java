@@ -97,8 +97,8 @@ public final class LoanChargeValidator {
         }
     }
 
-    public void validateChargePaymentNotInFuture(final LoanTransaction paymentTransaction) {
-        if (DateUtils.isDateInTheFuture(paymentTransaction.getTransactionDate())) {
+    public void validateChargePaymentNotInFuture(final LoanTransaction paymentTransaction, final Loan loan) {
+        if (DateUtils.isDateInTheFutureForLoan(paymentTransaction.getTransactionDate(), loan.getIsSimulation(), loan.getSimulatedDate())) {
             final String errorMessage = "The date on which a loan charge paid cannot be in the future.";
             throw new InvalidLoanStateTransitionException("charge.payment", "cannot.be.a.future.date", errorMessage,
                     paymentTransaction.getTransactionDate());

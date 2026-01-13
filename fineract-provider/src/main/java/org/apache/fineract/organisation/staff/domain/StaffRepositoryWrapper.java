@@ -18,6 +18,9 @@
  */
 package org.apache.fineract.organisation.staff.domain;
 
+import java.util.HashSet;
+import java.util.Set;
+import org.apache.fineract.organisation.office.domain.Office;
 import org.apache.fineract.organisation.staff.exception.StaffNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -55,6 +58,39 @@ public class StaffRepositoryWrapper {
         if (!hierarchy.startsWith(staffhierarchy)) {
             throw new StaffNotFoundException(staffId);
         }
+        return staff;
+    }
+
+    /**
+     * Find staff by checking if they have any office in common with the provided set of office IDs.
+     * This method checks both the primary office and the offices set (multi-office support).
+     *
+     * @param staffId the staff ID to find
+     * @param officeIds the set of office IDs to check for overlap
+     * @return the Staff entity if found and has at least one matching office
+     * @throws StaffNotFoundException if staff not found or has no matching offices
+     */
+    public Staff findByAnyOfficeWithNotFoundDetection(final Long staffId, final Set<Long> officeIds) {
+        final Staff staff = this.repository.findById(staffId)
+                .orElseThrow(() -> new StaffNotFoundException(staffId));
+
+        // Collect all staff office IDs (primary + offices set)
+        final Set<Long> staffOfficeIds = new HashSet<>();
+        if (staff.getOffice() != null) {
+            staffOfficeIds.add(staff.getOffice().getId());
+        }
+        for (final Office office : staff.getOffices()) {
+            staffOfficeIds.add(office.getId());
+        }
+
+        // Check for any overlap
+        final boolean hasMatchingOffice = officeIds.stream()
+                .anyMatch(staffOfficeIds::contains);
+
+        if (!hasMatchingOffice) {
+            throw new StaffNotFoundException(staffId);
+        }
+
         return staff;
     }
 

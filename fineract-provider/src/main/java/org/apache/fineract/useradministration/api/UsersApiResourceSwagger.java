@@ -264,4 +264,28 @@ final class UsersApiResourceSwagger {
         public DeleteUsersUserIdResponseChanges changes;
     }
 
+    @Schema(description = "SwitchOfficeUsersUserIdRequest")
+    public static final class SwitchOfficeUsersUserIdRequest {
+
+        private SwitchOfficeUsersUserIdRequest() {
+
+        }
+
+        @Schema(example = "1")
+        public Long officeId;
+    }
+
+    @Schema(description = "SwitchOfficeUsersUserIdResponse")
+    public static final class SwitchOfficeUsersUserIdResponse {
+
+        private SwitchOfficeUsersUserIdResponse() {
+
+        }
+
+        @Schema(example = "1")
+        public Long officeId;
+        @Schema(example = "11")
+        public Long resourceId;
+    }
+
 }

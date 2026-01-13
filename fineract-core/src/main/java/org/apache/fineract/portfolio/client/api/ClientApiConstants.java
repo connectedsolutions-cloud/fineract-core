@@ -92,6 +92,7 @@ public class ClientApiConstants {
     public static final String activationDateParamName = "activationDate";
     public static final String reactivationDateParamName = "reactivationDate";
     public static final String staffIdParamName = "staffId";
+    public static final String gestorIdParamName = "gestorId";
     public static final String isStaffParamName = "isStaff";
     public static final String closureDateParamName = "closureDate";
     public static final String closureReasonIdParamName = "closureReasonId";
@@ -114,6 +115,7 @@ public class ClientApiConstants {
     public static final String clientClassificationParamName = "clientClassification";
     public static final String legalFormIdParamName = "legalFormId";
     public static final String legalFormParamName = "legalForm";
+    public static final String tagIdsParamName = "tagIds";
     // request parameters for payment details
     public static final String paymentTypeIdParamName = "paymentTypeId";
     public static final String transactionAccountNumberParamName = "accountNumber";
@@ -136,6 +138,7 @@ public class ClientApiConstants {
     public static final String displayNameParamName = "displayName";
     public static final String officeNameParamName = "officeName";
     public static final String staffNameParamName = "staffName";
+    public static final String gestorNameParamName = "gestorName";
     public static final String trasnferOfficeNameParamName = "transferOfficeName";
     public static final String transferToOfficeNameParamName = "transferToOfficeName";
     public static final String transferToOfficeIdParamName = "transferToOfficeId";
@@ -174,6 +177,8 @@ public class ClientApiConstants {
 
     // associations related part of response
     public static final String groupsParamName = "groups";
+    public static final String tagsParamName = "tags";
+    public static final String tagOptionsParamName = "tagOptions";
 
     // template related part of response
     public static final String officeOptionsParamName = "officeOptions";
@@ -195,7 +200,7 @@ public class ClientApiConstants {
             externalIdParamName, statusParamName, activeParamName, activationDateParamName, firstnameParamName, middlenameParamName,
             lastnameParamName, fullnameParamName, displayNameParamName, mobileNoParamName, emailAddressParamName, officeIdParamName,
             officeNameParamName, transferToOfficeIdParamName, transferToOfficeNameParamName, hierarchyParamName, imageIdParamName,
-            imagePresentParamName, staffIdParamName, staffNameParamName, timelineParamName, groupsParamName, officeOptionsParamName,
+            imagePresentParamName, staffIdParamName, staffNameParamName, gestorIdParamName, gestorNameParamName, timelineParamName, groupsParamName, tagsParamName, tagOptionsParamName, officeOptionsParamName,
             staffOptionsParamName, dateOfBirthParamName, genderParamName, clientTypeParamName, clientClassificationParamName,
             legalFormParamName, clientNonPersonDetailsParamName, isStaffParamName, legalFormParamName));
 

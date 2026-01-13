@@ -204,6 +204,7 @@ import org.apache.fineract.portfolio.loanaccount.serialization.LoanChargeValidat
 import org.apache.fineract.portfolio.loanaccount.serialization.LoanDownPaymentTransactionValidator;
 import org.apache.fineract.portfolio.loanaccount.serialization.LoanOfficerValidator;
 import org.apache.fineract.portfolio.loanaccount.serialization.LoanTransactionValidator;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanSimulationValidator;
 import org.apache.fineract.portfolio.loanaccount.serialization.LoanUpdateCommandFromApiJsonDeserializer;
 import org.apache.fineract.portfolio.loanaccount.service.adjustment.LoanAdjustmentParameter;
 import org.apache.fineract.portfolio.loanaccount.service.adjustment.LoanAdjustmentService;
@@ -277,6 +278,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     private final LoanDisbursementService loanDisbursementService;
     private final LoanScheduleService loanScheduleService;
     private final LoanChargeValidator loanChargeValidator;
+    private final LoanSimulationValidator loanSimulationValidator;
     private final LoanOfficerService loanOfficerService;
     private final ReprocessLoanTransactionsService reprocessLoanTransactionsService;
     private final LoanAccountService loanAccountService;
@@ -3641,5 +3643,64 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         if (latestRepaymentDate != null) {
             loan.setExpectedMaturityDate(latestRepaymentDate);
         }
+    }
+
+    @Override
+    @Transactional
+    public CommandProcessingResult updateLoanSimulation(final JsonCommand command) {
+        final Long loanId = command.getLoanId();
+        final Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId, true);
+
+        final Map<String, Object> changes = new HashMap<>();
+
+        final Boolean isSimulation = command.booleanObjectValueOfParameterNamed("isSimulation");
+        final LocalDate simulatedDate = command.localDateValueOfParameterNamed("simulatedDate");
+
+        // Validate simulation fields
+        this.loanSimulationValidator.validateSimulationFields(loanId, isSimulation, simulatedDate);
+
+        // When enabling simulation for the first time, store baseline
+        if (Boolean.TRUE.equals(isSimulation) && loan.getSimulationStartLastClosedBusinessDate() == null) {
+            final LocalDate baselineDate = loan.getLastClosedBusinessDate() != null ? loan.getLastClosedBusinessDate()
+                    : loan.getActualDisbursementDate();
+            loan.setSimulationStartLastClosedBusinessDate(baselineDate);
+            changes.put("simulationStartLastClosedBusinessDate", baselineDate);
+        }
+
+        // Update isSimulation
+        if (command.isChangeInBooleanParameterNamed("isSimulation", loan.getIsSimulation())) {
+            loan.setIsSimulation(isSimulation);
+            changes.put("isSimulation", isSimulation);
+        }
+
+        // Update simulatedDate
+        if (simulatedDate != null && !simulatedDate.equals(loan.getSimulatedDate())) {
+            loan.validateSimulatedDate(simulatedDate);
+            loan.setSimulatedDate(simulatedDate);
+            changes.put("simulatedDate", simulatedDate);
+        }
+
+        // When disabling simulation, clear fields
+        if (Boolean.FALSE.equals(isSimulation)) {
+            loan.setSimulatedDate(null);
+            loan.setSimulationStartLastClosedBusinessDate(null);
+            changes.put("simulatedDate", null);
+            changes.put("simulationStartLastClosedBusinessDate", null);
+        }
+
+        if (!changes.isEmpty()) {
+            this.loanRepositoryWrapper.saveAndFlush(loan);
+        }
+
+        return new CommandProcessingResultBuilder() //
+                .withCommandId(command.commandId()) //
+                .withEntityId(loanId) //
+                .withEntityExternalId(loan.getExternalId()) //
+                .withOfficeId(loan.getOfficeId()) //
+                .withClientId(loan.getClientId()) //
+                .withGroupId(loan.getGroupId()) //
+                .withLoanId(loan.getId()) //
+                .with(changes) //
+                .build();
     }
 }

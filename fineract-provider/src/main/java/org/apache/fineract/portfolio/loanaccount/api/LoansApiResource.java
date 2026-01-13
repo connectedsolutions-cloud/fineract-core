@@ -256,7 +256,7 @@ public class LoansApiResource {
             "interestRateFrequencyTypeOptions", "fundOptions", "repaymentStrategyOptions", "chargeOptions", "loanOfficerOptions",
             "loanPurposeOptions", "loanCollateralOptions", "chargeTemplate", "calendarOptions", "syncDisbursementWithMeeting",
             "loanCounter", "loanProductCounter", "notes", "accountLinkingOptions", "linkedAccount", "interestRateDifferential",
-            "isFloatingInterestRate", "interestRatesPeriods", "lastClosedBusinessDate", LoanApiConstants.canUseForTopup,
+            "isFloatingInterestRate", "interestRatesPeriods", "lastClosedBusinessDate", "isSimulation", "simulatedDate", "simulationStartLastClosedBusinessDate", LoanApiConstants.canUseForTopup,
             LoanApiConstants.isTopup, LoanApiConstants.loanIdToClose, LoanApiConstants.topupAmount,
             LoanApiConstants.clientActiveLoanOptions, LoanApiConstants.datatables, LoanProductConstants.RATES_PARAM_NAME,
             LoanApiConstants.MULTIDISBURSE_DETAILS_PARAMNAME, LoanApiConstants.EMI_AMOUNT_VARIATIONS_PARAMNAME,
@@ -1293,6 +1293,8 @@ public class LoansApiResource {
         Long resolvedLoanId = loanId == null ? loanReadPlatformService.getResolvedLoanId(loanExternalId) : loanId;
         if (CommandParameterUtil.is(commandParam, LoanApiConstants.MARK_AS_FRAUD_COMMAND)) {
             commandRequest = builder.markAsFraud(resolvedLoanId).build();
+        } else if (CommandParameterUtil.is(commandParam, "updateSimulation")) {
+            commandRequest = builder.updateLoanSimulation(resolvedLoanId).build();
         } else {
             commandRequest = builder.updateLoanApplication(resolvedLoanId).build();
         }

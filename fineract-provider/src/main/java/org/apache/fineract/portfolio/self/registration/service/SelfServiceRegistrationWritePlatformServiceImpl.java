@@ -49,6 +49,7 @@ import org.apache.fineract.infrastructure.sms.domain.SmsMessage;
 import org.apache.fineract.infrastructure.sms.domain.SmsMessageRepository;
 import org.apache.fineract.infrastructure.sms.domain.SmsMessageStatusType;
 import org.apache.fineract.infrastructure.sms.scheduler.SmsMessageScheduledJobService;
+import org.apache.fineract.organisation.office.domain.Office;
 import org.apache.fineract.organisation.staff.domain.Staff;
 import org.apache.fineract.portfolio.client.domain.Client;
 import org.apache.fineract.portfolio.client.domain.ClientRepositoryWrapper;
@@ -262,7 +263,9 @@ public class SelfServiceRegistrationWritePlatformServiceImpl implements SelfServ
             }
             List<Client> clients = new ArrayList<>(Arrays.asList(client));
             User user = new User(selfServiceRegistration.getUsername(), selfServiceRegistration.getPassword(), authorities);
-            AppUser appUser = new AppUser(client.getOffice(), user, allRoles, selfServiceRegistration.getEmail(), client.getFirstname(),
+            // Create Set<Office> with the client's office and use it as both offices and currentOffice
+            Set<Office> offices = new HashSet<>(Arrays.asList(client.getOffice()));
+            AppUser appUser = new AppUser(offices, client.getOffice(), user, allRoles, selfServiceRegistration.getEmail(), client.getFirstname(),
                     client.getLastname(), null, passwordNeverExpire, isSelfServiceUser, clients, null);
             this.userDomainService.create(appUser, true);
             return appUser;

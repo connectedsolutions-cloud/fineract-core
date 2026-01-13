@@ -226,4 +226,13 @@
     <include file="parts/0205_add_read_familymembers_permission.xml" relativeToChangelogFile="true" />
     <include file="parts/0206_transaction_summary_with_asset_owner_classification_name_bug_fix.xml" relativeToChangelogFile="true" />
     <include file="parts/0207_add_acc_level_columns_to_gl_account.xml" relativeToChangelogFile="true" />
+    <include file="parts/0208_add_loan_simulation_fields.xml" relativeToChangelogFile="true" />
+    <include file="parts/0209_daily_journal_ledger_report.xml" relativeToChangelogFile="true" />
+    <include file="parts/0210_add_accounting_visibility_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0211_add_admin_visibility_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0212_add_reports_visibility_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0213_add_centers_visibility_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0214_activate_cob_jobs_and_schedule.xml" relativeToChangelogFile="true" />
+    <include file="parts/0218_add_staff_multi_office_support.xml" relativeToChangelogFile="true" />
+    <include file="parts/0219_client_tags_initial.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

@@ -21,6 +21,7 @@ package org.apache.fineract.useradministration.service;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -28,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.fineract.infrastructure.core.domain.JdbcSupport;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.organisation.office.data.OfficeData;
+import org.apache.fineract.organisation.office.domain.Office;
 import org.apache.fineract.organisation.office.service.OfficeReadPlatformService;
 import org.apache.fineract.organisation.staff.data.StaffData;
 import org.apache.fineract.organisation.staff.service.StaffReadPlatformService;
@@ -124,9 +126,22 @@ public class AppUserReadPlatformServiceImpl implements AppUserReadPlatformServic
             linkedStaff = null;
         }
 
-        AppUserData retUser = AppUserData.instance(user.getId(), user.getUsername(), user.getEmail(), user.getOffice().getId(),
-                user.getOffice().getName(), user.getFirstname(), user.getLastname(), availableRoles, null, selectedUserRoles, linkedStaff,
+        // Collect all office IDs
+        final List<Long> officeIds = new ArrayList<>();
+        for (final Office office : user.getOffices()) {
+            officeIds.add(office.getId());
+        }
+
+        // Get allowed offices for dropdown (needed for frontend to display office names)
+        final Collection<OfficeData> allowedOffices = this.officeReadPlatformService.retrieveAllOfficesForDropdown();
+
+        AppUserData retUser = AppUserData.instance(user.getId(), user.getUsername(), user.getEmail(),
+                user.getCurrentOffice().getId(), user.getCurrentOffice().getName(), user.getCurrentOffice().getId(), officeIds,
+                user.getFirstname(), user.getLastname(), availableRoles, null, selectedUserRoles, linkedStaff,
                 user.getPasswordNeverExpires(), user.isSelfServiceUser());
+
+        // Set allowed offices for frontend
+        retUser = AppUserData.template(retUser, allowedOffices);
 
         if (retUser.isSelfServiceUser()) {
             Set<ClientData> clients = new HashSet<>();
@@ -161,6 +176,7 @@ public class AppUserReadPlatformServiceImpl implements AppUserReadPlatformServic
             final String email = rs.getString("email");
             final Long officeId = JdbcSupport.getLong(rs, "officeId");
             final String officeName = rs.getString("officeName");
+            final Long currentOfficeId = JdbcSupport.getLong(rs, "currentOfficeId");
             final Long staffId = JdbcSupport.getLong(rs, "staffId");
             final Boolean passwordNeverExpire = rs.getBoolean("passwordNeverExpires");
             final Boolean isSelfServiceUser = rs.getBoolean("isSelfServiceUser");
@@ -172,14 +188,15 @@ public class AppUserReadPlatformServiceImpl implements AppUserReadPlatformServic
             } else {
                 linkedStaff = null;
             }
-            return AppUserData.instance(id, username, email, officeId, officeName, firstname, lastname, null, null, selectedRoles,
-                    linkedStaff, passwordNeverExpire, isSelfServiceUser);
+            // Offices list is not available in this mapper, will be null for list queries
+            return AppUserData.instance(id, username, email, officeId, officeName, currentOfficeId != null ? currentOfficeId : officeId,
+                    null, firstname, lastname, null, null, selectedRoles, linkedStaff, passwordNeverExpire, isSelfServiceUser);
         }
 
         public String schema() {
             return " u.id as id, u.username as username, u.firstname as firstname, u.lastname as lastname, u.email as email, u.password_never_expires as passwordNeverExpires, "
-                    + " u.office_id as officeId, o.name as officeName, u.staff_id as staffId, u.is_self_service_user as isSelfServiceUser from m_appuser u "
-                    + " join m_office o on o.id = u.office_id where o.hierarchy like ? and u.is_deleted=false order by u.username";
+                    + " u.current_office_id as officeId, o.name as officeName, u.current_office_id as currentOfficeId, u.staff_id as staffId, u.is_self_service_user as isSelfServiceUser from m_appuser u "
+                    + " join m_office o on o.id = u.current_office_id where o.hierarchy like ? and u.is_deleted=false order by u.username";
         }
 
     }

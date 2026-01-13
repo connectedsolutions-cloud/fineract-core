@@ -48,7 +48,7 @@ public class ProvisioningCategory extends AbstractPersistableCustom<Long> {
 
     public static ProvisioningCategory fromJson(JsonCommand jsonCommand) {
         final String categoryName = jsonCommand.stringValueOfParameterNamed("categoryname");
-        final String description = jsonCommand.stringValueOfParameterNamed("description");
+        final String description = jsonCommand.stringValueOfParameterNamed("categorydescription");
         return new ProvisioningCategory(categoryName, description);
     }
 

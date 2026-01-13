@@ -108,7 +108,7 @@ public class LoanDownPaymentHandlerServiceImpl implements LoanDownPaymentHandler
 
         final LocalDate loanTransactionDate = loanRefundService.extractTransactionDate(loan, loanTransaction);
 
-        if (DateUtils.isDateInTheFuture(loanTransactionDate)) {
+        if (DateUtils.isDateInTheFutureForLoan(loanTransactionDate, loan.getIsSimulation(), loan.getSimulatedDate())) {
             final String errorMessage = "The transaction date cannot be in the future.";
             throw new InvalidLoanStateTransitionException("transaction", "cannot.be.a.future.date", errorMessage, loanTransactionDate);
         }

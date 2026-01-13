@@ -19,6 +19,7 @@
 package org.apache.fineract.organisation.staff.api;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.List;
 
 /**
  * Created by sanyam on 19/8/17.
@@ -50,6 +51,10 @@ final class StaffApiResourceSwagger {
 
         }
 
+        @Schema(example = "1")
+        public Long officeId; // Backward compatibility: single office
+        @Schema(example = "[1, 2, 3]")
+        public List<Long> officeIds; // Multiple offices support
         @Schema(example = "false")
         public Boolean isLoanOfficer;
         @Schema(example = "17Hbb")
@@ -68,6 +73,10 @@ final class StaffApiResourceSwagger {
 
             private PutStaffResponseChanges() {}
 
+            @Schema(example = "1")
+            public Long officeId; // Backward compatibility: single office
+            @Schema(example = "[1, 2, 3]")
+            public List<Long> officeIds; // Multiple offices support
             @Schema(example = "false")
             public Boolean isLoanOfficer;
             @Schema(example = "17Hbb")

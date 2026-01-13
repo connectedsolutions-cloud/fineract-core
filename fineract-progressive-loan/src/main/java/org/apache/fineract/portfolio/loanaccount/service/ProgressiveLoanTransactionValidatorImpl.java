@@ -122,7 +122,7 @@ public class ProgressiveLoanTransactionValidatorImpl implements ProgressiveLoanT
             }
 
             // Validate transaction date is not in the future
-            if (transactionDate != null && transactionDate.isAfter(DateUtils.getBusinessLocalDate())) {
+            if (transactionDate != null && DateUtils.isDateInTheFutureForLoan(transactionDate, loan.getIsSimulation(), loan.getSimulatedDate())) {
                 baseDataValidator.reset().parameter("transactionDate").failWithCode("cannot.be.in.the.future",
                         "Transaction date cannot be in the future");
             }
@@ -203,7 +203,7 @@ public class ProgressiveLoanTransactionValidatorImpl implements ProgressiveLoanT
             }
 
             // Validate transaction date is not in the future
-            if (transactionDate != null && transactionDate.isAfter(DateUtils.getBusinessLocalDate())) {
+            if (transactionDate != null && DateUtils.isDateInTheFutureForLoan(transactionDate, loan.getIsSimulation(), loan.getSimulatedDate())) {
                 baseDataValidator.reset().parameter("transactionDate").failWithCode("cannot.be.in.the.future",
                         "Transaction date cannot be in the future");
             }
@@ -376,7 +376,7 @@ public class ProgressiveLoanTransactionValidatorImpl implements ProgressiveLoanT
             }
 
             // Validate transaction date is not in the future
-            if (transactionDate != null && transactionDate.isAfter(DateUtils.getBusinessLocalDate())) {
+            if (transactionDate != null && DateUtils.isDateInTheFutureForLoan(transactionDate, loan.getIsSimulation(), loan.getSimulatedDate())) {
                 baseDataValidator.reset().parameter("transactionDate").failWithCode("cannot.be.in.the.future",
                         "Transaction date cannot be in the future");
             }

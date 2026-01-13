@@ -233,7 +233,31 @@ public final class DateUtils {
     // Date
 
     public static LocalDate getBusinessLocalDate() {
+        // Check for loan-specific simulated date first
+        LocalDate loanSimulatedDate = ThreadLocalContextUtil.getLoanSimulatedDate();
+        if (loanSimulatedDate != null) {
+            return loanSimulatedDate;
+        }
         return ThreadLocalContextUtil.getBusinessDate();
+    }
+
+    /**
+     * Checks if a date is in the future for a specific loan. For simulated loans, checks against simulated_date,
+     * otherwise checks against global business date.
+     *
+     * @param date
+     *            the date to check
+     * @param isSimulation
+     *            whether the loan is in simulation mode
+     * @param simulatedDate
+     *            the simulated date for the loan (if in simulation mode)
+     * @return true if date is after the business date (or simulated_date if loan is in simulation mode)
+     */
+    public static boolean isDateInTheFutureForLoan(LocalDate date, Boolean isSimulation, LocalDate simulatedDate) {
+        if (Boolean.TRUE.equals(isSimulation) && simulatedDate != null) {
+            return isAfter(date, simulatedDate);
+        }
+        return isDateInTheFuture(date);
     }
 
     public static boolean isEqualTenantDate(LocalDate date) {

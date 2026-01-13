@@ -286,6 +286,14 @@ public class CommandWrapperBuilder {
         return this;
     }
 
+    public CommandWrapperBuilder switchUserOffice(final Long userId) {
+        this.actionName = "SWITCHOFFICE";
+        this.entityName = "USER";
+        this.entityId = userId;
+        this.href = "/users/" + userId + "/switchOffice";
+        return this;
+    }
+
     public CommandWrapperBuilder updateUser(final Long userId) {
         this.actionName = "UPDATE";
         this.entityName = "USER";
@@ -1041,6 +1049,15 @@ public class CommandWrapperBuilder {
         this.entityId = loanId;
         this.loanId = loanId;
         this.href = "/loans/" + loanId;
+        return this;
+    }
+
+    public CommandWrapperBuilder updateLoanSimulation(final Long loanId) {
+        this.actionName = "UPDATE_SIMULATION";
+        this.entityName = "LOAN";
+        this.entityId = loanId;
+        this.loanId = loanId;
+        this.href = "/loans/" + loanId + "?command=updateSimulation";
         return this;
     }
 
@@ -2244,6 +2261,15 @@ public class CommandWrapperBuilder {
         return this;
     }
 
+    public CommandWrapperBuilder unassignClientGestor(final Long clientId) {
+        this.actionName = "UNASSIGNGESTOR";
+        this.entityName = "CLIENT";
+        this.entityId = clientId;
+        this.clientId = clientId;
+        this.href = "/clients/" + clientId + "?command=unassignGestor";
+        return this;
+    }
+
     public CommandWrapperBuilder createTemplate() {
         this.actionName = "CREATE";
         this.entityName = "TEMPLATE";
@@ -2274,6 +2300,15 @@ public class CommandWrapperBuilder {
         this.entityId = clientId;
         this.clientId = clientId;
         this.href = "/clients/" + clientId + "?command=assignStaff";
+        return this;
+    }
+
+    public CommandWrapperBuilder assignClientGestor(final Long clientId) {
+        this.actionName = "ASSIGNGESTOR";
+        this.entityName = "CLIENT";
+        this.entityId = clientId;
+        this.clientId = clientId;
+        this.href = "/clients/" + clientId + "?command=assignGestor";
         return this;
     }
 

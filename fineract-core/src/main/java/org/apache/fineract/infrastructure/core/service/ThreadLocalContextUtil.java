@@ -38,6 +38,7 @@ public final class ThreadLocalContextUtil {
     private static final ThreadLocal<String> authTokenContext = new ThreadLocal<>();
     private static final ThreadLocal<HashMap<BusinessDateType, LocalDate>> businessDateContext = new ThreadLocal<>();
     private static final ThreadLocal<ActionContext> actionContext = new ThreadLocal<>();
+    private static final ThreadLocal<LocalDate> loanSimulatedDateContext = new ThreadLocal<>();
 
     private ThreadLocalContextUtil() {}
 
@@ -118,12 +119,25 @@ public final class ThreadLocalContextUtil {
         setActionContext(fineractContext.getActionContext());
     }
 
+    public static void setLoanSimulatedDate(LocalDate simulatedDate) {
+        loanSimulatedDateContext.set(simulatedDate);
+    }
+
+    public static LocalDate getLoanSimulatedDate() {
+        return loanSimulatedDateContext.get();
+    }
+
+    public static void clearLoanSimulatedDate() {
+        loanSimulatedDateContext.remove();
+    }
+
     public static void reset() {
         contextHolder.remove();
         tenantContext.remove();
         authTokenContext.remove();
         businessDateContext.remove();
         actionContext.remove();
+        loanSimulatedDateContext.remove();
     }
 
 }

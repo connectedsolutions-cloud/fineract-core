@@ -21,6 +21,7 @@ package org.apache.fineract.organisation.staff.data;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.io.Serial;
 import java.io.Serializable;
+import java.util.List;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldNameConstants;
@@ -34,7 +35,9 @@ public class StaffRequest implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @Schema(example = "1")
-    private Long officeId;
+    private Long officeId; // Backward compatibility: single office
+    @Schema(example = "[1, 2, 3]")
+    private List<Long> officeIds; // Multiple offices support
     @Schema(example = "John")
     private String firstname;
     @Schema(example = "Doe")

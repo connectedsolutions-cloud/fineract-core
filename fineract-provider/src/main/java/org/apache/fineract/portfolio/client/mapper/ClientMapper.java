@@ -23,8 +23,11 @@ import org.apache.fineract.infrastructure.codes.domain.CodeValue;
 import org.apache.fineract.infrastructure.core.config.MapstructMapperConfig;
 import org.apache.fineract.infrastructure.core.data.EnumOptionData;
 import org.apache.fineract.portfolio.client.data.ClientData;
+import org.apache.fineract.portfolio.client.data.ClientTagData;
 import org.apache.fineract.portfolio.client.data.ClientTimelineData;
 import org.apache.fineract.portfolio.client.domain.Client;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.fineract.portfolio.client.domain.ClientEnumerations;
 import org.apache.fineract.useradministration.domain.AppUser;
 import org.mapstruct.Mapper;
@@ -46,6 +49,8 @@ public interface ClientMapper {
     @Mapping(target = "imageId", source = "source.image.id")
     @Mapping(target = "staffId", source = "source.staff.id")
     @Mapping(target = "staffName", source = "source.staff.displayName")
+    @Mapping(target = "gestorId", source = "source.gestor.id")
+    @Mapping(target = "gestorName", source = "source.gestor.displayName")
     @Mapping(target = "timeline", source = "source", qualifiedByName = "clientTimelineData")
     @Mapping(target = "savingsProductId", source = "source.savingsProductId")
     @Mapping(target = "savingsProductName", source = "source.id")
@@ -80,6 +85,8 @@ public interface ClientMapper {
     @Mapping(target = "legalFormId", ignore = true)
     @Mapping(target = "clientCollateralManagements", ignore = true)
     @Mapping(target = "groups", ignore = true)
+    @Mapping(target = "tags", source = "source", qualifiedByName = "clientTags")
+    @Mapping(target = "tagOptions", ignore = true)
     ClientData map(Client source);
 
     @Named("clientTypeCode")
@@ -154,6 +161,14 @@ public interface ClientMapper {
     @Named("clientIsStaff")
     default Boolean clientIsStaff(Client client) {
         return Boolean.valueOf(client.isStaff());
+    }
+
+    @Named("clientTags")
+    default Set<ClientTagData> clientTags(Client client) {
+        if (client.getTags() == null || client.getTags().isEmpty()) {
+            return null;
+        }
+        return client.getTags().stream().map(ClientTagData::from).collect(Collectors.toSet());
     }
 
 }

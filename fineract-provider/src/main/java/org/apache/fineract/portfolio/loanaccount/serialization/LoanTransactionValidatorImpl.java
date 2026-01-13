@@ -694,6 +694,13 @@ public class LoanTransactionValidatorImpl implements LoanTransactionValidator {
         }
     }
 
+    protected void validateTransactionShouldNotBeInTheFuture(final LocalDate transactionDate, final Loan loan) {
+        if (DateUtils.isDateInTheFutureForLoan(transactionDate, loan.getIsSimulation(), loan.getSimulatedDate())) {
+            final String errorMessage = "The transaction date cannot be in the future.";
+            throw new InvalidLoanStateTransitionException("transaction", "cannot.be.a.future.date", errorMessage, transactionDate);
+        }
+    }
+
     protected void validateLoanHasCurrency(final Loan loan) {
         MonetaryCurrency currency = loan.getCurrency();
         final ApplicationCurrency defaultApplicationCurrency = this.applicationCurrencyRepository.findOneByCode(currency.getCode());
@@ -784,7 +791,7 @@ public class LoanTransactionValidatorImpl implements LoanTransactionValidator {
         Loan loan = this.loanRepository.findById(loanId).orElseThrow(() -> new LoanNotFoundException(loanId));
         final LocalDate transactionDate = command.localDateValueOfParameterNamed("transactionDate");
         validateNewRepaymentTransaction(command.json());
-        validateTransactionShouldNotBeInTheFuture(transactionDate);
+        validateTransactionShouldNotBeInTheFuture(transactionDate, loan);
         validateLoanClientIsActive(loan);
         validateLoanHasCurrency(loan);
         validateLoanGroupIsActive(loan);
@@ -833,7 +840,7 @@ public class LoanTransactionValidatorImpl implements LoanTransactionValidator {
                 scheduleGeneratorDTO.getHolidayDetailDTO().getHolidays());
         validateRepaymentDateIsOnNonWorkingDay(transactionDate, scheduleGeneratorDTO.getHolidayDetailDTO().getWorkingDays(),
                 scheduleGeneratorDTO.getHolidayDetailDTO().isAllowTransactionsOnNonWorkingDay());
-        validateTransactionShouldNotBeInTheFuture(transactionDate);
+        validateTransactionShouldNotBeInTheFuture(transactionDate, loan);
         validateTransactionAmountNotExceedThresholdForMultiDisburseLoan(loan);
     }
 

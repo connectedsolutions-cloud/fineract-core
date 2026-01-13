@@ -45,6 +45,7 @@ public final class StaffCommandFromApiJsonDeserializer {
     public static final String FIRSTNAME = "firstname";
     public static final String LASTNAME = "lastname";
     public static final String OFFICE_ID = "officeId";
+    public static final String OFFICE_IDS = "officeIds";
     public static final String EXTERNAL_ID = "externalId";
     public static final String MOBILE_NO = "mobileNo";
     public static final String IS_LOAN_OFFICER = "isLoanOfficer";
@@ -56,7 +57,7 @@ public final class StaffCommandFromApiJsonDeserializer {
     /**
      * The parameters supported for this command.
      */
-    private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList(FIRSTNAME, LASTNAME, OFFICE_ID, EXTERNAL_ID,
+    private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList(FIRSTNAME, LASTNAME, OFFICE_ID, OFFICE_IDS, EXTERNAL_ID,
             MOBILE_NO, IS_LOAN_OFFICER, IS_ACTIVE, JOINING_DATE, DATE_FORMAT, LOCALE, FORCE_STATUS));
 
     private final FromJsonHelper fromApiJsonHelper;
@@ -85,8 +86,36 @@ public final class StaffCommandFromApiJsonDeserializer {
 
         final JsonElement element = this.fromApiJsonHelper.parse(json);
 
-        final Long officeId = this.fromApiJsonHelper.extractLongNamed(OFFICE_ID, element);
-        baseDataValidator.reset().parameter(OFFICE_ID).value(officeId).notNull().integerGreaterThanZero();
+        // Handle officeIds array (multiple offices) or single officeId for backward compatibility
+        boolean officeProvided = false;
+        if (this.fromApiJsonHelper.parameterExists(OFFICE_IDS, element)) {
+            officeProvided = true;
+            final String[] officeIdsStr = this.fromApiJsonHelper.extractArrayNamed(OFFICE_IDS, element);
+            if (officeIdsStr == null || officeIdsStr.length == 0) {
+                baseDataValidator.reset().parameter(OFFICE_IDS).value(null).failWithCode("error.msg.staff.office.required",
+                        "At least one office must be assigned to the staff");
+            } else {
+                for (String officeIdStr : officeIdsStr) {
+                    try {
+                        final Long officeId = Long.parseLong(officeIdStr);
+                        baseDataValidator.reset().parameter(OFFICE_IDS).value(officeId).integerGreaterThanZero();
+                    } catch (NumberFormatException e) {
+                        baseDataValidator.reset().parameter(OFFICE_IDS).value(officeIdStr).failWithCode("error.msg.invalid.office.id",
+                                "Invalid office ID: " + officeIdStr);
+                    }
+                }
+            }
+        } else if (this.fromApiJsonHelper.parameterExists(OFFICE_ID, element)) {
+            officeProvided = true;
+            // Backward compatibility: single officeId
+            final Long officeId = this.fromApiJsonHelper.extractLongNamed(OFFICE_ID, element);
+            baseDataValidator.reset().parameter(OFFICE_ID).value(officeId).notNull().integerGreaterThanZero();
+        }
+        
+        if (!officeProvided) {
+            baseDataValidator.reset().parameter(OFFICE_IDS).value(null).failWithCode("error.msg.staff.office.required",
+                    "At least one office must be assigned to the staff");
+        }
 
         final String firstname = this.fromApiJsonHelper.extractStringNamed(FIRSTNAME, element);
         baseDataValidator.reset().parameter(FIRSTNAME).value(firstname).notBlank().notExceedingLengthOf(50);
@@ -149,7 +178,26 @@ public final class StaffCommandFromApiJsonDeserializer {
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("staff");
 
         final JsonElement element = this.fromApiJsonHelper.parse(json);
-        if (this.fromApiJsonHelper.parameterExists(OFFICE_ID, element)) {
+        
+        // Handle officeIds array (multiple offices) or single officeId for backward compatibility
+        if (this.fromApiJsonHelper.parameterExists(OFFICE_IDS, element)) {
+            final String[] officeIdsStr = this.fromApiJsonHelper.extractArrayNamed(OFFICE_IDS, element);
+            if (officeIdsStr == null || officeIdsStr.length == 0) {
+                baseDataValidator.reset().parameter(OFFICE_IDS).value(null).failWithCode("error.msg.staff.office.required",
+                        "At least one office must be assigned to the staff");
+            } else {
+                for (String officeIdStr : officeIdsStr) {
+                    try {
+                        final Long officeId = Long.parseLong(officeIdStr);
+                        baseDataValidator.reset().parameter(OFFICE_IDS).value(officeId).integerGreaterThanZero();
+                    } catch (NumberFormatException e) {
+                        baseDataValidator.reset().parameter(OFFICE_IDS).value(officeIdStr).failWithCode("error.msg.invalid.office.id",
+                                "Invalid office ID: " + officeIdStr);
+                    }
+                }
+            }
+        } else if (this.fromApiJsonHelper.parameterExists(OFFICE_ID, element)) {
+            // Backward compatibility: single officeId
             final Long officeId = this.fromApiJsonHelper.extractLongNamed(OFFICE_ID, element);
             baseDataValidator.reset().parameter(OFFICE_ID).value(officeId).notNull().integerGreaterThanZero();
         }

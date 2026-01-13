@@ -268,6 +268,9 @@ public class LoanAccountData {
     private DelinquencyRangeData delinquencyRange;
     private Boolean enableInstallmentLevelDelinquency;
     private LocalDate lastClosedBusinessDate;
+    private Boolean isSimulation;
+    private LocalDate simulatedDate;
+    private LocalDate simulationStartLastClosedBusinessDate;
     private Boolean chargedOff;
 
     private Boolean enableDownPayment;
@@ -476,7 +479,7 @@ public class LoanAccountData {
             final boolean canUseForTopup, final boolean isTopup, final Long closureLoanId, final String closureLoanAccountNo,
             final BigDecimal topupAmount, final boolean isEqualAmortization, final BigDecimal fixedPrincipalPercentagePerInstallment,
             final DelinquencyRangeData delinquencyRange, final boolean disallowExpectedDisbursements, final boolean fraud,
-            LocalDate lastClosedBusinessDate, LocalDate overpaidOnDate, final boolean chargedOff, final boolean enableDownPayment,
+            LocalDate lastClosedBusinessDate, final Boolean isSimulation, final LocalDate simulatedDate, final LocalDate simulationStartLastClosedBusinessDate, LocalDate overpaidOnDate, final boolean chargedOff, final boolean enableDownPayment,
             final BigDecimal disbursedAmountPercentageForDownPayment, final boolean enableAutoRepaymentForDownPayment,
             final boolean enableInstallmentLevelDelinquency, final EnumOptionData loanScheduleType,
             final EnumOptionData loanScheduleProcessingType, final Integer fixedLength, final StringEnumOptionData chargeOffBehaviour,
@@ -525,7 +528,7 @@ public class LoanAccountData {
                 .setClosureLoanAccountNo(closureLoanAccountNo).setTopupAmount(topupAmount).setIsEqualAmortization(isEqualAmortization)
                 .setFixedPrincipalPercentagePerInstallment(fixedPrincipalPercentagePerInstallment).setDelinquent(delinquent)
                 .setDelinquencyRange(delinquencyRange).setDisallowExpectedDisbursements(disallowExpectedDisbursements).setFraud(fraud)
-                .setLastClosedBusinessDate(lastClosedBusinessDate).setOverpaidOnDate(overpaidOnDate).setChargedOff(chargedOff)
+                .setLastClosedBusinessDate(lastClosedBusinessDate).setIsSimulation(isSimulation).setSimulatedDate(simulatedDate).setSimulationStartLastClosedBusinessDate(simulationStartLastClosedBusinessDate).setOverpaidOnDate(overpaidOnDate).setChargedOff(chargedOff)
                 .setEnableDownPayment(enableDownPayment).setDisbursedAmountPercentageForDownPayment(disbursedAmountPercentageForDownPayment)
                 .setEnableAutoRepaymentForDownPayment(enableAutoRepaymentForDownPayment)
                 .setEnableInstallmentLevelDelinquency(enableInstallmentLevelDelinquency).setLoanScheduleType(loanScheduleType)

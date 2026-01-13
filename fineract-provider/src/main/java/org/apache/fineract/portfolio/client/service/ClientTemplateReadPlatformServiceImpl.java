@@ -43,6 +43,7 @@ import org.apache.fineract.portfolio.address.service.AddressReadPlatformService;
 import org.apache.fineract.portfolio.client.api.ClientApiConstants;
 import org.apache.fineract.portfolio.client.data.ClientData;
 import org.apache.fineract.portfolio.client.data.ClientFamilyMembersData;
+import org.apache.fineract.portfolio.client.data.ClientTagData;
 import org.apache.fineract.portfolio.client.domain.ClientEnumerations;
 import org.apache.fineract.portfolio.client.domain.LegalForm;
 import org.apache.fineract.portfolio.savings.data.SavingsProductData;
@@ -65,6 +66,7 @@ public class ClientTemplateReadPlatformServiceImpl implements ClientTemplateRead
     private final AddressReadPlatformService addressReadPlatformService;
     private final ClientFamilyMembersReadPlatformService clientFamilyMembersReadPlatformService;
     private final ConfigurationDomainService configurationDomainService;
+    private final ClientTagReadPlatformService clientTagReadPlatformService;
 
     @Override
     public ClientData retrieveTemplate(final Long officeId, final boolean staffInSelectedOfficeOnly) {
@@ -116,10 +118,12 @@ public class ClientTemplateReadPlatformServiceImpl implements ClientTemplateRead
         final List<DatatableData> datatableTemplates = this.entityDatatableChecksReadService.retrieveTemplates(StatusEnum.CREATE.getValue(),
                 EntityTables.CLIENT.getName(), null);
 
+        final List<ClientTagData> tagOptions = this.clientTagReadPlatformService.retrieveTagsByGroup("tipo_cliente");
+
         return ClientData.template(defaultOfficeId, LocalDate.now(DateUtils.getDateTimeZoneOfTenant()), offices, staffOptions, null,
                 genderOptions, savingsProductDatas, clientTypeOptions, clientClassificationOptions, clientNonPersonConstitutionOptions,
                 clientNonPersonMainBusinessLineOptions, clientLegalFormOptions, familyMemberOptions,
-                new ArrayList<AddressData>(Arrays.asList(address)), isAddressEnabled, datatableTemplates);
+                new ArrayList<AddressData>(Arrays.asList(address)), isAddressEnabled, datatableTemplates, tagOptions);
     }
 
     private Long defaultToUsersOfficeIfNull(final Long officeId) {

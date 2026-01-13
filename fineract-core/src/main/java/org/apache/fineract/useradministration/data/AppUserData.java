@@ -32,8 +32,10 @@ public final class AppUserData {
 
     private final Long id;
     private final String username;
-    private final Long officeId;
-    private final String officeName;
+    private final Long officeId; // Backward compatibility: represents current office
+    private final String officeName; // Backward compatibility: represents current office name
+    private final Long currentOfficeId; // Currently active office ID
+    private final List<Long> offices; // All assigned office IDs
     private final String firstname;
     private final String lastname;
     private final String email;
@@ -68,6 +70,8 @@ public final class AppUserData {
         this.username = username;
         this.officeId = officeId;
         this.officeName = null;
+        this.currentOfficeId = officeId;
+        this.offices = null;
         this.firstname = firstname;
         this.lastname = lastname;
         this.email = email;
@@ -90,37 +94,49 @@ public final class AppUserData {
     }
 
     public static AppUserData template(final AppUserData user, final Collection<OfficeData> officesForDropdown) {
-        return new AppUserData(user.id, user.username, user.email, user.officeId, user.officeName, user.firstname, user.lastname,
-                user.availableRoles, user.selfServiceRoles, user.selectedRoles, officesForDropdown, user.staff, user.passwordNeverExpires,
-                user.isSelfServiceUser);
+        return new AppUserData(user.id, user.username, user.email, user.officeId, user.officeName, user.currentOfficeId, user.offices,
+                user.firstname, user.lastname, user.availableRoles, user.selfServiceRoles, user.selectedRoles, officesForDropdown,
+                user.staff, user.passwordNeverExpires, user.isSelfServiceUser);
     }
 
     public static AppUserData template(final Collection<OfficeData> offices, final Collection<RoleData> availableRoles,
             final Collection<RoleData> selfServiceRoles) {
-        return new AppUserData(null, null, null, null, null, null, null, availableRoles, selfServiceRoles, null, offices, null, null, null);
+        return new AppUserData(null, null, null, null, null, null, null, null, null, availableRoles, selfServiceRoles, null, offices,
+                null, null, null);
     }
 
     public static AppUserData dropdown(final Long id, final String username) {
-        return new AppUserData(id, username, null, null, null, null, null, null, null, null, null, null, null, null);
+        return new AppUserData(id, username, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
+    public static AppUserData instance(final Long id, final String username, final String email, final Long officeId,
+            final String officeName, final Long currentOfficeId, final List<Long> offices, final String firstname, final String lastname,
+            final Collection<RoleData> availableRoles, final Collection<RoleData> selfServiceRoles, final Collection<RoleData> selectedRoles,
+            final StaffData staff, final Boolean passwordNeverExpire, final Boolean isSelfServiceUser) {
+        return new AppUserData(id, username, email, officeId, officeName, currentOfficeId, offices, firstname, lastname, availableRoles,
+                selfServiceRoles, selectedRoles, null, staff, passwordNeverExpire, isSelfServiceUser);
+    }
+
+    // Backward compatibility method
     public static AppUserData instance(final Long id, final String username, final String email, final Long officeId,
             final String officeName, final String firstname, final String lastname, final Collection<RoleData> availableRoles,
             final Collection<RoleData> selfServiceRoles, final Collection<RoleData> selectedRoles, final StaffData staff,
             final Boolean passwordNeverExpire, final Boolean isSelfServiceUser) {
-        return new AppUserData(id, username, email, officeId, officeName, firstname, lastname, availableRoles, selfServiceRoles,
-                selectedRoles, null, staff, passwordNeverExpire, isSelfServiceUser);
+        return new AppUserData(id, username, email, officeId, officeName, officeId, null, firstname, lastname, availableRoles,
+                selfServiceRoles, selectedRoles, null, staff, passwordNeverExpire, isSelfServiceUser);
     }
 
     private AppUserData(final Long id, final String username, final String email, final Long officeId, final String officeName,
-            final String firstname, final String lastname, final Collection<RoleData> availableRoles,
-            final Collection<RoleData> selfServiceRoles, final Collection<RoleData> selectedRoles,
+            final Long currentOfficeId, final List<Long> offices, final String firstname, final String lastname,
+            final Collection<RoleData> availableRoles, final Collection<RoleData> selfServiceRoles, final Collection<RoleData> selectedRoles,
             final Collection<OfficeData> allowedOffices, final StaffData staff, final Boolean passwordNeverExpire,
             final Boolean isSelfServiceUser) {
         this.id = id;
         this.username = username;
-        this.officeId = officeId;
+        this.officeId = officeId != null ? officeId : currentOfficeId; // Backward compatibility
         this.officeName = officeName;
+        this.currentOfficeId = currentOfficeId != null ? currentOfficeId : officeId;
+        this.offices = offices;
         this.firstname = firstname;
         this.lastname = lastname;
         this.email = email;
@@ -170,6 +186,18 @@ public final class AppUserData {
 
     public boolean isSelfServiceUser() {
         return this.isSelfServiceUser == null ? false : this.isSelfServiceUser;
+    }
+
+    public Long getCurrentOfficeId() {
+        return this.currentOfficeId;
+    }
+
+    public List<Long> getOffices() {
+        return this.offices;
+    }
+
+    public Collection<OfficeData> getAllowedOffices() {
+        return this.allowedOffices;
     }
 
 }

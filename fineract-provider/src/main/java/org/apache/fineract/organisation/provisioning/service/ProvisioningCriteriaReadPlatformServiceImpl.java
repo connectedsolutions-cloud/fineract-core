@@ -53,7 +53,8 @@ public class ProvisioningCriteriaReadPlatformServiceImpl implements Provisioning
                 .retrieveAllProvisionCategories();
         final Collection<LoanProductData> allLoanProducts = this.loanProductReadPlatformService
                 .retrieveAllLoanProductsForLookup(onlyActive);
-        final Collection<GLAccountData> glAccounts = this.glAccountReadPlatformService.retrieveAllEnabledDetailGLAccounts();
+        // Retrieve all enabled GL accounts (both DETAIL and HEADER) for provisioning criteria
+        final Collection<GLAccountData> glAccounts = this.glAccountReadPlatformService.retrieveAllEnabledGLAccounts();
         return ProvisioningCriteriaData.toTemplate(constructCriteriaTemplate(categories), allLoanProducts, glAccounts);
     }
 
@@ -64,7 +65,8 @@ public class ProvisioningCriteriaReadPlatformServiceImpl implements Provisioning
                 .retrieveAllProvisionCategories();
         final Collection<LoanProductData> allLoanProducts = this.loanProductReadPlatformService
                 .retrieveAllLoanProductsForLookup(onlyActive);
-        final Collection<GLAccountData> glAccounts = this.glAccountReadPlatformService.retrieveAllEnabledDetailGLAccounts();
+        // Retrieve all enabled GL accounts (both DETAIL and HEADER) for provisioning criteria
+        final Collection<GLAccountData> glAccounts = this.glAccountReadPlatformService.retrieveAllEnabledGLAccounts();
         return ProvisioningCriteriaData.toTemplate(data, constructCriteriaTemplate(categories), allLoanProducts, glAccounts);
     }
 

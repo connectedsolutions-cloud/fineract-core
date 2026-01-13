@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <!-- Create m_client_tag table for MySQL -->
+    <changeSet id="1" author="fineract" context="mysql">
+        <createTable tableName="m_client_tag">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="name" type="VARCHAR(100)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="tag_group" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(500)"/>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_on_utc" type="DATETIME">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_modified_by" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_modified_on_utc" type="DATETIME">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_client_tag" baseColumnNames="created_by"
+                                 constraintName="FK_client_tag_created_by"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="m_client_tag" baseColumnNames="last_modified_by"
+                                 constraintName="FK_client_tag_last_modified_by"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <!-- Create m_client_tag table for PostgreSQL -->
+    <changeSet id="1" author="fineract" context="postgresql">
+        <createTable tableName="m_client_tag">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="name" type="VARCHAR(100)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="tag_group" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(500)"/>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_on_utc" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_modified_by" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_modified_on_utc" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_client_tag" baseColumnNames="created_by"
+                                 constraintName="FK_client_tag_created_by"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="m_client_tag" baseColumnNames="last_modified_by"
+                                 constraintName="FK_client_tag_last_modified_by"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <!-- Create m_client_tag_mapping join table for MySQL -->
+    <changeSet id="2" author="fineract" context="mysql">
+        <createTable tableName="m_client_tag_mapping">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="client_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tag_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_on_utc" type="DATETIME">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_modified_by" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_modified_on_utc" type="DATETIME">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="m_client_tag_mapping" columnNames="client_id,tag_id"
+                            constraintName="uk_client_tag_mapping"/>
+        <addForeignKeyConstraint baseTableName="m_client_tag_mapping" baseColumnNames="client_id"
+                                 constraintName="FK_client_tag_mapping_client"
+                                 referencedTableName="m_client" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="m_client_tag_mapping" baseColumnNames="tag_id"
+                                 constraintName="FK_client_tag_mapping_tag"
+                                 referencedTableName="m_client_tag" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="m_client_tag_mapping" baseColumnNames="created_by"
+                                 constraintName="FK_client_tag_mapping_created_by"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="m_client_tag_mapping" baseColumnNames="last_modified_by"
+                                 constraintName="FK_client_tag_mapping_last_modified_by"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <!-- Create m_client_tag_mapping join table for PostgreSQL -->
+    <changeSet id="2" author="fineract" context="postgresql">
+        <createTable tableName="m_client_tag_mapping">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="client_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tag_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_on_utc" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_modified_by" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_modified_on_utc" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="m_client_tag_mapping" columnNames="client_id,tag_id"
+                            constraintName="uk_client_tag_mapping"/>
+        <addForeignKeyConstraint baseTableName="m_client_tag_mapping" baseColumnNames="client_id"
+                                 constraintName="FK_client_tag_mapping_client"
+                                 referencedTableName="m_client" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="m_client_tag_mapping" baseColumnNames="tag_id"
+                                 constraintName="FK_client_tag_mapping_tag"
+                                 referencedTableName="m_client_tag" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="m_client_tag_mapping" baseColumnNames="created_by"
+                                 constraintName="FK_client_tag_mapping_created_by"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="m_client_tag_mapping" baseColumnNames="last_modified_by"
+                                 constraintName="FK_client_tag_mapping_last_modified_by"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <!-- Create indexes for performance -->
+    <changeSet id="3" author="fineract">
+        <createIndex indexName="idx_client_tag_group" tableName="m_client_tag">
+            <column name="tag_group"/>
+        </createIndex>
+        <createIndex indexName="idx_client_tag_active" tableName="m_client_tag">
+            <column name="is_active"/>
+        </createIndex>
+        <createIndex indexName="idx_client_tag_mapping_client" tableName="m_client_tag_mapping">
+            <column name="client_id"/>
+        </createIndex>
+        <createIndex indexName="idx_client_tag_mapping_tag" tableName="m_client_tag_mapping">
+            <column name="tag_id"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- Insert initial tags -->
+    <changeSet id="4" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_client_tag WHERE name IN ('socio', 'cliente')
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO m_client_tag (name, tag_group, description, is_active, created_on_utc, created_by, last_modified_by, last_modified_on_utc)
+            VALUES 
+            ('socio', 'tipo_cliente', 'cliente tipo socio, para clientes con depositos', true, NOW(), 1, 1, NOW()),
+            ('cliente', 'tipo_cliente', 'cliente de creditos', true, NOW(), 1, 1, NOW());
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

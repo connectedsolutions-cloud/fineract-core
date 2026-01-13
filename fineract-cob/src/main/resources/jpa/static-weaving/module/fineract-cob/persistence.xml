@@ -54,6 +54,8 @@
         <class>org.apache.fineract.portfolio.group.domain.StaffAssignmentHistory</class>
         <class>org.apache.fineract.portfolio.group.domain.Group</class>
         <class>org.apache.fineract.portfolio.client.domain.Client</class>
+        <class>org.apache.fineract.portfolio.client.domain.ClientTag</class>
+        <class>org.apache.fineract.portfolio.client.domain.ClientTagMapping</class>
         <class>org.apache.fineract.infrastructure.event.external.repository.domain.ExternalEventConfiguration</class>
         <class>org.apache.fineract.portfolio.group.domain.GroupRole</class>
         <class>org.apache.fineract.portfolio.paymenttype.domain.PaymentType</class>
