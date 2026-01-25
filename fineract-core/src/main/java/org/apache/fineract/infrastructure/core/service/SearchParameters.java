@@ -57,6 +57,7 @@ public class SearchParameters {
     @Getter(AccessLevel.NONE)
     private Boolean isSelfUser;
     private Integer legalForm;
+    private Long currentOfficeId;
 
     public Integer getLimit() {
         if (limit == null) {
@@ -140,5 +141,9 @@ public class SearchParameters {
 
     public boolean hasLegalForm() {
         return this.legalForm != null;
+    }
+
+    public boolean hasCurrentOfficeId() {
+        return this.currentOfficeId != null && this.currentOfficeId != 0;
     }
 }

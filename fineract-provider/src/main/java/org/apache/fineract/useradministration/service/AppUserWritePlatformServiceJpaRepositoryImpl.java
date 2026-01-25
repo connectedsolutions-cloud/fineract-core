@@ -58,6 +58,7 @@ import org.apache.fineract.useradministration.domain.Role;
 import org.apache.fineract.useradministration.domain.RoleRepository;
 import org.apache.fineract.useradministration.domain.UserDomainService;
 import org.apache.fineract.useradministration.exception.PasswordPreviouslyUsedException;
+import org.apache.fineract.useradministration.exception.PasswordSameAsCurrentException;
 import org.apache.fineract.useradministration.exception.RoleNotFoundException;
 import org.apache.fineract.useradministration.exception.UserNotFoundException;
 import org.springframework.cache.annotation.CacheEvict;
@@ -311,6 +312,11 @@ public class AppUserWritePlatformServiceJpaRepositoryImpl implements AppUserWrit
         AppUserPreviousPassword currentPasswordToSaveAsPreview = null;
 
         if (passWordEncodedValue != null) {
+            // Check if new password is the same as current password
+            if (user.getPassword() != null && user.getPassword().equals(passWordEncodedValue)) {
+                throw new PasswordSameAsCurrentException();
+            }
+
             PageRequest pageRequest = PageRequest.of(0, AppUserApiConstant.numberOfPreviousPasswords, Sort.Direction.DESC, "removalDate");
             final List<AppUserPreviousPassword> nLastUsedPasswords = this.appUserPreviewPasswordRepository.findByUserId(user.getId(),
                     pageRequest);

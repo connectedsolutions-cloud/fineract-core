@@ -74,11 +74,11 @@
     <!-- For PostgreSQL: Drop NOT NULL constraint on both office_id and primary_office_id -->
     <changeSet id="3" author="fineract">
         <validCheckSum>9:a4faf565372bf7a151f3c06ff0caa563</validCheckSum>
-        <validCheckSum>9:c87d81a4cb475e8c3fb51120bb5bc69f</validCheckSum>
+        <validCheckSum>9:8fcec26166d31d1b45419a24646ff512</validCheckSum>
         <preConditions onFail="MARK_RAN">
             <dbms type="postgresql"/>
         </preConditions>
-        <sql>
+        <sql splitStatements="false"><![CDATA[
             -- Drop NOT NULL constraint on office_id (actual column name in schema)
             -- PostgreSQL allows DROP NOT NULL even if constraint doesn't exist - it just does nothing
             ALTER TABLE m_staff ALTER COLUMN office_id DROP NOT NULL;
@@ -100,7 +100,7 @@
                     -- Ignore any errors (column might not exist, or already nullable)
                     NULL;
             END $$;
-        </sql>
+        ]]></sql>
     </changeSet>
     
     <!-- Force drop NOT NULL using raw SQL for MySQL/MariaDB -->

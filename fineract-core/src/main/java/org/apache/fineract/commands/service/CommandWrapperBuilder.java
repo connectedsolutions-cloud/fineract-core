@@ -3616,6 +3616,62 @@ public class CommandWrapperBuilder {
         return this;
     }
 
+    public CommandWrapperBuilder createSesionComite() {
+        this.actionName = "CREATE";
+        this.entityName = "SESION_COMITE";
+        this.entityId = null;
+        this.href = "/comite-otorgamiento";
+        return this;
+    }
+
+    public CommandWrapperBuilder updateSesionComite(final Long sessionId) {
+        this.actionName = "UPDATE";
+        this.entityName = "SESION_COMITE";
+        this.entityId = sessionId;
+        this.href = "/comite-otorgamiento/" + sessionId;
+        return this;
+    }
+
+    public CommandWrapperBuilder startSesionComite(final Long sessionId) {
+        this.actionName = "START";
+        this.entityName = "SESION_COMITE";
+        this.entityId = sessionId;
+        this.href = "/comite-otorgamiento/" + sessionId;
+        return this;
+    }
+
+    public CommandWrapperBuilder updateSelectionsSesionComite(final Long sessionId) {
+        this.actionName = "UPDATESELECTIONS";
+        this.entityName = "SESION_COMITE";
+        this.entityId = sessionId;
+        this.href = "/comite-otorgamiento/" + sessionId;
+        return this;
+    }
+
+    public CommandWrapperBuilder submitSesionComite(final Long sessionId) {
+        this.actionName = "SUBMIT";
+        this.entityName = "SESION_COMITE";
+        this.entityId = sessionId;
+        this.href = "/comite-otorgamiento/" + sessionId;
+        return this;
+    }
+
+    public CommandWrapperBuilder applySesionComite(final Long sessionId) {
+        this.actionName = "APPLY";
+        this.entityName = "SESION_COMITE";
+        this.entityId = sessionId;
+        this.href = "/comite-otorgamiento/" + sessionId;
+        return this;
+    }
+
+    public CommandWrapperBuilder closeSesionComite(final Long sessionId) {
+        this.actionName = "CLOSE";
+        this.entityName = "SESION_COMITE";
+        this.entityId = sessionId;
+        this.href = "/comite-otorgamiento/" + sessionId;
+        return this;
+    }
+
     public CommandWrapperBuilder updateBusinessDate() {
         this.actionName = "UPDATE";
         this.entityName = "BUSINESS_DATE";

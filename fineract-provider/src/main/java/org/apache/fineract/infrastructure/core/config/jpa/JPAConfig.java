@@ -77,7 +77,7 @@ public class JPAConfig extends JpaBaseConfiguration {
     @Override
     @Bean
     @Primary
-    @DependsOn("tenantDatabaseUpgradeService")
+    @DependsOn({ "tenantDatabaseUpgradeService", "jsonbConverterContextInitializer" })
     public LocalContainerEntityManagerFactoryBean entityManagerFactory(EntityManagerFactoryBuilder factoryBuilder,
             PersistenceManagedTypes persistenceManagedTypes) {
         Map<String, Object> vendorProperties = getVendorProperties(getDataSource());

@@ -80,6 +80,8 @@ public class LoanAccountData {
     private String clientName;
     private ExternalId clientExternalId;
     private Long clientOfficeId;
+    private Long clientStaffId;
+    private String clientStaffName;
     private GroupGeneralData group;
     private Long loanProductId;
     private String loanProductName;

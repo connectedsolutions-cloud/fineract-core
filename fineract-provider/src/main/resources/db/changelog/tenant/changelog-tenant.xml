@@ -233,6 +233,14 @@
     <include file="parts/0212_add_reports_visibility_permission.xml" relativeToChangelogFile="true" />
     <include file="parts/0213_add_centers_visibility_permission.xml" relativeToChangelogFile="true" />
     <include file="parts/0214_activate_cob_jobs_and_schedule.xml" relativeToChangelogFile="true" />
+    <include file="parts/0214b_add_current_office_id_column.xml" relativeToChangelogFile="true" />
+    <include file="parts/0215_add_multi_office_support.xml" relativeToChangelogFile="true" />
+    <include file="parts/0216_add_activate_client_on_create_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0217_add_gestor_to_client.xml" relativeToChangelogFile="true" />
     <include file="parts/0218_add_staff_multi_office_support.xml" relativeToChangelogFile="true" />
     <include file="parts/0219_client_tags_initial.xml" relativeToChangelogFile="true" />
+    <include file="parts/0220_add_m_sesiones_comite_table.xml" relativeToChangelogFile="true" />
+    <include file="parts/0221_add_loan_comittee_permissions.xml" relativeToChangelogFile="true" />
+    <include file="parts/0222_add_create_loan_comittee_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0223_drop_allowed_permissions_visibility_from_sesiones_comite.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

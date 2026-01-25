@@ -325,9 +325,7 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
     @Override
     public Page<LoanAccountData> retrieveAll(final SearchParameters searchParameters) {
 
-        final AppUser currentUser = this.context.authenticatedUser();
-        final String hierarchy = currentUser.getOffice().getHierarchy();
-        final String hierarchySearchString = hierarchy + "%";
+        this.context.authenticatedUser();
         final LoanMapper loanMapper = new LoanMapper(sqlGenerator, delinquencyReadPlatformService);
 
         final StringBuilder sqlBuilder = new StringBuilder(200);
@@ -339,14 +337,27 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
         // to support scenario where loan has group_id only OR client_id will
         // probably require a UNION query
         // but that at present is an edge case
-        sqlBuilder.append(" join m_office o on (o.id = c.office_id or o.id = g.office_id) ");
-        sqlBuilder.append(" left join m_office transferToOffice on transferToOffice.id = c.transfer_to_office_id ");
-        sqlBuilder.append(" where ( o.hierarchy like ? or transferToOffice.hierarchy like ?)");
-
-        int arrayPos = 2;
+        final Long currentOfficeIdFilter = searchParameters != null && searchParameters.hasCurrentOfficeId()
+                ? searchParameters.getCurrentOfficeId() : null;
+        final boolean useCurrentOfficeFilter = currentOfficeIdFilter != null;
+        int arrayPos;
         List<Object> extraCriterias = new ArrayList<>();
-        extraCriterias.add(hierarchySearchString);
-        extraCriterias.add(hierarchySearchString);
+
+        if (useCurrentOfficeFilter) {
+            sqlBuilder.append(" where (c.office_id = ? or g.office_id = ?)");
+            extraCriterias.add(currentOfficeIdFilter);
+            extraCriterias.add(currentOfficeIdFilter);
+            arrayPos = 2;
+        } else {
+            final String hierarchy = this.context.authenticatedUser().getOffice().getHierarchy();
+            final String hierarchySearchString = hierarchy + "%";
+            sqlBuilder.append(" join m_office o on (o.id = c.office_id or o.id = g.office_id) ");
+            sqlBuilder.append(" left join m_office transferToOffice on transferToOffice.id = c.transfer_to_office_id ");
+            sqlBuilder.append(" where ( o.hierarchy like ? or transferToOffice.hierarchy like ?)");
+            extraCriterias.add(hierarchySearchString);
+            extraCriterias.add(hierarchySearchString);
+            arrayPos = 2;
+        }
 
         if (searchParameters != null) {
 
@@ -362,7 +373,7 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
                 arrayPos = arrayPos + 1;
             }
             if (searchParameters.getOfficeId() != null) {
-                sqlBuilder.append("and c.office_id =?");
+                sqlBuilder.append(" and c.office_id = ?");
                 extraCriterias.add(searchParameters.getOfficeId());
                 arrayPos = arrayPos + 1;
             }
@@ -780,7 +791,7 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
                     + " lp.allow_variabe_installments as isvariableInstallmentsAllowed, "
                     + " lp.allow_multiple_disbursals as multiDisburseLoan, lp.disallow_expected_disbursements as disallowExpectedDisbursements, "
                     + " lp.can_define_fixed_emi_amount as canDefineInstallmentAmount,"
-                    + " c.id as clientId, c.account_no as clientAccountNo, c.display_name as clientName, c.office_id as clientOfficeId, c.external_id as clientExternalId,"
+                    + " c.id as clientId, c.account_no as clientAccountNo, c.display_name as clientName, c.office_id as clientOfficeId, c.external_id as clientExternalId, c.staff_id as clientStaffId, cs.display_name as clientStaffName,"
                     + " g.id as groupId, g.account_no as groupAccountNo, g.display_name as groupName,"
                     + " g.office_id as groupOfficeId, g.staff_id As groupStaffId , g.parent_id as groupParentId, (select mg.display_name from m_group mg where mg.id = g.parent_id) as centerName, "
                     + " g.hierarchy As groupHierarchy , g.level_id as groupLevel, g.external_id As groupExternalId, "
@@ -871,6 +882,7 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
                     + " left join m_loan_recalculation_details lir on lir.loan_id = l.id join m_currency rc on rc."
                     + sqlGenerator.escape("code") + " = l.currency_code" //
                     + " left join m_client c on c.id = l.client_id" //
+                    + " left join m_staff cs on cs.id = c.staff_id" //
                     + " left join m_group g on g.id = l.group_id" //
                     + " left join m_loan_arrears_aging la on la.loan_id = l.id" //
                     + " left join m_fund f on f.id = l.fund_id" //
@@ -911,6 +923,8 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
             final Long clientOfficeId = JdbcSupport.getLong(rs, "clientOfficeId");
             final ExternalId clientExternalId = ExternalIdFactory.produce(rs.getString("clientExternalId"));
             final String clientName = rs.getString("clientName");
+            final Long clientStaffId = JdbcSupport.getLong(rs, "clientStaffId");
+            final String clientStaffName = rs.getString("clientStaffName");
 
             final Long groupId = JdbcSupport.getLong(rs, "groupId");
             final String groupName = rs.getString("groupName");
@@ -1279,7 +1293,8 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
                     loanScheduleProcessingType.asEnumOptionData(), fixedLength, chargeOffBehaviour.getValueAsStringEnumOptionData(),
                     interestRecognitionOnDisbursementDate, daysInYearCustomStrategy, enableIncomeCapitalization,
                     capitalizedIncomeCalculationType, capitalizedIncomeStrategy, capitalizedIncomeType, enableBuyDownFee,
-                    buyDownFeeCalculationType, buyDownFeeStrategy, buyDownFeeIncomeType, merchantBuyDownFee);
+                    buyDownFeeCalculationType, buyDownFeeStrategy, buyDownFeeIncomeType, merchantBuyDownFee)
+                    .setClientStaffId(clientStaffId).setClientStaffName(clientStaffName);
         }
     }
 

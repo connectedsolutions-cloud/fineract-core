@@ -49,7 +49,14 @@
     </changeSet>
 
     <!-- Add current_office_id column to m_appuser (nullable initially for migration) -->
+    <!-- Note: This changeset may be skipped if the column was already added by 0214b migration -->
     <changeSet id="2" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="m_appuser" columnName="current_office_id"/>
+            </not>
+        </preConditions>
+        <comment>Add current_office_id column if it doesn't exist (may have been added by 0214b migration)</comment>
         <addColumn tableName="m_appuser">
             <column name="current_office_id" type="BIGINT">
                 <constraints nullable="true"/>

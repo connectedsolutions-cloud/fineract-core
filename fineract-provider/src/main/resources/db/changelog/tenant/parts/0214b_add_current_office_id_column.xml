@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
+    OR CONDITIONS OF ANY KIND, either express or implied. See the
+    License for the specific language governing permissions and
+    limitations under the License.
+
+    This migration adds the current_office_id column to m_appuser table.
+    It uses preconditions to safely skip if the column already exists,
+    which is important for environments where the column was added manually
+    or through a different migration path.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <!-- Add current_office_id column to m_appuser if it doesn't exist -->
+    <!-- This migration runs before 0215_add_multi_office_support.xml to ensure the column exists -->
+    <changeSet id="1" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="m_appuser" columnName="current_office_id"/>
+            </not>
+        </preConditions>
+        <comment>Add current_office_id column to m_appuser table if it doesn't exist</comment>
+        <addColumn tableName="m_appuser">
+            <column name="current_office_id" type="BIGINT">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!-- Initialize current_office_id with office_id values if column was just added and values are NULL -->
+    <changeSet id="2" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <columnExists tableName="m_appuser" columnName="current_office_id"/>
+                <sqlCheck expectedResult="0">
+                    SELECT COUNT(*) FROM m_appuser WHERE current_office_id IS NOT NULL
+                </sqlCheck>
+            </and>
+        </preConditions>
+        <comment>Initialize current_office_id with office_id values for existing users</comment>
+        <sql>
+            UPDATE m_appuser
+            SET current_office_id = office_id
+            WHERE office_id IS NOT NULL AND current_office_id IS NULL;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

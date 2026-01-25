@@ -42,5 +42,37 @@
         </createIndex>
     </changeSet>
 
+    <!-- Add ASSIGNGESTOR_CLIENT permission -->
+    <changeSet id="3" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'ASSIGNGESTOR_CLIENT'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="code" value="ASSIGNGESTOR_CLIENT"/>
+            <column name="action_name" value="ASSIGNGESTOR"/>
+            <column name="entity_name" value="CLIENT"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+            <column name="grouping" value="portfolio"/>
+        </insert>
+    </changeSet>
+
+    <!-- Add UNASSIGNGESTOR_CLIENT permission -->
+    <changeSet id="4" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'UNASSIGNGESTOR_CLIENT'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="code" value="UNASSIGNGESTOR_CLIENT"/>
+            <column name="action_name" value="UNASSIGNGESTOR"/>
+            <column name="entity_name" value="CLIENT"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+            <column name="grouping" value="portfolio"/>
+        </insert>
+    </changeSet>
+
 </databaseChangeLog>
 

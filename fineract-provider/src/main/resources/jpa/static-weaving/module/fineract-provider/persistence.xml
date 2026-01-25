@@ -158,6 +158,7 @@
 
         <class>org.apache.fineract.command.persistence.domain.CommandEntity</class>
         <class>org.apache.fineract.command.persistence.converter.JsonAttributeConverter</class>
+        <class>org.apache.fineract.infrastructure.core.persistence.converter.JsonbStringAttributeConverter</class>
 
         <!-- Charge Module Entities -->
         <class>org.apache.fineract.portfolio.charge.domain.Charge</class>
