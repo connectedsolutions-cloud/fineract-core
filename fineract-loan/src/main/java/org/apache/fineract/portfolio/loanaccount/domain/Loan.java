@@ -79,6 +79,7 @@ import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.LoanApplica
 import org.apache.fineract.portfolio.loanproduct.domain.LoanProduct;
 import org.apache.fineract.portfolio.loanproduct.domain.LoanProductRelatedDetail;
 import org.apache.fineract.portfolio.loanproduct.domain.LoanSupportedInterestRefundTypes;
+import org.apache.fineract.portfolio.paymenttype.domain.PaymentType;
 import org.apache.fineract.portfolio.rate.domain.Rate;
 import org.apache.fineract.portfolio.repaymentwithpostdatedchecks.domain.PostDatedChecks;
 import org.apache.fineract.useradministration.domain.AppUser;
@@ -110,6 +111,7 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
     public static final String PENALTIES = "penalties";
     public static final String EARLIEST_UNPAID_DATE = "earliest-unpaid-date";
     public static final String NEXT_UNPAID_DUE_DATE = "next-unpaid-due-date";
+    public static final String DISBURSAL_METHOD_PAYMENT_TYPE_ID = "disbursalMethodPaymentTypeId";
 
     @Version
     int version;
@@ -155,6 +157,11 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "loanpurpose_cv_id")
     private CodeValue loanPurpose;
+
+    @Setter
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "disbursal_method_payment_type_id")
+    private PaymentType disbursalMethodPaymentType;
 
     @Column(name = "loan_transaction_strategy_code", nullable = false)
     private String transactionProcessingStrategyCode;

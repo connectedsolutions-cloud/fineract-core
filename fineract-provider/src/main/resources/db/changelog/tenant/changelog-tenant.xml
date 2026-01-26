@@ -243,4 +243,6 @@
     <include file="parts/0221_add_loan_comittee_permissions.xml" relativeToChangelogFile="true" />
     <include file="parts/0222_add_create_loan_comittee_permission.xml" relativeToChangelogFile="true" />
     <include file="parts/0223_drop_allowed_permissions_visibility_from_sesiones_comite.xml" relativeToChangelogFile="true" />
+    <include file="parts/0224_add_disbursal_method_to_loan.xml" relativeToChangelogFile="true" />
+    <include file="parts/0225_add_dimensions_to_journal_entry.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

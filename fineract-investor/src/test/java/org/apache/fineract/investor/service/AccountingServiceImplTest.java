@@ -468,7 +468,7 @@ class AccountingServiceImplTest {
 
     private JournalEntry createJournalEntry(long id, GLAccount glAccount, JournalEntryType journalEntryType) {
         JournalEntry journalEntry = JournalEntry.createNew(null, null, glAccount, null, null, false, null, journalEntryType, null, null,
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null);
         journalEntry.setId(id);
         return journalEntry;
     }

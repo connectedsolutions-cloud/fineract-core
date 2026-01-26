@@ -90,32 +90,39 @@ public class JournalEntryCommandFromApiJsonDeserializer extends AbstractFromApiJ
         final String routingCode = this.fromApiJsonHelper.extractStringNamed(JournalEntryJsonInputParams.ROUTING_CODE.getValue(), element);
         final String externalAssetOwner = this.fromApiJsonHelper
                 .extractStringNamed(JournalEntryJsonInputParams.EXTERNAL_ASSET_OWNER.getValue(), element);
+        final JsonObject transactionDimensionsObj = this.fromApiJsonHelper
+                .extractJsonObjectNamed(JournalEntryJsonInputParams.DIMENSIONS.getValue(), element);
+        final String transactionDimensions = transactionDimensionsObj != null
+                ? this.fromApiJsonHelper.toJson(transactionDimensionsObj) : null;
 
         SingleDebitOrCreditEntryCommand[] credits = null;
         SingleDebitOrCreditEntryCommand[] debits = null;
         if (element.isJsonObject()) {
             if (topLevelJsonElement.has(JournalEntryJsonInputParams.CREDITS.getValue())
                     && topLevelJsonElement.get(JournalEntryJsonInputParams.CREDITS.getValue()).isJsonArray()) {
-                credits = populateCreditsOrDebitsArray(topLevelJsonElement, locale, JournalEntryJsonInputParams.CREDITS.getValue());
+                credits = populateCreditsOrDebitsArray(topLevelJsonElement, locale, JournalEntryJsonInputParams.CREDITS.getValue(),
+                        transactionDimensions);
             }
             if (topLevelJsonElement.has(JournalEntryJsonInputParams.DEBITS.getValue())
                     && topLevelJsonElement.get(JournalEntryJsonInputParams.DEBITS.getValue()).isJsonArray()) {
-                debits = populateCreditsOrDebitsArray(topLevelJsonElement, locale, JournalEntryJsonInputParams.DEBITS.getValue());
+                debits = populateCreditsOrDebitsArray(topLevelJsonElement, locale, JournalEntryJsonInputParams.DEBITS.getValue(),
+                        transactionDimensions);
             }
         }
         String dateFormat = this.fromApiJsonHelper.extractStringNamed(JournalEntryJsonInputParams.DATE_FORMAT.getValue(), element);
         return new JournalEntryCommand(officeId, currencyCode, transactionDate, comments, referenceNumber, accountingRuleId, amount,
                 paymentTypeId, accountNumber, checkNumber, receiptNumber, bankNumber, routingCode, credits, debits, localeStr, dateFormat,
-                externalAssetOwner);
+                externalAssetOwner, transactionDimensions);
     }
 
     /**
      * @param topLevelJsonElement
      * @param locale
      * @param paramName
+     * @param transactionLevelDimensions JSON string of transaction-level dimensions (fallback when line has none)
      */
     private SingleDebitOrCreditEntryCommand[] populateCreditsOrDebitsArray(final JsonObject topLevelJsonElement, final Locale locale,
-            final String paramName) {
+            final String paramName, final String transactionLevelDimensions) {
         final JsonArray array = topLevelJsonElement.get(paramName).getAsJsonArray();
         SingleDebitOrCreditEntryCommand[] debitOrCredits = new SingleDebitOrCreditEntryCommand[array.size()];
         for (int i = 0; i < array.size(); i++) {
@@ -126,8 +133,12 @@ public class JournalEntryCommandFromApiJsonDeserializer extends AbstractFromApiJ
             final Long glAccountId = this.fromApiJsonHelper.extractLongNamed("glAccountId", creditElement);
             final String comments = this.fromApiJsonHelper.extractStringNamed("comments", creditElement);
             final BigDecimal amount = this.fromApiJsonHelper.extractBigDecimalNamed("amount", creditElement, locale);
+            final JsonObject lineDimensionsObj = this.fromApiJsonHelper.extractJsonObjectNamed("dimensions", creditElement);
+            final String dimensions = lineDimensionsObj != null ? this.fromApiJsonHelper.toJson(lineDimensionsObj)
+                    : transactionLevelDimensions;
 
-            debitOrCredits[i] = new SingleDebitOrCreditEntryCommand(glAccountId, amount, comments, parametersPassedInForCreditsCommand);
+            debitOrCredits[i] = new SingleDebitOrCreditEntryCommand(glAccountId, amount, comments, dimensions,
+                    parametersPassedInForCreditsCommand);
         }
         return debitOrCredits;
     }

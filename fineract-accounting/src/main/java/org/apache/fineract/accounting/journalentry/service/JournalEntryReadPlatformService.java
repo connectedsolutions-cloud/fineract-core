@@ -31,7 +31,7 @@ public interface JournalEntryReadPlatformService {
 
     Page<JournalEntryData> retrieveAll(SearchParameters searchParameters, Long glAccountId, Boolean onlyManualEntries, LocalDate fromDate,
             LocalDate toDate, LocalDate submittedOnDateFrom, LocalDate submittedOnDateTo, String transactionId, Integer entityType,
-            JournalEntryAssociationParametersData associationParametersData);
+            String dimensionFilter, JournalEntryAssociationParametersData associationParametersData);
 
     OfficeOpeningBalancesData retrieveOfficeOpeningBalances(Long officeId, String currencyCode);
 

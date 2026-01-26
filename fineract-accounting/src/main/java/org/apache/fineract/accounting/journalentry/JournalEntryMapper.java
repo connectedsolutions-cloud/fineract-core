@@ -57,6 +57,7 @@ public interface JournalEntryMapper {
     @Mapping(target = "routingCode", source = "paymentDetail.routingCode")
     @Mapping(target = "receiptNumber", source = "paymentDetail.receiptNumber")
     @Mapping(target = "bankNumber", source = "paymentDetail.bankNumber")
+    @Mapping(target = "dimensions", source = "dimensions")
     @Mapping(target = "createdDate", ignore = true)
     @Mapping(target = "createdByUserId", ignore = true)
     @Mapping(target = "createdByUserName", ignore = true)

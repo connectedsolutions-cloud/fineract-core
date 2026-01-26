@@ -201,6 +201,25 @@ public class DatabaseSpecificSQLGenerator {
         }
     }
 
+    /**
+     * Returns a SQL fragment for filtering journal entries by dimensions containment. Use with a single ? placeholder;
+     * bind the filter as a JSON object string (e.g. {@code {"department":"Sales"}}).
+     * <p>
+     * PostgreSQL: {@code journalEntry.dimensions @> ?::jsonb}
+     * <p>
+     * MySQL: {@code JSON_CONTAINS(journalEntry.dimensions, CAST(? AS JSON))}
+     */
+    public String dimensionsContainmentClause() {
+        if (databaseTypeResolver.isMySQL()) {
+            return " JSON_CONTAINS(journalEntry.dimensions, CAST(? AS JSON)) ";
+        } else if (databaseTypeResolver.isPostgreSQL()) {
+            return " journalEntry.dimensions @> ?::jsonb ";
+        } else {
+            throw new IllegalStateException(
+                    "Database type is not supported for dimensions containment " + databaseTypeResolver.databaseType());
+        }
+    }
+
     public String alias(@NonNull String field, String alias) {
         return Strings.isEmpty(alias) ? field : (alias + '.') + field;
     }

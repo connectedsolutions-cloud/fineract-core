@@ -100,7 +100,7 @@ public class JournalEntryReadPlatformServiceImpl implements JournalEntryReadPlat
                     .append(" journalEntry.submitted_on_date as submittedOnDate, journalEntry.reversed as reversed, ")
                     .append(" journalEntry.currency_code as currencyCode, curr.name as currencyName, curr.internationalized_name_code as currencyNameCode, ")
                     .append(" curr.display_symbol as currencyDisplaySymbol, curr.decimal_places as currencyDigits, curr.currency_multiplesof as inMultiplesOf, ")
-                    .append(" eao.external_id as externalAssetOwner ");
+                    .append(" eao.external_id as externalAssetOwner, journalEntry.dimensions as dimensions ");
             if (associationParametersData.isRunningBalanceRequired()) {
                 sb.append(" ,journalEntry.is_running_balance_calculated as runningBalanceComputed, ")
                         .append(" journalEntry.office_running_balance as officeRunningBalance, ")
@@ -227,18 +227,19 @@ public class JournalEntryReadPlatformServiceImpl implements JournalEntryReadPlat
                 transactionDetailData = new TransactionDetailData(transaction, paymentDetailData, noteData, transactionTypeEnumData);
             }
             final String externalAssetOwner = rs.getString("externalAssetOwner");
+            final String dimensions = rs.getString("dimensions");
 
             return new JournalEntryData(id, officeId, officeName, glAccountName, glAccountId, glCode, accountType, transactionDate,
                     entryType, amount, transactionId, manualEntry, entityType, entityId, createdByUserId, submittedOnDate,
                     createdByUserName, comments, reversed, referenceNumber, officeRunningBalance, organizationRunningBalance,
-                    runningBalanceComputed, transactionDetailData, currency, externalAssetOwner);
+                    runningBalanceComputed, transactionDetailData, currency, externalAssetOwner, dimensions);
         }
     }
 
     @Override
     public Page<JournalEntryData> retrieveAll(final SearchParameters searchParameters, final Long glAccountId,
             final Boolean onlyManualEntries, final LocalDate fromDate, final LocalDate toDate, final LocalDate submittedOnDateFrom,
-            final LocalDate submittedOnDateTo, final String transactionId, final Integer entityType,
+            final LocalDate submittedOnDateTo, final String transactionId, final Integer entityType, final String dimensionFilter,
             final JournalEntryAssociationParametersData associationParametersData) {
         GLJournalEntryMapper rm = getGlJournalEntryMapper(associationParametersData);
         final StringBuilder sqlBuilder = new StringBuilder(200);
@@ -355,6 +356,16 @@ public class JournalEntryReadPlatformServiceImpl implements JournalEntryReadPlat
                     " journalEntry.savings_transaction_id in (select id from m_savings_account_transaction where savings_account_id = ?)");
             objectArray[arrayPos] = searchParameters.getSavingsId();
             arrayPos = arrayPos + 1;
+
+            whereClose = " and ";
+        }
+
+        if (StringUtils.isNotBlank(dimensionFilter)) {
+            sqlBuilder.append(whereClose).append(sqlGenerator.dimensionsContainmentClause());
+            objectArray[arrayPos] = dimensionFilter;
+            arrayPos = arrayPos + 1;
+
+            whereClose = " and ";
         }
 
         if (searchParameters.hasOrderBy()) {
@@ -521,7 +532,7 @@ public class JournalEntryReadPlatformServiceImpl implements JournalEntryReadPlat
                 .orderBy("journalEntry.id").sortOrder("ASC").currencyCode(currencyCode).build();
 
         return retrieveAll(searchParameters, contraId, onlyManualEntries, fromDate, toDate, submittedOnDateFrom, submittedOnDateTo,
-                transactionId, entityType, associationParametersData);
+                transactionId, entityType, null, associationParametersData);
 
     }
 

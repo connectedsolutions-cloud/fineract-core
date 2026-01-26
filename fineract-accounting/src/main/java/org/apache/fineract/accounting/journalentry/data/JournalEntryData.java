@@ -96,6 +96,7 @@ public class JournalEntryData {
     private String bankNumber;
     private String externalAssetOwner;
     private transient Long savingTransactionId;
+    private String dimensions;
 
     public JournalEntryData() {}
 
@@ -192,7 +193,8 @@ public class JournalEntryData {
             final EnumOptionData entityType, final Long entityId, final Long createdByUserId, final LocalDate submittedOnDate,
             final String createdByUserName, final String comments, final Boolean reversed, final String referenceNumber,
             final BigDecimal officeRunningBalance, final BigDecimal organizationRunningBalance, final Boolean runningBalanceComputed,
-            final TransactionDetailData transactionDetailData, final CurrencyData currency, final String externalAssetOwner) {
+            final TransactionDetailData transactionDetailData, final CurrencyData currency, final String externalAssetOwner,
+            final String dimensions) {
         this.id = id;
         this.officeId = officeId;
         this.officeName = officeName;
@@ -220,6 +222,7 @@ public class JournalEntryData {
         this.transactionDetails = transactionDetailData;
         this.currency = currency;
         this.externalAssetOwner = externalAssetOwner;
+        this.dimensions = dimensions;
     }
 
     public static JournalEntryData importInstance(Long officeId, LocalDate transactionDate, String currencyCode, Long paymentTypeId,
@@ -265,7 +268,7 @@ public class JournalEntryData {
         return new JournalEntryData(id, officeId, officeName, glAccountName, glAccountId, glAccountCode, glAccountClassification,
                 transactionDate, entryType, amount, transactionId, manualEntry, entityType, entityId, createdByUserId, submittedOnDate,
                 createdByUserName, comments, reversed, referenceNumber, officeRunningBalance, organizationRunningBalance,
-                runningBalanceComputed, transactionDetailData, currency, externalAssetOwner);
+                runningBalanceComputed, transactionDetailData, currency, externalAssetOwner, null);
     }
 
     public Integer getRowIndex() {

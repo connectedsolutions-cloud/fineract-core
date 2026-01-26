@@ -98,7 +98,7 @@ public class InvestorAccountingHelper {
         final String modifiedTransactionId = INVESTOR_TRANSFER_IDENTIFIER + transactionId;
         final JournalEntry journalEntry = JournalEntry.createNew(office, null, account, currencyCode, modifiedTransactionId, manualEntry,
                 transactionDate, JournalEntryType.CREDIT, amount, null, PortfolioProductType.LOAN.getValue(), loanId, null, null, null,
-                null, null);
+                null, null, null);
         return this.glJournalEntryRepository.saveAndFlush(journalEntry);
     }
 
@@ -109,7 +109,7 @@ public class InvestorAccountingHelper {
 
         final JournalEntry journalEntry = JournalEntry.createNew(office, null, account, currencyCode, modifiedTransactionId, manualEntry,
                 transactionDate, JournalEntryType.DEBIT, amount, null, PortfolioProductType.LOAN.getValue(), loanId, null, null, null, null,
-                null);
+                null, null);
         return this.glJournalEntryRepository.saveAndFlush(journalEntry);
     }
 

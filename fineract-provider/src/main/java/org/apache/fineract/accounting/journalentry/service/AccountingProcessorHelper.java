@@ -886,7 +886,7 @@ public class AccountingProcessorHelper {
         String modifiedTransactionId = CLIENT_TRANSACTION_IDENTIFIER + transactionId;
         final JournalEntry journalEntry = JournalEntry.createNew(office, null, account, currencyCode, modifiedTransactionId, manualEntry,
                 transactionDate, JournalEntryType.CREDIT, amount, null, PortfolioProductType.CLIENT.getValue(), clientId, null, null, null,
-                transactionId, null);
+                transactionId, null, null);
         persistJournalEntry(journalEntry);
     }
 
@@ -902,7 +902,7 @@ public class AccountingProcessorHelper {
         }
         final JournalEntry journalEntry = JournalEntry.createNew(office, null, account, currencyCode, modifiedTransactionId, manualEntry,
                 transactionDate, JournalEntryType.CREDIT, amount, null, PortfolioProductType.SAVING.getValue(), savingsId, null, null,
-                savingsAccountTransactionId, null, null);
+                savingsAccountTransactionId, null, null, null);
 
         persistJournalEntry(journalEntry);
     }
@@ -918,7 +918,7 @@ public class AccountingProcessorHelper {
         }
         final JournalEntry journalEntry = JournalEntry.createNew(office, null, account, currencyCode, modifiedTransactionId, manualEntry,
                 transactionDate, JournalEntryType.CREDIT, amount, null, PortfolioProductType.LOAN.getValue(), loanId, null,
-                loanTransactionId, null, null, null);
+                loanTransactionId, null, null, null, null);
         persistJournalEntry(journalEntry);
     }
 
@@ -928,7 +928,7 @@ public class AccountingProcessorHelper {
         String modifiedTransactionId = PROVISIONING_TRANSACTION_IDENTIFIER + provisioningEntryId;
         final JournalEntry journalEntry = JournalEntry.createNew(office, null, account, currencyCode, modifiedTransactionId, manualEntry,
                 transactionDate, JournalEntryType.DEBIT, amount, null, PortfolioProductType.PROVISIONING.getValue(), provisioningEntryId,
-                null, null, null, null, null);
+                null, null, null, null, null, null);
         persistJournalEntry(journalEntry);
     }
 
@@ -938,7 +938,7 @@ public class AccountingProcessorHelper {
         String modifiedTransactionId = PROVISIONING_TRANSACTION_IDENTIFIER + provisioningEntryId;
         final JournalEntry journalEntry = JournalEntry.createNew(office, null, account, currencyCode, modifiedTransactionId, manualEntry,
                 transactionDate, JournalEntryType.CREDIT, amount, null, PortfolioProductType.PROVISIONING.getValue(), provisioningEntryId,
-                null, null, null, null, null);
+                null, null, null, null, null, null);
         persistJournalEntry(journalEntry);
     }
 
@@ -953,7 +953,7 @@ public class AccountingProcessorHelper {
         }
         final JournalEntry journalEntry = JournalEntry.createNew(office, null, account, currencyCode, modifiedTransactionId, manualEntry,
                 transactionDate, JournalEntryType.DEBIT, amount, null, PortfolioProductType.LOAN.getValue(), loanId, null,
-                loanTransactionId, null, null, null);
+                loanTransactionId, null, null, null, null);
         persistJournalEntry(journalEntry);
     }
 
@@ -968,7 +968,7 @@ public class AccountingProcessorHelper {
         }
         final JournalEntry journalEntry = JournalEntry.createNew(office, null, account, currencyCode, modifiedTransactionId, manualEntry,
                 transactionDate, JournalEntryType.DEBIT, amount, null, PortfolioProductType.SAVING.getValue(), savingsId, null, null,
-                savingsAccountTransactionId, null, null);
+                savingsAccountTransactionId, null, null, null);
 
         persistJournalEntry(journalEntry);
     }
@@ -979,7 +979,7 @@ public class AccountingProcessorHelper {
         String modifiedTransactionId = CLIENT_TRANSACTION_IDENTIFIER + transactionId;
         final JournalEntry journalEntry = JournalEntry.createNew(office, null, account, currencyCode, modifiedTransactionId, manualEntry,
                 transactionDate, JournalEntryType.DEBIT, amount, null, PortfolioProductType.CLIENT.getValue(), clientId, null, null, null,
-                transactionId, null);
+                transactionId, null, null);
         persistJournalEntry(journalEntry);
     }
 
@@ -1092,7 +1092,7 @@ public class AccountingProcessorHelper {
         }
         final JournalEntry journalEntry = JournalEntry.createNew(office, null, account, currencyCode, modifiedTransactionId, manualEntry,
                 transactionDate, JournalEntryType.DEBIT, amount, null, PortfolioProductType.SHARES.getValue(), shareAccountId, null, null,
-                null, null, shareTransactionId);
+                null, null, shareTransactionId, null);
         persistJournalEntry(journalEntry);
     }
 
@@ -1107,7 +1107,7 @@ public class AccountingProcessorHelper {
         }
         final JournalEntry journalEntry = JournalEntry.createNew(office, null, account, currencyCode, modifiedTransactionId, manualEntry,
                 transactionDate, JournalEntryType.CREDIT, amount, null, PortfolioProductType.SHARES.getValue(), shareAccountId, null, null,
-                null, null, shareTransactionId);
+                null, null, shareTransactionId, null);
         persistJournalEntry(journalEntry);
     }
 

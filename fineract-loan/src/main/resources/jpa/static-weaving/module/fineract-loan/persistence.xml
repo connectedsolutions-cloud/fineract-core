@@ -78,6 +78,9 @@
         <class>org.apache.fineract.accounting.rule.domain.AccountingTagRule</class>
         <class>org.apache.fineract.accounting.journalentry.domain.JournalEntry</class>
 
+        <!-- Accounting Module Converters -->
+        <class>org.apache.fineract.infrastructure.core.persistence.converter.JsonbStringAttributeConverter</class>
+
         <!-- Charge Module Entities -->
         <class>org.apache.fineract.portfolio.charge.domain.Charge</class>
 

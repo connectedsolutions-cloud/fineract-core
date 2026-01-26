@@ -99,6 +99,8 @@ import org.apache.fineract.portfolio.loanproduct.domain.LoanProductRelatedDetail
 import org.apache.fineract.portfolio.loanproduct.domain.LoanProductRepository;
 import org.apache.fineract.portfolio.loanproduct.exception.LoanProductNotFoundException;
 import org.apache.fineract.portfolio.loanproduct.service.LoanEnumerations;
+import org.apache.fineract.portfolio.paymenttype.domain.PaymentType;
+import org.apache.fineract.portfolio.paymenttype.domain.PaymentTypeRepositoryWrapper;
 import org.apache.fineract.portfolio.rate.domain.Rate;
 import org.apache.fineract.portfolio.rate.service.RateAssembler;
 import org.apache.fineract.useradministration.domain.AppUser;
@@ -114,6 +116,7 @@ public class LoanAssemblerImpl implements LoanAssembler {
     private final FundRepository fundRepository;
     private final StaffRepository staffRepository;
     private final CodeValueRepositoryWrapper codeValueRepository;
+    private final PaymentTypeRepositoryWrapper paymentTypeRepository;
     private final LoanScheduleAssembler loanScheduleAssembler;
     private final LoanChargeAssembler loanChargeAssembler;
     private final LoanCollateralAssembler collateralAssembler;
@@ -395,6 +398,14 @@ public class LoanAssemblerImpl implements LoanAssembler {
         return codeValue;
     }
 
+    private PaymentType findPaymentTypeByIdIfProvided(final Long paymentTypeId) {
+        PaymentType paymentType = null;
+        if (paymentTypeId != null) {
+            paymentType = this.paymentTypeRepository.findOneWithNotFoundDetection(paymentTypeId);
+        }
+        return paymentType;
+    }
+
     @Override
     public Fund findFundByIdIfProvided(final Long fundId) {
         Fund fund = null;
@@ -632,6 +643,17 @@ public class LoanAssemblerImpl implements LoanAssembler {
             changes.put(LoanApiConstants.loanPurposeIdParameterName, newValue);
             final CodeValue loanPurpose = findCodeValueByIdIfProvided(newValue);
             loan.updateLoanPurpose(loanPurpose);
+        }
+
+        Long existingDisbursalMethodPaymentTypeId = null;
+        if (loan.getDisbursalMethodPaymentType() != null) {
+            existingDisbursalMethodPaymentTypeId = loan.getDisbursalMethodPaymentType().getId();
+        }
+        if (command.isChangeInLongParameterNamed(LoanApiConstants.disbursalMethodPaymentTypeIdParameterName, existingDisbursalMethodPaymentTypeId)) {
+            final Long newValue = command.longValueOfParameterNamed(LoanApiConstants.disbursalMethodPaymentTypeIdParameterName);
+            changes.put(LoanApiConstants.disbursalMethodPaymentTypeIdParameterName, newValue);
+            final PaymentType disbursalMethodPaymentType = findPaymentTypeByIdIfProvided(newValue);
+            loan.setDisbursalMethodPaymentType(disbursalMethodPaymentType);
         }
 
         if (command.isChangeInStringParameterNamed(LoanApiConstants.transactionProcessingStrategyCodeParameterName,

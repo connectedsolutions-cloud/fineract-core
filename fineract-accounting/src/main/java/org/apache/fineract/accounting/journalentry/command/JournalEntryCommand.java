@@ -22,6 +22,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.accounting.journalentry.api.JournalEntryJsonInputParams;
@@ -55,6 +56,7 @@ public class JournalEntryCommand {
     private final String locale;
     private final String dateFormat;
     private final String externalAssetOwner;
+    private final String dimensions;
 
     public void validateForCreate() {
 
@@ -82,7 +84,8 @@ public class JournalEntryCommand {
         // validation for credit array elements
         if (this.credits != null) {
             if (this.credits.length == 0) {
-                validateSingleDebitOrCredit(baseDataValidator, "credits", 0, new SingleDebitOrCreditEntryCommand(null, null, null, null));
+                validateSingleDebitOrCredit(baseDataValidator, "credits", 0,
+                        new SingleDebitOrCreditEntryCommand(null, null, null, null, Set.of()));
             } else {
                 int i = 0;
                 for (final SingleDebitOrCreditEntryCommand credit : this.credits) {
@@ -95,7 +98,8 @@ public class JournalEntryCommand {
         // validation for debit array elements
         if (this.debits != null) {
             if (this.debits.length == 0) {
-                validateSingleDebitOrCredit(baseDataValidator, "debits", 0, new SingleDebitOrCreditEntryCommand(null, null, null, null));
+                validateSingleDebitOrCredit(baseDataValidator, "debits", 0,
+                        new SingleDebitOrCreditEntryCommand(null, null, null, null, Set.of()));
             } else {
                 int i = 0;
                 for (final SingleDebitOrCreditEntryCommand debit : this.debits) {
