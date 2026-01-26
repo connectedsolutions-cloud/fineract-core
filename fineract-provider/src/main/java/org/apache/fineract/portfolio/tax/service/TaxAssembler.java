@@ -135,13 +135,18 @@ public class TaxAssembler {
                         dateFormat, locale);
                 final LocalDate endDate = this.fromApiJsonHelper.extractLocalDateNamed(TaxApiConstants.endDateParamName, taxComponent,
                         dateFormat, locale);
-                if (endDate == null && startDate == null) {
-                    startDate = DateUtils.getBusinessLocalDate();
-                }
+                
                 TaxGroupMappings mappings = null;
                 if (isUpdate && mappingId != null) {
+                    // For existing mappings, we only update the endDate
+                    // The startDate will be preserved from the existing mapping in the database
                     mappings = TaxGroupMappings.createTaxGroupMappings(mappingId, component, endDate);
                 } else {
+                    // For new mappings, we need a startDate
+                    // If both are null, default to business date
+                    if (endDate == null && startDate == null) {
+                        startDate = DateUtils.getBusinessLocalDate();
+                    }
                     mappings = TaxGroupMappings.createTaxGroupMappings(component, startDate);
                 }
                 groupMappings.add(mappings);

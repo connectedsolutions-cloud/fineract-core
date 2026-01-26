@@ -19,6 +19,8 @@
 package org.apache.fineract.portfolio.tax.service;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -35,6 +37,7 @@ import org.apache.fineract.portfolio.tax.data.TaxComponentData;
 import org.apache.fineract.portfolio.tax.data.TaxComponentHistoryData;
 import org.apache.fineract.portfolio.tax.data.TaxGroupData;
 import org.apache.fineract.portfolio.tax.data.TaxGroupMappingsData;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
@@ -51,14 +54,23 @@ public class TaxReadPlatformServiceImpl implements TaxReadPlatformService {
 
     @Override
     public List<TaxComponentData> retrieveAllTaxComponents() {
-        String sql = "select " + TAX_COMPONENT_MAPPER.getSchema();
-        return this.jdbcTemplate.query(sql, TAX_COMPONENT_MAPPER); // NOSONAR
+        String sql = "select " + TAX_COMPONENT_MAPPER.getSchema() + " order by tc.id, history.start_date";
+        return this.jdbcTemplate.query(
+                (Connection con) -> con.prepareStatement(sql, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY),
+                TAX_COMPONENT_MAPPER); // NOSONAR
     }
 
     @Override
     public TaxComponentData retrieveTaxComponentData(final Long id) {
-        String sql = "select " + TAX_COMPONENT_MAPPER.getSchema() + " where tc.id=?";
-        return this.jdbcTemplate.queryForObject(sql, TAX_COMPONENT_MAPPER, id); // NOSONAR
+        String sql = "select " + TAX_COMPONENT_MAPPER.getSchema() + " where tc.id=? order by tc.id, history.start_date";
+        List<TaxComponentData> list = this.jdbcTemplate.query(
+                (Connection con) -> {
+                    PreparedStatement ps = con.prepareStatement(sql, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                    ps.setLong(1, id);
+                    return ps;
+                },
+                TAX_COMPONENT_MAPPER); // NOSONAR
+        return list.stream().findFirst().orElseThrow(() -> new EmptyResultDataAccessException(1));
     }
 
     @Override
@@ -69,14 +81,23 @@ public class TaxReadPlatformServiceImpl implements TaxReadPlatformService {
 
     @Override
     public List<TaxGroupData> retrieveAllTaxGroups() {
-        String sql = "select " + TAX_GROUP_MAPPER.getSchema();
-        return this.jdbcTemplate.query(sql, TAX_GROUP_MAPPER); // NOSONAR
+        String sql = "select " + TAX_GROUP_MAPPER.getSchema() + " order by tg.id";
+        return this.jdbcTemplate.query(
+                (Connection con) -> con.prepareStatement(sql, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY),
+                TAX_GROUP_MAPPER); // NOSONAR
     }
 
     @Override
     public TaxGroupData retrieveTaxGroupData(final Long id) {
-        String sql = "select " + TAX_GROUP_MAPPER.getSchema() + " where tg.id=?";
-        return this.jdbcTemplate.queryForObject(sql, TAX_GROUP_MAPPER, id); // NOSONAR
+        String sql = "select " + TAX_GROUP_MAPPER.getSchema() + " where tg.id=? order by tg.id";
+        List<TaxGroupData> list = this.jdbcTemplate.query(
+                (Connection con) -> {
+                    PreparedStatement ps = con.prepareStatement(sql, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                    ps.setLong(1, id);
+                    return ps;
+                },
+                TAX_GROUP_MAPPER); // NOSONAR
+        return list.stream().findFirst().orElseThrow(() -> new EmptyResultDataAccessException(1));
     }
 
     @Override

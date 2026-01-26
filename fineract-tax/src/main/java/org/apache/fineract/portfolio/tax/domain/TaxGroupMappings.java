@@ -72,6 +72,10 @@ public class TaxGroupMappings extends AbstractAuditableCustom {
     }
 
     public void update(final LocalDate endDate, final List<Map<String, Object>> changes) {
+        // Only update endDate if:
+        // 1. A new endDate is provided (not null)
+        // 2. The existing endDate is null (hasn't been set before)
+        // This prevents modifying an endDate once it's been set
         if (endDate != null && this.endDate == null) {
             this.endDate = endDate;
             Map<String, Object> map = new HashMap<>(2);
