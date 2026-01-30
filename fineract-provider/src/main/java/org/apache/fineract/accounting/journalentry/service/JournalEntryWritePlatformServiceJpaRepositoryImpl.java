@@ -828,6 +828,13 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
     @Override
     public void createJournalEntriesForLoanTransaction(final LoanTransaction loanTransaction, final boolean isAccountTransfer,
             final boolean isLoanToLoanTransfer) {
+        createJournalEntriesForLoanTransaction(loanTransaction, isAccountTransfer, isLoanToLoanTransfer, null);
+    }
+
+    @Transactional
+    @Override
+    public void createJournalEntriesForLoanTransaction(final LoanTransaction loanTransaction, final boolean isAccountTransfer,
+            final boolean isLoanToLoanTransfer, final Long overrideLoanTransactionIdForGL) {
         final Loan loan = loanTransaction.getLoan();
 
         // Check if accounting is enabled for this loan
@@ -837,7 +844,7 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
         }
 
         final AccountingBridgeDataDTO accountingBridgeData = createAccountingBridgeDataForSingleTransaction(loanTransaction,
-                isAccountTransfer);
+                isAccountTransfer, overrideLoanTransactionIdForGL);
 
         if (isLoanToLoanTransfer) {
             accountingBridgeData.getNewLoanTransactions().forEach(tx -> tx.setLoanToLoanTransfer(true));
@@ -862,13 +869,19 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
     /**
      * Create AccountingBridgeDataDTO for a single loan transaction This converts a single LoanTransaction to the format
      * expected by existing journal entry logic
+     *
+     * @param overrideTransactionIdForGL
+     *            when non-null, journal entries are linked to this loan_transaction_id instead of the transaction's id
      */
     private AccountingBridgeDataDTO createAccountingBridgeDataForSingleTransaction(final LoanTransaction loanTransaction,
-            final boolean isAccountTransfer) {
+            final boolean isAccountTransfer, final Long overrideTransactionIdForGL) {
         final Loan loan = loanTransaction.getLoan();
         final String currencyCode = loan.getCurrencyCode();
 
         final AccountingBridgeLoanTransactionDTO transactionDTO = convertToAccountingBridgeTransaction(loanTransaction);
+        if (overrideTransactionIdForGL != null) {
+            transactionDTO.setId(overrideTransactionIdForGL);
+        }
 
         final List<AccountingBridgeLoanTransactionDTO> transactions = new ArrayList<>();
         transactions.add(transactionDTO);

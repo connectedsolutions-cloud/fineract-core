@@ -43,6 +43,7 @@ import org.apache.fineract.infrastructure.configuration.service.TemporaryConfigu
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.api.JsonQuery;
 import org.apache.fineract.infrastructure.core.domain.ExternalId;
+import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
 import org.apache.fineract.infrastructure.core.service.ExternalIdFactory;
 import org.apache.fineract.organisation.holiday.domain.Holiday;
@@ -287,6 +288,11 @@ public class LoanAssemblerImpl implements LoanAssembler {
         copyAdvancedPaymentRulesIfApplicable(transactionProcessingStrategyCode, loanProduct, loanApplication);
         // TODO: review
         loanChargeService.recalculateAllCharges(loanApplication);
+        final LocalDate dateForNetDisbursal = loanApplicationTerms.getExpectedDisbursementDate() != null
+                ? loanApplicationTerms.getExpectedDisbursementDate() : DateUtils.getBusinessLocalDate();
+        final BigDecimal totalDueAtDisbursement = loanChargeService.deriveSumTotalChargesDueAtDisbursementForNetDisbursal(loanApplication,
+                dateForNetDisbursal);
+        loanApplication.setNetDisbursalAmount(loanApplication.getApprovedPrincipal().subtract(totalDueAtDisbursement));
         topUpLoanConfiguration(element, loanApplication);
         loanAccrualsProcessingService.reprocessExistingAccruals(loanApplication, false);
         return loanApplication;

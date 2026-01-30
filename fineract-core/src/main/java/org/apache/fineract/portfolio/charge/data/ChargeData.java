@@ -70,6 +70,8 @@ public final class ChargeData implements Comparable<ChargeData>, Serializable {
     private final BigDecimal maxCap;
     private final EnumOptionData feeFrequency;
     private final GLAccountData incomeOrLiabilityAccount;
+    private final GLAccountData debitAccount;
+    private final GLAccountData creditAccount;
     private final TaxGroupData taxGroup;
 
     // template attributes

@@ -40,6 +40,13 @@ public class LoanJournalEntryPosterImpl implements LoanJournalEntryPoster {
     }
 
     @Override
+    public void postJournalEntriesForLoanTransaction(final LoanTransaction loanTransaction, final boolean isAccountTransfer,
+            final boolean isLoanToLoanTransfer, final Long overrideLoanTransactionIdForGL) {
+        this.journalEntryWritePlatformService.createJournalEntriesForLoanTransaction(loanTransaction, isAccountTransfer,
+                isLoanToLoanTransfer, overrideLoanTransactionIdForGL);
+    }
+
+    @Override
     public void postJournalEntriesForExternalOwnerTransfer(final Loan loan, final Object externalAssetOwnerTransfer,
             final Object previousOwner) {
         // Cast to proper types

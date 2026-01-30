@@ -1969,7 +1969,7 @@ public abstract class AbstractCumulativeLoanScheduleGenerator implements LoanSch
     private BigDecimal deriveTotalChargesDueAtTimeOfDisbursement(final Set<LoanCharge> loanCharges) {
         BigDecimal chargesDueAtTimeOfDisbursement = BigDecimal.ZERO;
         for (final LoanCharge loanCharge : loanCharges) {
-            if (loanCharge.isDueAtDisbursement()) {
+            if (loanCharge.isDueAtDisbursement() && !loanCharge.getChargeCalculation().isPercentageOfAmountReduceDisbursal()) {
                 chargesDueAtTimeOfDisbursement = chargesDueAtTimeOfDisbursement.add(loanCharge.amount());
             }
         }

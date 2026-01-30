@@ -25,12 +25,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.fineract.organisation.monetary.domain.MoneyHelper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.fineract.portfolio.tax.data.TaxComponentData;
 import org.apache.fineract.portfolio.tax.data.TaxGroupMappingsData;
 import org.apache.fineract.portfolio.tax.domain.TaxComponent;
 import org.apache.fineract.portfolio.tax.domain.TaxGroupMappings;
 
 public final class TaxUtils {
+
+    private static final Logger LOG = LoggerFactory.getLogger(TaxUtils.class);
+    private static final String DEBUG_PREFIX = "COMTE-DEBUG-TAX";
 
     private TaxUtils() {
 
@@ -112,17 +117,54 @@ public final class TaxUtils {
             double percentageVal = 0;
             double amountVal = amount.doubleValue();
             double cent_percentage = Double.parseDouble("100.0");
+            LOG.debug("{} addTax input: amount={}, date={}, scale={}, amountVal={}, cent_percentage={}", DEBUG_PREFIX, amount, date,
+                    scale, amountVal, cent_percentage);
             for (TaxGroupMappings groupMappings : taxGroupMappings) {
                 if (groupMappings.occursOnDayFromAndUpToAndIncluding(date)) {
                     TaxComponent component = groupMappings.getTaxComponent();
                     BigDecimal percentage = component.getApplicablePercentage(date);
                     if (percentage != null) {
                         percentageVal = percentageVal + percentage.doubleValue();
+                        LOG.debug("{} applicable mapping: componentId={}, percentage={}, accumulated percentageVal={}", DEBUG_PREFIX,
+                                component != null ? component.getId() : null, percentage, percentageVal);
                     }
                 }
             }
             double total = amountVal * cent_percentage / (cent_percentage - percentageVal);
+            LOG.debug("{} calculation: total = amountVal * cent_percentage / (cent_percentage - percentageVal) = {} * {} / ({} - {}) = {}",
+                    DEBUG_PREFIX, amountVal, cent_percentage, cent_percentage, percentageVal, total);
             totalAmount = BigDecimal.valueOf(total).setScale(scale, MoneyHelper.getRoundingMode());
+            LOG.debug("{} addTax result: totalAmount={} (scale={})", DEBUG_PREFIX, totalAmount, scale);
+        }
+        return totalAmount;
+    }
+
+    public static BigDecimal addTaxCredesal(final BigDecimal amount, final LocalDate date,
+            final List<TaxGroupMappings> taxGroupMappings, final int scale) {
+        BigDecimal totalAmount = null;
+        if (amount != null && amount.compareTo(BigDecimal.ZERO) > 0) {
+            double percentageVal = 0;
+            double amountVal = amount.doubleValue();
+            double cent_percentage = Double.parseDouble("100.0");
+            LOG.debug("{} addTaxCredesal input: amount={}, date={}, scale={}, amountVal={}, cent_percentage={}", DEBUG_PREFIX, amount,
+                    date, scale, amountVal, cent_percentage);
+            for (TaxGroupMappings groupMappings : taxGroupMappings) {
+                if (groupMappings.occursOnDayFromAndUpToAndIncluding(date)) {
+                    TaxComponent component = groupMappings.getTaxComponent();
+                    BigDecimal percentage = component.getApplicablePercentage(date);
+                    if (percentage != null) {
+                        percentageVal = percentageVal + percentage.doubleValue();
+                        LOG.debug("{} applicable mapping: componentId={}, percentage={}, accumulated percentageVal={}", DEBUG_PREFIX,
+                                component != null ? component.getId() : null, percentage, percentageVal);
+                    }
+                }
+            }
+            double total = (amountVal * (percentageVal / cent_percentage)) + amountVal;
+            LOG.debug(
+                    "{} calculation: total = (amountVal * (percentageVal / cent_percentage)) + amountVal = ({} * ({} / {})) + {} = {}",
+                    DEBUG_PREFIX, amountVal, percentageVal, cent_percentage, amountVal, total);
+            totalAmount = BigDecimal.valueOf(total).setScale(scale, MoneyHelper.getRoundingMode());
+            LOG.debug("{} addTaxCredesal result: totalAmount={} (scale={})", DEBUG_PREFIX, totalAmount, scale);
         }
         return totalAmount;
     }

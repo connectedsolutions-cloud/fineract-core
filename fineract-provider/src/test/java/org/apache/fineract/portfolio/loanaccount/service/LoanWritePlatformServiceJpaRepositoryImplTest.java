@@ -107,6 +107,9 @@ public class LoanWritePlatformServiceJpaRepositoryImplTest {
     private LoanRepositoryWrapper loanRepositoryWrapper;
 
     @Mock
+    private LoanOriginalApprovalSubmissionSnapshotHelper loanOriginalApprovalSubmissionSnapshotHelper;
+
+    @Mock
     private LoanJournalEntryPoster journalEntryPoster;
 
     @Mock

@@ -385,6 +385,18 @@ public class LoanTransaction extends AbstractAuditableWithUTCDateTimeCustom<Long
         };
     }
 
+    /**
+     * Creates a loan transaction that acts as a GL container for comite-otorgamiento processing. Amount is zero; it
+     * does not affect loan balance. All GL postings for the comite step can be linked to this transaction.
+     */
+    public static LoanTransaction comiteOtorgamiento(final Loan loan, final Office office, final LocalDate dateOf,
+            final ExternalId externalId) {
+        final LoanTransaction txn = new LoanTransaction(loan, office, LoanTransactionType.COMTE_OTORGAMIENTO, BigDecimal.ZERO, dateOf,
+                externalId);
+        loan.addLoanTransaction(txn);
+        return txn;
+    }
+
     public LoanTransaction copyTransactionPropertiesAndMappings() {
         LoanTransaction newTransaction = copyTransactionProperties(this);
         newTransaction.updateLoanTransactionToRepaymentScheduleMappings(loanTransactionToRepaymentScheduleMappings);

@@ -63,7 +63,7 @@ public final class FinancialActivityAccountDataValidator {
                 FinancialActivity.ASSET_TRANSFER.getValue(), FinancialActivity.LIABILITY_TRANSFER.getValue(),
                 FinancialActivity.CASH_AT_MAINVAULT.getValue(), FinancialActivity.CASH_AT_TELLER.getValue(),
                 FinancialActivity.OPENING_BALANCES_TRANSFER_CONTRA.getValue(), FinancialActivity.ASSET_FUND_SOURCE.getValue(),
-                FinancialActivity.PAYABLE_DIVIDENDS.getValue());
+                FinancialActivity.PAYABLE_DIVIDENDS.getValue(), FinancialActivity.DISBURSEMENTS_PAYABLE.getValue());
 
         final Long glAccountId = this.fromApiJsonHelper.extractLongNamed(paramNameForGLAccount, element);
         baseDataValidator.reset().parameter(paramNameForGLAccount).value(glAccountId).notNull().integerGreaterThanZero();
@@ -90,7 +90,7 @@ public final class FinancialActivityAccountDataValidator {
             baseDataValidator.reset().parameter(paramNameForFinancialActivity).value(financialActivityId).ignoreIfNull().isOneOfTheseValues(
                     FinancialActivity.ASSET_TRANSFER.getValue(), FinancialActivity.LIABILITY_TRANSFER.getValue(),
                     FinancialActivity.OPENING_BALANCES_TRANSFER_CONTRA.getValue(), FinancialActivity.ASSET_FUND_SOURCE.getValue(),
-                    FinancialActivity.PAYABLE_DIVIDENDS.getValue());
+                    FinancialActivity.PAYABLE_DIVIDENDS.getValue(), FinancialActivity.DISBURSEMENTS_PAYABLE.getValue());
         }
 
         if (this.fromApiJsonHelper.parameterExists(paramNameForGLAccount, element)) {

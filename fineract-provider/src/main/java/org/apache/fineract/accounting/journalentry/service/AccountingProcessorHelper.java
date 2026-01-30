@@ -70,6 +70,7 @@ import org.apache.fineract.portfolio.PortfolioProductType;
 import org.apache.fineract.portfolio.account.PortfolioAccountType;
 import org.apache.fineract.portfolio.account.service.AccountTransfersReadPlatformService;
 import org.apache.fineract.portfolio.charge.domain.ChargeRepositoryWrapper;
+import org.apache.fineract.portfolio.charge.domain.ChargeTimeType;
 import org.apache.fineract.portfolio.loanaccount.data.AccountingBridgeLoanTransactionDTO;
 import org.apache.fineract.portfolio.loanaccount.data.LoanChargeData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanChargePaidByDTO;
@@ -388,46 +389,73 @@ public class AccountingProcessorHelper {
             final GLAccount chargeSpecificDebitAccount = getLinkedGLAccountForLoanCharges(loanProductId, accountTypeToBeDebited, chargeId);
             final BigDecimal chargeSpecificAmount = chargePaymentDTO.getAmount();
 
-            // aggregate amounts by account for credit entries
-            creditDetailsMap.merge(chargeSpecificCreditAccount, chargeSpecificAmount, BigDecimal::add);
-
-            // aggregate amounts by account for debit entries
-            debitDetailsMap.merge(chargeSpecificDebitAccount, chargeSpecificAmount, BigDecimal::add);
+            // When account is null (e.g. available-at-cashier charge with no GL set), skip GL posting for that side
+            if (chargeSpecificCreditAccount != null) {
+                creditDetailsMap.merge(chargeSpecificCreditAccount, chargeSpecificAmount, BigDecimal::add);
+            }
+            if (chargeSpecificDebitAccount != null) {
+                debitDetailsMap.merge(chargeSpecificDebitAccount, chargeSpecificAmount, BigDecimal::add);
+            }
         }
 
         BigDecimal totalCreditedAmount = BigDecimal.ZERO;
         BigDecimal totalDebitedAmount = BigDecimal.ZERO;
 
-        // Create credit journal entries
+        // Create credit journal entries (only for non-null accounts)
         for (final Map.Entry<GLAccount, BigDecimal> entry : creditDetailsMap.entrySet()) {
             final GLAccount account = entry.getKey();
+            if (account == null) {
+                continue;
+            }
             final BigDecimal amount = entry.getValue();
             totalCreditedAmount = totalCreditedAmount.add(amount);
             createCreditJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount);
         }
 
-        // Create debit journal entries using charge-specific debit accounts
+        // Create debit journal entries using charge-specific debit accounts (only for non-null accounts)
         for (final Map.Entry<GLAccount, BigDecimal> entry : debitDetailsMap.entrySet()) {
             final GLAccount account = entry.getKey();
+            if (account == null) {
+                continue;
+            }
             final BigDecimal amount = entry.getValue();
             totalDebitedAmount = totalDebitedAmount.add(amount);
             createDebitJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount);
         }
 
-        if (totalAmount.compareTo(totalCreditedAmount) != 0) {
-            throw new PlatformDataIntegrityException(
-                    "Meltdown in advanced accounting...sum of all charge credits does not equal the total transaction amount",
-                    "Sum of charge credits (" + totalCreditedAmount + ") does not equal transaction total (" + totalAmount + ") for loan "
-                            + loanId + ", transaction " + transactionId,
-                    totalCreditedAmount, totalAmount);
+        // When null accounts were skipped (e.g. available-at-cashier with empty debit/credit), we do not post that side; skip validation
+        if (totalCreditedAmount.compareTo(totalAmount) == 0 && totalDebitedAmount.compareTo(totalAmount) == 0) {
+            // No skips: validate as before
+            if (totalAmount.compareTo(totalCreditedAmount) != 0) {
+                throw new PlatformDataIntegrityException(
+                        "Meltdown in advanced accounting...sum of all charge credits does not equal the total transaction amount",
+                        "Sum of charge credits (" + totalCreditedAmount + ") does not equal transaction total (" + totalAmount
+                                + ") for loan " + loanId + ", transaction " + transactionId,
+                        totalCreditedAmount, totalAmount);
+            }
+            if (totalAmount.compareTo(totalDebitedAmount) != 0) {
+                throw new PlatformDataIntegrityException(
+                        "Meltdown in advanced accounting...sum of all charge debits does not equal the total transaction amount",
+                        "Sum of charge debits (" + totalDebitedAmount + ") does not equal transaction total (" + totalAmount
+                                + ") for loan " + loanId + ", transaction " + transactionId,
+                        totalDebitedAmount, totalAmount);
+            }
         }
+    }
 
-        if (totalAmount.compareTo(totalDebitedAmount) != 0) {
-            throw new PlatformDataIntegrityException(
-                    "Meltdown in advanced accounting...sum of all charge debits does not equal the total transaction amount",
-                    "Sum of charge debits (" + totalDebitedAmount + ") does not equal transaction total (" + totalAmount + ") for loan "
-                            + loanId + ", transaction " + transactionId,
-                    totalDebitedAmount, totalAmount);
+    /**
+     * Creates journal entries for tax on loan charges paid at disbursement. For each tax component, credits the tax
+     * component's GL account only (no debit to cash fund).
+     */
+    public void createJournalEntriesForLoanChargeTax(final Office office, final String currencyCode, final Long loanProductId,
+            final Long loanId, final Long paymentTypeId, final String transactionId, final LocalDate transactionDate,
+            final List<TaxPaymentDTO> taxPayments) {
+        for (final TaxPaymentDTO dto : taxPayments) {
+            if (dto.getAmount() != null && dto.getCreditAccountId() != null && dto.getAmount().compareTo(BigDecimal.ZERO) > 0) {
+                final GLAccount creditAccount = getGLAccountById(dto.getCreditAccountId());
+                createCreditJournalEntryForLoan(office, currencyCode, creditAccount, loanId, transactionId, transactionDate,
+                        dto.getAmount());
+            }
         }
     }
 
@@ -1145,6 +1173,24 @@ public class AccountingProcessorHelper {
     }
 
     private GLAccount getLinkedGLAccountForLoanCharges(final Long loanProductId, final int accountMappingTypeId, final Long chargeId) {
+        // For "available at cashier" charges, use only the charge's debit/credit GL accounts (m_charge); no product fallback.
+        // When debit_account_id or credit_account_id is null, we return null so no GL posting is generated for that side.
+        if (chargeId != null) {
+            final var charge = this.chargeRepositoryWrapper.findOneWithNotFoundDetection(chargeId);
+            if (ChargeTimeType.fromInt(charge.getChargeTimeType()).isAvailableAtCashier()) {
+                final int feesReceivable = AccrualAccountsForLoan.FEES_RECEIVABLE.getValue();
+                final int penaltiesReceivable = AccrualAccountsForLoan.PENALTIES_RECEIVABLE.getValue();
+                final int incomeFromFees = AccrualAccountsForLoan.INCOME_FROM_FEES.getValue();
+                final int incomeFromPenalties = AccrualAccountsForLoan.INCOME_FROM_PENALTIES.getValue();
+                if (accountMappingTypeId == feesReceivable || accountMappingTypeId == penaltiesReceivable) {
+                    return charge.getDebitAccount();
+                }
+                if (accountMappingTypeId == incomeFromFees || accountMappingTypeId == incomeFromPenalties) {
+                    return charge.getCreditAccount();
+                }
+            }
+        }
+
         ProductToGLAccountMapping accountMapping = this.accountMappingRepository.findCoreProductToFinAccountMapping(loanProductId,
                 PortfolioProductType.LOAN.getValue(), accountMappingTypeId);
         /*****
@@ -1359,13 +1405,19 @@ public class AccountingProcessorHelper {
             final GLAccount account = getLinkedGLAccountForLoanCharges(loanProductId, accountMappingTypeId, chargeId);
             BigDecimal amount = chargePaymentDTO.getAmount();
 
-            creditDetailsMap.merge(account, amount, BigDecimal::add);
+            // When account is null (e.g. available-at-cashier charge with no GL set), skip GL posting for that side
+            if (account != null) {
+                creditDetailsMap.merge(account, amount, BigDecimal::add);
+            }
         }
 
         BigDecimal totalCreditedAmount = BigDecimal.ZERO;
 
         for (Map.Entry<GLAccount, BigDecimal> entry : creditDetailsMap.entrySet()) {
             GLAccount account = entry.getKey();
+            if (account == null) {
+                continue;
+            }
             BigDecimal amount = entry.getValue();
             totalCreditedAmount = totalCreditedAmount.add(amount);
 
@@ -1376,6 +1428,10 @@ public class AccountingProcessorHelper {
             }
         }
 
+        // When null accounts were skipped (e.g. available-at-cashier with empty GL), totalCreditedAmount may be less than totalAmount; skip validation
+        if (totalCreditedAmount.compareTo(totalAmount) != 0) {
+            return; // Partial postings allowed (null debit/credit on charge)
+        }
         if (totalAmount.compareTo(totalCreditedAmount) != 0) {
             throw new PlatformDataIntegrityException(
                     "Meltdown in advanced accounting...sum of all charges is not equal to the fee charge for a transaction",

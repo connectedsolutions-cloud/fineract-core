@@ -60,6 +60,7 @@ public class SesionComiteWritePlatformServiceImpl implements SesionComiteWritePl
     private final SesionComiteRepository sesionComiteRepository;
     private final PlatformSecurityContext context;
     private final LoanApplicationWritePlatformService loanApplicationWritePlatformService;
+    private final ProcessComiteOtorgamientoLoansService processComiteOtorgamientoLoansService;
     private final FromJsonHelper fromJsonHelper;
 
     @Transactional
@@ -313,6 +314,7 @@ public class SesionComiteWritePlatformServiceImpl implements SesionComiteWritePl
     @Override
     public CommandProcessingResult applySessionApprovals(Long sessionId) {
         try {
+            log.debug("[COMTE-DEBUG] applySessionApprovals started sessionId={}", sessionId);
             final AppUser currentUser = this.context.authenticatedUser();
             final Long officeId = currentUser.getOffice().getId();
 
@@ -326,11 +328,16 @@ public class SesionComiteWritePlatformServiceImpl implements SesionComiteWritePl
 
             // Get unanimously approved loans
             List<Long> unanimouslyApprovedLoanIds = getUnanimouslyApprovedLoans(session);
+            if (unanimouslyApprovedLoanIds == null) {
+                unanimouslyApprovedLoanIds = new ArrayList<>();
+            }
+            log.debug("[COMTE-DEBUG] applySessionApprovals unanimouslyApprovedLoanIds={} count={}",
+                    unanimouslyApprovedLoanIds, unanimouslyApprovedLoanIds.size());
 
             // Batch approve loans
-            List<String> transactionIds = new ArrayList<>();
             for (Long loanId : unanimouslyApprovedLoanIds) {
                 try {
+                    log.debug("[COMTE-DEBUG] applySessionApprovals approving loan loanId={}", loanId);
                     // Create approval command for this loan
                     String jsonCommand = String.format("{\"dateFormat\":\"yyyy-MM-dd\",\"locale\":\"en\",\"approvedOnDate\":\"%s\"}",
                             OffsetDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE));
@@ -338,22 +345,28 @@ public class SesionComiteWritePlatformServiceImpl implements SesionComiteWritePl
                     JsonCommand approvalCommand = JsonCommand.from(jsonCommand, parsedCommand, fromJsonHelper, "LOAN", loanId, null,
                             null, null, loanId, null, null, null, null, null, null, null, null);
 
-                    CommandProcessingResult result = loanApplicationWritePlatformService.approveApplication(loanId, approvalCommand);
-                    if (result.getLoanId() != null) {
-                        transactionIds.add(result.getLoanId().toString());
-                    }
+                    loanApplicationWritePlatformService.approveApplication(loanId, approvalCommand);
+                    log.debug("[COMTE-DEBUG] applySessionApprovals loan approved loanId={}", loanId);
                 } catch (Exception e) {
-                    log.error("Error approving loan " + loanId, e);
+                    log.error("[COMTE-DEBUG] Error approving loan loanId={}", loanId, e);
                 }
             }
 
-            // Update session
-            session.setStatus("applied");
-            JsonArray outputArray = new JsonArray();
-            for (String txId : transactionIds) {
-                outputArray.add(txId);
+            // Process approved loans (portfolio debits, available-at-cashier charges, disbursements payable, pre-processed flag)
+            log.debug("[COMTE-DEBUG] applySessionApprovals calling processComiteOtorgamientoLoansService.process sessionId={} loanIds={}",
+                    sessionId, unanimouslyApprovedLoanIds);
+            ProcessComiteOtorgamientoResult processResult = processComiteOtorgamientoLoansService.process(session,
+                    unanimouslyApprovedLoanIds);
+            log.debug("[COMTE-DEBUG] applySessionApprovals process completed sessionId={} status={}",
+                    sessionId, processResult != null ? processResult.getStatus() : null);
+
+            // Update session with status and output from processing
+            if (processResult == null) {
+                throw new PlatformDataIntegrityException("error.msg.sesion.comite.process.result.null",
+                        "Process comite otorgamiento returned null result");
             }
-            session.setOutput(outputArray.toString());
+            session.setStatus(processResult.getStatus());
+            session.setOutput(processResult.getOutputJson());
             session.setClosingDate(DateUtils.getAuditOffsetDateTime());
 
             logSesionComitePayload("applySessionApprovals", session);

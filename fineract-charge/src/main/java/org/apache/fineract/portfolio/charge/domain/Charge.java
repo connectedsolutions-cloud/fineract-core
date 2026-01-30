@@ -141,6 +141,14 @@ public class Charge extends AbstractPersistableCustom<Long> {
     @JoinColumn(name = "tax_group_id")
     private TaxGroup taxGroup;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "debit_account_id")
+    private GLAccount debitAccount;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "credit_account_id")
+    private GLAccount creditAccount;
+
     public static Charge fromJson(final JsonCommand command, final GLAccount account, final TaxGroup taxGroup,
             final PaymentType paymentType) {
 
@@ -269,7 +277,7 @@ public class Charge extends AbstractPersistableCustom<Long> {
             }
         }
 
-        if (isPercentageOfDisbursementAmount() || isPercentageOfApprovedAmount()) {
+        if (isPercentageOfDisbursementAmount() || isPercentageOfApprovedAmount() || isPercentageOfAmountReduceDisbursal()) {
             this.minCap = minCap;
             this.maxCap = maxCap;
         }
@@ -349,6 +357,10 @@ public class Charge extends AbstractPersistableCustom<Long> {
 
     public boolean isPercentageOfDisbursementAmount() {
         return ChargeCalculationType.fromInt(this.chargeCalculation).isPercentageOfDisbursementAmount();
+    }
+
+    public boolean isPercentageOfAmountReduceDisbursal() {
+        return ChargeCalculationType.fromInt(this.chargeCalculation).isPercentageOfAmountReduceDisbursal();
     }
 
     public BigDecimal getMinCap() {
@@ -631,6 +643,16 @@ public class Charge extends AbstractPersistableCustom<Long> {
             actualChanges.put(ChargesApiConstants.glAccountIdParamName, newValue);
         }
 
+        if (command.isChangeInLongParameterNamed(ChargesApiConstants.debitAccountIdParamName, getDebitAccountId())) {
+            final Long newValue = command.longValueOfParameterNamed(ChargesApiConstants.debitAccountIdParamName);
+            actualChanges.put(ChargesApiConstants.debitAccountIdParamName, newValue);
+        }
+
+        if (command.isChangeInLongParameterNamed(ChargesApiConstants.creditAccountIdParamName, getCreditAccountId())) {
+            final Long newValue = command.longValueOfParameterNamed(ChargesApiConstants.creditAccountIdParamName);
+            actualChanges.put(ChargesApiConstants.creditAccountIdParamName, newValue);
+        }
+
         if (command.isChangeInLongParameterNamed(ChargesApiConstants.taxGroupIdParamName, getTaxGroupId())) {
             final Long newValue = command.longValueOfParameterNamed(ChargesApiConstants.taxGroupIdParamName);
             actualChanges.put(ChargesApiConstants.taxGroupIdParamName, newValue);
@@ -669,6 +691,16 @@ public class Charge extends AbstractPersistableCustom<Long> {
         if (account != null) {
             accountData = new GLAccountData().setId(account.getId()).setName(account.getName()).setGlCode(account.getGlCode());
         }
+        GLAccountData debitAccountData = null;
+        if (debitAccount != null) {
+            debitAccountData = new GLAccountData().setId(debitAccount.getId()).setName(debitAccount.getName())
+                    .setGlCode(debitAccount.getGlCode());
+        }
+        GLAccountData creditAccountData = null;
+        if (creditAccount != null) {
+            creditAccountData = new GLAccountData().setId(creditAccount.getId()).setName(creditAccount.getName())
+                    .setGlCode(creditAccount.getGlCode());
+        }
         TaxGroupData taxGroupData = null;
         if (this.taxGroup != null) {
             taxGroupData = TaxGroupData.lookup(taxGroup.getId(), taxGroup.getName());
@@ -686,7 +718,8 @@ public class Charge extends AbstractPersistableCustom<Long> {
                 .freeWithdrawal(this.enableFreeWithdrawal).freeWithdrawalChargeFrequency(this.freeWithdrawalFrequency)
                 .restartFrequency(this.restartFrequency).restartFrequencyEnum(this.restartFrequencyEnum)
                 .isPaymentType(this.enablePaymentType).paymentTypeOptions(paymentTypeData).minCap(this.minCap).maxCap(this.maxCap)
-                .feeFrequency(feeFrequencyType).incomeOrLiabilityAccount(accountData).taxGroup(taxGroupData).build();
+                .feeFrequency(feeFrequencyType).incomeOrLiabilityAccount(accountData).debitAccount(debitAccountData)
+                .creditAccount(creditAccountData).taxGroup(taxGroupData).build();
 
     }
 
@@ -740,6 +773,38 @@ public class Charge extends AbstractPersistableCustom<Long> {
             incomeAccountId = this.account.getId();
         }
         return incomeAccountId;
+    }
+
+    public GLAccount getDebitAccount() {
+        return this.debitAccount;
+    }
+
+    public void setDebitAccount(GLAccount debitAccount) {
+        this.debitAccount = debitAccount;
+    }
+
+    public Long getDebitAccountId() {
+        Long debitAccountId = null;
+        if (this.debitAccount != null) {
+            debitAccountId = this.debitAccount.getId();
+        }
+        return debitAccountId;
+    }
+
+    public GLAccount getCreditAccount() {
+        return this.creditAccount;
+    }
+
+    public void setCreditAccount(GLAccount creditAccount) {
+        this.creditAccount = creditAccount;
+    }
+
+    public Long getCreditAccountId() {
+        Long creditAccountId = null;
+        if (this.creditAccount != null) {
+            creditAccountId = this.creditAccount.getId();
+        }
+        return creditAccountId;
     }
 
     private Long getTaxGroupId() {

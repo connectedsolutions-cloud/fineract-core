@@ -88,8 +88,8 @@ public class CashierTransactionDataValidator {
                 + "OR (c.start_date BETWEEN :fromDate AND :endDate OR c.end_date BETWEEN :fromDate AND :endDate))";
 
         if (!cashier.getIsFullDay()) {
-            sql += " AND (TIME(c.start_time) BETWEEN TIME(:startTime) AND TIME(:endTime) "
-                    + "OR TIME(c.end_time) BETWEEN TIME(:startTime) AND TIME(:endTime))";
+            sql += " AND (c.start_time::time BETWEEN :startTime::time AND :endTime::time "
+                    + "OR c.end_time::time BETWEEN :startTime::time AND :endTime::time)";
         }
 
         Map<String, Object> paramMap = new HashMap<>();
@@ -115,7 +115,7 @@ public class CashierTransactionDataValidator {
             String sql = "SELECT c.id FROM m_cashiers c WHERE c.staff_id = :staffId "
                     + "AND (CASE WHEN c.full_day THEN :tenantDate BETWEEN c.start_date AND c.end_date "
                     + "ELSE (:tenantDate BETWEEN c.start_date AND c.end_date AND "
-                    + "TIME(:tenantDateTime) BETWEEN TIME(c.start_time) AND TIME(c.end_time)) END)";
+                    + ":tenantDateTime::time BETWEEN c.start_time::time AND c.end_time::time) END)";
 
             Map<String, Object> paramMap = new HashMap<>();
             paramMap.put("staffId", user.getStaff().getId());

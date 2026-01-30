@@ -16,20 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.fineract.test.data;
+package org.apache.fineract.portfolio.comite.service;
 
-public enum ChargeCalculationType {
+import java.io.Serializable;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-    FLAT(1), //
-    PERCENTAGE_AMOUNT(2), //
-    PERCENTAGE_LOAN_AMOUNT_PLUS_INTEREST(3), //
-    PERCENTAGE_INTEREST(4), //
-    PERCENTAGE_DISBURSEMENT_AMOUNT(5), //
-    PERCENTAGE_AMOUNT_REDUCE_DISBURSAL(6); //
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class ProcessComiteOtorgamientoResult implements Serializable {
 
-    public final Integer value;
-
-    ChargeCalculationType(Integer value) {
-        this.value = value;
-    }
+    private String status;
+    private String outputJson;
 }

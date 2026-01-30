@@ -348,6 +348,8 @@ public final class LoanEnumerations {
             case BUY_DOWN_FEE_AMORTIZATION_ADJUSTMENT ->
                 new LoanTransactionEnumData(LoanTransactionType.BUY_DOWN_FEE_AMORTIZATION_ADJUSTMENT.getValue().longValue(),
                         LoanTransactionType.BUY_DOWN_FEE_AMORTIZATION_ADJUSTMENT.getCode(), "Buy Down Fee Amortization Adjustment");
+            case COMTE_OTORGAMIENTO -> new LoanTransactionEnumData(LoanTransactionType.COMTE_OTORGAMIENTO.getValue().longValue(),
+                    LoanTransactionType.COMTE_OTORGAMIENTO.getCode(), "Comite Otorgamiento");
         };
     }
 

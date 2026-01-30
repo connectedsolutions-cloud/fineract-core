@@ -27,6 +27,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -36,6 +37,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.apache.fineract.accounting.journalentry.data.TaxPaymentDTO;
+import org.apache.fineract.accounting.journalentry.service.AccountingProcessorHelper;
+import org.apache.fineract.portfolio.tax.domain.TaxComponent;
+import org.apache.fineract.portfolio.tax.service.TaxUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.configuration.service.TemporaryConfigurationServiceContainer;
@@ -70,6 +75,7 @@ public class LoanDisbursementService {
     private final LoanBalanceService loanBalanceService;
     private final LoanJournalEntryPoster loanJournalEntryPoster;
     private final LoanTransactionRepository loanTransactionRepository;
+    private final AccountingProcessorHelper accountingProcessorHelper;
 
     public void updateDisbursementDetails(final Loan loan, final JsonCommand jsonCommand, final Map<String, Object> actualChanges) {
         final List<Long> disbursementList = loan.fetchDisbursementIds();
@@ -271,6 +277,30 @@ public class LoanDisbursementService {
             loan.addLoanTransaction(chargesPayment);
             loanTransactionRepository.saveAndFlush(chargesPayment);
             loanJournalEntryPoster.postJournalEntriesForLoanTransaction(chargesPayment, false, false);
+            // Tax events for due-at-disbursement charges that have a tax group (e.g. percent-of-amount-reduce-disbursal)
+            final List<TaxPaymentDTO> taxPayments = new ArrayList<>();
+            final int scale = loan.getCurrency().getDigitsAfterDecimal();
+            for (final LoanChargePaidBy paidBy : chargesPayment.getLoanChargesPaid()) {
+                final LoanCharge lc = paidBy.getLoanCharge();
+                if (lc.getCharge().getTaxGroup() != null && lc.getCharge().getTaxGroup().getTaxGroupMappings() != null
+                        && !lc.getCharge().getTaxGroup().getTaxGroupMappings().isEmpty()) {
+                    final Map<TaxComponent, BigDecimal> split = TaxUtils.splitTax(lc.amount(), disbursedOn,
+                            lc.getCharge().getTaxGroup().getTaxGroupMappings(), scale);
+                    for (final Map.Entry<TaxComponent, BigDecimal> e : split.entrySet()) {
+                        if (e.getValue() != null && e.getValue().compareTo(BigDecimal.ZERO) > 0
+                                && e.getKey().getCreditAcount() != null) {
+                            taxPayments.add(new TaxPaymentDTO(null, e.getKey().getCreditAcount().getId(), e.getValue()));
+                        }
+                    }
+                }
+            }
+            if (!taxPayments.isEmpty()) {
+                final String transactionId = AccountingProcessorHelper.LOAN_TRANSACTION_IDENTIFIER + chargesPayment.getId();
+                final Long paymentTypeId = paymentDetail != null && paymentDetail.getPaymentType() != null
+                        ? paymentDetail.getPaymentType().getId() : null;
+                accountingProcessorHelper.createJournalEntriesForLoanChargeTax(loan.getOffice(), loan.getCurrencyCode(),
+                        loan.getLoanProduct().getId(), loan.getId(), paymentTypeId, transactionId, disbursedOn, taxPayments);
+            }
             loanBalanceService.updateLoanOutstandingBalances(loan);
         }
 

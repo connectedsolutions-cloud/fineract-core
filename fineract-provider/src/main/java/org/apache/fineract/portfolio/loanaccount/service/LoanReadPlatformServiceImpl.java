@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.codes.data.CodeValueData;
 import org.apache.fineract.infrastructure.codes.service.CodeValueReadPlatformService;
@@ -159,6 +160,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
+@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, LoanReadPlatformServiceCommon {
@@ -840,7 +842,7 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
                     + " l.writeoff_reason_cv_id as writeoffReasonId, codev.code_value as writeoffReason,"
                     + " l.total_outstanding_derived as totalOutstanding, l.total_overpaid_derived as totalOverpaid,"
                     + " l.fixed_emi_amount as fixedEmiAmount, l.max_outstanding_loan_balance as outstandingLoanBalance,"
-                    + " l.loan_sub_status_id as loanSubStatusId, la.principal_overdue_derived as principalOverdue, l.is_fraud as isFraud, "
+                    + " l.loan_sub_status_id as loanSubStatusId, la.principal_overdue_derived as principalOverdue, l.is_fraud as isFraud, l.ready_for_comite as readyForComite, "
                     + " la.interest_overdue_derived as interestOverdue, la.fee_charges_overdue_derived as feeChargesOverdue,"
                     + " la.penalty_charges_overdue_derived as penaltyChargesOverdue, la.total_overdue_derived as totalOverdue,"
                     + " la.overdue_since_date_derived as overdueSinceDate, "
@@ -1238,6 +1240,7 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
             DelinquencyRangeData delinquencyRange = this.delinquencyReadPlatformService.retrieveCurrentDelinquencyTag(id);
 
             final boolean isFraud = rs.getBoolean("isFraud");
+            final boolean readyForComite = rs.getBoolean("readyForComite");
             final LocalDate lastClosedBusinessDate = JdbcSupport.getLocalDate(rs, "lastClosedBusinessDate");
             final Boolean isSimulation = rs.getBoolean("isSimulation");
             final LocalDate simulatedDate = JdbcSupport.getLocalDate(rs, "simulatedDate");
@@ -1294,7 +1297,7 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
                     interestRecognitionOnDisbursementDate, daysInYearCustomStrategy, enableIncomeCapitalization,
                     capitalizedIncomeCalculationType, capitalizedIncomeStrategy, capitalizedIncomeType, enableBuyDownFee,
                     buyDownFeeCalculationType, buyDownFeeStrategy, buyDownFeeIncomeType, merchantBuyDownFee)
-                    .setClientStaffId(clientStaffId).setClientStaffName(clientStaffName);
+                    .setClientStaffId(clientStaffId).setClientStaffName(clientStaffName).setReadyForComite(readyForComite);
         }
     }
 
@@ -1667,10 +1670,32 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
 
     @Override
     public Map<Long, List<DisbursementData>> retrieveLoanDisbursementDetails(final List<Long> loanIds) {
-        Object[] parameters = sqlGenerator.inParametersFor(loanIds);
+        if (loanIds == null || loanIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        // Filter out null values from loanIds to prevent parameter binding issues
+        List<Long> validLoanIds = loanIds.stream().filter(Objects::nonNull).toList();
+        if (validLoanIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Object[] parameters = sqlGenerator.inParametersFor(validLoanIds);
         final LoanDisbursementDetailMapper rm = new LoanDisbursementDetailMapper(sqlGenerator);
-        final String sql = "select " + rm.schema() + " where " + sqlGenerator.in("dd.loan_id", loanIds)
+        final String sql = "select " + rm.schema() + " where " + sqlGenerator.in("dd.loan_id", validLoanIds)
                 + " and dd.is_reversed=false group by dd.id, lc.amount_waived_derived order by dd.expected_disburse_date,dd.disbursedon_date,dd.id";
+        
+        // Log the exact SQL and parameters for debugging
+        log.error("=== SQL QUERY DEBUG ===");
+        log.error("SQL Query: {}", sql);
+        log.error("SQL Query Length: {}", sql.length());
+        log.error("SQL Query at position 177: '{}'", sql.length() > 177 ? sql.substring(Math.max(0, 177 - 10), Math.min(sql.length(), 177 + 20)) : "N/A");
+        log.error("Parameters count: {}", parameters.length);
+        for (int i = 0; i < parameters.length; i++) {
+            log.error("Parameter [{}]: type={}, value={}", i, parameters[i] != null ? parameters[i].getClass().getName() : "null", parameters[i]);
+        }
+        log.error("LoanIds: {}", validLoanIds);
+        log.error("SQL IN clause: {}", sqlGenerator.in("dd.loan_id", validLoanIds));
+        log.error("======================");
+        
         return this.jdbcTemplate.query(sql, rm, parameters).stream().collect(Collectors.groupingBy(DisbursementData::getLoanId)); // NOSONAR
     }
 
@@ -1683,8 +1708,17 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
         }
 
         public String schema() {
+            String groupConcatExpression;
+            // For PostgreSQL, use STRING_AGG with proper NULL handling
+            // STRING_AGG automatically ignores NULL values, so we don't need FILTER
+            if (sqlGenerator.getDialect().isPostgres()) {
+                // Simple STRING_AGG - NULLs are automatically ignored by PostgreSQL
+                groupConcatExpression = "STRING_AGG(lc.id::text, ',')";
+            } else {
+                groupConcatExpression = sqlGenerator.groupConcat("lc.id");
+            }
             return "dd.id as id, dd.loan_id as loanId, dd.expected_disburse_date as expectedDisbursementdate, dd.disbursedon_date as actualDisbursementdate,dd.principal as principal,dd.net_disbursal_amount as netDisbursalAmount,sum(lc.amount) chargeAmount, lc.amount_waived_derived waivedAmount, "
-                    + sqlGenerator.groupConcat("lc.id") + " loanChargeId "
+                    + groupConcatExpression + " loanChargeId "
                     + "from m_loan l inner join m_loan_disbursement_detail dd on dd.loan_id = l.id left join m_loan_tranche_disbursement_charge tdc on tdc.disbursement_detail_id=dd.id "
                     + "left join m_loan_charge lc on  lc.id=tdc.loan_charge_id and lc.is_active=true";
         }

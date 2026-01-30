@@ -60,6 +60,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.codes.domain.CodeValue;
 import org.apache.fineract.infrastructure.core.domain.AbstractAuditableWithUTCDateTimeCustom;
 import org.apache.fineract.infrastructure.core.domain.ExternalId;
+import org.apache.fineract.infrastructure.core.persistence.converter.JsonbStringAttributeConverter;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.service.MathUtil;
 import org.apache.fineract.infrastructure.security.service.RandomPasswordGenerator;
@@ -162,6 +163,19 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "disbursal_method_payment_type_id")
     private PaymentType disbursalMethodPaymentType;
+
+    @Setter
+    @Column(name = "comite_pre_processed", nullable = false)
+    private boolean comitePreProcessed = false;
+
+    @Setter
+    @Column(name = "ready_for_comite", nullable = false)
+    private boolean readyForComite = false;
+
+    @Setter
+    @Column(name = "original_approval_submission", columnDefinition = "json")
+    @Convert(converter = JsonbStringAttributeConverter.class)
+    private String originalApprovalSubmission;
 
     @Column(name = "loan_transaction_strategy_code", nullable = false)
     private String transactionProcessingStrategyCode;

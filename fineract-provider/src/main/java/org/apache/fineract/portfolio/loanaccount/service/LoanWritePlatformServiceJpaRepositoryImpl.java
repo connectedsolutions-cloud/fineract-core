@@ -288,6 +288,8 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     private final LoanTransactionProcessingService loanTransactionProcessingService;
     private final LoanBalanceService loanBalanceService;
     private final LoanTransactionService loanTransactionService;
+    private final LoanChargeService loanChargeService;
+    private final LoanOriginalApprovalSubmissionSnapshotHelper loanOriginalApprovalSubmissionSnapshotHelper;
 
     @Transactional
     @Override
@@ -414,7 +416,9 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             }
             disburseLoan(command, isPaymentTypeApplicableForDisbursementCharge, paymentDetail, loan, currentUser, changes,
                     scheduleGeneratorDTO);
-            loan.adjustNetDisbursalAmount(amountToDisburse.getAmount());
+            final BigDecimal totalDueAtDisbursement = loanChargeService.deriveSumTotalChargesDueAtDisbursementForNetDisbursal(loan,
+                    actualDisbursementDate);
+            loan.setNetDisbursalAmount(amountToDisburse.getAmount().subtract(totalDueAtDisbursement));
 
             loanAccrualsProcessingService.reprocessExistingAccruals(loan, true);
 
@@ -2537,6 +2541,35 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
 
     @Override
     @Transactional
+    public CommandProcessingResult markReadyForComite(Long loanId, JsonCommand command) {
+        Loan loan = this.loanAssembler.assembleFrom(loanId);
+        if (loan.isApproved()) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.cannot.mark.ready.for.comite.already.approved",
+                    "Loan is already approved. Cannot mark as ready for comité.");
+        }
+        final Map<String, Object> changes = new LinkedHashMap<>();
+        if (!loan.isReadyForComite()) {
+            String snapshotJson = loanOriginalApprovalSubmissionSnapshotHelper.buildSnapshotJson(loanId);
+            loan.setOriginalApprovalSubmission(snapshotJson);
+            loan.setReadyForComite(true);
+            this.loanRepository.save(loan);
+            changes.put("readyForComite", true);
+            changes.put("originalApprovalSubmission", true);
+        }
+        return new CommandProcessingResultBuilder() //
+                .withCommandId(command.commandId()) //
+                .withEntityId(loan.getId()) //
+                .withEntityExternalId(loan.getExternalId()) //
+                .withOfficeId(loan.getOfficeId()) //
+                .withClientId(loan.getClientId()) //
+                .withGroupId(loan.getGroupId()) //
+                .withLoanId(loanId) //
+                .with(changes) //
+                .build();
+    }
+
+    @Override
+    @Transactional
     public CommandProcessingResult makeLoanRefund(Long loanId, JsonCommand command) {
 
         this.loanTransactionValidator.validateNewRefundTransaction(command.json());
@@ -3144,7 +3177,11 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                 loan.getLoanTopupDetails().setTopupAmount(null);
             }
 
-            loan.adjustNetDisbursalAmount(loan.getApprovedPrincipal());
+            final LocalDate dateForNetDisbursal = loan.getExpectedDisbursementDate() != null ? loan.getExpectedDisbursementDate()
+                    : DateUtils.getBusinessLocalDate();
+            final BigDecimal totalDueAtDisbursement = loanChargeService.deriveSumTotalChargesDueAtDisbursementForNetDisbursal(loan,
+                    dateForNetDisbursal);
+            loan.setNetDisbursalAmount(loan.getApprovedPrincipal().subtract(totalDueAtDisbursement));
             actualChanges.put(ACTUAL_DISBURSEMENT_DATE, "");
             loanBalanceService.updateLoanSummaryDerivedFields(loan);
         }

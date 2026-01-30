@@ -261,7 +261,7 @@ public class LoansApiResource {
             LoanApiConstants.clientActiveLoanOptions, LoanApiConstants.datatables, LoanProductConstants.RATES_PARAM_NAME,
             LoanApiConstants.MULTIDISBURSE_DETAILS_PARAMNAME, LoanApiConstants.EMI_AMOUNT_VARIATIONS_PARAMNAME,
             LoanApiConstants.COLLECTION_PARAMNAME, LoanApiConstants.INTEREST_RECOGNITION_ON_DISBURSEMENT_DATE,
-            LoanApiConstants.daysInYearCustomStrategyParameterName));
+            LoanApiConstants.daysInYearCustomStrategyParameterName, "readyForComite"));
 
     private static final Set<String> LOAN_APPROVAL_DATA_PARAMETERS = new HashSet<>(Arrays.asList("approvalDate", "approvalAmount"));
     private static final Set<String> GLIM_ACCOUNTS_DATA_PARAMETERS = new HashSet<>(Arrays.asList("glimId", "groupId", "clientId",
@@ -1350,6 +1350,8 @@ public class LoansApiResource {
             commandRequest = builder.applyContractTermination(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, LoanApiConstants.UNDO_CONTRACT_TERMINATION_COMMAND)) {
             commandRequest = builder.undoContractTermination(resolvedLoanId).build();
+        } else if (CommandParameterUtil.is(commandParam, "markReadyForComite")) {
+            commandRequest = builder.markReadyForComite(resolvedLoanId).build();
         }
 
         if (commandRequest == null) {

@@ -209,6 +209,7 @@ public class LoanAccountData {
     // TODO: avoid prefix "is"
     private boolean isTopup;
     private boolean fraud;
+    private Boolean readyForComite;
     private Long closureLoanId;
     private String closureLoanAccountNo;
     private BigDecimal topupAmount;

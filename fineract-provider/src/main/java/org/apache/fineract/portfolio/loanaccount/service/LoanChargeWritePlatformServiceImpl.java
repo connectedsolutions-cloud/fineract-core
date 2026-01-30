@@ -272,6 +272,10 @@ public class LoanChargeWritePlatformServiceImpl implements LoanChargeWritePlatfo
                 reprocessRequired = false;
             }
         }
+        // Reduce-disbursal charges only affect net disbursal; skip schedule regeneration and transaction reprocessing.
+        if (loanCharge.isDueAtDisbursement() && loanCharge.getChargeCalculation().isPercentageOfAmountReduceDisbursal()) {
+            reprocessRequired = false;
+        }
 
         if (reprocessRequired) {
             if (loan.isProgressiveSchedule()) {
@@ -451,8 +455,8 @@ public class LoanChargeWritePlatformServiceImpl implements LoanChargeWritePlatfo
 
         if (!loanCharge.isDueAtDisbursement()) {
             reprocessLoanTransactionsService.reprocessTransactions(loan);
-        } else {
-            // reprocess loan schedule based on charge been waived.
+        } else if (!loanCharge.getChargeCalculation().isPercentageOfAmountReduceDisbursal()) {
+            // reprocess loan schedule based on charge been waived. Skip for reduce-disbursal charges.
             final LoanRepaymentScheduleProcessingWrapper wrapper = new LoanRepaymentScheduleProcessingWrapper();
             wrapper.reprocess(loan.getCurrency(), loan.getDisbursementDate(), loan.getRepaymentScheduleInstallments(),
                     loan.getActiveCharges());

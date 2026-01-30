@@ -356,7 +356,7 @@ public class ProgressiveLoanScheduleGenerator implements LoanScheduleGenerator {
         BigDecimal chargesDueAtTimeOfDisbursement = BigDecimal.ZERO;
         if (loanCharges != null) {
             for (final LoanCharge loanCharge : loanCharges) {
-                if (loanCharge.isDueAtDisbursement()) {
+                if (loanCharge.isDueAtDisbursement() && !loanCharge.getChargeCalculation().isPercentageOfAmountReduceDisbursal()) {
                     chargesDueAtTimeOfDisbursement = chargesDueAtTimeOfDisbursement.add(loanCharge.amount());
                 }
             }

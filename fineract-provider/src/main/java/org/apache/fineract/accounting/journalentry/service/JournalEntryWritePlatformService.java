@@ -67,6 +67,13 @@ public interface JournalEntryWritePlatformService {
     void createJournalEntriesForLoanTransaction(LoanTransaction loanTransaction, boolean isAccountTransfer, boolean isLoanToLoanTransfer);
 
     /**
+     * Same as {@link #createJournalEntriesForLoanTransaction(LoanTransaction, boolean, boolean)} but journal entries
+     * are linked to {@code overrideLoanTransactionIdForGL} when non-null.
+     */
+    void createJournalEntriesForLoanTransaction(LoanTransaction loanTransaction, boolean isAccountTransfer,
+            boolean isLoanToLoanTransfer, Long overrideLoanTransactionIdForGL);
+
+    /**
      * Create journal entries immediately for an external owner transfer
      *
      * @param loan

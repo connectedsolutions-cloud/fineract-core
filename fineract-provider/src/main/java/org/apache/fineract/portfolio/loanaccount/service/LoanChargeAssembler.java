@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.domain.ExternalId;
@@ -53,6 +54,7 @@ import org.apache.fineract.portfolio.loanproduct.domain.LoanProduct;
 import org.apache.fineract.portfolio.loanproduct.domain.LoanProductRepository;
 import org.apache.fineract.portfolio.loanproduct.exception.LoanProductNotFoundException;
 
+@Slf4j
 @RequiredArgsConstructor
 public class LoanChargeAssembler {
 
@@ -287,8 +289,23 @@ public class LoanChargeAssembler {
                     amountPercentageAppliedTo = loan.getTotalInterest();
                 }
             break;
+            case PERCENT_OF_DISBURSEMENT_AMOUNT:
+            case PERCENT_OF_AMOUNT_REDUCE_DISBURSAL:
+                if (command.hasParameter("principal")) {
+                    amountPercentageAppliedTo = command.bigDecimalValueOfParameterNamed("principal");
+                } else {
+                    amountPercentageAppliedTo = loan.getPrincipal().getAmount();
+                }
+            break;
             default:
             break;
+        }
+
+        if (ChargeCalculationType.fromInt(chargeDefinition.getChargeCalculation()).isPercentageOfAmountReduceDisbursal()) {
+            log.debug("[REDUCE_DISBURSAL] LoanChargeAssembler.createNewFromJson loanId={} chargeDefinitionId={} "
+                    + "amount(percentage)={} amountPercentageAppliedTo={} loanPrincipal={}",
+                    loan != null ? loan.getId() : null, chargeDefinition.getId(), amount, amountPercentageAppliedTo,
+                    loan != null && loan.getPrincipal() != null ? loan.getPrincipal().getAmount() : null);
         }
 
         BigDecimal loanCharge = BigDecimal.ZERO;
@@ -305,7 +322,8 @@ public class LoanChargeAssembler {
         // loan.
         // Then we need to get as of this loan charge due date how much amount
         // disbursed.
-        if (chargeDefinition.getChargeTimeType().equals(ChargeTimeType.SPECIFIED_DUE_DATE.getValue()) && loan.isMultiDisburmentLoan()) {
+        if (chargeDefinition.getChargeTimeType().equals(ChargeTimeType.SPECIFIED_DUE_DATE.getValue()) && loan != null
+                && loan.isMultiDisburmentLoan()) {
             amountPercentageAppliedTo = BigDecimal.ZERO;
             for (final LoanDisbursementDetails loanDisbursementDetails : loan.getDisbursementDetails()) {
                 if (!DateUtils.isAfter(loanDisbursementDetails.expectedDisbursementDate(), dueDate)) {

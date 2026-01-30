@@ -245,4 +245,10 @@
     <include file="parts/0223_drop_allowed_permissions_visibility_from_sesiones_comite.xml" relativeToChangelogFile="true" />
     <include file="parts/0224_add_disbursal_method_to_loan.xml" relativeToChangelogFile="true" />
     <include file="parts/0225_add_dimensions_to_journal_entry.xml" relativeToChangelogFile="true" />
+    <include file="parts/0226_loans_awaiting_disbursal_add_entity_ids.xml" relativeToChangelogFile="true" />
+    <include file="parts/0227_add_loan_comite_pre_processed.xml" relativeToChangelogFile="true" />
+    <include file="parts/0228_add_loan_ready_for_comite.xml" relativeToChangelogFile="true" />
+    <include file="parts/0229_loans_pending_approval_add_entity_ids.xml" relativeToChangelogFile="true" />
+    <include file="parts/0230_add_loan_original_approval_submission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0231_add_debit_credit_account_to_m_charge.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

@@ -80,7 +80,8 @@ public final class ChargeDefinitionCommandFromApiJsonDeserializer {
             CURRENCY_OPTIONS, CHARGE_APPLIES_TO, CHARGE_TIME_TYPE, CHARGE_CALCULATION_TYPE, CHARGE_CALCULATION_TYPE_OPTIONS, PENALTY,
             ACTIVE, CHARGE_PAYMENT_MODE, FEE_ON_MONTH_DAY, FEE_INTERVAL, MONTH_DAY_FORMAT, MIN_CAP, MAX_CAP, FEE_FREQUENCY,
             ENABLE_FREE_WITHDRAWAL_CHARGE, FREE_WITHDRAWAL_FREQUENCY, RESTART_COUNT_FREQUENCY, COUNT_FREQUENCY_TYPE, PAYMENT_TYPE_ID,
-            ENABLE_PAYMENT_TYPE, ChargesApiConstants.glAccountIdParamName, ChargesApiConstants.taxGroupIdParamName));
+            ENABLE_PAYMENT_TYPE, ChargesApiConstants.glAccountIdParamName, ChargesApiConstants.taxGroupIdParamName,
+            ChargesApiConstants.debitAccountIdParamName, ChargesApiConstants.creditAccountIdParamName));
     private final FromJsonHelper fromApiJsonHelper;
 
     @Autowired
@@ -285,6 +286,22 @@ public final class ChargeDefinitionCommandFromApiJsonDeserializer {
             baseDataValidator.reset().parameter(MAX_CAP).value(maxCap).notNull().positiveAmount();
         }
 
+        if (this.fromApiJsonHelper.parameterExists(ChargesApiConstants.debitAccountIdParamName, element)) {
+            final Long debitAccountId = this.fromApiJsonHelper.extractLongNamed(ChargesApiConstants.debitAccountIdParamName, element);
+            if (debitAccountId != null) {
+                baseDataValidator.reset().parameter(ChargesApiConstants.debitAccountIdParamName).value(debitAccountId)
+                        .longGreaterThanZero();
+            }
+        }
+
+        if (this.fromApiJsonHelper.parameterExists(ChargesApiConstants.creditAccountIdParamName, element)) {
+            final Long creditAccountId = this.fromApiJsonHelper.extractLongNamed(ChargesApiConstants.creditAccountIdParamName, element);
+            if (creditAccountId != null) {
+                baseDataValidator.reset().parameter(ChargesApiConstants.creditAccountIdParamName).value(creditAccountId)
+                        .longGreaterThanZero();
+            }
+        }
+
         if (this.fromApiJsonHelper.parameterExists(ChargesApiConstants.taxGroupIdParamName, element)) {
             final Long taxGroupId = this.fromApiJsonHelper.extractLongNamed(ChargesApiConstants.taxGroupIdParamName, element);
             baseDataValidator.reset().parameter(ChargesApiConstants.taxGroupIdParamName).value(taxGroupId).notNull().longGreaterThanZero();
@@ -412,7 +429,7 @@ public final class ChargeDefinitionCommandFromApiJsonDeserializer {
         if (this.fromApiJsonHelper.parameterExists(CHARGE_CALCULATION_TYPE, element)) {
             final Integer chargeCalculationType = this.fromApiJsonHelper.extractIntegerNamed(CHARGE_CALCULATION_TYPE, element,
                     Locale.getDefault());
-            baseDataValidator.reset().parameter(CHARGE_CALCULATION_TYPE).value(chargeCalculationType).notNull().inMinMaxRange(1, 5);
+            baseDataValidator.reset().parameter(CHARGE_CALCULATION_TYPE).value(chargeCalculationType).notNull().inMinMaxRange(1, 6);
         }
 
         if (this.fromApiJsonHelper.parameterExists(CHARGE_PAYMENT_MODE, element)) {
@@ -448,6 +465,22 @@ public final class ChargeDefinitionCommandFromApiJsonDeserializer {
                     .longGreaterThanZero();
         }
 
+        if (this.fromApiJsonHelper.parameterExists(ChargesApiConstants.debitAccountIdParamName, element)) {
+            final Long debitAccountId = this.fromApiJsonHelper.extractLongNamed(ChargesApiConstants.debitAccountIdParamName, element);
+            if (debitAccountId != null) {
+                baseDataValidator.reset().parameter(ChargesApiConstants.debitAccountIdParamName).value(debitAccountId)
+                        .longGreaterThanZero();
+            }
+        }
+
+        if (this.fromApiJsonHelper.parameterExists(ChargesApiConstants.creditAccountIdParamName, element)) {
+            final Long creditAccountId = this.fromApiJsonHelper.extractLongNamed(ChargesApiConstants.creditAccountIdParamName, element);
+            if (creditAccountId != null) {
+                baseDataValidator.reset().parameter(ChargesApiConstants.creditAccountIdParamName).value(creditAccountId)
+                        .longGreaterThanZero();
+            }
+        }
+
         if (this.fromApiJsonHelper.parameterExists(ChargesApiConstants.taxGroupIdParamName, element)) {
             final Long taxGroupId = this.fromApiJsonHelper.extractLongNamed(ChargesApiConstants.taxGroupIdParamName, element);
             baseDataValidator.reset().parameter(ChargesApiConstants.taxGroupIdParamName).value(taxGroupId).notNull().longGreaterThanZero();
@@ -473,6 +506,9 @@ public final class ChargeDefinitionCommandFromApiJsonDeserializer {
         if (chargeTimeType.equals(ChargeTimeType.TRANCHE_DISBURSEMENT.getValue())) {
             baseDataValidator.reset().parameter(CHARGE_CALCULATION_TYPE).value(chargeCalculationType)
                     .isOneOfTheseValues(ChargeCalculationType.validValuesForTrancheDisbursement());
+        } else if (chargeTimeType.equals(ChargeTimeType.AVAILABLE_AT_CASHIER.getValue())) {
+            baseDataValidator.reset().parameter(CHARGE_CALCULATION_TYPE).value(chargeCalculationType)
+                    .isOneOfTheseValues(ChargeCalculationType.validValuesForAvailableAtCashier());
         } else {
             baseDataValidator.reset().parameter(CHARGE_CALCULATION_TYPE).value(chargeCalculationType)
                     .isNotOneOfTheseValues(ChargeCalculationType.PERCENT_OF_DISBURSEMENT_AMOUNT.getValue());

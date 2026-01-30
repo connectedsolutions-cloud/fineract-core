@@ -440,7 +440,8 @@ public final class AccountingConstants {
         CASH_AT_TELLER(102, "cashAtTeller", GLAccountType.ASSET), //
         OPENING_BALANCES_TRANSFER_CONTRA(300, "openingBalancesTransferContra", GLAccountType.EQUITY), //
         ASSET_FUND_SOURCE(103, "fundSource", GLAccountType.ASSET), //
-        PAYABLE_DIVIDENDS(201, "payableDividends", GLAccountType.LIABILITY); //
+        PAYABLE_DIVIDENDS(201, "payableDividends", GLAccountType.LIABILITY), //
+        DISBURSEMENTS_PAYABLE(202, "disbursementsPayable", GLAccountType.LIABILITY); //
 
         private final Integer value;
         private final String code;

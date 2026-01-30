@@ -100,6 +100,21 @@ public class ChargeWritePlatformServiceJpaRepositoryImpl implements ChargeWriteP
             }
 
             final Charge charge = Charge.fromJson(command, glAccount, taxGroup, paymentType);
+
+            // Persist debit/credit account IDs from frontend when present in the command (create charge)
+            if (command.parameterExists(ChargesApiConstants.debitAccountIdParamName)) {
+                final Long debitAccountId = command.longValueOfParameterNamed(ChargesApiConstants.debitAccountIdParamName);
+                if (debitAccountId != null) {
+                    charge.setDebitAccount(this.glAccountRepository.findOneWithNotFoundDetection(debitAccountId));
+                }
+            }
+            if (command.parameterExists(ChargesApiConstants.creditAccountIdParamName)) {
+                final Long creditAccountId = command.longValueOfParameterNamed(ChargesApiConstants.creditAccountIdParamName);
+                if (creditAccountId != null) {
+                    charge.setCreditAccount(this.glAccountRepository.findOneWithNotFoundDetection(creditAccountId));
+                }
+            }
+
             this.chargeRepository.saveAndFlush(charge);
 
             // check if the office specific products are enabled. If yes, then
@@ -166,6 +181,24 @@ public class ChargeWritePlatformServiceJpaRepositoryImpl implements ChargeWriteP
                     newIncomeAccount = this.glAccountRepository.findOneWithNotFoundDetection(newValue);
                 }
                 chargeForUpdate.setAccount(newIncomeAccount);
+            }
+
+            if (changes.containsKey(ChargesApiConstants.debitAccountIdParamName)) {
+                final Long newValue = command.longValueOfParameterNamed(ChargesApiConstants.debitAccountIdParamName);
+                GLAccount newDebitAccount = null;
+                if (newValue != null) {
+                    newDebitAccount = this.glAccountRepository.findOneWithNotFoundDetection(newValue);
+                }
+                chargeForUpdate.setDebitAccount(newDebitAccount);
+            }
+
+            if (changes.containsKey(ChargesApiConstants.creditAccountIdParamName)) {
+                final Long newValue = command.longValueOfParameterNamed(ChargesApiConstants.creditAccountIdParamName);
+                GLAccount newCreditAccount = null;
+                if (newValue != null) {
+                    newCreditAccount = this.glAccountRepository.findOneWithNotFoundDetection(newValue);
+                }
+                chargeForUpdate.setCreditAccount(newCreditAccount);
             }
 
             final String paymentTypeIdParamName = "paymentTypeId";

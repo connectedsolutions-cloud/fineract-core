@@ -280,9 +280,13 @@ public class ChargeReadPlatformServiceImpl implements ChargeReadPlatformService 
                     + "oc.internationalized_name_code as currencyNameCode, c.fee_on_day as feeOnDay, c.fee_on_month as feeOnMonth, "
                     + "c.fee_interval as feeInterval, c.fee_frequency as feeFrequency,c.min_cap as minCap,c.max_cap as maxCap, "
                     + "c.income_or_liability_account_id as glAccountId , acc.name as glAccountName, acc.gl_code as glCode, "
+                    + "c.debit_account_id as debitAccountId, debit_gl.name as debitAccountName, debit_gl.gl_code as debitGlCode, "
+                    + "c.credit_account_id as creditAccountId, credit_gl.name as creditAccountName, credit_gl.gl_code as creditGlCode, "
                     + "tg.id as taxGroupId, c.is_payment_type as isPaymentType, pt.id as paymentTypeId, pt.value as paymentTypeName, tg.name as taxGroupName "
                     + "from m_charge c " + "join m_organisation_currency oc on c.currency_code = oc.code "
                     + " LEFT JOIN acc_gl_account acc on acc.id = c.income_or_liability_account_id "
+                    + " LEFT JOIN acc_gl_account debit_gl on debit_gl.id = c.debit_account_id "
+                    + " LEFT JOIN acc_gl_account credit_gl on credit_gl.id = c.credit_account_id "
                     + " LEFT JOIN m_tax_group tg on tg.id = c.tax_group_id " + " LEFT JOIN m_payment_type pt on pt.id = c.payment_type_id ";
         }
 
@@ -353,6 +357,22 @@ public class ChargeReadPlatformServiceImpl implements ChargeReadPlatformService 
                 glAccountData = new GLAccountData().setId(glAccountId).setName(glAccountName).setGlCode(glCode);
             }
 
+            final Long debitAccountId = JdbcSupport.getLong(rs, "debitAccountId");
+            final String debitAccountName = rs.getString("debitAccountName");
+            final String debitGlCode = rs.getString("debitGlCode");
+            GLAccountData debitAccountData = null;
+            if (debitAccountId != null) {
+                debitAccountData = new GLAccountData().setId(debitAccountId).setName(debitAccountName).setGlCode(debitGlCode);
+            }
+
+            final Long creditAccountId = JdbcSupport.getLong(rs, "creditAccountId");
+            final String creditAccountName = rs.getString("creditAccountName");
+            final String creditGlCode = rs.getString("creditGlCode");
+            GLAccountData creditAccountData = null;
+            if (creditAccountId != null) {
+                creditAccountData = new GLAccountData().setId(creditAccountId).setName(creditAccountName).setGlCode(creditGlCode);
+            }
+
             final Long taxGroupId = JdbcSupport.getLong(rs, "taxGroupId");
             final String taxGroupName = rs.getString("taxGroupName");
             TaxGroupData taxGroupData = null;
@@ -380,7 +400,7 @@ public class ChargeReadPlatformServiceImpl implements ChargeReadPlatformService 
                     .freeWithdrawalChargeFrequency(freeWithdrawalChargeFrequency).restartFrequency(restartFrequency)
                     .restartFrequencyEnum(restartFrequencyEnum).isPaymentType(isPaymentType).paymentTypeOptions(paymentTypeData)
                     .minCap(minCap).maxCap(maxCap).feeFrequency(feeFrequencyType).incomeOrLiabilityAccount(glAccountData)
-                    .taxGroup(taxGroupData).build();
+                    .debitAccount(debitAccountData).creditAccount(creditAccountData).taxGroup(taxGroupData).build();
 
         }
     }

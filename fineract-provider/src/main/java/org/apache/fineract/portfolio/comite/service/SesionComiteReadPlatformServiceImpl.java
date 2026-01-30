@@ -82,7 +82,11 @@ public class SesionComiteReadPlatformServiceImpl implements SesionComiteReadPlat
         
         // retrieveAll will filter by the specified office when currentOfficeId is set
         final var loanPage = this.loanReadPlatformService.retrieveAll(searchParameters);
-        return loanPage.getPageItems();
+        final List<LoanAccountData> allPending = loanPage.getPageItems();
+        // Only include loans that are ready for committee (ready_for_comite = true)
+        return allPending.stream()
+                .filter(loan -> Boolean.TRUE.equals(loan.getReadyForComite()))
+                .collect(Collectors.toList());
     }
 
     private SesionComiteData mapToData(SesionComite session) {
