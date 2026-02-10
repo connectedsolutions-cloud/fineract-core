@@ -45,6 +45,7 @@ import org.apache.fineract.infrastructure.core.api.JsonQuery;
 import org.apache.fineract.infrastructure.core.domain.ExternalId;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
+import org.apache.fineract.infrastructure.core.service.DimensionsUtils;
 import org.apache.fineract.infrastructure.core.service.ExternalIdFactory;
 import org.apache.fineract.organisation.holiday.domain.Holiday;
 import org.apache.fineract.organisation.holiday.domain.HolidayRepository;
@@ -100,6 +101,7 @@ import org.apache.fineract.portfolio.loanproduct.domain.LoanProductRelatedDetail
 import org.apache.fineract.portfolio.loanproduct.domain.LoanProductRepository;
 import org.apache.fineract.portfolio.loanproduct.exception.LoanProductNotFoundException;
 import org.apache.fineract.portfolio.loanproduct.service.LoanEnumerations;
+import org.apache.fineract.portfolio.loanproduct.service.LoanProductReadPlatformService;
 import org.apache.fineract.portfolio.paymenttype.domain.PaymentType;
 import org.apache.fineract.portfolio.paymenttype.domain.PaymentTypeRepositoryWrapper;
 import org.apache.fineract.portfolio.rate.domain.Rate;
@@ -141,6 +143,7 @@ public class LoanAssemblerImpl implements LoanAssembler {
     private final LoanChargeService loanChargeService;
     private final LoanOfficerService loanOfficerService;
     private final LoanScheduleComponent loanSchedule;
+    private final LoanProductReadPlatformService loanProductReadPlatformService;
 
     @Override
     public Loan assembleFrom(final Long accountId) {
@@ -252,6 +255,12 @@ public class LoanAssemblerImpl implements LoanAssembler {
             isEnableInstallmentLevelDelinquency = loanProduct.isEnableInstallmentLevelDelinquency();
         }
 
+        final String productDimensions = loanProductReadPlatformService.getLoanProductDimensions(productId);
+        final String commandDimensions = command.parameterExists(LoanApiConstants.dimensionsParameterName)
+                ? this.fromApiJsonHelper.toJson(this.fromApiJsonHelper.extractJsonObjectNamed(LoanApiConstants.dimensionsParameterName, element))
+                : null;
+        final String dimensions = DimensionsUtils.appendDimensions(productDimensions, commandDimensions);
+
         final boolean isHolidayEnabled = this.configurationDomainService.isRescheduleRepaymentsOnHolidaysEnabled();
         Long officeId = client != null ? client.getOffice().getId() : group.getOffice().getId();
         final List<Holiday> holidays = this.holidayRepository.findByOfficeIdAndGreaterThanDate(officeId,
@@ -266,19 +275,19 @@ public class LoanAssemblerImpl implements LoanAssembler {
                     syncDisbursementWithMeeting, fixedEmiAmount, disbursementDetails, maxOutstandingLoanBalance,
                     createStandingInstructionAtDisbursement, isFloatingInterestRate, interestRateDifferential, rates,
                     fixedPrincipalPercentagePerInstallment, externalId, loanApplicationTerms, isEnableInstallmentLevelDelinquency,
-                    submittedOnDate);
+                    submittedOnDate, dimensions);
         } else if (group != null) {
             loanApplication = Loan.newGroupLoanApplication(accountNo, group, loanAccountType, loanProduct, fund, loanOfficer, loanPurpose,
                     transactionProcessingStrategy, loanProductRelatedDetail, loanCharges, syncDisbursementWithMeeting, fixedEmiAmount,
                     disbursementDetails, maxOutstandingLoanBalance, createStandingInstructionAtDisbursement, isFloatingInterestRate,
                     interestRateDifferential, rates, fixedPrincipalPercentagePerInstallment, externalId, loanApplicationTerms,
-                    isEnableInstallmentLevelDelinquency, submittedOnDate);
+                    isEnableInstallmentLevelDelinquency, submittedOnDate, dimensions);
         } else if (client != null) {
             loanApplication = Loan.newIndividualLoanApplication(accountNo, client, loanAccountType, loanProduct, fund, loanOfficer,
                     loanPurpose, transactionProcessingStrategy, loanProductRelatedDetail, loanCharges, collateral, fixedEmiAmount,
                     disbursementDetails, maxOutstandingLoanBalance, createStandingInstructionAtDisbursement, isFloatingInterestRate,
                     interestRateDifferential, rates, fixedPrincipalPercentagePerInstallment, externalId, loanApplicationTerms,
-                    isEnableInstallmentLevelDelinquency, submittedOnDate);
+                    isEnableInstallmentLevelDelinquency, submittedOnDate, dimensions);
         } else {
             throw new IllegalStateException("No loan application exists for either a client or group (or both).");
         }

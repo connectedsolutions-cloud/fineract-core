@@ -51,7 +51,8 @@ public class SingleLoanChargeRepaymentScheduleProcessingWrapper {
                 addedPeriod.updateObligationsMet(currency, disbursementDate);
             }
             accruals = loanCharge.getLoanChargePaidBySet().stream().filter(e -> !e.getLoanTransaction().isReversed()
-                    && (e.getLoanTransaction().isAccrual() || e.getLoanTransaction().isAccrualAdjustment())).toList();
+                    && (e.getLoanTransaction().isAccrual() || e.getLoanTransaction().isAccrualAdjustment()
+                            || e.getLoanTransaction().getTypeOf().isChargePayment())).toList();
         }
         LocalDate startDate = disbursementDate;
         int firstNormalInstallmentNumber = LoanRepaymentScheduleProcessingWrapper.fetchFirstNormalInstallmentNumber(installments);
@@ -87,8 +88,9 @@ public class SingleLoanChargeRepaymentScheduleProcessingWrapper {
                 BigDecimal amount = null;
                 for (LoanChargePaidBy accrual : accruals) {
                     accrual.setInstallmentNumber(installmentNumber);
-                    amount = accrual.getLoanTransaction().isAccrual() ? MathUtil.add(amount, accrual.getAmount())
-                            : MathUtil.subtract(amount, accrual.getAmount());
+                    amount = (accrual.getLoanTransaction().isAccrual()
+                            || accrual.getLoanTransaction().getTypeOf().isChargePayment()) ? MathUtil.add(amount, accrual.getAmount())
+                                    : MathUtil.subtract(amount, accrual.getAmount());
                 }
                 Money accruedAmount = Money.of(currency, MathUtil.negativeToZero(amount));
                 boolean isFee = loanCharge.isFeeCharge();

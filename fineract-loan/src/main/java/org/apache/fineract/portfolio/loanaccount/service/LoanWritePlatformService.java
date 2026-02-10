@@ -131,4 +131,9 @@ public interface LoanWritePlatformService {
     CommandProcessingResult makeManualInterestRefund(Long loanId, Long transactionId, JsonCommand command);
 
     CommandProcessingResult updateLoanSimulation(JsonCommand command);
+
+    /**
+     * Updates the dimensions JSON for a loan. Pass null to clear.
+     */
+    void setLoanDimensions(Long loanId, String dimensions);
 }

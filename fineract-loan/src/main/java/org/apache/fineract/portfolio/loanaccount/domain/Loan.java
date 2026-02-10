@@ -177,6 +177,11 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
     @Convert(converter = JsonbStringAttributeConverter.class)
     private String originalApprovalSubmission;
 
+    @Setter
+    @Column(name = "dimensions", columnDefinition = "json")
+    @Convert(converter = JsonbStringAttributeConverter.class)
+    private String dimensions;
+
     @Column(name = "loan_transaction_strategy_code", nullable = false)
     private String transactionProcessingStrategyCode;
 
@@ -469,12 +474,12 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
             final Boolean createStandingInstructionAtDisbursement, final Boolean isFloatingInterestRate,
             final BigDecimal interestRateDifferential, final List<Rate> rates, final BigDecimal fixedPrincipalPercentagePerInstallment,
             final ExternalId externalId, final LoanApplicationTerms loanApplicationTerms, final Boolean enableInstallmentLevelDelinquency,
-            final LocalDate submittedOnDate) {
+            final LocalDate submittedOnDate, final String dimensions) {
         return new Loan(accountNo, client, null, loanType, fund, officer, loanPurpose, transactionProcessingStrategy, loanProduct,
                 loanRepaymentScheduleDetail, null, loanCharges, collateral, null, fixedEmiAmount, disbursementDetails,
                 maxOutstandingLoanBalance, createStandingInstructionAtDisbursement, isFloatingInterestRate, interestRateDifferential, rates,
                 fixedPrincipalPercentagePerInstallment, externalId, loanApplicationTerms, enableInstallmentLevelDelinquency,
-                submittedOnDate);
+                submittedOnDate, dimensions);
     }
 
     public static Loan newGroupLoanApplication(final String accountNo, final Group group, final AccountType loanType,
@@ -486,12 +491,12 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
             final Boolean createStandingInstructionAtDisbursement, final Boolean isFloatingInterestRate,
             final BigDecimal interestRateDifferential, final List<Rate> rates, final BigDecimal fixedPrincipalPercentagePerInstallment,
             final ExternalId externalId, final LoanApplicationTerms loanApplicationTerms, final Boolean enableInstallmentLevelDelinquency,
-            final LocalDate submittedOnDate) {
+            final LocalDate submittedOnDate, final String dimensions) {
         return new Loan(accountNo, null, group, loanType, fund, officer, loanPurpose, transactionProcessingStrategy, loanProduct,
                 loanRepaymentScheduleDetail, null, loanCharges, null, syncDisbursementWithMeeting, fixedEmiAmount, disbursementDetails,
                 maxOutstandingLoanBalance, createStandingInstructionAtDisbursement, isFloatingInterestRate, interestRateDifferential, rates,
                 fixedPrincipalPercentagePerInstallment, externalId, loanApplicationTerms, enableInstallmentLevelDelinquency,
-                submittedOnDate);
+                submittedOnDate, dimensions);
     }
 
     public static Loan newIndividualLoanApplicationFromGroup(final String accountNo, final Client client, final Group group,
@@ -503,12 +508,12 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
             final Boolean createStandingInstructionAtDisbursement, final Boolean isFloatingInterestRate,
             final BigDecimal interestRateDifferential, final List<Rate> rates, final BigDecimal fixedPrincipalPercentagePerInstallment,
             final ExternalId externalId, final LoanApplicationTerms loanApplicationTerms, final Boolean enableInstallmentLevelDelinquency,
-            final LocalDate submittedOnDate) {
+            final LocalDate submittedOnDate, final String dimensions) {
         return new Loan(accountNo, client, group, loanType, fund, officer, loanPurpose, transactionProcessingStrategy, loanProduct,
                 loanRepaymentScheduleDetail, null, loanCharges, null, syncDisbursementWithMeeting, fixedEmiAmount, disbursementDetails,
                 maxOutstandingLoanBalance, createStandingInstructionAtDisbursement, isFloatingInterestRate, interestRateDifferential, rates,
                 fixedPrincipalPercentagePerInstallment, externalId, loanApplicationTerms, enableInstallmentLevelDelinquency,
-                submittedOnDate);
+                submittedOnDate, dimensions);
     }
 
     protected Loan() {
@@ -524,7 +529,7 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
             final Boolean createStandingInstructionAtDisbursement, final Boolean isFloatingInterestRate,
             final BigDecimal interestRateDifferential, final List<Rate> rates, final BigDecimal fixedPrincipalPercentagePerInstallment,
             final ExternalId externalId, final LoanApplicationTerms loanApplicationTerms, final Boolean enableInstallmentLevelDelinquency,
-            final LocalDate submittedOnDate) {
+            final LocalDate submittedOnDate, final String dimensions) {
         this.loanRepaymentScheduleDetail = loanRepaymentScheduleDetail;
 
         this.isFloatingInterestRate = isFloatingInterestRate;
@@ -605,6 +610,7 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
             this.loanInterestRecalculationDetails.updateLoan(this);
         }
         this.enableInstallmentLevelDelinquency = enableInstallmentLevelDelinquency;
+        this.dimensions = dimensions;
         this.getLoanProductRelatedDetail()
                 .setEnableAccrualActivityPosting(loanProduct.getLoanProductRelatedDetail().isEnableAccrualActivityPosting());
     }

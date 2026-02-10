@@ -49,6 +49,11 @@ public interface LoanReadPlatformService {
 
     LoanAccountData retrieveOne(Long loanId);
 
+    /**
+     * Returns the dimensions JSON string for the given loan, or null if not set.
+     */
+    String getLoanDimensions(Long loanId);
+
     LoanAccountData fetchRepaymentScheduleData(LoanAccountData accountData);
 
     LoanScheduleData retrieveRepaymentSchedule(Long loanId, RepaymentScheduleRelatedLoanData repaymentScheduleRelatedData,

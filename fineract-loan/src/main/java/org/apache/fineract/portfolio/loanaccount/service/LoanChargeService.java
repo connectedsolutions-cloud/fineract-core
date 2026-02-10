@@ -213,7 +213,7 @@ public class LoanChargeService {
         if (TemporaryConfigurationServiceContainer.isExternalIdAutoGenerationEnabled()) {
             externalId = ExternalId.generate();
         }
-        final LoanTransaction applyLoanChargeTransaction = LoanTransaction.accrueLoanCharge(loan, loan.getOffice(), chargeAmount,
+        final LoanTransaction applyLoanChargeTransaction = LoanTransaction.chargePaymentApplied(loan, loan.getOffice(), chargeAmount,
                 transactionDate, feeCharges, penaltyCharges, externalId);
 
         Integer installmentNumber = null;

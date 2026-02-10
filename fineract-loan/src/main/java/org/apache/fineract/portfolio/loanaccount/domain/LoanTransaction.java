@@ -155,6 +155,10 @@ public class LoanTransaction extends AbstractAuditableWithUTCDateTimeCustom<Long
     @JoinColumn(name = "classification_cv_id")
     private CodeValue classification;
 
+    @Setter
+    @Column(name = "cashier_id", nullable = true)
+    private Long cashierId;
+
     protected LoanTransaction() {}
 
     public static LoanTransaction incomePosting(final Loan loan, final Office office, final LocalDate dateOf, final BigDecimal amount,
@@ -266,6 +270,30 @@ public class LoanTransaction extends AbstractAuditableWithUTCDateTimeCustom<Long
                 externalId);
         applyCharge.updateChargesComponents(feeCharges, penaltyCharges);
         return applyCharge;
+    }
+
+    /**
+     * Creates a loan transaction for charge application (fee/penalty applied) with type CHARGE_PAYMENT. Same structure
+     * as accrueLoanCharge so LoanChargePaidBy and charge-accrual queries work.
+     */
+    public static LoanTransaction chargePaymentApplied(final Loan loan, final Office office, final Money amount, final LocalDate applyDate,
+            final Money feeCharges, final Money penaltyCharges, final ExternalId externalId) {
+        final LoanTransaction applyCharge = new LoanTransaction(loan, office, LoanTransactionType.CHARGE_PAYMENT, applyDate,
+                amount.getAmount(), null, null, null, null, null, false, null, externalId);
+        applyCharge.updateChargesComponents(feeCharges, penaltyCharges);
+        return applyCharge;
+    }
+
+    /**
+     * Creates a loan transaction for tax on charge (e.g. at comite otorgamiento). Amount is the total tax; does not
+     * affect loan balance. Caller should add to loan and save.
+     */
+    public static LoanTransaction taxOnCharge(final Loan loan, final Office office, final BigDecimal amount, final LocalDate dateOf,
+            final ExternalId externalId) {
+        final LoanTransaction txn = new LoanTransaction(loan, office, LoanTransactionType.TAXES, dateOf, amount, null, null, null, null,
+                null, false, null, externalId);
+        loan.addLoanTransaction(txn);
+        return txn;
     }
 
     public static LoanTransaction accrueTransaction(final Loan loan, final Office office, final LocalDate dateOf, final BigDecimal amount,
@@ -842,8 +870,12 @@ public class LoanTransaction extends AbstractAuditableWithUTCDateTimeCustom<Long
         return getTypeOf().isAccrualActivity();
     }
 
+    public boolean isTaxes() {
+        return getTypeOf().isTaxes();
+    }
+
     public boolean isAccrualRelated() {
-        return isAccrual() || isAccrualAdjustment() || isAccrualActivity();
+        return isAccrual() || isAccrualAdjustment() || isAccrualActivity() || getTypeOf().isChargePayment();
     }
 
     public boolean isWaiveCharge() {

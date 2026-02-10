@@ -50,6 +50,7 @@ public interface LoanApiConstants {
     String noteParameterName = "note";
     String localeParameterName = "locale";
     String dateFormatParameterName = "dateFormat";
+    String dimensionsParameterName = "dimensions";
     String rejectedOnDateParameterName = "rejectedOnDate";
     String withdrawnOnDateParameterName = "withdrawnOnDate";
 

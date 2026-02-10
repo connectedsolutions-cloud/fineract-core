@@ -102,7 +102,7 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
                 if (principalAmount != null && principalAmount.compareTo(BigDecimal.ZERO) > 0) {
                     this.helper.createJournalEntriesForLoan(office, currencyCode, CashAccountsForLoan.LOSSES_WRITTEN_OFF.getValue(),
                             CashAccountsForLoan.LOAN_PORTFOLIO.getValue(), loanProductId, paymentTypeId, loanId, transactionId,
-                            transactionDate, principalAmount);
+                            transactionDate, principalAmount, loanDTO.getDimensions());
 
                 }
             } else if (transactionType.isInitiateTransfer() || transactionType.isApproveTransfer()
@@ -179,13 +179,13 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
         for (Map.Entry<Long, BigDecimal> creditEntry : glAccountBalanceHolder.getCreditBalances().entrySet()) {
             GLAccount glAccount = glAccountBalanceHolder.getGlAccountMap().get(creditEntry.getKey());
             this.helper.createCreditJournalEntryForLoan(office, currencyCode, loanId, transactionId, transactionDate,
-                    creditEntry.getValue(), glAccount);
+                    creditEntry.getValue(), glAccount, loanDTO.getDimensions());
         }
         // create debit entries
         for (Map.Entry<Long, BigDecimal> debitEntry : glAccountBalanceHolder.getDebitBalances().entrySet()) {
             GLAccount glAccount = glAccountBalanceHolder.getGlAccountMap().get(debitEntry.getKey());
             this.helper.createDebitJournalEntryForLoan(office, currencyCode, loanId, transactionId, transactionDate, debitEntry.getValue(),
-                    glAccount);
+                    glAccount, loanDTO.getDimensions());
         }
     }
 
@@ -301,7 +301,7 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
 
         for (Map.Entry<GLAccount, BigDecimal> entry : accountMap.entrySet()) {
             this.helper.createCreditJournalEntryForLoan(office, currencyCode, loanId, transactionId, transactionDate, entry.getValue(),
-                    entry.getKey());
+                    entry.getKey(), loanDTO.getDimensions());
         }
 
         if (totalDebitAmount.compareTo(BigDecimal.ZERO) > 0) {
@@ -313,7 +313,7 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
                 accountMappingTypeId = CashAccountsForLoan.INCOME_FROM_FEES.getValue();
             }
             this.helper.createDebitJournalEntryForLoanCharges(office, currencyCode, accountMappingTypeId, loanProductId, chargeId, loanId,
-                    transactionId, transactionDate, totalDebitAmount);
+                    transactionId, transactionDate, totalDebitAmount, loanDTO.getDimensions());
         }
     }
 
@@ -399,7 +399,7 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
 
         for (Map.Entry<GLAccount, BigDecimal> entry : accountMap.entrySet()) {
             this.helper.createCreditJournalEntryForLoan(office, currencyCode, loanId, transactionId, transactionDate, entry.getValue(),
-                    entry.getKey());
+                    entry.getKey(), loanDTO.getDimensions());
         }
 
         if (totalDebitAmount.compareTo(BigDecimal.ZERO) > 0) {
@@ -411,7 +411,7 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
                 accountMappingTypeId = CashAccountsForLoan.INCOME_FROM_FEES.getValue();
             }
             this.helper.createDebitJournalEntryForLoanCharges(office, currencyCode, accountMappingTypeId, loanProductId, chargeId, loanId,
-                    transactionId, transactionDate, totalDebitAmount);
+                    transactionId, transactionDate, totalDebitAmount, loanDTO.getDimensions());
         }
     }
 
@@ -435,7 +435,8 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
         final Long paymentTypeId = loanTransactionDTO.getPaymentTypeId();
 
         this.helper.createJournalEntriesForLoan(office, currencyCode, CashAccountsForLoan.LOAN_PORTFOLIO.getValue(),
-                CashAccountsForLoan.FUND_SOURCE.getValue(), loanProductId, paymentTypeId, loanId, transactionId, transactionDate, amount);
+                CashAccountsForLoan.FUND_SOURCE.getValue(), loanProductId, paymentTypeId, loanId, transactionId, transactionDate, amount,
+                loanDTO.getDimensions());
     }
 
     /**
@@ -462,22 +463,23 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
 
         if (MathUtil.isGreaterThanZero(principalPortion)) {
             this.helper.createDebitJournalEntryForLoan(office, currencyCode, CashAccountsForLoan.LOAN_PORTFOLIO.getValue(), loanProductId,
-                    paymentTypeId, loanId, transactionId, transactionDate, principalPortion);
+                    paymentTypeId, loanId, transactionId, transactionDate, principalPortion, loanDTO.getDimensions());
         }
 
         if (MathUtil.isGreaterThanZero(overpaymentPortion)) {
             this.helper.createDebitJournalEntryForLoan(office, currencyCode, CashAccountsForLoan.OVERPAYMENT.getValue(), loanProductId,
-                    paymentTypeId, loanId, transactionId, transactionDate, overpaymentPortion);
+                    paymentTypeId, loanId, transactionId, transactionDate, overpaymentPortion, loanDTO.getDimensions());
         }
         if (loanTransactionDTO.isLoanToLoanTransfer()) {
             this.helper.createCreditJournalEntryForLoan(office, currencyCode, FinancialActivity.ASSET_TRANSFER.getValue(), loanProductId,
-                    paymentTypeId, loanId, transactionId, transactionDate, loanTransactionDTO.getAmount());
+                    paymentTypeId, loanId, transactionId, transactionDate, loanTransactionDTO.getAmount(), loanDTO.getDimensions());
         } else if (loanTransactionDTO.isAccountTransfer()) {
             this.helper.createCreditJournalEntryForLoan(office, currencyCode, FinancialActivity.LIABILITY_TRANSFER.getValue(),
-                    loanProductId, paymentTypeId, loanId, transactionId, transactionDate, loanTransactionDTO.getAmount());
+                    loanProductId, paymentTypeId, loanId, transactionId, transactionDate, loanTransactionDTO.getAmount(),
+                    loanDTO.getDimensions());
         } else {
             this.helper.createCreditJournalEntryForLoan(office, currencyCode, CashAccountsForLoan.FUND_SOURCE.getValue(), loanProductId,
-                    paymentTypeId, loanId, transactionId, transactionDate, loanTransactionDTO.getAmount());
+                    paymentTypeId, loanId, transactionId, transactionDate, loanTransactionDTO.getAmount(), loanDTO.getDimensions());
         }
     }
 
@@ -503,11 +505,11 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
         if (loanTransactionDTO.isAccountTransfer()) {
             this.helper.createJournalEntriesForLoan(office, currencyCode, CashAccountsForLoan.OVERPAYMENT.getValue(),
                     FinancialActivity.LIABILITY_TRANSFER.getValue(), loanProductId, paymentTypeId, loanId, transactionId, transactionDate,
-                    refundAmount);
+                    refundAmount, loanDTO.getDimensions());
         } else {
             this.helper.createJournalEntriesForLoan(office, currencyCode, CashAccountsForLoan.OVERPAYMENT.getValue(),
                     CashAccountsForLoan.FUND_SOURCE.getValue(), loanProductId, paymentTypeId, loanId, transactionId, transactionDate,
-                    refundAmount);
+                    refundAmount, loanDTO.getDimensions());
         }
     }
 
@@ -696,22 +698,22 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
         for (Map.Entry<Long, BigDecimal> creditEntry : glAccountBalanceHolder.getCreditBalances().entrySet()) {
             GLAccount glAccount = glAccountBalanceHolder.getGlAccountMap().get(creditEntry.getKey());
             this.helper.createCreditJournalEntryForLoan(office, currencyCode, loanId, transactionId, transactionDate,
-                    creditEntry.getValue(), glAccount);
+                    creditEntry.getValue(), glAccount, loanDTO.getDimensions());
         }
 
         /*** create a single debit entry for the entire amount **/
         if (loanTransactionDTO.isLoanToLoanTransfer()) {
             this.helper.createDebitJournalEntryForLoan(office, currencyCode, FinancialActivity.ASSET_TRANSFER.getValue(), loanProductId,
-                    paymentTypeId, loanId, transactionId, transactionDate, totalDebitAmount);
+                    paymentTypeId, loanId, transactionId, transactionDate, totalDebitAmount, loanDTO.getDimensions());
         } else if (loanTransactionDTO.isAccountTransfer()) {
             this.helper.createDebitJournalEntryForLoan(office, currencyCode, FinancialActivity.LIABILITY_TRANSFER.getValue(), loanProductId,
-                    paymentTypeId, loanId, transactionId, transactionDate, totalDebitAmount);
+                    paymentTypeId, loanId, transactionId, transactionDate, totalDebitAmount, loanDTO.getDimensions());
         } else {
             // create debit entries
             for (Map.Entry<Long, BigDecimal> debitEntry : glAccountBalanceHolder.getDebitBalances().entrySet()) {
                 GLAccount glAccount = glAccountBalanceHolder.getGlAccountMap().get(debitEntry.getKey());
                 this.helper.createDebitJournalEntryForLoan(office, currencyCode, loanId, transactionId, transactionDate,
-                        debitEntry.getValue(), glAccount);
+                        debitEntry.getValue(), glAccount, loanDTO.getDimensions());
             }
         }
 
@@ -723,7 +725,7 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
             if (loanTransactionDTO.getTransactionType().isChargeRefund()) {
                 Integer incomeAccount = this.helper.getValueForFeeOrPenaltyIncomeAccount(loanTransactionDTO.getChargeRefundChargeType());
                 this.helper.createJournalEntriesForLoan(office, currencyCode, incomeAccount, CashAccountsForLoan.FUND_SOURCE.getValue(),
-                        loanProductId, paymentTypeId, loanId, transactionId, transactionDate, totalDebitAmount);
+                        loanProductId, paymentTypeId, loanId, transactionId, transactionDate, totalDebitAmount, loanDTO.getDimensions());
             }
         }
     }
@@ -750,7 +752,7 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
         if (principalAmount != null && principalAmount.compareTo(BigDecimal.ZERO) > 0) {
             totalDebitAmount = totalDebitAmount.add(principalAmount);
             this.helper.createCreditJournalEntryForLoan(office, currencyCode, CashAccountsForLoan.LOAN_PORTFOLIO, loanProductId,
-                    paymentTypeId, loanId, transactionId, transactionDate, principalAmount);
+                    paymentTypeId, loanId, transactionId, transactionDate, principalAmount, loanDTO.getDimensions());
             if (loanTransactionDTO.getTransactionType().isGoodwillCredit()) {
                 populateDebitAccountEntry(loanProductId, principalAmount, CashAccountsForLoan.GOODWILL_CREDIT.getValue(),
                         debitAccountMapForGoodwillCredit, paymentTypeId);
@@ -760,7 +762,7 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
         if (interestAmount != null && interestAmount.compareTo(BigDecimal.ZERO) > 0) {
             totalDebitAmount = totalDebitAmount.add(interestAmount);
             this.helper.createCreditJournalEntryForLoan(office, currencyCode, CashAccountsForLoan.INTEREST_ON_LOANS, loanProductId,
-                    paymentTypeId, loanId, transactionId, transactionDate, interestAmount);
+                    paymentTypeId, loanId, transactionId, transactionDate, interestAmount, loanDTO.getDimensions());
             if (loanTransactionDTO.getTransactionType().isGoodwillCredit()) {
                 populateDebitAccountEntry(loanProductId, interestAmount,
                         CashAccountsForLoan.INCOME_FROM_GOODWILL_CREDIT_INTEREST.getValue(), debitAccountMapForGoodwillCredit,
@@ -771,7 +773,8 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
         if (feesAmount != null && feesAmount.compareTo(BigDecimal.ZERO) > 0) {
             totalDebitAmount = totalDebitAmount.add(feesAmount);
             this.helper.createCreditJournalEntryForLoanCharges(office, currencyCode, CashAccountsForLoan.INCOME_FROM_FEES.getValue(),
-                    loanProductId, loanId, transactionId, transactionDate, feesAmount, loanTransactionDTO.getFeePayments());
+                    loanProductId, loanId, transactionId, transactionDate, feesAmount, loanTransactionDTO.getFeePayments(),
+                    loanDTO.getDimensions());
             if (loanTransactionDTO.getTransactionType().isGoodwillCredit()) {
                 populateDebitAccountEntry(loanProductId, feesAmount, CashAccountsForLoan.INCOME_FROM_GOODWILL_CREDIT_FEES.getValue(),
                         debitAccountMapForGoodwillCredit, paymentTypeId);
@@ -781,7 +784,8 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
         if (penaltiesAmount != null && penaltiesAmount.compareTo(BigDecimal.ZERO) > 0) {
             totalDebitAmount = totalDebitAmount.add(penaltiesAmount);
             this.helper.createCreditJournalEntryForLoanCharges(office, currencyCode, CashAccountsForLoan.INCOME_FROM_PENALTIES.getValue(),
-                    loanProductId, loanId, transactionId, transactionDate, penaltiesAmount, loanTransactionDTO.getPenaltyPayments());
+                    loanProductId, loanId, transactionId, transactionDate, penaltiesAmount, loanTransactionDTO.getPenaltyPayments(),
+                    loanDTO.getDimensions());
             if (loanTransactionDTO.getTransactionType().isGoodwillCredit()) {
                 populateDebitAccountEntry(loanProductId, penaltiesAmount,
                         CashAccountsForLoan.INCOME_FROM_GOODWILL_CREDIT_PENALTY.getValue(), debitAccountMapForGoodwillCredit,
@@ -792,7 +796,7 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
         if (overPaymentAmount != null && overPaymentAmount.compareTo(BigDecimal.ZERO) > 0) {
             totalDebitAmount = totalDebitAmount.add(overPaymentAmount);
             this.helper.createCreditJournalEntryForLoan(office, currencyCode, CashAccountsForLoan.OVERPAYMENT, loanProductId, paymentTypeId,
-                    loanId, transactionId, transactionDate, overPaymentAmount);
+                    loanId, transactionId, transactionDate, overPaymentAmount, loanDTO.getDimensions());
             if (loanTransactionDTO.getTransactionType().isGoodwillCredit()) {
                 populateDebitAccountEntry(loanProductId, overPaymentAmount, CashAccountsForLoan.GOODWILL_CREDIT.getValue(),
                         debitAccountMapForGoodwillCredit, paymentTypeId);
@@ -802,22 +806,22 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
         /*** create a single debit entry for the entire amount **/
         if (loanTransactionDTO.isLoanToLoanTransfer()) {
             this.helper.createDebitJournalEntryForLoan(office, currencyCode, FinancialActivity.ASSET_TRANSFER.getValue(), loanProductId,
-                    paymentTypeId, loanId, transactionId, transactionDate, totalDebitAmount);
+                    paymentTypeId, loanId, transactionId, transactionDate, totalDebitAmount, loanDTO.getDimensions());
         } else if (loanTransactionDTO.isAccountTransfer()) {
             this.helper.createDebitJournalEntryForLoan(office, currencyCode, FinancialActivity.LIABILITY_TRANSFER.getValue(), loanProductId,
-                    paymentTypeId, loanId, transactionId, transactionDate, totalDebitAmount);
+                    paymentTypeId, loanId, transactionId, transactionDate, totalDebitAmount, loanDTO.getDimensions());
         } else {
             if (loanTransactionDTO.getTransactionType().isGoodwillCredit()) {
 
                 // create debit entries
                 for (Map.Entry<Integer, BigDecimal> debitEntry : debitAccountMapForGoodwillCredit.entrySet()) {
                     this.helper.createDebitJournalEntryForLoan(office, currencyCode, debitEntry.getKey(), loanProductId, paymentTypeId,
-                            loanId, transactionId, transactionDate, debitEntry.getValue());
+                            loanId, transactionId, transactionDate, debitEntry.getValue(), loanDTO.getDimensions());
                 }
 
             } else {
                 this.helper.createDebitJournalEntryForLoan(office, currencyCode, CashAccountsForLoan.FUND_SOURCE.getValue(), loanProductId,
-                        paymentTypeId, loanId, transactionId, transactionDate, totalDebitAmount);
+                        paymentTypeId, loanId, transactionId, transactionDate, totalDebitAmount, loanDTO.getDimensions());
             }
         }
 
@@ -828,7 +832,7 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
         if (totalDebitAmount.compareTo(BigDecimal.ZERO) > 0 && loanTransactionDTO.getTransactionType().isChargeRefund()) {
             Integer incomeAccount = this.helper.getValueForFeeOrPenaltyIncomeAccount(loanTransactionDTO.getChargeRefundChargeType());
             this.helper.createJournalEntriesForLoan(office, currencyCode, incomeAccount, CashAccountsForLoan.FUND_SOURCE.getValue(),
-                    loanProductId, paymentTypeId, loanId, transactionId, transactionDate, totalDebitAmount);
+                    loanProductId, paymentTypeId, loanId, transactionId, transactionDate, totalDebitAmount, loanDTO.getDimensions());
         }
     }
 
@@ -862,7 +866,7 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
 
         this.helper.createJournalEntriesForLoan(office, currencyCode, CashAccountsForLoan.FUND_SOURCE.getValue(),
                 CashAccountsForLoan.INCOME_FROM_RECOVERY.getValue(), loanProductId, paymentTypeId, loanId, transactionId, transactionDate,
-                amount);
+                amount, loanDTO.getDimensions());
 
     }
 
@@ -891,12 +895,12 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
         if (loanTransactionDTO.getTransactionType().isInitiateTransfer()) {
             this.helper.createJournalEntriesForLoan(office, currencyCode, CashAccountsForLoan.TRANSFERS_SUSPENSE.getValue(),
                     CashAccountsForLoan.LOAN_PORTFOLIO.getValue(), loanProductId, null, loanId, transactionId, transactionDate,
-                    principalAmount);
+                    principalAmount, loanDTO.getDimensions());
         } else if (loanTransactionDTO.getTransactionType().isApproveTransfer()
                 || loanTransactionDTO.getTransactionType().isWithdrawTransfer()) {
             this.helper.createJournalEntriesForLoan(office, currencyCode, CashAccountsForLoan.LOAN_PORTFOLIO.getValue(),
                     CashAccountsForLoan.TRANSFERS_SUSPENSE.getValue(), loanProductId, null, loanId, transactionId, transactionDate,
-                    principalAmount);
+                    principalAmount, loanDTO.getDimensions());
         }
     }
 
@@ -929,7 +933,7 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
 
         JournalAmountHolder totalAmountHolder = new JournalAmountHolder(CashAccountsForLoan.FUND_SOURCE.getValue(), totalAmount);
         helper.createSplitJournalEntriesForLoan(office, currencyCode, journalAmountHolders, totalAmountHolder, loanProductId, paymentTypeId,
-                loanId, transactionId, transactionDate);
+                loanId, transactionId, transactionDate, loanDTO.getDimensions());
     }
 
     private void createJournalEntriesForRefundForActiveLoan(LoanDTO loanDTO, LoanTransactionDTO loanTransactionDTO, Office office) {
@@ -953,13 +957,13 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
         if (principalAmount != null && principalAmount.compareTo(BigDecimal.ZERO) > 0) {
             totalDebitAmount = totalDebitAmount.add(principalAmount);
             this.helper.createDebitJournalEntryForLoan(office, currencyCode, CashAccountsForLoan.LOAN_PORTFOLIO.getValue(), loanProductId,
-                    paymentTypeId, loanId, transactionId, transactionDate, principalAmount);
+                    paymentTypeId, loanId, transactionId, transactionDate, principalAmount, loanDTO.getDimensions());
         }
 
         if (interestAmount != null && interestAmount.compareTo(BigDecimal.ZERO) > 0) {
             totalDebitAmount = totalDebitAmount.add(interestAmount);
             this.helper.createDebitJournalEntryForLoan(office, currencyCode, CashAccountsForLoan.INTEREST_ON_LOANS.getValue(),
-                    loanProductId, paymentTypeId, loanId, transactionId, transactionDate, interestAmount);
+                    loanProductId, paymentTypeId, loanId, transactionId, transactionDate, interestAmount, loanDTO.getDimensions());
         }
 
         if (feesAmount != null && feesAmount.compareTo(BigDecimal.ZERO) > 0) {
@@ -974,7 +978,7 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
                         chargePaymentDTO.getLoanChargeId()));
             }
             this.helper.createDebitJournalEntryForLoanCharges(office, currencyCode, CashAccountsForLoan.INCOME_FROM_FEES.getValue(),
-                    loanProductId, loanId, transactionId, transactionDate, feesAmount, chargePaymentDTOs);
+                    loanProductId, loanId, transactionId, transactionDate, feesAmount, chargePaymentDTOs, loanDTO.getDimensions());
         }
 
         if (penaltiesAmount != null && penaltiesAmount.compareTo(BigDecimal.ZERO) > 0) {
@@ -989,17 +993,17 @@ public class CashBasedAccountingProcessorForLoan implements AccountingProcessorF
             }
 
             this.helper.createDebitJournalEntryForLoanCharges(office, currencyCode, CashAccountsForLoan.INCOME_FROM_PENALTIES.getValue(),
-                    loanProductId, loanId, transactionId, transactionDate, penaltiesAmount, chargePaymentDTOs);
+                    loanProductId, loanId, transactionId, transactionDate, penaltiesAmount, chargePaymentDTOs, loanDTO.getDimensions());
         }
 
         if (overPaymentAmount != null && overPaymentAmount.compareTo(BigDecimal.ZERO) > 0) {
             totalDebitAmount = totalDebitAmount.add(overPaymentAmount);
             this.helper.createDebitJournalEntryForLoan(office, currencyCode, CashAccountsForLoan.OVERPAYMENT.getValue(), loanProductId,
-                    paymentTypeId, loanId, transactionId, transactionDate, overPaymentAmount);
+                    paymentTypeId, loanId, transactionId, transactionDate, overPaymentAmount, loanDTO.getDimensions());
         }
 
         /*** create a single debit entry (or reversal) for the entire amount **/
         this.helper.createCreditJournalEntryForLoan(office, currencyCode, CashAccountsForLoan.FUND_SOURCE.getValue(), loanProductId,
-                paymentTypeId, loanId, transactionId, transactionDate, totalDebitAmount);
+                paymentTypeId, loanId, transactionId, transactionDate, totalDebitAmount, loanDTO.getDimensions());
     }
 }

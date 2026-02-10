@@ -251,4 +251,14 @@
     <include file="parts/0229_loans_pending_approval_add_entity_ids.xml" relativeToChangelogFile="true" />
     <include file="parts/0230_add_loan_original_approval_submission.xml" relativeToChangelogFile="true" />
     <include file="parts/0231_add_debit_credit_account_to_m_charge.xml" relativeToChangelogFile="true" />
+    <include file="parts/0232_add_dimensions_to_loan_product_and_loan.xml" relativeToChangelogFile="true" />
+    <include file="parts/0233_add_balance_columns_to_m_cashiers.xml" relativeToChangelogFile="true" />
+    <include file="parts/0234_add_cashier_id_to_transaction_tables.xml" relativeToChangelogFile="true" />
+    <include file="parts/0235_add_create_cashier_sessions_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0236_add_max_teller_cash_amount_to_m_tellers.xml" relativeToChangelogFile="true" />
+    <include file="parts/0237_add_m_pending_flow_blueprint_table.xml" relativeToChangelogFile="true" />
+    <include file="parts/0238_add_m_pending_flow_table.xml" relativeToChangelogFile="true" />
+    <include file="parts/0239_add_m_pending_step_table.xml" relativeToChangelogFile="true" />
+    <include file="parts/0240_add_pendientes_permissions.xml" relativeToChangelogFile="true" />
+    <include file="parts/0241_add_transferencia_efectivo_comite_blueprint.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

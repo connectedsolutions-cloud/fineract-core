@@ -265,14 +265,14 @@ public class LoanAccountConfiguration {
             LoanDisbursementDetailsAssembler loanDisbursementDetailsAssembler, LoanChargeMapper loanChargeMapper,
             LoanCollateralManagementMapper loanCollateralManagementMapper, LoanAccrualsProcessingService loanAccrualsProcessingService,
             LoanDisbursementService loanDisbursementService, LoanChargeService loanChargeService, LoanOfficerService loanOfficerService,
-            LoanScheduleComponent loanSchedule) {
+            LoanScheduleComponent loanSchedule, LoanProductReadPlatformService loanProductReadPlatformService) {
         return new LoanAssemblerImpl(fromApiJsonHelper, loanRepository, loanProductRepository, clientRepository, groupRepository,
                 fundRepository, staffRepository, codeValueRepository, paymentTypeRepository, loanScheduleAssembler, loanChargeAssembler, collateralAssembler,
                 loanRepaymentScheduleTransactionProcessorFactory, holidayRepository, configurationDomainService, workingDaysRepository,
                 rateAssembler, externalIdFactory, accountNumberFormatRepository, glimRepository, accountNumberGenerator,
                 glimAccountInfoWritePlatformService, loanCollateralAssembler, calculationPlatformService, loanDisbursementDetailsAssembler,
                 loanChargeMapper, loanCollateralManagementMapper, loanAccrualsProcessingService, loanDisbursementService, loanChargeService,
-                loanOfficerService, loanSchedule);
+                loanOfficerService, loanSchedule, loanProductReadPlatformService);
     }
 
     @Bean

@@ -35,6 +35,8 @@ public final class CashierTxnType implements Serializable {
     public static final CashierTxnType SETTLE = new CashierTxnType(102, "Settle Cash");
     public static final CashierTxnType INWARD_CASH_TXN = new CashierTxnType(103, "Cash In");
     public static final CashierTxnType OUTWARD_CASH_TXN = new CashierTxnType(104, "Cash Out");
+    public static final CashierTxnType OPEN_CASHIER = new CashierTxnType(105, "Open Cashier");
+    public static final CashierTxnType CLOSE_CASHIER = new CashierTxnType(106, "Close Cashier");
 
     @Override
     public String toString() {
@@ -56,6 +58,12 @@ public final class CashierTxnType implements Serializable {
             break;
             case 104:
                 retVal = OUTWARD_CASH_TXN;
+            break;
+            case 105:
+                retVal = OPEN_CASHIER;
+            break;
+            case 106:
+                retVal = CLOSE_CASHIER;
             break;
             default:
             break;

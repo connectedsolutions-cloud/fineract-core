@@ -73,7 +73,7 @@ class CreateJournalEntriesForChargeOffLoanTest {
                 Collections.emptyList(), false, "", null, null, null, null);
 
         loanDTO = new LoanDTO(1L, 1L, 1L, "USD", false, true, true, List.of(loanTransactionDTO), false, false, chargeOffReasonId, false,
-                false, null, null, null);
+                false, null, null, null, (String) null);
     }
 
     @Test
@@ -101,10 +101,10 @@ class CreateJournalEntriesForChargeOffLoanTest {
         verify(helper, times(1)).getChargeOffMappingByCodeValue(1L, PortfolioProductType.LOAN, chargeOffReasonId);
         verify(helper, times(1)).getLinkedGLAccountForLoanProduct(1L, AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), 1L);
         verify(helper, times(1)).createCreditJournalEntryForLoan(helper.getOfficeById(1L), "USD", AccrualAccountsForLoan.LOAN_PORTFOLIO, 1L,
-                null, 1L, "txn-123", LocalDate.now(ZoneId.systemDefault()), new BigDecimal("500.00"));
+                null, 1L, "txn-123", LocalDate.now(ZoneId.systemDefault()), new BigDecimal("500.00"), null);
         verify(helper, times(1)).createDebitJournalEntryForLoan(helper.getOfficeById(1L), "USD",
                 AccrualAccountsForLoan.CHARGE_OFF_EXPENSE.getValue(), 1L, null, 1L, "txn-123", LocalDate.now(ZoneId.systemDefault()),
-                new BigDecimal("500.00"));
+                new BigDecimal("500.00"), null);
     }
 
     @Test

@@ -55,6 +55,14 @@ public interface TellerManagementReadPlatformService {
 
     Collection<CashierData> retrieveCashiersForTellers(Long tellerId);
 
+    /**
+     * Returns the active (open) cashier session for the currently authenticated user.
+     * A session is active when the cashier record has end_date IS NULL.
+     *
+     * @return CashierData for the active session, or null if the user has no staff or no open cashier session
+     */
+    CashierData getActiveCashierSessionForCurrentUser();
+
     Page<CashierTransactionData> retrieveCashierTransactions(Long cashierId, boolean includeAllTellers, LocalDate fromDate,
             LocalDate toDate, String currencyCode, SearchParameters searchParameters);
 

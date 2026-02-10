@@ -51,4 +51,6 @@ public class LoanDTO {
     private List<AdvancedMappingtDTO> buydownFeeAdvancedMappingData;
     private List<AdvancedMappingtDTO> capitalizedIncomeAdvancedMappingData;
     private AdvancedMappingtDTO writeOffReasonAdvancedMappingData;
+    @Setter
+    private String dimensions;
 }

@@ -268,6 +268,8 @@ public class LoanProductData implements Serializable {
     private List<ClassificationToGLAccountData> capitalizedIncomeClassificationToIncomeAccountMappings;
     private List<ClassificationToGLAccountData> buydownFeeClassificationToIncomeAccountMappings;
 
+    private final String dimensions;
+
     /**
      * Used when returning lookup information about loan product for dropdowns.
      */
@@ -406,7 +408,7 @@ public class LoanProductData implements Serializable {
                 interestRecognitionOnDisbursementDate, daysInYearTypeCustomStrategy, enableIncomeCapitalization,
                 capitalizedIncomeCalculationType, capitalizedIncomeStrategy, capitalizedIncomeType, enableBuyDownFee,
                 buyDownFeeCalculationType, buyDownFeeStrategy, buyDownFeeIncomeType, merchantBuyDownFee, writeOffReasonsToExpenseMappings,
-                writeOffReasonOptions);
+                writeOffReasonOptions, null);
 
     }
 
@@ -546,7 +548,7 @@ public class LoanProductData implements Serializable {
                 interestRecognitionOnDisbursementDate, daysInYearTypeCustomStrategy, enableIncomeCapitalization,
                 capitalizedIncomeCalculationType, capitalizedIncomeStrategy, capitalizedIncomeType, enableBuyDownFee,
                 buyDownFeeCalculationType, buyDownFeeStrategy, buyDownFeeIncomeType, merchantBuyDownFee, writeOffReasonsToExpenseMappings,
-                writeOffReasonOptions);
+                writeOffReasonOptions, null);
 
     }
 
@@ -693,7 +695,7 @@ public class LoanProductData implements Serializable {
                 interestRecognitionOnDisbursementDate, daysInYearTypeCustomStrategy, enableIncomeCapitalization,
                 capitalizedIncomeCalculationType, capitalizedIncomeStrategy, capitalizedIncomeType, enableBuyDownFee,
                 buyDownFeeCalculationType, buyDownFeeStrategy, buyDownFeeIncomeType, merchantBuyDownFee, writeOffReasonsToExpenseMappings,
-                writeOffReasonOptions);
+                writeOffReasonOptions, null);
 
     }
 
@@ -834,7 +836,7 @@ public class LoanProductData implements Serializable {
                 interestRecognitionOnDisbursementDate, daysInYearTypeCustomStrategy, enableIncomeCapitalization,
                 capitalizedIncomeCalculationType, capitalizedIncomeStrategy, capitalizedIncomeType, enableBuyDownFee,
                 buyDownFeeCalculationType, buyDownFeeStrategy, buyDownFeeIncomeType, merchantBuyDownFee, writeOffReasonsToExpenseMappings,
-                writeOffReasonOptions);
+                writeOffReasonOptions, null);
     }
 
     public static LoanProductData withAccountingDetails(final LoanProductData productData, final Map<String, Object> accountingMappings,
@@ -901,7 +903,7 @@ public class LoanProductData implements Serializable {
             final StringEnumOptionData buyDownFeeCalculationType, final StringEnumOptionData buyDownFeeStrategy,
             final StringEnumOptionData buyDownFeeIncomeType, final boolean merchantBuyDownFee,
             final List<AdvancedMappingToExpenseAccountData> writeOffReasonsToExpenseMappings,
-            final List<CodeValueData> writeOffReasonOptions) {
+            final List<CodeValueData> writeOffReasonOptions, final String dimensions) {
         this.id = id;
         this.name = name;
         this.shortName = shortName;
@@ -1066,6 +1068,7 @@ public class LoanProductData implements Serializable {
         this.buyDownFeeIncomeTypeOptions = ApiFacingEnum.getValuesAsStringEnumOptionDataList(LoanBuyDownFeeIncomeType.class);
         this.writeOffReasonsToExpenseMappings = writeOffReasonsToExpenseMappings;
         this.writeOffReasonOptions = writeOffReasonOptions;
+        this.dimensions = dimensions;
         this.capitalizedIncomeClassificationOptions = null;
         this.buydownFeeClassificationOptions = null;
         this.capitalizedIncomeClassificationToIncomeAccountMappings = null;
@@ -1143,6 +1146,7 @@ public class LoanProductData implements Serializable {
         this.closeDate = productData.closeDate;
         this.status = productData.status;
         this.externalId = productData.externalId;
+        this.dimensions = productData.dimensions;
 
         this.charges = nullIfEmpty(productData.charges());
         this.principalVariationsForBorrowerCycle = productData.principalVariationsForBorrowerCycle;

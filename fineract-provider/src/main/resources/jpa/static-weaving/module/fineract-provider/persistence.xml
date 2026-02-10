@@ -371,6 +371,11 @@
         <class>org.apache.fineract.portfolio.loanaccount.guarantor.domain.GuarantorFundingTransaction</class>
         <class>org.apache.fineract.portfolio.loanaccount.guarantor.domain.Guarantor</class>
 
+        <!-- Pendiente Module Entities -->
+        <class>org.apache.fineract.portfolio.pendiente.domain.PendingFlowBlueprint</class>
+        <class>org.apache.fineract.portfolio.pendiente.domain.PendingFlow</class>
+        <class>org.apache.fineract.portfolio.pendiente.domain.PendingStep</class>
+
         <exclude-unlisted-classes>false</exclude-unlisted-classes>
         <properties>
             <property name="eclipselink.weaving" value="static" />

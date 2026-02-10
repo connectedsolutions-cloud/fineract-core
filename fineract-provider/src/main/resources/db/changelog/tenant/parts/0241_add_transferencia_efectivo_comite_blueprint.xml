@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <!-- Insert transferencia_efectivo-comite_otorgamiento blueprint (movimientos de creacion y cambio de cheque) -->
+    <changeSet id="0241-add-transferencia-efectivo-comite-blueprint" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_pending_flow_blueprint WHERE name = 'transferencia_efectivo-comite_otrgamiento'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_pending_flow_blueprint">
+            <column name="status" value="active"/>
+            <column name="name" value="transferencia_efectivo-comite_otrgamiento"/>
+            <column name="version" value="1.0"/>
+            <column name="last_step_name" value="recepcion_caja_cierre_cuentas_por_cobrar"/>
+            <column name="steps" value='[{"order":1,"name":"transferencia_cheque_boveda","description":"cambio de cheque de banco y recepción en boveda","require_reference":true,"reference_type":"database_table","reference_fields":[{"table_name":"m_sesiones_comite","reference_value":"int"}]},{"order":2,"name":"recepcion_caja_cierre_cuentas_por_cobrar","description":"se recibe el efectivo por el monto de los desembolsos y se cierran cuentas por cobrar","require_reference":true,"reference_type":"prev_step","reference_fields":[{"step_name":"transferencia_cheque_boveda","reference_value":"step"}]}]'/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

@@ -331,7 +331,11 @@ public class LoanProductAssembler {
         final boolean merchantBuyDownFee = command
                 .booleanPrimitiveValueOfParameterNamed(LoanProductConstants.MERCHANT_BUY_DOWN_FEE_PARAM_NAME);
 
-        return new LoanProduct(fund, loanTransactionProcessingStrategy, loanProductPaymentAllocationRules, loanProductCreditAllocationRules,
+        final String dimensions = command.parameterExists(LoanProductConstants.DIMENSIONS)
+                ? command.jsonFragment(LoanProductConstants.DIMENSIONS)
+                : null;
+
+        final LoanProduct loanProduct = new LoanProduct(fund, loanTransactionProcessingStrategy, loanProductPaymentAllocationRules, loanProductCreditAllocationRules,
                 name, shortName, description, currency, principal, minPrincipal, maxPrincipal, interestRatePerPeriod,
                 minInterestRatePerPeriod, maxInterestRatePerPeriod, interestFrequencyType, annualInterestRate, interestMethod,
                 interestCalculationPeriodMethod, allowPartialPeriodInterestCalcualtion, repaymentEvery, repaymentFrequencyType,
@@ -354,6 +358,10 @@ public class LoanProductAssembler {
                 daysInYearCustomStrategy, enableIncomeCapitalization, capitalizedIncomeCalculationType, capitalizedIncomeStrategy,
                 capitalizedIncomeType, enableBuyDownFee, buyDownFeeCalculationType, buyDownFeeStrategy, buyDownFeeIncomeType,
                 merchantBuyDownFee);
+        if (dimensions != null) {
+            loanProduct.setDimensions(dimensions);
+        }
+        return loanProduct;
 
     }
 

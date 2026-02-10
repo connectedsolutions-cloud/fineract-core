@@ -138,6 +138,9 @@ public final class SavingsAccountTransaction extends AbstractAuditableWithUTCDat
     @Column(name = "ref_no", nullable = true)
     private String refNo;
 
+    @Column(name = "cashier_id", nullable = true)
+    private Long cashierId;
+
     SavingsAccountTransaction() {}
 
     private SavingsAccountTransaction(final SavingsAccount savingsAccount, final Office office, final PaymentDetail paymentDetail,
@@ -485,6 +488,14 @@ public final class SavingsAccountTransaction extends AbstractAuditableWithUTCDat
 
     public LocalDate getSubmittedOnDate() {
         return submittedOnDate;
+    }
+
+    public Long getCashierId() {
+        return this.cashierId;
+    }
+
+    public void setCashierId(Long cashierId) {
+        this.cashierId = cashierId;
     }
 
     public boolean isReversalTransaction() {

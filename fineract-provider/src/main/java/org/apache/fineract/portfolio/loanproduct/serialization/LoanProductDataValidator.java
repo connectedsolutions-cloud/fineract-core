@@ -208,7 +208,8 @@ public final class LoanProductDataValidator {
             LoanProductAccountingParams.BUY_DOWN_EXPENSE.getValue(), LoanProductAccountingParams.INCOME_FROM_BUY_DOWN.getValue(),
             LoanProductConstants.MERCHANT_BUY_DOWN_FEE_PARAM_NAME,
             LoanProductAccountingParams.CAPITALIZED_INCOME_CLASSIFICATION_TO_INCOME_ACCOUNT_MAPPINGS.getValue(), //
-            LoanProductAccountingParams.BUYDOWN_FEE_CLASSIFICATION_TO_INCOME_ACCOUNT_MAPPINGS.getValue() //
+            LoanProductAccountingParams.BUYDOWN_FEE_CLASSIFICATION_TO_INCOME_ACCOUNT_MAPPINGS.getValue(), //
+            LoanProductConstants.DIMENSIONS
     ));
 
     private static final String[] SUPPORTED_LOAN_CONFIGURABLE_ATTRIBUTES = { LoanProductConstants.amortizationTypeParamName,

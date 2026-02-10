@@ -27,6 +27,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import jakarta.persistence.UniqueConstraint;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -76,7 +77,7 @@ public class Cashier extends AbstractPersistableCustom<Long> {
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 
-    @Column(name = "end_date", nullable = false)
+    @Column(name = "end_date", nullable = true)
     private LocalDate endDate;
 
     @Column(name = "full_day", nullable = true)
@@ -88,15 +89,33 @@ public class Cashier extends AbstractPersistableCustom<Long> {
     @Column(name = "end_time", nullable = true, length = 10)
     private String endTime;
 
+    @Column(name = "opening_balance", scale = 6, precision = 19, nullable = true)
+    private BigDecimal openingBalance;
+
+    @Column(name = "closing_balance", scale = 6, precision = 19, nullable = true)
+    private BigDecimal closingBalance;
+
+    @Column(name = "expected_closing_balance", scale = 6, precision = 19, nullable = true)
+    private BigDecimal expectedClosingBalance;
+
     public static Cashier fromJson(final Office cashierOffice, final Teller teller, final Staff staff, final String startTime,
             final String endTime, final JsonCommand command) {
         final String description = command.stringValueOfParameterNamed("description");
         final LocalDate startDate = command.localDateValueOfParameterNamed("startDate");
-        final LocalDate endDate = command.localDateValueOfParameterNamed("endDate");
+        final LocalDate endDate = command.parameterExists("endDate") ? command.localDateValueOfParameterNamed("endDate") : null;
         final Boolean isFullDay = command.booleanObjectValueOfParameterNamed(IS_FULL_DAY_PARAM_NAME);
-
-        return new Cashier().setOffice(cashierOffice).setTeller(teller).setStaff(staff).setDescription(description).setStartDate(startDate)
-                .setEndDate(endDate).setIsFullDay(isFullDay).setStartTime(startTime).setEndTime(endTime);
+        Cashier cashier = new Cashier().setOffice(cashierOffice).setTeller(teller).setStaff(staff).setDescription(description)
+                .setStartDate(startDate).setEndDate(endDate).setIsFullDay(isFullDay).setStartTime(startTime).setEndTime(endTime);
+        if (command.parameterExists("openingBalance")) {
+            cashier.setOpeningBalance(command.bigDecimalValueOfParameterNamed("openingBalance"));
+        }
+        if (command.parameterExists("closingBalance")) {
+            cashier.setClosingBalance(command.bigDecimalValueOfParameterNamed("closingBalance"));
+        }
+        if (command.parameterExists("expectedClosingBalance")) {
+            cashier.setExpectedClosingBalance(command.bigDecimalValueOfParameterNamed("expectedClosingBalance"));
+        }
+        return cashier;
     }
 
     public Map<String, Object> update(final JsonCommand command) {
@@ -137,6 +156,22 @@ public class Cashier extends AbstractPersistableCustom<Long> {
             final Boolean newValue = command.booleanObjectValueOfParameterNamed(IS_FULL_DAY_PARAM_NAME);
             actualChanges.put(IS_FULL_DAY_PARAM_NAME, newValue);
             this.isFullDay = newValue;
+        }
+
+        if (command.isChangeInBigDecimalParameterNamed("openingBalance", this.openingBalance)) {
+            final BigDecimal newValue = command.bigDecimalValueOfParameterNamed("openingBalance");
+            actualChanges.put("openingBalance", newValue);
+            this.openingBalance = newValue;
+        }
+        if (command.isChangeInBigDecimalParameterNamed("closingBalance", this.closingBalance)) {
+            final BigDecimal newValue = command.bigDecimalValueOfParameterNamed("closingBalance");
+            actualChanges.put("closingBalance", newValue);
+            this.closingBalance = newValue;
+        }
+        if (command.isChangeInBigDecimalParameterNamed("expectedClosingBalance", this.expectedClosingBalance)) {
+            final BigDecimal newValue = command.bigDecimalValueOfParameterNamed("expectedClosingBalance");
+            actualChanges.put("expectedClosingBalance", newValue);
+            this.expectedClosingBalance = newValue;
         }
 
         if (!fullDayFlag) {

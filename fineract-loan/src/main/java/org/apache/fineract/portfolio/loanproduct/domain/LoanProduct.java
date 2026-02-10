@@ -20,6 +20,7 @@ package org.apache.fineract.portfolio.loanproduct.domain;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -47,6 +48,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.accounting.common.AccountingRuleType;
 import org.apache.fineract.infrastructure.core.domain.AbstractPersistableCustom;
 import org.apache.fineract.infrastructure.core.domain.ExternalId;
+import org.apache.fineract.infrastructure.core.persistence.converter.JsonbStringAttributeConverter;
 import org.apache.fineract.organisation.monetary.domain.MonetaryCurrency;
 import org.apache.fineract.organisation.monetary.domain.Money;
 import org.apache.fineract.portfolio.charge.domain.Charge;
@@ -230,6 +232,10 @@ public class LoanProduct extends AbstractPersistableCustom<Long> {
 
     @Column(name = "repayment_start_date_type_enum", nullable = false)
     private RepaymentStartDateType repaymentStartDateType;
+
+    @Column(name = "dimensions", columnDefinition = "json")
+    @Convert(converter = JsonbStringAttributeConverter.class)
+    private String dimensions;
 
     public void updateLoanProductInRelatedClasses() {
         if (this.isInterestRecalculationEnabled()) {

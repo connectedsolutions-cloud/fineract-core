@@ -18,6 +18,11 @@
  */
 package org.apache.fineract.organisation.teller.api;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -25,6 +30,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
@@ -41,6 +47,22 @@ import org.springframework.stereotype.Component;
 public class CashierApiResource {
 
     private final TellerManagementReadPlatformService readPlatformService;
+
+    @GET
+    @Path("session")
+    @Consumes({ MediaType.TEXT_HTML, MediaType.APPLICATION_JSON })
+    @Produces(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Get active cashier session", description = "Returns the active (open) cashier session for the currently authenticated user. Returns 404 if no active session.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = CashierData.class))),
+            @ApiResponse(responseCode = "404", description = "No active cashier session") })
+    public Response getActiveCashierSession() {
+        final CashierData session = readPlatformService.getActiveCashierSessionForCurrentUser();
+        if (session == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+        return Response.ok(session).build();
+    }
 
     @GET
     @Consumes({ MediaType.TEXT_HTML, MediaType.APPLICATION_JSON })

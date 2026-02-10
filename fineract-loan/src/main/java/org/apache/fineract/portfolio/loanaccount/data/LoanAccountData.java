@@ -188,6 +188,9 @@ public class LoanAccountData {
     private Integer loanCounter;
     private Integer loanProductCounter;
 
+    // dimensions (JSON object for GL / reporting)
+    private String dimensions;
+
     // linkable account details
     private PortfolioAccountData linkedAccount;
     private Collection<PortfolioAccountData> accountLinkingOptions;

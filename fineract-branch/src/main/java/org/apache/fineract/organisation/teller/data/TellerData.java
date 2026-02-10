@@ -19,6 +19,7 @@
 package org.apache.fineract.organisation.teller.data;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collection;
 import lombok.AllArgsConstructor;
@@ -56,6 +57,7 @@ public final class TellerData implements Serializable {
     private TellerStatus status;
     private Boolean hasTransactions;
     private Boolean hasMappedCashiers;
+    private BigDecimal maxTellerCashAmount;
     private String officeName;
     private Collection<OfficeData> officeOptions;
     private Collection<StaffData> staffOptions;
@@ -89,10 +91,12 @@ public final class TellerData implements Serializable {
      */
     public static TellerData instance(final Long id, final Long officeId, final Long debitAccountId, final Long creditAccountId,
             final String name, final String description, final LocalDate startDate, final LocalDate endDate, final TellerStatus status,
-            final String officeName, final Boolean hasTransactions, final Boolean hasMappedCashiers) {
+            final String officeName, final Boolean hasTransactions, final Boolean hasMappedCashiers,
+            final BigDecimal maxTellerCashAmount) {
         return new TellerData().setId(id).setOfficeId(officeId).setDebitAccountId(debitAccountId).setCreditAccountId(creditAccountId)
                 .setName(name).setDescription(description).setStartDate(startDate).setEndDate(endDate).setStatus(status)
-                .setOfficeName(officeName).setHasTransactions(hasTransactions).setHasMappedCashiers(hasMappedCashiers);
+                .setOfficeName(officeName).setHasTransactions(hasTransactions).setHasMappedCashiers(hasMappedCashiers)
+                .setMaxTellerCashAmount(maxTellerCashAmount);
     }
 
     public static TellerData lookup(final Long id, final String name) {

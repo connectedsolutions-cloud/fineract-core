@@ -177,6 +177,7 @@ public final class LoanApplicationValidator {
             LoanProductConstants.ENABLE_AUTO_REPAYMENT_DOWN_PAYMENT, LoanProductConstants.DISBURSED_AMOUNT_PERCENTAGE_DOWN_PAYMENT,
             LoanApiConstants.INTEREST_RECOGNITION_ON_DISBURSEMENT_DATE, LoanApiConstants.daysInYearCustomStrategyParameterName,
             LoanApiConstants.disbursalMethodPaymentTypeIdParameterName,
+            LoanApiConstants.dimensionsParameterName,
             "recalculationRestFrequencyDate", "recalculationCompoundingFrequencyDate", "balloonRepaymentAmount",
             "allowFullTermForTranche"));
     public static final String LOANAPPLICATION_UNDO = "loanapplication.undo";

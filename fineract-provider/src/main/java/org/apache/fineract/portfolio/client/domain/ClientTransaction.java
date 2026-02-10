@@ -93,6 +93,9 @@ public class ClientTransaction extends AbstractAuditableWithUTCDateTimeCustom<Lo
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "clientTransaction", orphanRemoval = true, fetch = FetchType.EAGER)
     private Set<ClientChargePaidBy> clientChargePaidByCollection = new HashSet<>();
 
+    @Column(name = "cashier_id", nullable = true)
+    private Long cashierId;
+
     @Transient
     private OrganisationCurrency currency;
 
@@ -231,6 +234,14 @@ public class ClientTransaction extends AbstractAuditableWithUTCDateTimeCustom<Lo
 
     public ExternalId getExternalId() {
         return this.externalId;
+    }
+
+    public Long getCashierId() {
+        return this.cashierId;
+    }
+
+    public void setCashierId(Long cashierId) {
+        this.cashierId = cashierId;
     }
 
 }

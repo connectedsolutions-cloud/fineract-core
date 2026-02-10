@@ -155,6 +155,9 @@ public class ClientChargeWritePlatformServiceImpl implements ClientChargeWritePl
 
             ClientTransaction clientTransaction = ClientTransaction.payCharge(client, client.getOffice(), paymentDetail, transactionDate,
                     chargePaid, clientCharge.getCurrency().getCode(), transactionExternalId);
+            if (command.parameterExists("cashierId")) {
+                clientTransaction.setCashierId(command.longValueOfParameterNamed("cashierId"));
+            }
             this.clientTransactionRepository.saveAndFlush(clientTransaction);
 
             // update charge paid by associations

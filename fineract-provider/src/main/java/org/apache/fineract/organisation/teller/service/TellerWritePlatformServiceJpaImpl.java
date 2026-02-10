@@ -19,6 +19,8 @@
 package org.apache.fineract.organisation.teller.service;
 
 import jakarta.persistence.PersistenceException;
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.AllArgsConstructor;
@@ -40,6 +42,8 @@ import org.apache.fineract.infrastructure.security.exception.NoAuthorizationExce
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.organisation.office.domain.Office;
 import org.apache.fineract.organisation.office.domain.OfficeRepositoryWrapper;
+import org.apache.fineract.organisation.monetary.data.CurrencyData;
+import org.apache.fineract.organisation.monetary.service.CurrencyReadPlatformService;
 import org.apache.fineract.organisation.staff.domain.Staff;
 import org.apache.fineract.organisation.staff.domain.StaffRepository;
 import org.apache.fineract.organisation.staff.exception.StaffNotFoundException;
@@ -73,6 +77,12 @@ public class TellerWritePlatformServiceJpaImpl implements TellerWritePlatformSer
     private final JournalEntryRepository glJournalEntryRepository;
     private final FinancialActivityAccountRepositoryWrapper financialActivityAccountRepositoryWrapper;
     private final CashierTransactionDataValidator cashierTransactionDataValidator;
+    private final CurrencyReadPlatformService currencyReadPlatformService;
+
+    private String getDefaultCurrencyCode() {
+        List<CurrencyData> allowed = currencyReadPlatformService.retrieveAllowedCurrencies();
+        return (allowed != null && !allowed.isEmpty()) ? allowed.get(0).getCode() : null;
+    }
 
     @Override
     @Transactional
@@ -231,11 +241,32 @@ public class TellerWritePlatformServiceJpaImpl implements TellerWritePlatformSer
                     endTime = hourEndTime.toString() + ":" + minEndTime.toString();
                 }
 
+            } else if (command.parameterExists("hourStartTime") && command.parameterExists("minStartTime")) {
+                // Full-day session with start time recorded (e.g. open cashier session)
+                hourStartTime = command.longValueOfParameterNamed("hourStartTime");
+                minStartTime = command.longValueOfParameterNamed("minStartTime");
+                if (minStartTime == 0) {
+                    startTime = hourStartTime.toString() + ":" + minStartTime.toString() + "0";
+                } else {
+                    startTime = hourStartTime.toString() + ":" + minStartTime.toString();
+                }
+                endTime = null;
             }
             final Cashier cashier = Cashier.fromJson(tellerOffice, teller, staff, startTime, endTime, command);
             this.cashierTransactionDataValidator.validateCashierAllowedDateAndTime(cashier, teller);
 
             this.cashierRepository.save(cashier);
+
+            if (cashier.getOpeningBalance() != null) {
+                String currencyCode = command.parameterExists("currencyCode")
+                        ? command.stringValueOfParameterNamed("currencyCode") : getDefaultCurrencyCode();
+                if (currencyCode != null) {
+                    CashierTransaction openTxn = CashierTransaction.createBalanceTransaction(cashier,
+                            CashierTxnType.OPEN_CASHIER.getId(), cashier.getOpeningBalance(), cashier.getStartDate(),
+                            currencyCode, "Opening balance");
+                    this.cashierTxnRepository.save(openTxn);
+                }
+            }
 
             return new CommandProcessingResultBuilder() //
                     .withCommandId(command.commandId()) //
@@ -273,6 +304,19 @@ public class TellerWritePlatformServiceJpaImpl implements TellerWritePlatformSer
 
             if (!changes.isEmpty()) {
                 this.cashierRepository.saveAndFlush(cashier);
+            }
+
+            if (changes.containsKey("endDate") && cashier.getEndDate() != null) {
+                String currencyCode = command.parameterExists("currencyCode")
+                        ? command.stringValueOfParameterNamed("currencyCode") : getDefaultCurrencyCode();
+                if (currencyCode != null) {
+                    BigDecimal closingAmount = cashier.getClosingBalance() != null ? cashier.getClosingBalance()
+                            : BigDecimal.ZERO;
+                    CashierTransaction closeTxn = CashierTransaction.createBalanceTransaction(cashier,
+                            CashierTxnType.CLOSE_CASHIER.getId(), closingAmount, cashier.getEndDate(), currencyCode,
+                            "Closing balance");
+                    this.cashierTxnRepository.save(closeTxn);
+                }
             }
 
             return new CommandProcessingResultBuilder() //

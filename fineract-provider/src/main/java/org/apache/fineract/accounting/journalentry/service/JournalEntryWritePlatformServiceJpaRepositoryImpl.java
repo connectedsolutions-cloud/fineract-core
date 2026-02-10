@@ -911,7 +911,7 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
                 loan.isUpfrontAccrualAccountingEnabledOnLoanProduct(), loan.isPeriodicAccrualAccountingEnabledOnLoanProduct(),
                 isAccountTransfer, wasChargedOffAtTransactionTime, loan.isFraud(), loan.fetchChargeOffReasonId(), loan.isClosedWrittenOff(),
                 transactions, loan.getLoanProductRelatedDetail().isMerchantBuyDownFee(), buydownFeeAdvancedMappingData,
-                capitalizedIncomeAdvancedMappingData, writeOffReasonAdvancedMappingData);
+                capitalizedIncomeAdvancedMappingData, writeOffReasonAdvancedMappingData, loan.getDimensions());
     }
 
     private List<AdvancedMappingtDTO> getLoanTransactionClassificationId(final LoanTransaction loanTransaction) {

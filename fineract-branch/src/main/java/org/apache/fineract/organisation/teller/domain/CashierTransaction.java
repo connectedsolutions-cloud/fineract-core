@@ -83,6 +83,16 @@ public class CashierTransaction extends AbstractPersistableCustom<Long> {
     @Column(name = "currency_code", nullable = true)
     private String currencyCode;
 
+    /**
+     * Creates a balance-only cashier transaction (e.g. Open Cashier, Close Cashier) that does not
+     * link to a portfolio entity and does not create accounting entries.
+     */
+    public static CashierTransaction createBalanceTransaction(final Cashier cashier, final int txnTypeId,
+            final BigDecimal amount, final LocalDate txnDate, final String currencyCode, final String txnNote) {
+        return new CashierTransaction().setCashier(cashier).setTxnType(txnTypeId).setTxnAmount(amount)
+                .setTxnDate(txnDate).setTxnNote(txnNote).setCurrencyCode(currencyCode);
+    }
+
     public static CashierTransaction fromJson(final Cashier cashier, final JsonCommand command) {
         final Integer txnType = command.integerValueOfParameterNamed("txnType");
         final BigDecimal txnAmount = command.bigDecimalValueOfParameterNamed("txnAmount");

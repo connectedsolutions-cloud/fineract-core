@@ -20,6 +20,7 @@ package org.apache.fineract.organisation.teller.domain.model.request;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -36,6 +37,7 @@ public class TellerRequest implements Serializable {
     private String startDate;
     private String endDate;
     private Integer status;
+    private BigDecimal maxTellerCashAmount;
     private String dateFormat;
     private String locale;
 }

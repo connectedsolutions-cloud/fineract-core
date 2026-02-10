@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <!-- Create m_pending_flow table for MySQL -->
+    <changeSet id="1-mysql" author="fineract" context="mysql">
+        <createTable tableName="m_pending_flow">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="TEXT">
+                <constraints nullable="true"/>
+            </column>
+            <column name="creator_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="creation_date" type="TIMESTAMP" defaultValueDate="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="due_date" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+            <column name="status" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="pending_flow_blueprint_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="steps_id" type="JSON">
+                <constraints nullable="true"/>
+            </column>
+            <column name="last_completed_step_id" type="BIGINT">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_pending_flow" baseColumnNames="creator_id"
+                                 constraintName="FK_pending_flow_creator"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="m_pending_flow" baseColumnNames="pending_flow_blueprint_id"
+                                 constraintName="FK_pending_flow_blueprint"
+                                 referencedTableName="m_pending_flow_blueprint" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <!-- Create m_pending_flow table for PostgreSQL -->
+    <changeSet id="1-postgresql" author="fineract" context="postgresql">
+        <createTable tableName="m_pending_flow">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="TEXT">
+                <constraints nullable="true"/>
+            </column>
+            <column name="creator_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="creation_date" type="TIMESTAMP WITH TIME ZONE" defaultValueDate="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="due_date" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="true"/>
+            </column>
+            <column name="status" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="pending_flow_blueprint_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="steps_id" type="JSONB">
+                <constraints nullable="true"/>
+            </column>
+            <column name="last_completed_step_id" type="BIGINT">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_pending_flow" baseColumnNames="creator_id"
+                                 constraintName="FK_pending_flow_creator"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="m_pending_flow" baseColumnNames="pending_flow_blueprint_id"
+                                 constraintName="FK_pending_flow_blueprint"
+                                 referencedTableName="m_pending_flow_blueprint" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <changeSet id="2" author="fineract">
+        <createIndex indexName="idx_pending_flow_status" tableName="m_pending_flow">
+            <column name="status"/>
+        </createIndex>
+        <createIndex indexName="idx_pending_flow_creator" tableName="m_pending_flow">
+            <column name="creator_id"/>
+        </createIndex>
+        <createIndex indexName="idx_pending_flow_blueprint" tableName="m_pending_flow">
+            <column name="pending_flow_blueprint_id"/>
+        </createIndex>
+        <createIndex indexName="idx_pending_flow_creation_date" tableName="m_pending_flow">
+            <column name="creation_date"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

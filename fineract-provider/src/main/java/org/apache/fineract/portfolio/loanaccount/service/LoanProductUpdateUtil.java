@@ -133,6 +133,14 @@ public class LoanProductUpdateUtil {
             loanProduct.setDescription(newValue);
         }
 
+        if (command.parameterExists(LoanProductConstants.DIMENSIONS)) {
+            final String newValue = command.jsonFragment(LoanProductConstants.DIMENSIONS);
+            if (!java.util.Objects.equals(loanProduct.getDimensions(), newValue)) {
+                actualChanges.put(LoanProductConstants.DIMENSIONS, newValue);
+                loanProduct.setDimensions(newValue);
+            }
+        }
+
         Long existingFundId = null;
         if (loanProduct.getFund() != null) {
             existingFundId = loanProduct.getFund().getId();

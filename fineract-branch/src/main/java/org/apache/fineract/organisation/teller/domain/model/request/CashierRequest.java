@@ -20,6 +20,7 @@ package org.apache.fineract.organisation.teller.domain.model.request;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -41,4 +42,7 @@ public class CashierRequest implements Serializable {
     private String minStartTime;
     private String hourEndTime;
     private String minEndTime;
+    private BigDecimal openingBalance;
+    private BigDecimal closingBalance;
+    private BigDecimal expectedClosingBalance;
 }

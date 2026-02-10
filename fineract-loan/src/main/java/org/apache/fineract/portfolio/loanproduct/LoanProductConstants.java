@@ -68,6 +68,7 @@ public interface LoanProductConstants {
     String VALUE_CONDITION_END_WITH_ERROR = "condition.type.must.end.with.greater.than";
     String VALUE_CONDITION_START_WITH_ERROR = "condition.type.must.start.with.equal";
     String SHORT_NAME = "shortName";
+    String DIMENSIONS = "dimensions";
 
     String MULTI_DISBURSE_LOAN_PARAMETER_NAME = "multiDisburseLoan";
     String MAX_TRANCHE_COUNT_PARAMETER_NAME = "maxTrancheCount";

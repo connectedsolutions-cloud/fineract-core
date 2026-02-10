@@ -111,6 +111,12 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
     }
 
     @Override
+    public String getLoanProductDimensions(final Long productId) {
+        final LoanProduct product = loanProductRepository.findById(productId).orElseThrow(() -> new LoanProductNotFoundException(productId));
+        return product.getDimensions();
+    }
+
+    @Override
     public LoanProduct retrieveLoanProductByExternalId(final ExternalId externalId) {
         final LoanProduct loanProduct = loanProductRepository.findByExternalId(externalId);
         if (loanProduct == null) {
@@ -301,7 +307,8 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
                     + "lp.capitalized_income_strategy as capitalizedIncomeStrategy, " //
                     + "lp.capitalized_income_type as capitalizedIncomeType, lp.is_merchant_buy_down_fee as merchantBuyDownFee, " //
                     + "lp.enable_buy_down_fee as enableBuyDownFee, " + "lp.buy_down_fee_calculation_type as buyDownFeeCalculationType, "
-                    + "lp.buy_down_fee_strategy as buyDownFeeStrategy, " + "lp.buy_down_fee_income_type as buyDownFeeIncomeType "
+                    + "lp.buy_down_fee_strategy as buyDownFeeStrategy, " + "lp.buy_down_fee_income_type as buyDownFeeIncomeType, "
+                    + "lp.dimensions as dimensions "
                     + " from m_product_loan lp " + " left join m_fund f on f.id = lp.fund_id "
                     + " left join m_product_loan_recalculation_details lpr on lpr.product_id=lp.id "
                     + " left join m_product_loan_guarantee_details lpg on lpg.loan_product_id=lp.id "
@@ -580,6 +587,7 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
             final StringEnumOptionData buyDownFeeIncomeType = ApiFacingEnum.getStringEnumOptionData(LoanBuyDownFeeIncomeType.class,
                     rs.getString("buyDownFeeIncomeType"));
             final boolean merchantBuyDownFee = rs.getBoolean("merchantBuyDownFee");
+            final String dimensions = rs.getString("dimensions");
 
             return new LoanProductData(id, name, shortName, description, currency, principal, minPrincipal, maxPrincipal, tolerance,
                     numberOfRepayments, minNumberOfRepayments, maxNumberOfRepayments, repaymentEvery, interestRatePerPeriod,
@@ -606,7 +614,7 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
                     loanChargeOffBehaviour.getValueAsStringEnumOptionData(), interestRecognitionOnDisbursementDate,
                     daysInYearCustomStrategy, enableIncomeCapitalization, capitalizedIncomeCalculationType, capitalizedIncomeStrategy,
                     capitalizedIncome, enableBuyDownFee, buyDownFeeCalculationType, buyDownFeeStrategy, buyDownFeeIncomeType,
-                    merchantBuyDownFee, null, null);
+                    merchantBuyDownFee, null, null, dimensions);
         }
     }
 

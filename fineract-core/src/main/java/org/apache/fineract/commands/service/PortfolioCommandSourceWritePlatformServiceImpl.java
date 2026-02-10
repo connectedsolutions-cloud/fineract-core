@@ -19,6 +19,8 @@
 package org.apache.fineract.commands.service;
 
 import com.google.gson.JsonElement;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -64,7 +66,16 @@ public class PortfolioCommandSourceWritePlatformServiceImpl implements Portfolio
         } else {
             // if not user changing their own details - check user has
             // permission to perform specific task.
-            this.context.authenticatedUser(wrapper).validateHasPermissionTo(wrapper.getTaskPermissionName());
+            String taskPermissionName = wrapper.getTaskPermissionName();
+            AppUser user = this.context.authenticatedUser(wrapper);
+            // Create cashier session (allocate cashier to teller) can use either
+            // ALLOCATECASHIER_TELLER or CREATE_CASHIER_SESSIONS (see 0235_add_create_cashier_sessions_permission).
+            if ("ALLOCATECASHIER_TELLER".equals(taskPermissionName)) {
+                List<String> allowed = Arrays.asList("ALLOCATECASHIER_TELLER", "CREATE_CASHIER_SESSIONS");
+                user.validateHasPermissionTo(taskPermissionName, allowed);
+            } else {
+                user.validateHasPermissionTo(taskPermissionName);
+            }
         }
         validateIsUpdateAllowed();
 

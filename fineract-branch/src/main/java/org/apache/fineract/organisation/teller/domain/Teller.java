@@ -26,6 +26,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -76,6 +77,9 @@ public class Teller extends AbstractPersistableCustom<Long> {
     @Column(name = "state", nullable = false)
     private Integer status;
 
+    @Column(name = "max_teller_cash_amount", precision = 19, scale = 6, nullable = true)
+    private BigDecimal maxTellerCashAmount;
+
     @OneToMany(mappedBy = "teller", fetch = FetchType.LAZY)
     private Set<Cashier> cashiers;
 
@@ -86,9 +90,13 @@ public class Teller extends AbstractPersistableCustom<Long> {
         final LocalDate endDate = command.localDateValueOfParameterNamed("endDate");
         final Integer tellerStatusInt = command.integerValueOfParameterNamed("status");
         final TellerStatus status = TellerStatus.fromInt(tellerStatusInt);
+        BigDecimal maxTellerCashAmount = null;
+        if (command.parameterExists("maxTellerCashAmount")) {
+            maxTellerCashAmount = command.bigDecimalValueOfParameterNamed("maxTellerCashAmount");
+        }
 
         return new Teller().setOffice(tellerOffice).setName(name).setDescription(description).setStartDate(startDate).setEndDate(endDate)
-                .setStatus(status.getValue());
+                .setStatus(status.getValue()).setMaxTellerCashAmount(maxTellerCashAmount);
     }
 
     public Map<String, Object> update(Office tellerOffice, final JsonCommand command) {
@@ -148,6 +156,13 @@ public class Teller extends AbstractPersistableCustom<Long> {
             if (status != TellerStatus.INVALID) {
                 this.status = status.getValue();
             }
+        }
+
+        final String maxTellerCashAmountParamName = "maxTellerCashAmount";
+        if (command.isChangeInBigDecimalParameterNamed(maxTellerCashAmountParamName, this.maxTellerCashAmount)) {
+            final BigDecimal newValue = command.bigDecimalValueOfParameterNamed(maxTellerCashAmountParamName);
+            actualChanges.put(maxTellerCashAmountParamName, newValue);
+            this.maxTellerCashAmount = newValue;
         }
 
         return actualChanges;

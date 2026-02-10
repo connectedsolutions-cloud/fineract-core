@@ -58,4 +58,5 @@
   <include relativeToChangelogFile="true" file="parts/1033_add_reage_reasons_for_loan.xml"/>
   <include relativeToChangelogFile="true" file="parts/1034_loan_reamortization_parameters.xml"/>
   <include relativeToChangelogFile="true" file="parts/1035_add_comte_otorgamiento_transaction_type.xml"/>
+  <include relativeToChangelogFile="true" file="parts/1036_add_taxes_transaction_type.xml"/>
 </databaseChangeLog>

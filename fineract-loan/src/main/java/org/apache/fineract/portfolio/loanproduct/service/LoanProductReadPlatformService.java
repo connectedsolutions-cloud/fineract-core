@@ -38,6 +38,11 @@ public interface LoanProductReadPlatformService {
 
     LoanProductData retrieveLoanProduct(Long productId);
 
+    /**
+     * Returns the dimensions JSON string for the given loan product, or null if not set.
+     */
+    String getLoanProductDimensions(Long productId);
+
     LoanProduct retrieveLoanProductByExternalId(ExternalId externalId);
 
     LoanProductData retrieveNewLoanProductDetails();

@@ -115,7 +115,7 @@ public class LoanBuilder {
                     transactionProcessor, loanRepaymentScheduleDetail, charges, collateral, fixedEmiAmount, disbursementDetails,
                     maxOutstandingLoanBalance, createStandingInstructionAtDisbursement, isFloatingInterestRate, interestRateDifferential,
                     rates, fixedPrincipalPercentagePerInstallment, externalId, loanApplicationTerms, enableInstallmentLevelDelinquency,
-                    submittedOnDate);
+                    submittedOnDate, null);
 
             if (id != null) {
                 loan.setId(id);

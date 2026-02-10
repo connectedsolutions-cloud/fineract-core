@@ -175,7 +175,8 @@ public class AccountingProcessorHelper {
                 periodicAccrualBasedAccountingEnabled, newLoanTransactions, isLoanMarkedAsChargeOff, isLoanMarkedAsFraud,
                 chargeOffReasonCodeValue, isLoanMarkedAsWrittenOff, merchantBuyDownFee,
                 accountingBridgeData.getBuydownFeeClassificationCodeValue(),
-                accountingBridgeData.getCapitalizedIncomeClassificationCodeValue(), accountingBridgeData.getWriteOffReasonCodeValue());
+                accountingBridgeData.getCapitalizedIncomeClassificationCodeValue(), accountingBridgeData.getWriteOffReasonCodeValue(),
+                accountingBridgeData.getDimensions());
     }
 
     public ProductToGLAccountMapping getChargeOffMappingByCodeValue(Long loanProductId, PortfolioProductType productType,
@@ -377,7 +378,8 @@ public class AccountingProcessorHelper {
      */
     public void createJournalEntriesForLoanCharges(final Office office, final String currencyCode, final Integer accountTypeToBeDebited,
             final Integer accountTypeToBeCredited, final Long loanProductId, final Long loanId, final String transactionId,
-            final LocalDate transactionDate, final BigDecimal totalAmount, final List<ChargePaymentDTO> chargePaymentDTOs) {
+            final LocalDate transactionDate, final BigDecimal totalAmount, final List<ChargePaymentDTO> chargePaymentDTOs,
+            final String dimensions) {
 
         final Map<GLAccount, BigDecimal> creditDetailsMap = new LinkedHashMap<>();
         final Map<GLAccount, BigDecimal> debitDetailsMap = new LinkedHashMap<>();
@@ -409,7 +411,7 @@ public class AccountingProcessorHelper {
             }
             final BigDecimal amount = entry.getValue();
             totalCreditedAmount = totalCreditedAmount.add(amount);
-            createCreditJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount);
+            createCreditJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount, dimensions);
         }
 
         // Create debit journal entries using charge-specific debit accounts (only for non-null accounts)
@@ -420,7 +422,7 @@ public class AccountingProcessorHelper {
             }
             final BigDecimal amount = entry.getValue();
             totalDebitedAmount = totalDebitedAmount.add(amount);
-            createDebitJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount);
+            createDebitJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount, dimensions);
         }
 
         // When null accounts were skipped (e.g. available-at-cashier with empty debit/credit), we do not post that side; skip validation
@@ -449,12 +451,12 @@ public class AccountingProcessorHelper {
      */
     public void createJournalEntriesForLoanChargeTax(final Office office, final String currencyCode, final Long loanProductId,
             final Long loanId, final Long paymentTypeId, final String transactionId, final LocalDate transactionDate,
-            final List<TaxPaymentDTO> taxPayments) {
+            final List<TaxPaymentDTO> taxPayments, final String dimensions) {
         for (final TaxPaymentDTO dto : taxPayments) {
             if (dto.getAmount() != null && dto.getCreditAccountId() != null && dto.getAmount().compareTo(BigDecimal.ZERO) > 0) {
                 final GLAccount creditAccount = getGLAccountById(dto.getCreditAccountId());
                 createCreditJournalEntryForLoan(office, currencyCode, creditAccount, loanId, transactionId, transactionDate,
-                        dto.getAmount());
+                        dto.getAmount(), dimensions);
             }
         }
     }
@@ -511,54 +513,54 @@ public class AccountingProcessorHelper {
      */
     public void createJournalEntriesForLoan(final Office office, final String currencyCode, final Integer accountTypeToBeDebited,
             final Integer accountTypeToBeCredited, final Long loanProductId, final Long paymentTypeId, final Long loanId,
-            final String transactionId, final LocalDate transactionDate, final BigDecimal amount) {
+            final String transactionId, final LocalDate transactionDate, final BigDecimal amount, final String dimensions) {
         int accountTypeToDebitId = accountTypeToBeDebited;
         int accountTypeToCreditId = accountTypeToBeCredited;
         createJournalEntriesForLoan(office, currencyCode, accountTypeToDebitId, accountTypeToCreditId, loanProductId, paymentTypeId, loanId,
-                transactionId, transactionDate, amount);
+                transactionId, transactionDate, amount, dimensions);
     }
 
     public void createJournalEntriesForLoan(final Office office, final String currencyCode, final Integer accountTypeToBeDebited,
             final GLAccount accountToBeCredited, final Long loanProductId, final Long paymentTypeId, final Long loanId,
-            final String transactionId, final LocalDate transactionDate, final BigDecimal amount) {
+            final String transactionId, final LocalDate transactionDate, final BigDecimal amount, final String dimensions) {
         int accountTypeToDebitId = accountTypeToBeDebited;
         createJournalEntriesForLoan(office, currencyCode, accountTypeToDebitId, accountToBeCredited, loanProductId, paymentTypeId, loanId,
-                transactionId, transactionDate, amount);
+                transactionId, transactionDate, amount, dimensions);
     }
 
     public void createSplitJournalEntriesForLoan(Office office, String currencyCode, List<JournalAmountHolder> splitAccountsHolder,
             JournalAmountHolder totalAccountHolder, Long loanProductId, Long paymentTypeId, Long loanId, String transactionId,
-            LocalDate transactionDate) {
+            LocalDate transactionDate, String dimensions) {
         splitAccountsHolder.forEach(journalItemHolder -> {
             if (MathUtil.isGreaterThanZero(journalItemHolder.getAmount())) {
                 final GLAccount account = getLinkedGLAccountForLoanProduct(loanProductId, journalItemHolder.getAccountType(),
                         paymentTypeId);
                 createDebitJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate,
-                        journalItemHolder.getAmount());
+                        journalItemHolder.getAmount(), dimensions);
             }
         });
         if (MathUtil.isGreaterThanZero(totalAccountHolder.getAmount())) {
             final GLAccount totalAccount = getLinkedGLAccountForLoanProduct(loanProductId, totalAccountHolder.getAccountType(),
                     paymentTypeId);
             createCreditJournalEntryForLoan(office, currencyCode, totalAccount, loanId, transactionId, transactionDate,
-                    totalAccountHolder.getAmount());
+                    totalAccountHolder.getAmount(), dimensions);
         }
     }
 
     public void createCreditJournalEntryForLoan(final Office office, final String currencyCode,
             final CashAccountsForLoan accountMappingType, final Long loanProductId, final Long paymentTypeId, final Long loanId,
-            final String transactionId, final LocalDate transactionDate, final BigDecimal amount) {
+            final String transactionId, final LocalDate transactionDate, final BigDecimal amount, final String dimensions) {
         final int accountMappingTypeId = accountMappingType.getValue();
         createCreditJournalEntryForLoan(office, currencyCode, accountMappingTypeId, loanProductId, paymentTypeId, loanId, transactionId,
-                transactionDate, amount);
+                transactionDate, amount, dimensions);
     }
 
     public void createCreditJournalEntryForLoan(final Office office, final String currencyCode,
             final AccrualAccountsForLoan accountMappingType, final Long loanProductId, final Long paymentTypeId, final Long loanId,
-            final String transactionId, final LocalDate transactionDate, final BigDecimal amount) {
+            final String transactionId, final LocalDate transactionDate, final BigDecimal amount, final String dimensions) {
         final int accountMappingTypeId = accountMappingType.getValue();
         createCreditJournalEntryForLoan(office, currencyCode, accountMappingTypeId, loanProductId, paymentTypeId, loanId, transactionId,
-                transactionDate, amount);
+                transactionDate, amount, dimensions);
     }
 
     /**
@@ -581,19 +583,19 @@ public class AccountingProcessorHelper {
 
     private void createJournalEntriesForLoan(final Office office, final String currencyCode, final int accountTypeToDebitId,
             final int accountTypeToCreditId, final Long loanProductId, final Long paymentTypeId, final Long loanId,
-            final String transactionId, final LocalDate transactionDate, final BigDecimal amount) {
+            final String transactionId, final LocalDate transactionDate, final BigDecimal amount, final String dimensions) {
         final GLAccount debitAccount = getLinkedGLAccountForLoanProduct(loanProductId, accountTypeToDebitId, paymentTypeId);
         final GLAccount creditAccount = getLinkedGLAccountForLoanProduct(loanProductId, accountTypeToCreditId, paymentTypeId);
-        createDebitJournalEntryForLoan(office, currencyCode, debitAccount, loanId, transactionId, transactionDate, amount);
-        createCreditJournalEntryForLoan(office, currencyCode, creditAccount, loanId, transactionId, transactionDate, amount);
+        createDebitJournalEntryForLoan(office, currencyCode, debitAccount, loanId, transactionId, transactionDate, amount, dimensions);
+        createCreditJournalEntryForLoan(office, currencyCode, creditAccount, loanId, transactionId, transactionDate, amount, dimensions);
     }
 
     private void createJournalEntriesForLoan(final Office office, final String currencyCode, final int accountTypeToDebitId,
             final GLAccount creditAccount, final Long loanProductId, final Long paymentTypeId, final Long loanId,
-            final String transactionId, final LocalDate transactionDate, final BigDecimal amount) {
+            final String transactionId, final LocalDate transactionDate, final BigDecimal amount, final String dimensions) {
         final GLAccount debitAccount = getLinkedGLAccountForLoanProduct(loanProductId, accountTypeToDebitId, paymentTypeId);
-        createDebitJournalEntryForLoan(office, currencyCode, debitAccount, loanId, transactionId, transactionDate, amount);
-        createCreditJournalEntryForLoan(office, currencyCode, creditAccount, loanId, transactionId, transactionDate, amount);
+        createDebitJournalEntryForLoan(office, currencyCode, debitAccount, loanId, transactionId, transactionDate, amount, dimensions);
+        createCreditJournalEntryForLoan(office, currencyCode, creditAccount, loanId, transactionId, transactionDate, amount, dimensions);
     }
 
     private void createJournalEntriesForSavings(final Office office, final String currencyCode, final int accountTypeToDebitId,
@@ -760,35 +762,39 @@ public class AccountingProcessorHelper {
 
     public void createDebitJournalEntryForLoan(final Office office, final String currencyCode, final int accountMappingTypeId,
             final Long loanProductId, final Long paymentTypeId, final Long loanId, final String transactionId,
-            final LocalDate transactionDate, final BigDecimal amount) {
+            final LocalDate transactionDate, final BigDecimal amount, final String dimensions) {
         final GLAccount account = getLinkedGLAccountForLoanProduct(loanProductId, accountMappingTypeId, paymentTypeId);
-        createDebitJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount);
+        createDebitJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount, dimensions);
     }
 
     public void createDebitJournalEntryForLoan(final Office office, final String currencyCode, final Long loanId,
-            final String transactionId, final LocalDate transactionDate, final BigDecimal amount, final GLAccount account) {
-        createDebitJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount);
+            final String transactionId, final LocalDate transactionDate, final BigDecimal amount, final GLAccount account,
+            final String dimensions) {
+        createDebitJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount, dimensions);
     }
 
     public void createDebitJournalEntryForLoanCharges(final Office office, final String currencyCode, final int accountMappingTypeId,
             final Long loanProductId, final Long chargeId, final Long loanId, final String transactionId, final LocalDate transactionDate,
-            final BigDecimal amount) {
+            final BigDecimal amount, final String dimensions) {
         final GLAccount account = getLinkedGLAccountForLoanCharges(loanProductId, accountMappingTypeId, chargeId);
-        createDebitJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount);
+        if (account == null) {
+            return; // Skip posting when no GL account is configured for this charge
+        }
+        createDebitJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount, dimensions);
     }
 
     public void createCreditJournalEntryForLoanCharges(final Office office, final String currencyCode, final int accountMappingTypeId,
             final Long loanProductId, final Long loanId, final String transactionId, final LocalDate transactionDate,
-            final BigDecimal totalAmount, final List<ChargePaymentDTO> chargePaymentDTOs) {
+            final BigDecimal totalAmount, final List<ChargePaymentDTO> chargePaymentDTOs, final String dimensions) {
         createJournalEntriesForLoanChargesInternal(office, currencyCode, accountMappingTypeId, loanProductId, loanId, transactionId,
-                transactionDate, totalAmount, chargePaymentDTOs, true);
+                transactionDate, totalAmount, chargePaymentDTOs, true, dimensions);
     }
 
     public void createDebitJournalEntryForLoanCharges(final Office office, final String currencyCode, final int accountMappingTypeId,
             final Long loanProductId, final Long loanId, final String transactionId, final LocalDate transactionDate,
-            final BigDecimal totalAmount, final List<ChargePaymentDTO> chargePaymentDTOs) {
+            final BigDecimal totalAmount, final List<ChargePaymentDTO> chargePaymentDTOs, final String dimensions) {
         createJournalEntriesForLoanChargesInternal(office, currencyCode, accountMappingTypeId, loanProductId, loanId, transactionId,
-                transactionDate, totalAmount, chargePaymentDTOs, false);
+                transactionDate, totalAmount, chargePaymentDTOs, false, dimensions);
     }
 
     /**
@@ -897,14 +903,15 @@ public class AccountingProcessorHelper {
 
     public void createCreditJournalEntryForLoan(final Office office, final String currencyCode, final int accountMappingTypeId,
             final Long loanProductId, final Long paymentTypeId, final Long loanId, final String transactionId,
-            final LocalDate transactionDate, final BigDecimal amount) {
+            final LocalDate transactionDate, final BigDecimal amount, final String dimensions) {
         final GLAccount account = getLinkedGLAccountForLoanProduct(loanProductId, accountMappingTypeId, paymentTypeId);
-        createCreditJournalEntryForLoan(office, currencyCode, loanId, transactionId, transactionDate, amount, account);
+        createCreditJournalEntryForLoan(office, currencyCode, loanId, transactionId, transactionDate, amount, account, dimensions);
     }
 
     public void createCreditJournalEntryForLoan(final Office office, final String currencyCode, final Long loanId,
-            final String transactionId, final LocalDate transactionDate, final BigDecimal amount, final GLAccount account) {
-        createCreditJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount);
+            final String transactionId, final LocalDate transactionDate, final BigDecimal amount, final GLAccount account,
+            final String dimensions) {
+        createCreditJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount, dimensions);
     }
 
     private void createCreditJournalEntryForClientPayments(final Office office, final String currencyCode, final GLAccount account,
@@ -936,7 +943,7 @@ public class AccountingProcessorHelper {
     }
 
     private void createCreditJournalEntryForLoan(final Office office, final String currencyCode, final GLAccount account, final Long loanId,
-            final String transactionId, final LocalDate transactionDate, final BigDecimal amount) {
+            final String transactionId, final LocalDate transactionDate, final BigDecimal amount, final String dimensions) {
         final boolean manualEntry = false;
         Long loanTransactionId = null;
         String modifiedTransactionId = transactionId;
@@ -946,7 +953,7 @@ public class AccountingProcessorHelper {
         }
         final JournalEntry journalEntry = JournalEntry.createNew(office, null, account, currencyCode, modifiedTransactionId, manualEntry,
                 transactionDate, JournalEntryType.CREDIT, amount, null, PortfolioProductType.LOAN.getValue(), loanId, null,
-                loanTransactionId, null, null, null, null);
+                loanTransactionId, null, null, null, dimensions);
         persistJournalEntry(journalEntry);
     }
 
@@ -971,7 +978,7 @@ public class AccountingProcessorHelper {
     }
 
     public void createDebitJournalEntryForLoan(final Office office, final String currencyCode, final GLAccount account, final Long loanId,
-            final String transactionId, final LocalDate transactionDate, final BigDecimal amount) {
+            final String transactionId, final LocalDate transactionDate, final BigDecimal amount, final String dimensions) {
         final boolean manualEntry = false;
         Long loanTransactionId = null;
         String modifiedTransactionId = transactionId;
@@ -981,7 +988,7 @@ public class AccountingProcessorHelper {
         }
         final JournalEntry journalEntry = JournalEntry.createNew(office, null, account, currencyCode, modifiedTransactionId, manualEntry,
                 transactionDate, JournalEntryType.DEBIT, amount, null, PortfolioProductType.LOAN.getValue(), loanId, null,
-                loanTransactionId, null, null, null, null);
+                loanTransactionId, null, null, null, dimensions);
         persistJournalEntry(journalEntry);
     }
 
@@ -1397,7 +1404,7 @@ public class AccountingProcessorHelper {
 
     private void createJournalEntriesForLoanChargesInternal(final Office office, final String currencyCode, final int accountMappingTypeId,
             final Long loanProductId, final Long loanId, final String transactionId, final LocalDate transactionDate,
-            final BigDecimal totalAmount, final List<ChargePaymentDTO> chargePaymentDTOs, final boolean isCredit) {
+            final BigDecimal totalAmount, final List<ChargePaymentDTO> chargePaymentDTOs, final boolean isCredit, final String dimensions) {
         final Map<GLAccount, BigDecimal> creditDetailsMap = new LinkedHashMap<>();
 
         for (final ChargePaymentDTO chargePaymentDTO : chargePaymentDTOs) {
@@ -1422,9 +1429,9 @@ public class AccountingProcessorHelper {
             totalCreditedAmount = totalCreditedAmount.add(amount);
 
             if (isCredit) {
-                createCreditJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount);
+                createCreditJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount, dimensions);
             } else {
-                createDebitJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount);
+                createDebitJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount, dimensions);
             }
         }
 

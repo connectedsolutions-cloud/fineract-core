@@ -1108,6 +1108,9 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         LoanTransaction loanTransaction = this.loanAccountDomainService.makeRepayment(repaymentTransactionType, loan, transactionDate,
                 transactionAmount, paymentDetail, noteText, txnExternalId, isRecoveryRepayment, chargeRefundChargeType, isAccountTransfer,
                 holidayDetailDto, isHolidayValidationDone);
+        if (command.parameterExists("cashierId")) {
+            loanTransaction.setCashierId(command.longValueOfParameterNamed("cashierId"));
+        }
         loan = loanTransaction.getLoan();
         this.loanAccountDomainService.updateAndSaveLoanCollateralTransactionsForIndividualAccounts(loan, loanTransaction);
 
@@ -3739,5 +3742,12 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                 .withLoanId(loan.getId()) //
                 .with(changes) //
                 .build();
+    }
+
+    @Override
+    public void setLoanDimensions(final Long loanId, final String dimensions) {
+        final Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId, true);
+        loan.setDimensions(dimensions);
+        this.loanRepositoryWrapper.saveAndFlush(loan);
     }
 }

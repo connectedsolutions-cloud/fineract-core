@@ -305,6 +305,9 @@ public class SavingsAccountWritePlatformServiceJpaRepositoryImpl implements Savi
         boolean isRegularTransaction = true;
         final SavingsAccountTransaction deposit = this.savingsAccountDomainService.handleDeposit(account, fmt, transactionDate,
                 transactionAmount, paymentDetail, isAccountTransfer, isRegularTransaction, backdatedTxnsAllowedTill);
+        if (command.parameterExists("cashierId")) {
+            deposit.setCashierId(command.longValueOfParameterNamed("cashierId"));
+        }
 
         if (isGsim && (deposit.getId() != null)) {
 

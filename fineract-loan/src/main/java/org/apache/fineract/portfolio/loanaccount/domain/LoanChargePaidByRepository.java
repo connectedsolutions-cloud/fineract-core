@@ -34,7 +34,8 @@ public interface LoanChargePaidByRepository extends JpaRepository<LoanChargePaid
             WHERE lt.loan = :loan
                 AND lt.reversed = false
                 AND (lt.typeOf = org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.ACCRUAL
-                    OR lt.typeOf = org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.ACCRUAL_ADJUSTMENT)
+                    OR lt.typeOf = org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.ACCRUAL_ADJUSTMENT
+                    OR lt.typeOf = org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.CHARGE_PAYMENT)
                 AND (lt.feeChargesPortion > 0 OR lt.penaltyChargesPortion > 0)
                 AND lcpb.installmentNumber IS NULL
             """)

@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.fineract.accounting.accountingOperations.AvailableAtCashierAccountingHelper;
 import org.apache.fineract.accounting.journalentry.data.TaxPaymentDTO;
 import org.apache.fineract.accounting.common.AccountingConstants.AccrualAccountsForLoan;
 import org.apache.fineract.accounting.common.AccountingConstants.CashAccountsForLoan;
@@ -59,6 +60,7 @@ public class ProcessComiteOtorgamientoLoansServiceImpl implements ProcessComiteO
     private final LoanTransactionRepository loanTransactionRepository;
     private final LoanJournalEntryPoster loanJournalEntryPoster;
     private final LoanRepositoryWrapper loanRepositoryWrapper;
+    private final AvailableAtCashierAccountingHelper availableAtCashierAccountingHelper;
 
     @Override
     @Transactional
@@ -77,11 +79,12 @@ public class ProcessComiteOtorgamientoLoansServiceImpl implements ProcessComiteO
         log.debug("[COMTE-DEBUG] process businessDate={}", businessDate);
         final JsonObject output = new JsonObject();
         final JsonArray entries = new JsonArray();
+        final List<Loan> processedLoans = new ArrayList<>();
 
         for (Long loanId : approvedLoanIds) {
             try {
                 log.debug("[COMTE-DEBUG] process processing loan sessionId={} loanId={}", sessionId, loanId);
-                processOneLoan(sessionId, loanId, businessDate, entries);
+                processOneLoan(sessionId, loanId, businessDate, entries, processedLoans);
                 log.debug("[COMTE-DEBUG] process loan completed sessionId={} loanId={}", sessionId, loanId);
             } catch (Exception e) {
                 log.error("[COMTE-DEBUG] Error processing loan sessionId={} loanId={}", sessionId, loanId, e);
@@ -91,12 +94,14 @@ public class ProcessComiteOtorgamientoLoansServiceImpl implements ProcessComiteO
                 entries.add(err);
             }
         }
+        
 
         output.add("entries", entries);
         return new ProcessComiteOtorgamientoResult("finished", output.toString());
     }
 
-    private void processOneLoan(Long sessionId, Long loanId, LocalDate businessDate, JsonArray entries) {
+    private void processOneLoan(Long sessionId, Long loanId, LocalDate businessDate, JsonArray entries,
+            List<Loan> processedLoans) {
         Loan loan = loanAssembler.assembleFrom(loanId);
 
         if (loan.getDisbursalMethodPaymentType() == null
@@ -126,7 +131,7 @@ public class ProcessComiteOtorgamientoLoansServiceImpl implements ProcessComiteO
         int loanPortfolioPlaceholderId = getLoanPortfolioPlaceholderId(loan.getLoanProduct());
 
         accountingProcessorHelper.createDebitJournalEntryForLoan(office, currencyCode, loanPortfolioPlaceholderId, loanProductId,
-                paymentTypeId, loanId, comiteTxnId, businessDate, principal);
+                paymentTypeId, loanId, comiteTxnId, businessDate, principal, loan.getDimensions());
         addEntry(entries, loanId, "portfolio_debit", comiteTxnId, principal, "DEBIT");
 
         List<LoanCharge> availableAtCashierCharges = loan.getActiveCharges().stream()
@@ -177,16 +182,25 @@ public class ProcessComiteOtorgamientoLoansServiceImpl implements ProcessComiteO
 
         accountingProcessorHelper.createCreditJournalEntryForLoan(office, currencyCode,
                 FinancialActivity.DISBURSEMENTS_PAYABLE.getValue(), loanProductId, paymentTypeId, loanId, comiteTxnId,
-                businessDate, disbursementAmount);
+                businessDate, disbursementAmount, loan.getDimensions());
         addEntry(entries, loanId, "disbursement_payable_credit", comiteTxnId, disbursementAmount, "CREDIT");
         if (!taxPaymentsForLoan.isEmpty()) {
+            BigDecimal totalTaxAmount = taxPaymentsForLoan.stream()
+                    .map(TaxPaymentDTO::getAmount)
+                    .filter(a -> a != null)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            LoanTransaction taxTxn = LoanTransaction.taxOnCharge(loan, office, totalTaxAmount, businessDate, ExternalId.empty());
+            loanTransactionRepository.saveAndFlush(taxTxn);
+            String taxTxnId = taxTxn.getId().toString();
             accountingProcessorHelper.createJournalEntriesForLoanChargeTax(office, currencyCode, loanProductId, loanId,
-                    paymentTypeId, comiteTxnId, businessDate, taxPaymentsForLoan);
+                    paymentTypeId, taxTxnId, businessDate, taxPaymentsForLoan, loan.getDimensions());
+            addEntry(entries, loanId, "taxes", taxTxnId, totalTaxAmount, "TAXES");
         }
 
         loan.setNetDisbursalAmount(disbursementAmount);
         loan.setComitePreProcessed(true);
         loanRepositoryWrapper.saveAndFlush(loan);
+        processedLoans.add(loan);
         log.debug("[COMTE-DEBUG] processOneLoan done sessionId={} loanId={} comitePreProcessed=true netDisbursalAmount={}",
                 sessionId, loanId, disbursementAmount);
     }

@@ -299,7 +299,8 @@ public class LoanDisbursementService {
                 final Long paymentTypeId = paymentDetail != null && paymentDetail.getPaymentType() != null
                         ? paymentDetail.getPaymentType().getId() : null;
                 accountingProcessorHelper.createJournalEntriesForLoanChargeTax(loan.getOffice(), loan.getCurrencyCode(),
-                        loan.getLoanProduct().getId(), loan.getId(), paymentTypeId, transactionId, disbursedOn, taxPayments);
+                        loan.getLoanProduct().getId(), loan.getId(), paymentTypeId, transactionId, disbursedOn, taxPayments,
+                        loan.getDimensions());
             }
             loanBalanceService.updateLoanOutstandingBalances(loan);
         }

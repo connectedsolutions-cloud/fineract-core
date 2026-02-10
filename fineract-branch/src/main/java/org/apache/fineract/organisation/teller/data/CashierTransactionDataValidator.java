@@ -76,18 +76,24 @@ public class CashierTransactionDataValidator {
         final LocalDate endDate = cashier.getEndDate();
         final LocalDate tellerFromDate = teller.getStartDate();
         final LocalDate tellerEndDate = teller.getEndDate();
-        // Validate cashier date range in range of teller date range
-        if (DateUtils.isBefore(fromDate, tellerFromDate) || DateUtils.isBefore(endDate, tellerFromDate)
-                || (tellerEndDate != null && (DateUtils.isAfter(fromDate, tellerEndDate) || DateUtils.isAfter(endDate, tellerEndDate)))) {
+        // Validate cashier date range in range of teller date range (endDate null = open session)
+        if (DateUtils.isBefore(fromDate, tellerFromDate)
+                || (tellerEndDate != null && DateUtils.isAfter(fromDate, tellerEndDate))) {
+            throw new CashierDateRangeOutOfTellerDateRangeException();
+        }
+        if (endDate != null && (DateUtils.isBefore(endDate, tellerFromDate)
+                || (tellerEndDate != null && DateUtils.isAfter(endDate, tellerEndDate)))) {
             throw new CashierDateRangeOutOfTellerDateRangeException();
         }
 
-        // Validate cashier has not been assigned for the same duration
-        String sql = "SELECT COUNT(*) FROM m_cashiers c WHERE c.staff_id = :staffId AND "
-                + "((:fromDate BETWEEN c.start_date AND c.end_date OR :endDate BETWEEN c.start_date AND c.end_date) "
-                + "OR (c.start_date BETWEEN :fromDate AND :endDate OR c.end_date BETWEEN :fromDate AND :endDate))";
+        // Validate cashier has not been assigned for the same duration (handle null end_date as open-ended)
+        // Use separate SQL when endDate is null so PostgreSQL can infer parameter types (no "? IS NULL" for date params)
+        final String dateCondition = endDate == null
+                ? "(c.end_date IS NULL OR c.end_date >= :fromDate)"
+                : "(:endDate >= c.start_date AND (c.end_date IS NULL OR c.end_date >= :fromDate))";
+        String sql = "SELECT COUNT(*) FROM m_cashiers c WHERE c.staff_id = :staffId AND " + dateCondition;
 
-        if (!cashier.getIsFullDay()) {
+        if (!cashier.getIsFullDay() && cashier.getStartTime() != null && cashier.getEndTime() != null) {
             sql += " AND (c.start_time::time BETWEEN :startTime::time AND :endTime::time "
                     + "OR c.end_time::time BETWEEN :startTime::time AND :endTime::time)";
         }
@@ -95,9 +101,11 @@ public class CashierTransactionDataValidator {
         Map<String, Object> paramMap = new HashMap<>();
         paramMap.put("staffId", staffId);
         paramMap.put("fromDate", fromDate);
-        paramMap.put("endDate", endDate);
+        if (endDate != null) {
+            paramMap.put("endDate", endDate);
+        }
 
-        if (!cashier.getIsFullDay()) {
+        if (!cashier.getIsFullDay() && cashier.getStartTime() != null && cashier.getEndTime() != null) {
             paramMap.put("startTime", cashier.getStartTime());
             paramMap.put("endTime", cashier.getEndTime());
         }
@@ -113,9 +121,9 @@ public class CashierTransactionDataValidator {
         OffsetDateTime tenantDateTime = DateUtils.getOffsetDateTimeOfTenant();
         if (user.getStaff() != null) {
             String sql = "SELECT c.id FROM m_cashiers c WHERE c.staff_id = :staffId "
-                    + "AND (CASE WHEN c.full_day THEN :tenantDate BETWEEN c.start_date AND c.end_date "
-                    + "ELSE (:tenantDate BETWEEN c.start_date AND c.end_date AND "
-                    + ":tenantDateTime::time BETWEEN c.start_time::time AND c.end_time::time) END)";
+                    + "AND (:tenantDate >= c.start_date AND (c.end_date IS NULL OR :tenantDate <= c.end_date) "
+                    + "AND (CASE WHEN c.full_day THEN true "
+                    + "ELSE (:tenantDateTime::time >= c.start_time::time AND (c.end_time IS NULL OR :tenantDateTime::time <= c.end_time::time)) END))";
 
             Map<String, Object> paramMap = new HashMap<>();
             paramMap.put("staffId", user.getStaff().getId());

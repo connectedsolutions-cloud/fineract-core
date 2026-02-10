@@ -76,7 +76,8 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
 
             sqlBuilder.append("t.id as id,t.office_id as office_id, t.name as teller_name, t.description as description, ");
             sqlBuilder.append("t.valid_from as start_date, t.valid_to as end_date, t.state as status, o.name as office_name, ");
-            sqlBuilder.append("t.debit_account_id as debit_account_id, t.credit_account_id as credit_account_id ");
+            sqlBuilder.append("t.debit_account_id as debit_account_id, t.credit_account_id as credit_account_id, ");
+            sqlBuilder.append("t.max_teller_cash_amount as max_teller_cash_amount ");
             sqlBuilder.append("from m_tellers t ");
             sqlBuilder.append("join m_office o on o.id = t.office_id ");
 
@@ -98,12 +99,13 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
             }
             final Long debitAccountId = rs.getLong("debit_account_id");
             final Long creditAccountId = rs.getLong("credit_account_id");
+            final BigDecimal maxTellerCashAmount = JdbcSupport.getBigDecimalDefaultToNullIfZero(rs, "max_teller_cash_amount");
 
             final LocalDate startDate = JdbcSupport.getLocalDate(rs, "start_date");
             final LocalDate endDate = JdbcSupport.getLocalDate(rs, "end_date");
 
             return TellerData.instance(id, officeId, debitAccountId, creditAccountId, tellerName, description, startDate, endDate,
-                    tellerStatus, officeName, null, null);
+                    tellerStatus, officeName, null, null, maxTellerCashAmount);
         }
     }
 
@@ -130,6 +132,14 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
 
     @Override
     public Collection<TellerData> getTellers(Long officeId) {
+        if (officeId != null) {
+            final AppUser currentUser = this.context.authenticatedUser();
+            final String hierarchy = currentUser.getOffice().getHierarchy();
+            final String hierarchySearchString = hierarchy + "%";
+            final TellerMapper tm = new TellerMapper();
+            final String sql = "select " + tm.schema() + " where t.office_id = ? and o.hierarchy like ? order by o.hierarchy";
+            return this.jdbcTemplate.query(sql, tm, new Object[] { officeId, hierarchySearchString }); // NOSONAR
+        }
         return retrieveAllTellers(false);
     }
 
@@ -143,6 +153,19 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
         final CashierMapper cm = new CashierMapper();
         String sql = "select " + cm.schema() + " where teller_id = ?";
         return this.jdbcTemplate.query(sql, cm, tellerId); // NOSONAR
+    }
+
+    @Override
+    public CashierData getActiveCashierSessionForCurrentUser() {
+        final AppUser currentUser = this.context.authenticatedUser();
+        final Long staffId = currentUser.getStaffId();
+        if (staffId == null) {
+            return null;
+        }
+        final CashierMapper cm = new CashierMapper();
+        final String sql = "select " + cm.schema() + " where c.staff_id = ? and c.end_date is null";
+        final Collection<CashierData> results = this.jdbcTemplate.query(sql, cm, staffId); // NOSONAR
+        return CollectionUtils.isEmpty(results) ? null : results.iterator().next();
     }
 
     @Override
@@ -297,6 +320,7 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
                 } else if (total.getCashierTxnType().equals(CashierTxnType.OUTWARD_CASH_TXN.getId())) {
                     cashOutAmount = total.getCashTotal();
                 }
+                // OPEN_CASHIER (105) and CLOSE_CASHIER (106) are display-only; do not affect net cash
             }
         }
 
@@ -322,18 +346,18 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
         final CashierTransactionMapper ctm = new CashierTransactionMapper();
 
         String sql = "SELECT * FROM (SELECT " + ctm.cashierTxnSchema() + " WHERE txn.cashier_id = ? AND txn.currency_code = ? "
-                + "AND ((txn.created_date between c.start_date AND c.end_date  ) or txn.txn_type = 101))  cashier_txns " + " union (select "
+                + "AND ((txn.created_date >= c.start_date AND (c.end_date IS NULL OR txn.created_date <= c.end_date)) or txn.txn_type = 101))  cashier_txns " + " union (select "
                 + ctm.savingsTxnSchema() + " where sav_txn.is_reversed = false and c.id = ? and sav.currency_code = ? "
-                + "and sav_txn.transaction_date between c.start_date and " + nextDay
+                + "and sav_txn.transaction_date >= c.start_date and (c.end_date IS NULL or sav_txn.transaction_date <= " + nextDay + ")"
                 + " and renum.enum_value in ('deposit','withdrawal fee', 'Pay Charge', 'withdrawal', 'Annual Fee', 'Waive Charge', 'Interest Posting', 'Overdraft Interest') "
                 + " and (sav_txn.payment_detail_id IS NULL OR payType.is_cash_payment = true) AND acnttrans.id IS NULL ) "
                 + " union (select " + ctm.loansTxnSchema() + " where loan_txn.is_reversed = false and c.id = ? and loan.currency_code = ? "
-                + "and loan_txn.transaction_date between c.start_date and " + nextDay
+                + "and loan_txn.transaction_date >= c.start_date and (c.end_date IS NULL or loan_txn.transaction_date <= " + nextDay + ")"
                 + " and renum.enum_value IN ('REPAYMENT_AT_DISBURSEMENT','REPAYMENT', 'RECOVERY_REPAYMENT','DISBURSEMENT', 'CHARGE_PAYMENT', 'WAIVE_CHARGES', 'WAIVE_INTEREST', 'WRITEOFF') "
                 + " and (loan_txn.payment_detail_id IS NULL OR payType.is_cash_payment = true) " + " AND acnttrans.id IS NULL ) "
                 + " union (select " + ctm.clientTxnSchema()
                 + " where cli_txn.is_reversed = false and c.id = ? and cli_txn.currency_code = ? " + "and cli_txn.transaction_date "
-                + " between c.start_date and  " + nextDay + " and renum.enum_value IN ('PAY_CHARGE', 'WAIVE_CHARGE') "
+                + " >= c.start_date and (c.end_date IS NULL or cli_txn.transaction_date <= " + nextDay + ") and renum.enum_value IN ('PAY_CHARGE', 'WAIVE_CHARGE') "
                 + " and (cli_txn.payment_detail_id IS NULL OR payType.is_cash_payment = true) ) " + " order by created_date ";
 
         if (searchParameters.hasLimit()) {
@@ -363,7 +387,9 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
             sqlBuilder.append("c.id as id,c.teller_id as teller_id, t.name as teller_name, c.description as description, ");
             sqlBuilder.append("c.staff_id as staff_id, s.display_name as staff_name,  ");
             sqlBuilder.append("c.start_date as start_date, c.end_date as end_date,  ");
-            sqlBuilder.append("c.full_day as full_day, c.start_time as start_time, c.end_time as end_time ");
+            sqlBuilder.append("c.full_day as full_day, c.start_time as start_time, c.end_time as end_time, ");
+            sqlBuilder.append("c.opening_balance as opening_balance, c.closing_balance as closing_balance, ");
+            sqlBuilder.append("c.expected_closing_balance as expected_closing_balance ");
             sqlBuilder.append("from m_cashiers c ");
             sqlBuilder.append("join m_tellers t on t.id = c.teller_id ");
             sqlBuilder.append("join m_staff s on s.id = c.staff_id ");
@@ -386,9 +412,12 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
             final Boolean fullDay = rs.getBoolean("full_day");
             final String startTime = rs.getString("start_time");
             final String endTime = rs.getString("end_time");
+            final BigDecimal openingBalance = JdbcSupport.getBigDecimalDefaultToNullIfZero(rs, "opening_balance");
+            final BigDecimal closingBalance = JdbcSupport.getBigDecimalDefaultToNullIfZero(rs, "closing_balance");
+            final BigDecimal expectedClosingBalance = JdbcSupport.getBigDecimalDefaultToNullIfZero(rs, "expected_closing_balance");
 
             return CashierData.instance(id, null, null, staffId, staffName, tellerId, tellerName, description, startDate, endDate, fullDay,
-                    startTime, endTime);
+                    startTime, endTime, openingBalance, closingBalance, expectedClosingBalance);
         }
     }
 
@@ -417,7 +446,7 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
 
             final StringBuilder sqlBuilder = new StringBuilder(400);
 
-            sqlBuilder.append(" sav_txn.id as txn_id, null as cashier_id, ");
+            sqlBuilder.append(" sav_txn.id as txn_id, COALESCE(sav_txn.cashier_id, c.id) as cashier_id, ");
             sqlBuilder.append(" case ");
             sqlBuilder.append("     when renum.enum_value in ('deposit','withdrawal fee', 'Pay Charge', 'Annual Fee') ");
             sqlBuilder.append("         then 103 ");
@@ -425,7 +454,7 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
                     .append("     when renum.enum_value in ('withdrawal', 'Waive Charge', 'Interest Posting', 'Overdraft Interest', '') ");
             sqlBuilder.append("         then 104 ");
             sqlBuilder.append("     else ");
-            sqlBuilder.append("         105 ");
+            sqlBuilder.append("         107 ");
             sqlBuilder.append(" end as txn_type, ");
             sqlBuilder.append(" sav_txn.amount as txn_amount, sav_txn.transaction_date as txn_date, ");
             sqlBuilder.append(
@@ -455,7 +484,7 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
 
             final StringBuilder sqlBuilder = new StringBuilder(400);
 
-            sqlBuilder.append(" loan_txn.id as txn_id, c.id as cashier_id, ");
+            sqlBuilder.append(" loan_txn.id as txn_id, COALESCE(loan_txn.cashier_id, c.id) as cashier_id, ");
             sqlBuilder.append(" case ");
             sqlBuilder.append(
                     "     when renum.enum_value in ('REPAYMENT_AT_DISBURSEMENT','REPAYMENT', 'RECOVERY_REPAYMENT', 'CHARGE_PAYMENT') ");
@@ -463,7 +492,7 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
             sqlBuilder.append("     when renum.enum_value in ('DISBURSEMENT', 'WAIVE_INTEREST', 'WRITEOFF', 'WAIVE_CHARGES') ");
             sqlBuilder.append("         then 104 ");
             sqlBuilder.append("     else ");
-            sqlBuilder.append("         105 ");
+            sqlBuilder.append("         107 ");
             sqlBuilder.append(" end as cash_txn_type, ");
             sqlBuilder.append(" loan_txn.amount as txn_amount, loan_txn.transaction_date as txn_date, ");
             sqlBuilder.append(
@@ -493,14 +522,14 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
 
             final StringBuilder sqlBuilder = new StringBuilder(400);
 
-            sqlBuilder.append(" cli_txn.id AS txn_id, c.id AS cashier_id, ");
+            sqlBuilder.append(" cli_txn.id AS txn_id, COALESCE(cli_txn.cashier_id, c.id) AS cashier_id, ");
             sqlBuilder.append(" case ");
             sqlBuilder.append(" when renum.enum_value in ('PAY_CHARGE') ");
             sqlBuilder.append(" then 103 ");
             sqlBuilder.append(" when renum.enum_value in ('WAIVE_CHARGE') ");
             sqlBuilder.append(" then 104 ");
             sqlBuilder.append(" else ");
-            sqlBuilder.append(" 105 ");
+            sqlBuilder.append(" 107 ");
             sqlBuilder.append(" end as cash_txn_type, ");
             sqlBuilder.append(" cli_txn.amount as txn_amount, cli_txn.transaction_date as txn_date, ");
             sqlBuilder.append(
@@ -576,7 +605,7 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
             sqlBuilder.append("    left join m_office o on o.id = t.office_id ");
             sqlBuilder.append("    left join m_staff s on s.id = c.staff_id ");
             sqlBuilder.append("    where txn.cashier_id = ? ");
-            sqlBuilder.append(" AND ((  txn.created_date between c.start_date AND c.end_date ) or txn.txn_type = 101) ");
+            sqlBuilder.append(" AND ((txn.created_date >= c.start_date AND (c.end_date IS NULL OR txn.created_date <= c.end_date)) or txn.txn_type = 101) ");
             sqlBuilder.append(" and   txn.currency_code = ? ");
             sqlBuilder.append(" ) cashier_txns ");
             sqlBuilder.append("    UNION ");
@@ -587,7 +616,7 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
             sqlBuilder.append("        when renum.enum_value in ('withdrawal', 'Waive Charge', 'Interest Posting', 'Overdraft Interest') ");
             sqlBuilder.append("            then 104 ");
             sqlBuilder.append("        else ");
-            sqlBuilder.append("            105 ");
+            sqlBuilder.append("            107 ");
             sqlBuilder.append("    end as cash_txn_type, ");
             sqlBuilder.append("    sav_txn.amount as txn_amount, sav_txn.transaction_date as txn_date, ");
             sqlBuilder.append(
@@ -611,7 +640,7 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
             sqlBuilder.append(" or acnttrans.to_savings_transaction_id = sav_txn.id) ");
             sqlBuilder.append("    where sav_txn.is_reversed = false and c.id = ? ");
             sqlBuilder.append(" and sav.currency_code = ? ");
-            sqlBuilder.append("    and sav_txn.transaction_date between c.start_date and c.end_date ");
+            sqlBuilder.append("    and sav_txn.transaction_date >= c.start_date and (c.end_date IS NULL or sav_txn.transaction_date <= c.end_date) ");
             sqlBuilder.append("    and (sav_txn.payment_detail_id IS NULL OR payType.is_cash_payment = true) ");
             sqlBuilder.append("    AND acnttrans.id IS NULL  ");
             sqlBuilder.append("    ) ");
@@ -625,7 +654,7 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
             sqlBuilder.append("        when renum.enum_value in ('DISBURSEMENT', 'WAIVE_INTEREST', 'WRITEOFF', 'WAIVE_CHARGES') ");
             sqlBuilder.append("            then 104 ");
             sqlBuilder.append("        else ");
-            sqlBuilder.append("            105 ");
+            sqlBuilder.append("            107 ");
             sqlBuilder.append("    end as cash_txn_type, ");
             sqlBuilder.append("    loan_txn.amount as txn_amount, loan_txn.transaction_date as txn_date, ");
             sqlBuilder.append(
@@ -649,7 +678,7 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
             sqlBuilder.append(" or acnttrans.to_loan_transaction_id = loan_txn.id) ");
             sqlBuilder.append("    where loan_txn.is_reversed = false and c.id = ? ");
             sqlBuilder.append(" and loan.currency_code = ? ");
-            sqlBuilder.append("    and loan_txn.transaction_date between c.start_date and " + nextDay);
+            sqlBuilder.append("    and loan_txn.transaction_date >= c.start_date and (c.end_date IS NULL or loan_txn.transaction_date <= " + nextDay + ")");
             sqlBuilder.append("    and (loan_txn.payment_detail_id IS NULL OR payType.is_cash_payment = true) ");
             sqlBuilder.append("    AND acnttrans.id IS NULL  ");
             sqlBuilder.append("    ) ");
@@ -662,7 +691,7 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
             sqlBuilder.append("        WHEN renum.enum_value IN ('WAIVE_CHARGE') ");
             sqlBuilder.append("            then 104 ");
             sqlBuilder.append("        else ");
-            sqlBuilder.append("            105 ");
+            sqlBuilder.append("            107 ");
             sqlBuilder.append("    end as cash_txn_type, ");
             sqlBuilder.append("    cli_txn.amount as txn_amount, cli_txn.transaction_date as txn_date, ");
             sqlBuilder.append(
@@ -682,7 +711,7 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
             sqlBuilder.append(" left join m_payment_type payType on payType.id = payDetails.payment_type_id ");
             sqlBuilder.append("    where cli_txn.is_reversed = false AND c.id = ?    ");
             sqlBuilder.append(" and cli_txn.currency_code = ? ");
-            sqlBuilder.append("    and cli_txn.transaction_date between c.start_date and " + nextDay);
+            sqlBuilder.append("    and cli_txn.transaction_date >= c.start_date and (c.end_date IS NULL or cli_txn.transaction_date <= " + nextDay + ")");
             sqlBuilder.append(" and (cli_txn.payment_detail_id IS NULL OR payType.is_cash_payment = true)  ");
             sqlBuilder.append("    ) ");
             sqlBuilder.append("    ) txns ");

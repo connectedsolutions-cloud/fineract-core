@@ -19,6 +19,7 @@
 package org.apache.fineract.organisation.teller.data;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collection;
 import lombok.AllArgsConstructor;
@@ -52,6 +53,9 @@ public final class CashierData implements Serializable {
     private Boolean isFullDay;
     private String startTime;
     private String endTime;
+    private BigDecimal openingBalance;
+    private BigDecimal closingBalance;
+    private BigDecimal expectedClosingBalance;
 
     // Template fields
     private String officeName;
@@ -98,10 +102,12 @@ public final class CashierData implements Serializable {
      */
     public static CashierData instance(final Long id, final Long officeId, String officeName, final Long staffId, final String staffName,
             final Long tellerId, final String tellerName, final String description, final LocalDate startDate, final LocalDate endDate,
-            final Boolean isFullDay, final String startTime, final String endTime) {
+            final Boolean isFullDay, final String startTime, final String endTime, final BigDecimal openingBalance,
+            final BigDecimal closingBalance, final BigDecimal expectedClosingBalance) {
         return new CashierData().setId(id).setOfficeId(officeId).setOfficeName(officeName).setStaffId(staffId).setStaffName(staffName)
                 .setTellerId(tellerId).setTellerName(tellerName).setDescription(description).setStartDate(startDate).setEndDate(endDate)
-                .setIsFullDay(isFullDay).setStartTime(startTime).setEndTime(endTime);
+                .setIsFullDay(isFullDay).setStartTime(startTime).setEndTime(endTime)
+                .setOpeningBalance(openingBalance).setClosingBalance(closingBalance).setExpectedClosingBalance(expectedClosingBalance);
     }
 
     /*

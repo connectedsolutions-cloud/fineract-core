@@ -129,7 +129,9 @@ public interface LoanTransactionRepository extends JpaRepository<LoanTransaction
                     org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.REJECT_TRANSFER,
                     org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.WITHDRAW_TRANSFER,
                     org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.CAPITALIZED_INCOME_AMORTIZATION,
-                    org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.CAPITALIZED_INCOME_AMORTIZATION_ADJUSTMENT
+                    org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.CAPITALIZED_INCOME_AMORTIZATION_ADJUSTMENT,
+                    org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.CHARGE_PAYMENT,
+                    org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.TAXES
             )
             """)
     Optional<LocalDate> findLastTransactionDateForReprocessing(@Param("loan") Loan loan);
@@ -274,6 +276,7 @@ public interface LoanTransactionRepository extends JpaRepository<LoanTransaction
     @Query("""
             SELECT COALESCE(SUM(CASE WHEN lt.typeOf = org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.ACCRUAL THEN lcpb.amount
                  WHEN lt.typeOf = org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.ACCRUAL_ADJUSTMENT THEN -lcpb.amount
+                 WHEN lt.typeOf = org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.CHARGE_PAYMENT THEN lcpb.amount
                  ELSE 0 END), 0)
             FROM LoanChargePaidBy lcpb
             JOIN lcpb.loanTransaction lt
@@ -285,6 +288,7 @@ public interface LoanTransactionRepository extends JpaRepository<LoanTransaction
     @Query("""
             SELECT COALESCE(SUM(CASE WHEN lt.typeOf = org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.ACCRUAL THEN lcpb.amount
                  WHEN lt.typeOf = org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.ACCRUAL_ADJUSTMENT THEN -lcpb.amount
+                 WHEN lt.typeOf = org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.CHARGE_PAYMENT THEN lcpb.amount
                  ELSE 0 END), 0)
             FROM LoanChargePaidBy lcpb
             JOIN lcpb.loanTransaction lt
@@ -392,7 +396,9 @@ public interface LoanTransactionRepository extends JpaRepository<LoanTransaction
                         org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.REJECT_TRANSFER,
                         org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.WITHDRAW_TRANSFER,
                         org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.CAPITALIZED_INCOME_AMORTIZATION,
-                        org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.CAPITALIZED_INCOME_AMORTIZATION_ADJUSTMENT
+                        org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.CAPITALIZED_INCOME_AMORTIZATION_ADJUSTMENT,
+                        org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.CHARGE_PAYMENT,
+                        org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType.TAXES
                 )
             ORDER BY lt.dateOf, lt.createdDate, lt.id
             """)

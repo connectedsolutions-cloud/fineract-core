@@ -68,13 +68,18 @@ public final class TellerCommandFromApiJsonDeserializer {
     public static final String TXN_DATE = "txnDate";
     public static final String TXN_NOTE = "txnNote";
     public static final String TELLER = "teller";
+    public static final String OPENING_BALANCE = "openingBalance";
+    public static final String CLOSING_BALANCE = "closingBalance";
+    public static final String EXPECTED_CLOSING_BALANCE = "expectedClosingBalance";
+    public static final String MAX_TELLER_CASH_AMOUNT = "maxTellerCashAmount";
     private static final String START_TIME = "startTime";
     /**
      * The parameters supported for this command.
      */
     private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList(OFFICE_ID, NAME, DESCRIPTION, START_DATE, END_DATE,
             STATUS, DATE_FORMAT, LOCALE, IS_FULL_DAY, STAFF_ID, HOUR_START_TIME, MIN_START_TIME, HOUR_END_TIME, MIN_END_TIME, TXN_AMOUNT,
-            TXN_DATE, TXN_NOTE, ENTITY_TYPE, ENTITY_ID, CURRENCY_CODE));
+            TXN_DATE, TXN_NOTE, ENTITY_TYPE, ENTITY_ID, CURRENCY_CODE, OPENING_BALANCE, CLOSING_BALANCE, EXPECTED_CLOSING_BALANCE,
+            MAX_TELLER_CASH_AMOUNT));
     private final FromJsonHelper fromApiJsonHelper;
 
     @Autowired
@@ -115,6 +120,9 @@ public final class TellerCommandFromApiJsonDeserializer {
         final String status = this.fromApiJsonHelper.extractStringNamed(STATUS, element);
         baseDataValidator.reset().parameter(STATUS).value(status).notBlank().notExceedingLengthOf(50);
 
+        final BigDecimal maxTellerCashAmount = this.fromApiJsonHelper.extractBigDecimalWithLocaleNamed(MAX_TELLER_CASH_AMOUNT, element);
+        baseDataValidator.reset().parameter(MAX_TELLER_CASH_AMOUNT).value(maxTellerCashAmount).ignoreIfNull().zeroOrPositiveAmount();
+
         if (endDate != null && DateUtils.isBefore(endDate, startDate)) {
             throw new InvalidDateInputException(startDate.toString(), endDate.toString());
         }
@@ -153,7 +161,7 @@ public final class TellerCommandFromApiJsonDeserializer {
         baseDataValidator.reset().parameter(START_DATE).value(startDate).notNull();
 
         final LocalDate endDate = this.fromApiJsonHelper.extractLocalDateNamed(END_DATE, element);
-        baseDataValidator.reset().parameter(END_DATE).value(endDate).notNull();
+        baseDataValidator.reset().parameter(END_DATE).value(endDate).ignoreIfNull();
 
         final Boolean isFullDay = this.fromApiJsonHelper.extractBooleanNamed(IS_FULL_DAY, element);
         baseDataValidator.reset().parameter(IS_FULL_DAY).value(isFullDay).notNull();
@@ -169,6 +177,9 @@ public final class TellerCommandFromApiJsonDeserializer {
             baseDataValidator.reset().parameter(MIN_END_TIME).value(minEndTime).notBlank();
 
         }
+
+        final String currencyCode = this.fromApiJsonHelper.extractStringNamed(CURRENCY_CODE, element);
+        baseDataValidator.reset().parameter(CURRENCY_CODE).value(currencyCode).ignoreIfNull().notExceedingLengthOf(3);
 
         throwExceptionIfValidationWarningsExist(dataValidationErrors);
     }
