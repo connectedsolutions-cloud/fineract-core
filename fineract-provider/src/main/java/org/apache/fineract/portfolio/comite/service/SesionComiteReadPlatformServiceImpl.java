@@ -89,6 +89,17 @@ public class SesionComiteReadPlatformServiceImpl implements SesionComiteReadPlat
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public List<Long> retrieveApprovedLoanIds(Long sessionId, Long officeId) {
+        return this.sesionComiteRepository.findByIdAndOfficeId(sessionId, officeId)
+                .map(this::mapToData)
+                .map(data -> {
+                    List<Long> ids = data.getUnanimouslyApprovedLoanIds();
+                    return ids != null ? ids : new ArrayList<Long>();
+                })
+                .orElse(new ArrayList<>());
+    }
+
     private SesionComiteData mapToData(SesionComite session) {
         SesionComiteData data = new SesionComiteData();
         data.setId(session.getId());

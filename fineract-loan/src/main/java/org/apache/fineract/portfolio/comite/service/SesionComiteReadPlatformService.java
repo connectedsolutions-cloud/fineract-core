@@ -18,9 +18,7 @@
  */
 package org.apache.fineract.portfolio.comite.service;
 
-import java.util.Collection;
 import java.util.List;
-import org.apache.fineract.portfolio.comite.data.LoanSelectionData;
 import org.apache.fineract.portfolio.comite.data.SesionComiteData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanAccountData;
 
@@ -31,4 +29,14 @@ public interface SesionComiteReadPlatformService {
     SesionComiteData retrieveOneSession(Long sessionId);
 
     List<LoanAccountData> retrievePendingLoansForUser(Long currentOfficeId);
+
+    /**
+     * Returns the list of loan IDs unanimously approved for the given session. Session is loaded
+     * with office scoping (caller supplies the comite-session's office_id).
+     *
+     * @param sessionId session id (from e.g. step references)
+     * @param officeId  office id of the comite-session (for findByIdAndOfficeId)
+     * @return list of approved loan IDs, or empty list if session not found or no approvals
+     */
+    List<Long> retrieveApprovedLoanIds(Long sessionId, Long officeId);
 }
