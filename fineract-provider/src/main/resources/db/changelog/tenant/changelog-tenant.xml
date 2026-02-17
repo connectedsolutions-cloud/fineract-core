@@ -261,4 +261,5 @@
     <include file="parts/0239_add_m_pending_step_table.xml" relativeToChangelogFile="true" />
     <include file="parts/0240_add_pendientes_permissions.xml" relativeToChangelogFile="true" />
     <include file="parts/0241_add_transferencia_efectivo_comite_blueprint.xml" relativeToChangelogFile="true" />
+    <include file="parts/0242_add_office_id_to_m_pending_step.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

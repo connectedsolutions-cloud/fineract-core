@@ -20,6 +20,7 @@ package org.apache.fineract.portfolio.comite.service;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,12 +33,15 @@ import lombok.RequiredArgsConstructor;
 import org.apache.fineract.infrastructure.core.service.SearchParameters;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.portfolio.comite.data.ApprovedLoansDisbursementSumData;
 import org.apache.fineract.portfolio.comite.data.LoanSelectionData;
 import org.apache.fineract.portfolio.comite.data.SesionComiteData;
 import org.apache.fineract.portfolio.comite.domain.SesionComite;
 import org.apache.fineract.portfolio.comite.domain.SesionComiteRepository;
 import org.apache.fineract.portfolio.comite.exception.SesionComiteNotFoundException;
 import org.apache.fineract.portfolio.loanaccount.data.LoanAccountData;
+import org.apache.fineract.portfolio.loanaccount.domain.Loan;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanRepository;
 import org.apache.fineract.portfolio.loanaccount.service.LoanReadPlatformService;
 import org.springframework.stereotype.Service;
 
@@ -48,6 +52,7 @@ public class SesionComiteReadPlatformServiceImpl implements SesionComiteReadPlat
     private final SesionComiteRepository sesionComiteRepository;
     private final PlatformSecurityContext context;
     private final LoanReadPlatformService loanReadPlatformService;
+    private final LoanRepository loanRepository;
     private final FromJsonHelper fromJsonHelper;
 
     @Override
@@ -98,6 +103,32 @@ public class SesionComiteReadPlatformServiceImpl implements SesionComiteReadPlat
                     return ids != null ? ids : new ArrayList<Long>();
                 })
                 .orElse(new ArrayList<>());
+    }
+
+    @Override
+    public ApprovedLoansDisbursementSumData retrieveApprovedLoansDisbursementSum(Long sessionId, Long officeId) {
+        if (sesionComiteRepository.findByIdAndOfficeId(sessionId, officeId).isEmpty()) {
+            return null;
+        }
+        List<Long> loanIds = retrieveApprovedLoanIds(sessionId, officeId);
+        if (loanIds.isEmpty()) {
+            return new ApprovedLoansDisbursementSumData(BigDecimal.ZERO, null, null);
+        }
+        BigDecimal sum = loanRepository.sumNetDisbursalAmountByIdIn(loanIds);
+        if (sum == null) {
+            sum = BigDecimal.ZERO;
+        }
+        String currencyCode = null;
+        Integer currencyDigits = null;
+        var firstLoan = loanRepository.findById(loanIds.get(0));
+        if (firstLoan.isPresent()) {
+            Loan loan = firstLoan.get();
+            currencyCode = loan.getCurrencyCode();
+            if (loan.getCurrency() != null) {
+                currencyDigits = loan.getCurrency().getDigitsAfterDecimal();
+            }
+        }
+        return new ApprovedLoansDisbursementSumData(sum, currencyCode, currencyDigits);
     }
 
     private SesionComiteData mapToData(SesionComite session) {

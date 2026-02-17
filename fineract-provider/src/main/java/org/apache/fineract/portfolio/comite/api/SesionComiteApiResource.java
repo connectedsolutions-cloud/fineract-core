@@ -38,7 +38,9 @@ import org.apache.fineract.commands.service.CommandWrapperBuilder;
 import org.apache.fineract.commands.service.PortfolioCommandSourceWritePlatformService;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.core.serialization.DefaultToApiJsonSerializer;
+import org.apache.fineract.infrastructure.security.exception.NoAuthorizationException;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.portfolio.comite.data.ApprovedLoansDisbursementSumData;
 import org.apache.fineract.portfolio.comite.data.SesionComiteData;
 import org.apache.fineract.portfolio.comite.data.SesionComiteRequest;
 import org.apache.fineract.portfolio.comite.service.SesionComiteReadPlatformService;
@@ -63,7 +65,7 @@ public class SesionComiteApiResource {
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     public String retrieveAllSessions(@Context final UriInfo uriInfo) {
-        context.authenticatedUser().validateHasReadPermission("see_loan_comittee");
+        context.authenticatedUser().validateHasPermissionTo("see_loan_comittee");
         final List<SesionComiteData> sessions = readPlatformService.retrieveAllSessions();
         return this.toApiJsonSerializer.serialize(sessions);
     }
@@ -73,9 +75,28 @@ public class SesionComiteApiResource {
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     public String retrieveOneSession(@PathParam("sessionId") final Long sessionId, @Context final UriInfo uriInfo) {
-        context.authenticatedUser().validateHasReadPermission("see_loan_comittee");
+        context.authenticatedUser().validateHasPermissionTo("see_loan_comittee");
         final SesionComiteData session = readPlatformService.retrieveOneSession(sessionId);
         return this.toApiJsonSerializer.serialize(session);
+    }
+
+    @GET
+    @Path("{sessionId}/approved-loans-disbursement-sum")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    public String retrieveApprovedLoansDisbursementSum(@PathParam("sessionId") final Long sessionId,
+            @QueryParam("officeId") @Parameter(description = "Office id for session scoping; if not set, uses current user's office") final Long officeId,
+            @Context final UriInfo uriInfo) {
+        if (!context.authenticatedUser().hasAnyPermission("see_loan_comittee", "view_pendientes")) {
+            throw new NoAuthorizationException("User has no authority to: see_loan_comittee or view_pendientes");
+        }
+        final Long officeIdToUse = officeId != null ? officeId : context.authenticatedUser().getOffice().getId();
+        final ApprovedLoansDisbursementSumData data = readPlatformService.retrieveApprovedLoansDisbursementSum(sessionId,
+                officeIdToUse);
+        if (data == null) {
+            return this.toApiJsonSerializer.serialize(new ApprovedLoansDisbursementSumData(null, null, null));
+        }
+        return this.toApiJsonSerializer.serialize(data);
     }
 
     @GET
@@ -84,7 +105,7 @@ public class SesionComiteApiResource {
     @Produces({ MediaType.APPLICATION_JSON })
     public String retrievePendingLoans(@Context final UriInfo uriInfo,
             @QueryParam("current_office_id") @Parameter(description = "When set, limits loans to this office only instead of user's office hierarchy") final Long currentOfficeId) {
-        context.authenticatedUser().validateHasReadPermission("see_loan_comittee");
+        context.authenticatedUser().validateHasPermissionTo("see_loan_comittee");
         final List<LoanAccountData> loans = readPlatformService.retrievePendingLoansForUser(currentOfficeId);
         return this.toLoanJsonSerializer.serialize(loans);
     }
@@ -94,7 +115,7 @@ public class SesionComiteApiResource {
     @Produces({ MediaType.APPLICATION_JSON })
     public String createSession(@QueryParam("command") final String commandParam,
             @Context final UriInfo uriInfo, final String apiRequestBodyAsJson) {
-        context.authenticatedUser().validateHasReadPermission("see_loan_comittee");
+        context.authenticatedUser().validateHasPermissionTo("see_loan_comittee");
         final CommandWrapper commandRequest = new CommandWrapperBuilder().createSesionComite()
                 .withJson(apiRequestBodyAsJson).build();
         final CommandProcessingResult result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
@@ -107,7 +128,7 @@ public class SesionComiteApiResource {
     @Produces({ MediaType.APPLICATION_JSON })
     public String updateSession(@PathParam("sessionId") final Long sessionId,
             @Context final UriInfo uriInfo, final String apiRequestBodyAsJson) {
-        context.authenticatedUser().validateHasReadPermission("see_loan_comittee");
+        context.authenticatedUser().validateHasPermissionTo("see_loan_comittee");
         final CommandWrapper commandRequest = new CommandWrapperBuilder().updateSesionComite(sessionId)
                 .withJson(apiRequestBodyAsJson).build();
         final CommandProcessingResult result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
@@ -124,23 +145,23 @@ public class SesionComiteApiResource {
 
         CommandWrapper commandWrapper = null;
         if ("start".equalsIgnoreCase(commandParam)) {
-            context.authenticatedUser().validateHasReadPermission("start_loan_comittee");
+            context.authenticatedUser().validateHasPermissionTo("start_loan_comittee");
             commandWrapper = new CommandWrapperBuilder().startSesionComite(sessionId).withJson(apiRequestBodyAsJson).build();
         } else if ("apply".equalsIgnoreCase(commandParam)) {
-            context.authenticatedUser().validateHasReadPermission("start_loan_comittee");
+            context.authenticatedUser().validateHasPermissionTo("start_loan_comittee");
             commandWrapper = new CommandWrapperBuilder().applySesionComite(sessionId).withJson(apiRequestBodyAsJson).build();
         } else if ("updateSelections".equalsIgnoreCase(commandParam)) {
-            context.authenticatedUser().validateHasReadPermission("see_loan_comittee");
+            context.authenticatedUser().validateHasPermissionTo("see_loan_comittee");
             commandWrapper = new CommandWrapperBuilder().updateSelectionsSesionComite(sessionId).withJson(apiRequestBodyAsJson)
                     .build();
         } else if ("submit".equalsIgnoreCase(commandParam)) {
-            context.authenticatedUser().validateHasReadPermission("see_loan_comittee");
+            context.authenticatedUser().validateHasPermissionTo("see_loan_comittee");
             commandWrapper = new CommandWrapperBuilder().submitSesionComite(sessionId).withJson(apiRequestBodyAsJson).build();
         } else if ("close".equalsIgnoreCase(commandParam)) {
-            context.authenticatedUser().validateHasReadPermission("start_loan_comittee");
+            context.authenticatedUser().validateHasPermissionTo("start_loan_comittee");
             commandWrapper = new CommandWrapperBuilder().closeSesionComite(sessionId).withJson(apiRequestBodyAsJson).build();
         } else {
-            context.authenticatedUser().validateHasReadPermission("see_loan_comittee");
+            context.authenticatedUser().validateHasPermissionTo("see_loan_comittee");
             // Default to update for unknown commands
             commandWrapper = new CommandWrapperBuilder().updateSesionComite(sessionId).withJson(apiRequestBodyAsJson).build();
         }

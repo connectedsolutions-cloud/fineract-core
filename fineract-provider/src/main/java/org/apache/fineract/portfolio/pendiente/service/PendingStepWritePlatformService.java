@@ -30,4 +30,9 @@ public interface PendingStepWritePlatformService {
      * responsableUserId, dueDate, references, note for the newly created next step.
      */
     PendingStepData complete(Long id, String json);
+
+    /**
+     * Marks the step as canceled. Does not change flow or next step. Idempotent if already canceled.
+     */
+    PendingStepData cancel(Long id);
 }

@@ -68,7 +68,7 @@ public class ProcessComiteOtorgamientoLoansServiceImpl implements ProcessComiteO
         if (approvedLoanIds == null || approvedLoanIds.isEmpty()) {
             log.info("Comite-otorgamiento processing skipped for session {}: no approved loans to process",
                     session != null ? session.getId() : null);
-            return new ProcessComiteOtorgamientoResult("finished", new JsonObject().toString());
+            return new ProcessComiteOtorgamientoResult("applied", new JsonObject().toString());
         }
 
         final Long sessionId = session.getId();
@@ -97,7 +97,7 @@ public class ProcessComiteOtorgamientoLoansServiceImpl implements ProcessComiteO
         
 
         output.add("entries", entries);
-        return new ProcessComiteOtorgamientoResult("finished", output.toString());
+        return new ProcessComiteOtorgamientoResult("applied", output.toString());
     }
 
     private void processOneLoan(Long sessionId, Long loanId, LocalDate businessDate, JsonArray entries,

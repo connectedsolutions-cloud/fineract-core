@@ -105,4 +105,18 @@
             <column name="can_maker_checker" valueBoolean="false"/>
         </insert>
     </changeSet>
+    <changeSet author="fineract" id="7">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'update_pending_step_responsble_user'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="portfolio"/>
+            <column name="code" value="update_pending_step_responsble_user"/>
+            <column name="entity_name" value="PENDIENTES"/>
+            <column name="action_name" value="UPDATE_STEP_RESPONSIBLE_USER"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
 </databaseChangeLog>

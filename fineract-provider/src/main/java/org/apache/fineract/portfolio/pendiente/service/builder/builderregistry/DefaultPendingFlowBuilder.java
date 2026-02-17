@@ -22,6 +22,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
+import org.apache.fineract.organisation.office.domain.Office;
+import org.apache.fineract.organisation.office.domain.OfficeRepositoryWrapper;
 import org.apache.fineract.portfolio.pendiente.domain.PendingFlow;
 import org.apache.fineract.portfolio.pendiente.domain.PendingFlowBlueprint;
 import org.apache.fineract.portfolio.pendiente.domain.PendingStep;
@@ -42,9 +44,11 @@ import org.springframework.stereotype.Component;
 public class DefaultPendingFlowBuilder implements PendingFlowBuilder {
 
     private final FromJsonHelper fromJsonHelper;
+    private final OfficeRepositoryWrapper officeRepositoryWrapper;
 
-    public DefaultPendingFlowBuilder(FromJsonHelper fromJsonHelper) {
+    public DefaultPendingFlowBuilder(FromJsonHelper fromJsonHelper, OfficeRepositoryWrapper officeRepositoryWrapper) {
         this.fromJsonHelper = fromJsonHelper;
+        this.officeRepositoryWrapper = officeRepositoryWrapper;
     }
 
     @Override
@@ -107,6 +111,10 @@ public class DefaultPendingFlowBuilder implements PendingFlowBuilder {
         firstStep.setDueDate(request.getDueDate());
         firstStep.setResponsableUser(responsable);
         firstStep.setReferences(stepReferences);
+        if (request.getOfficeId() != null) {
+            Office office = officeRepositoryWrapper.findOneWithNotFoundDetection(request.getOfficeId());
+            firstStep.setOffice(office);
+        }
 
         return new PendingFlowBuildResult(flow, firstStep);
     }

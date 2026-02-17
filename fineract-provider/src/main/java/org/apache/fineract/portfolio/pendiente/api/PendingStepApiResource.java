@@ -53,15 +53,20 @@ public class PendingStepApiResource {
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     public String retrieveAll(@Context UriInfo uriInfo, @QueryParam("flowId") Long flowId,
-            @QueryParam("mySteps") Boolean mySteps) {
-        context.authenticatedUser().validateHasReadPermission("view_pendientes");
+            @QueryParam("mySteps") Boolean mySteps, @QueryParam("officeId") Long officeId) {
+        context.authenticatedUser().validateHasPermissionTo("view_pendientes");
         if (Boolean.TRUE.equals(mySteps)) {
             Long userId = context.authenticatedUser().getId();
-            List<PendingStepData> data = readService.retrieveMySteps(userId, Arrays.asList("open", "pending"));
+            List<PendingStepData> data = readService.retrieveMySteps(userId, Arrays.asList("open", "pending"),
+                    officeId);
             return toApiJsonSerializer.serialize(data);
         }
         if (flowId != null) {
-            List<PendingStepData> data = readService.retrieveByFlowId(flowId);
+            List<PendingStepData> data = readService.retrieveByFlowId(flowId, officeId);
+            return toApiJsonSerializer.serialize(data);
+        }
+        if (officeId != null) {
+            List<PendingStepData> data = readService.retrieveByOfficeId(officeId);
             return toApiJsonSerializer.serialize(data);
         }
         return toApiJsonSerializer.serialize(List.of());
@@ -72,7 +77,7 @@ public class PendingStepApiResource {
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     public String retrieveOne(@PathParam("id") Long id, @Context UriInfo uriInfo) {
-        context.authenticatedUser().validateHasReadPermission("view_pendientes");
+        context.authenticatedUser().validateHasPermissionTo("view_pendientes");
         PendingStepData data = readService.retrieveOne(id);
         return toApiJsonSerializer.serialize(data);
     }
@@ -82,7 +87,7 @@ public class PendingStepApiResource {
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     public String update(@PathParam("id") Long id, @Context UriInfo uriInfo, String apiRequestBodyAsJson) {
-        context.authenticatedUser().validateHasReadPermission("update_pending_step");
+        context.authenticatedUser().validateHasPermissionTo("update_pending_step");
         PendingStepData data = writeService.update(id, apiRequestBodyAsJson);
         return toApiJsonSerializer.serialize(data);
     }
@@ -93,11 +98,17 @@ public class PendingStepApiResource {
     @Produces({ MediaType.APPLICATION_JSON })
     public String complete(@PathParam("id") Long id, @QueryParam("command") String command,
             @Context UriInfo uriInfo, String apiRequestBodyAsJson) {
-        context.authenticatedUser().validateHasReadPermission("complete_pending_step");
-        if (!"complete".equalsIgnoreCase(command)) {
-            return toApiJsonSerializer.serialize(writeService.update(id, apiRequestBodyAsJson));
+        if ("cancel".equalsIgnoreCase(command)) {
+            context.authenticatedUser().validateHasPermissionTo("update_pending_step");
+            PendingStepData data = writeService.cancel(id);
+            return toApiJsonSerializer.serialize(data);
         }
-        PendingStepData data = writeService.complete(id, apiRequestBodyAsJson);
-        return toApiJsonSerializer.serialize(data);
+        if ("complete".equalsIgnoreCase(command)) {
+            context.authenticatedUser().validateHasPermissionTo("complete_pending_step");
+            PendingStepData data = writeService.complete(id, apiRequestBodyAsJson);
+            return toApiJsonSerializer.serialize(data);
+        }
+        context.authenticatedUser().validateHasPermissionTo("update_pending_step");
+        return toApiJsonSerializer.serialize(writeService.update(id, apiRequestBodyAsJson));
     }
 }

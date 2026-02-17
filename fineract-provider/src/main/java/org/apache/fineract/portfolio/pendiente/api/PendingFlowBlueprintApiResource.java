@@ -51,7 +51,7 @@ public class PendingFlowBlueprintApiResource {
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     public String retrieveAll(@Context UriInfo uriInfo) {
-        context.authenticatedUser().validateHasReadPermission("view_pendientes");
+        context.authenticatedUser().validateHasPermissionTo("view_pendientes");
         List<PendingFlowBlueprintData> data = readService.retrieveAll();
         return toApiJsonSerializer.serialize(data);
     }
@@ -61,7 +61,7 @@ public class PendingFlowBlueprintApiResource {
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     public String retrieveOne(@PathParam("id") Long id, @Context UriInfo uriInfo) {
-        context.authenticatedUser().validateHasReadPermission("view_pendientes");
+        context.authenticatedUser().validateHasPermissionTo("view_pendientes");
         PendingFlowBlueprintData data = readService.retrieveOne(id);
         return toApiJsonSerializer.serialize(data);
     }
@@ -70,7 +70,7 @@ public class PendingFlowBlueprintApiResource {
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     public String create(@Context UriInfo uriInfo, String apiRequestBodyAsJson) {
-        context.authenticatedUser().validateHasReadPermission("create_pending_flow_blueprint");
+        context.authenticatedUser().validateHasPermissionTo("create_pending_flow_blueprint");
         PendingFlowBlueprintData data = writeService.create(apiRequestBodyAsJson);
         return toApiJsonSerializer.serialize(data);
     }
@@ -80,7 +80,7 @@ public class PendingFlowBlueprintApiResource {
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     public String update(@PathParam("id") Long id, @Context UriInfo uriInfo, String apiRequestBodyAsJson) {
-        context.authenticatedUser().validateHasReadPermission("update_pending_flow_blueprint");
+        context.authenticatedUser().validateHasPermissionTo("update_pending_flow_blueprint");
         PendingFlowBlueprintData data = writeService.update(id, apiRequestBodyAsJson);
         return toApiJsonSerializer.serialize(data);
     }

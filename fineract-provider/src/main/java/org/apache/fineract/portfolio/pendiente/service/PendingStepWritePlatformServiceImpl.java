@@ -29,6 +29,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.organisation.office.domain.Office;
+import org.apache.fineract.organisation.office.domain.OfficeRepositoryWrapper;
 import org.apache.fineract.portfolio.pendiente.data.PendingStepData;
 import org.apache.fineract.portfolio.pendiente.domain.PendingFlow;
 import org.apache.fineract.portfolio.pendiente.domain.PendingFlowBlueprint;
@@ -50,6 +52,7 @@ public class PendingStepWritePlatformServiceImpl implements PendingStepWritePlat
     private final PendingStepRepository stepRepository;
     private final PendingFlowRepository flowRepository;
     private final AppUserRepository appUserRepository;
+    private final OfficeRepositoryWrapper officeRepositoryWrapper;
     private final PlatformSecurityContext context;
     private final FromJsonHelper fromJsonHelper;
     private final PendingStepReadPlatformService readService;
@@ -71,8 +74,33 @@ public class PendingStepWritePlatformServiceImpl implements PendingStepWritePlat
             if (object.has("description")) {
                 step.setDescription(fromJsonHelper.extractStringNamed("description", object));
             }
+            if (object.has("officeId")) {
+                Long officeId = fromJsonHelper.extractLongNamed("officeId", object);
+                if (officeId != null) {
+                    Office office = officeRepositoryWrapper.findOneWithNotFoundDetection(officeId);
+                    step.setOffice(office);
+                } else {
+                    step.setOffice(null);
+                }
+            }
             step = stepRepository.saveAndFlush(step);
         }
+        return readService.retrieveOne(step.getId());
+    }
+
+    @Transactional
+    @Override
+    public PendingStepData cancel(Long id) {
+        context.authenticatedUser();
+        PendingStep step = stepRepository.findById(id).orElseThrow(() -> new PendingStepNotFoundException(id));
+        if ("completed".equals(step.getStatus())) {
+            return readService.retrieveOne(step.getId());
+        }
+        if ("cancelado".equals(step.getStatus())) {
+            return readService.retrieveOne(step.getId());
+        }
+        step.setStatus("cancelado");
+        step = stepRepository.saveAndFlush(step);
         return readService.retrieveOne(step.getId());
     }
 
@@ -134,6 +162,7 @@ public class PendingStepWritePlatformServiceImpl implements PendingStepWritePlat
                     newNext.setCreator(currentUser);
                     newNext.setCreationDate(DateUtils.getAuditOffsetDateTime());
                     newNext.setReferences(nextStepReferences);
+                    newNext.setOffice(step.getOffice());
 
                     applyNextStepOverridesFromRequest(newNext, json, currentUser);
                     newNext = stepRepository.saveAndFlush(newNext);
@@ -179,8 +208,8 @@ public class PendingStepWritePlatformServiceImpl implements PendingStepWritePlat
 
     /**
      * Applies optional next-step fields from the complete request JSON. Expects a "nextStep" object
-     * with optional: responsableUserId, dueDate, references, note. Falls back to current user and
-     * nulls when not provided.
+     * with optional: responsableUserId, dueDate, references, note, officeId. Falls back to current user
+     * and nulls when not provided.
      */
     private void applyNextStepOverridesFromRequest(PendingStep newNext, String json, AppUser currentUser) {
         newNext.setNote(null);
@@ -195,6 +224,15 @@ public class PendingStepWritePlatformServiceImpl implements PendingStepWritePlat
                 return;
             }
             JsonObject nextStep = object.getAsJsonObject("nextStep");
+            if (nextStep.has("officeId")) {
+                Long officeId = fromJsonHelper.extractLongNamed("officeId", nextStep);
+                if (officeId != null) {
+                    Office office = officeRepositoryWrapper.findOneWithNotFoundDetection(officeId);
+                    newNext.setOffice(office);
+                } else {
+                    newNext.setOffice(null);
+                }
+            }
             if (nextStep.has("responsableUserId")) {
                 Long responsableUserId = fromJsonHelper.extractLongNamed("responsableUserId", nextStep);
                 if (responsableUserId != null) {

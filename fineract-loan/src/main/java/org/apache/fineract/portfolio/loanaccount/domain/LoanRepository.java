@@ -18,6 +18,7 @@
  */
 package org.apache.fineract.portfolio.loanaccount.domain;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -274,5 +275,8 @@ public interface LoanRepository extends JpaRepository<Loan, Long>, JpaSpecificat
 
     @Query("select loan.loanRepaymentScheduleDetail.enableBuyDownFee from Loan loan where loan.id = :loanId")
     Boolean isEnabledBuyDownFee(@Param("loanId") Long loanId);
+
+    @Query("SELECT COALESCE(SUM(l.netDisbursalAmount), 0) FROM Loan l WHERE l.id IN :ids")
+    BigDecimal sumNetDisbursalAmountByIdIn(@Param("ids") List<Long> ids);
 
 }

@@ -19,6 +19,7 @@
 package org.apache.fineract.portfolio.comite.service;
 
 import java.util.List;
+import org.apache.fineract.portfolio.comite.data.ApprovedLoansDisbursementSumData;
 import org.apache.fineract.portfolio.comite.data.SesionComiteData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanAccountData;
 
@@ -39,4 +40,15 @@ public interface SesionComiteReadPlatformService {
      * @return list of approved loan IDs, or empty list if session not found or no approvals
      */
     List<Long> retrieveApprovedLoanIds(Long sessionId, Long officeId);
+
+    /**
+     * Returns the sum of net disbursal amounts for all loans unanimously approved in the given
+     * session, plus currency info for display. Session is loaded with office scoping.
+     *
+     * @param sessionId session id (from e.g. step references)
+     * @param officeId  office id of the comite-session (for findByIdAndOfficeId)
+     * @return sum data (totalDisbursementAmount, currencyCode, currencyDigits), or null if session
+     *         not found
+     */
+    ApprovedLoansDisbursementSumData retrieveApprovedLoansDisbursementSum(Long sessionId, Long officeId);
 }

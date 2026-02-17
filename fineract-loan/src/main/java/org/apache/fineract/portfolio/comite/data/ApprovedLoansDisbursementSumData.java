@@ -16,22 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.fineract.portfolio.pendiente.service;
+package org.apache.fineract.portfolio.comite.data;
 
-import java.util.List;
-import org.apache.fineract.portfolio.pendiente.data.PendingStepData;
+import java.io.Serializable;
+import java.math.BigDecimal;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-public interface PendingStepReadPlatformService {
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ApprovedLoansDisbursementSumData implements Serializable {
 
-    List<PendingStepData> retrieveByFlowId(Long pendingFlowId);
+    private static final long serialVersionUID = 1L;
 
-    List<PendingStepData> retrieveByFlowId(Long pendingFlowId, Long officeId);
-
-    List<PendingStepData> retrieveMySteps(Long userId, List<String> statuses);
-
-    List<PendingStepData> retrieveMySteps(Long userId, List<String> statuses, Long officeId);
-
-    List<PendingStepData> retrieveByOfficeId(Long officeId);
-
-    PendingStepData retrieveOne(Long id);
+    private BigDecimal totalDisbursementAmount;
+    private String currencyCode;
+    private Integer currencyDigits;
 }

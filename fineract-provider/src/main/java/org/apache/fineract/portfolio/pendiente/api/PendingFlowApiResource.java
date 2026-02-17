@@ -54,7 +54,7 @@ public class PendingFlowApiResource {
     @Produces({ MediaType.APPLICATION_JSON })
     public String retrieveAll(@Context UriInfo uriInfo, @QueryParam("blueprintId") Long blueprintId,
             @QueryParam("creatorId") Long creatorId, @QueryParam("status") String status) {
-        context.authenticatedUser().validateHasReadPermission("view_pendientes");
+        context.authenticatedUser().validateHasPermissionTo("view_pendientes");
         List<PendingFlowData> data = readService.retrieveAll(blueprintId, creatorId, status);
         return toApiJsonSerializer.serialize(data);
     }
@@ -65,7 +65,7 @@ public class PendingFlowApiResource {
     @Produces({ MediaType.APPLICATION_JSON })
     public String retrieveOne(@PathParam("id") Long id, @Context UriInfo uriInfo,
             @QueryParam("includeSteps") Boolean includeSteps) {
-        context.authenticatedUser().validateHasReadPermission("view_pendientes");
+        context.authenticatedUser().validateHasPermissionTo("view_pendientes");
         boolean include = Boolean.TRUE.equals(includeSteps);
         PendingFlowData data = readService.retrieveOne(id, include);
         return toApiJsonSerializer.serialize(data);
@@ -75,7 +75,7 @@ public class PendingFlowApiResource {
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     public String create(@Context UriInfo uriInfo, String apiRequestBodyAsJson) {
-        context.authenticatedUser().validateHasReadPermission("start_pending_flow");
+        context.authenticatedUser().validateHasPermissionTo("start_pending_flow");
         Long blueprintId = readBlueprintIdFromJson(apiRequestBodyAsJson);
         validateResponsableUserId(apiRequestBodyAsJson);
         PendingFlowData data = writeService.createFlowAndFirstStep(blueprintId, apiRequestBodyAsJson);

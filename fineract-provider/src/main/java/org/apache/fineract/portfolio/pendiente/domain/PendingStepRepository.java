@@ -28,7 +28,15 @@ public interface PendingStepRepository extends JpaRepository<PendingStep, Long>,
 
     List<PendingStep> findByPendingFlowIdOrderById(Long pendingFlowId);
 
+    List<PendingStep> findByPendingFlow_IdAndOffice_IdOrderById(Long pendingFlowId, Long officeId);
+
     @Query("SELECT ps FROM PendingStep ps WHERE ps.responsableUser.id = :userId AND ps.status IN :statuses ORDER BY ps.creationDate DESC")
     List<PendingStep> findByResponsableUserIdAndStatusInOrderByCreationDateDesc(@Param("userId") Long userId,
             @Param("statuses") List<String> statuses);
+
+    @Query("SELECT ps FROM PendingStep ps WHERE ps.responsableUser.id = :userId AND ps.status IN :statuses AND ps.office.id = :officeId ORDER BY ps.creationDate DESC")
+    List<PendingStep> findByResponsableUserIdAndStatusInAndOfficeIdOrderByCreationDateDesc(@Param("userId") Long userId,
+            @Param("statuses") List<String> statuses, @Param("officeId") Long officeId);
+
+    List<PendingStep> findByOffice_IdOrderByCreationDateDesc(Long officeId);
 }

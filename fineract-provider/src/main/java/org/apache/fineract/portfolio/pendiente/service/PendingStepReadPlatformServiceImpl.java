@@ -37,17 +37,39 @@ public class PendingStepReadPlatformServiceImpl implements PendingStepReadPlatfo
 
     @Override
     public List<PendingStepData> retrieveByFlowId(Long pendingFlowId) {
+        return retrieveByFlowId(pendingFlowId, null);
+    }
+
+    @Override
+    public List<PendingStepData> retrieveByFlowId(Long pendingFlowId, Long officeId) {
         context.authenticatedUser();
-        return repository.findByPendingFlowIdOrderById(pendingFlowId).stream().map(this::mapToData)
-                .collect(Collectors.toList());
+        List<PendingStep> steps = officeId != null
+                ? repository.findByPendingFlow_IdAndOffice_IdOrderById(pendingFlowId, officeId)
+                : repository.findByPendingFlowIdOrderById(pendingFlowId);
+        return steps.stream().map(this::mapToData).collect(Collectors.toList());
     }
 
     @Override
     public List<PendingStepData> retrieveMySteps(Long userId, List<String> statuses) {
+        return retrieveMySteps(userId, statuses, null);
+    }
+
+    @Override
+    public List<PendingStepData> retrieveMySteps(Long userId, List<String> statuses, Long officeId) {
         context.authenticatedUser();
         List<String> statusList = statuses != null && !statuses.isEmpty() ? statuses : List.of("open", "pending");
-        return repository.findByResponsableUserIdAndStatusInOrderByCreationDateDesc(userId, statusList).stream()
-                .map(this::mapToData).collect(Collectors.toList());
+        List<PendingStep> steps = officeId != null
+                ? repository.findByResponsableUserIdAndStatusInAndOfficeIdOrderByCreationDateDesc(userId, statusList,
+                        officeId)
+                : repository.findByResponsableUserIdAndStatusInOrderByCreationDateDesc(userId, statusList);
+        return steps.stream().map(this::mapToData).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<PendingStepData> retrieveByOfficeId(Long officeId) {
+        context.authenticatedUser();
+        return repository.findByOffice_IdOrderByCreationDateDesc(officeId).stream().map(this::mapToData)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -73,6 +95,8 @@ public class PendingStepReadPlatformServiceImpl implements PendingStepReadPlatfo
         data.setResponsableUserId(entity.getResponsableUser() != null ? entity.getResponsableUser().getId() : null);
         data.setResponsableUserName(
                 entity.getResponsableUser() != null ? entity.getResponsableUser().getDisplayName() : null);
+        data.setOfficeId(entity.getOffice() != null ? entity.getOffice().getId() : null);
+        data.setOfficeName(entity.getOffice() != null ? entity.getOffice().getName() : null);
         data.setReferences(entity.getReferences());
         return data;
     }

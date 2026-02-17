@@ -31,6 +31,8 @@ import org.apache.fineract.portfolio.comite.domain.SesionComiteRepository;
 import org.apache.fineract.portfolio.comite.service.SesionComiteReadPlatformService;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.service.LoanAssembler;
+import org.apache.fineract.organisation.office.domain.Office;
+import org.apache.fineract.organisation.office.domain.OfficeRepositoryWrapper;
 import org.apache.fineract.portfolio.pendiente.domain.PendingFlow;
 import org.apache.fineract.portfolio.pendiente.domain.PendingFlowBlueprint;
 import org.apache.fineract.portfolio.pendiente.domain.PendingStep;
@@ -62,17 +64,20 @@ public class TransferenciaEfectivoComiteBuilder implements PendingFlowBuilder {
     private final AvailableAtCashierAccountingHelper availableAtCashierAccountingHelper;
     private final SesionComiteReadPlatformService sesionComiteReadPlatformService;
     private final LoanAssembler loanAssembler;
+    private final OfficeRepositoryWrapper officeRepositoryWrapper;
 
     public TransferenciaEfectivoComiteBuilder(SesionComiteRepository sesionComiteRepository,
             FromJsonHelper fromJsonHelper,
             AvailableAtCashierAccountingHelper availableAtCashierAccountingHelper,
             SesionComiteReadPlatformService sesionComiteReadPlatformService,
-            LoanAssembler loanAssembler) {
+            LoanAssembler loanAssembler,
+            OfficeRepositoryWrapper officeRepositoryWrapper) {
         this.sesionComiteRepository = sesionComiteRepository;
         this.fromJsonHelper = fromJsonHelper;
         this.availableAtCashierAccountingHelper = availableAtCashierAccountingHelper;
         this.sesionComiteReadPlatformService = sesionComiteReadPlatformService;
         this.loanAssembler = loanAssembler;
+        this.officeRepositoryWrapper = officeRepositoryWrapper;
     }
 
     @Override
@@ -141,6 +146,16 @@ public class TransferenciaEfectivoComiteBuilder implements PendingFlowBuilder {
         firstStep.setDueDate(request.getDueDate());
         firstStep.setResponsableUser(responsable);
         firstStep.setReferences(referencesJson);
+        Office office = null;
+        if (request.getOfficeId() != null) {
+            office = officeRepositoryWrapper.findOneWithNotFoundDetection(request.getOfficeId());
+        }
+        if (office == null && sesionComite.getOffice() != null) {
+            office = sesionComite.getOffice();
+        }
+        if (office != null) {
+            firstStep.setOffice(office);
+        }
 
         return new PendingFlowBuildResult(flow, firstStep);
     }

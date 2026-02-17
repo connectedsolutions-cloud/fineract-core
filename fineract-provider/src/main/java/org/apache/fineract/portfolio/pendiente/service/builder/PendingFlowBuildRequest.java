@@ -43,6 +43,9 @@ public class PendingFlowBuildRequest {
     private String name;
     private String description;
 
+    /** Optional office id for the first step. */
+    private Long officeId;
+
     /**
      * Blueprint-specific reference items (e.g. sesionComiteId, entity ids). Keys are
      * builder-specific; parsed from the request body.

@@ -44,5 +44,7 @@ public class PendingStepData implements Serializable {
     private OffsetDateTime dueDate;
     private Long responsableUserId;
     private String responsableUserName;
+    private Long officeId;
+    private String officeName;
     private String references; // JSON string
 }

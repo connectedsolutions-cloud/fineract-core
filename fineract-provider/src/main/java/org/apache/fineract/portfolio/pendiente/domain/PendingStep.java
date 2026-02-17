@@ -27,6 +27,7 @@ import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import org.apache.fineract.infrastructure.core.domain.AbstractPersistableCustom;
 import org.apache.fineract.infrastructure.core.persistence.converter.JsonbStringAttributeConverter;
+import org.apache.fineract.organisation.office.domain.Office;
 import org.apache.fineract.useradministration.domain.AppUser;
 
 @Entity
@@ -66,6 +67,10 @@ public class PendingStep extends AbstractPersistableCustom<Long> {
     @ManyToOne
     @JoinColumn(name = "responsable_user_id")
     private AppUser responsableUser;
+
+    @ManyToOne
+    @JoinColumn(name = "office_id")
+    private Office office;
 
     @Column(name = "references", columnDefinition = "json")
     @Convert(converter = JsonbStringAttributeConverter.class)
@@ -156,6 +161,14 @@ public class PendingStep extends AbstractPersistableCustom<Long> {
 
     public void setResponsableUser(AppUser responsableUser) {
         this.responsableUser = responsableUser;
+    }
+
+    public Office getOffice() {
+        return office;
+    }
+
+    public void setOffice(Office office) {
+        this.office = office;
     }
 
     public String getReferences() {

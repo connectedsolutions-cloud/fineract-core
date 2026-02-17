@@ -32,6 +32,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.organisation.office.domain.Office;
+import org.apache.fineract.organisation.office.domain.OfficeRepositoryWrapper;
 import org.apache.fineract.portfolio.pendiente.data.PendingFlowData;
 import org.apache.fineract.portfolio.pendiente.domain.PendingFlow;
 import org.apache.fineract.portfolio.pendiente.domain.PendingFlowBlueprint;
@@ -54,12 +56,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class PendingFlowWritePlatformServiceImpl implements PendingFlowWritePlatformService {
 
     private static final Set<String> RESERVED_KEYS = Set.of("blueprintId", "responsableUserId", "dueDate", "name",
-            "description", "assignees");
+            "description", "assignees", "officeId");
 
     private final PendingFlowRepository flowRepository;
     private final PendingFlowBlueprintRepository blueprintRepository;
     private final PendingStepRepository stepRepository;
     private final AppUserRepository appUserRepository;
+    private final OfficeRepositoryWrapper officeRepositoryWrapper;
     private final PlatformSecurityContext context;
     private final FromJsonHelper fromJsonHelper;
     private final PendingFlowReadPlatformService readService;
@@ -79,6 +82,8 @@ public class PendingFlowWritePlatformServiceImpl implements PendingFlowWritePlat
         }
         String description = request.has("description") ? fromJsonHelper.extractStringNamed("description", request) : null;
         JsonArray assigneesArray = request.has("assignees") ? fromJsonHelper.extractJsonArrayNamed("assignees", request) : null;
+        Long officeId = request.has("officeId") ? fromJsonHelper.extractLongNamed("officeId", request) : null;
+        Office office = officeId != null ? officeRepositoryWrapper.findOneWithNotFoundDetection(officeId) : null;
 
         PendingFlow flow = PendingFlow.newInstance();
         flow.setName(name);
@@ -122,6 +127,9 @@ public class PendingFlowWritePlatformServiceImpl implements PendingFlowWritePlat
                 step.setDueDate(null);
                 step.setResponsableUser(responsable);
                 step.setReferences(stepReferences);
+                if (office != null) {
+                    step.setOffice(office);
+                }
                 step = stepRepository.saveAndFlush(step);
                 stepIds.add(step.getId());
                 previous = step;
@@ -164,6 +172,7 @@ public class PendingFlowWritePlatformServiceImpl implements PendingFlowWritePlat
 
         String name = request.has("name") ? fromJsonHelper.extractStringNamed("name", request) : null;
         String description = request.has("description") ? fromJsonHelper.extractStringNamed("description", request) : null;
+        Long officeId = request.has("officeId") ? fromJsonHelper.extractLongNamed("officeId", request) : null;
 
         Map<String, Object> references = new HashMap<>();
         for (String key : request.keySet()) {
@@ -189,7 +198,7 @@ public class PendingFlowWritePlatformServiceImpl implements PendingFlowWritePlat
                 .orElseThrow(() -> new PendingFlowBlueprintNotFoundException(blueprintId));
 
         PendingFlowBuildRequest buildRequest = PendingFlowBuildRequest.builder().responsableUserId(responsableUserId)
-                .dueDate(dueDate).name(name).description(description).references(references).build();
+                .dueDate(dueDate).name(name).description(description).officeId(officeId).references(references).build();
 
         PendingFlowBuildContext buildContext = new PendingFlowBuildContext(context.authenticatedUser(),
                 DateUtils.getAuditOffsetDateTime(), appUserRepository);
@@ -198,6 +207,7 @@ public class PendingFlowWritePlatformServiceImpl implements PendingFlowWritePlat
 
         PendingFlow flow = result.getFlow();
         PendingStep firstStep = result.getFirstStep();
+        flow.setPendingFlowBlueprint(blueprint); // Ensure pending_flow_blueprint_id is always persisted
         flow = flowRepository.saveAndFlush(flow);
         firstStep.setPendingFlow(flow);
         firstStep = stepRepository.saveAndFlush(firstStep);
