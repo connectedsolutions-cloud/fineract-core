@@ -100,6 +100,7 @@ public class PendingStepWritePlatformServiceImpl implements PendingStepWritePlat
             return readService.retrieveOne(step.getId());
         }
         step.setStatus("cancelado");
+        step.setCompletionDate(DateUtils.getAuditOffsetDateTime());
         step = stepRepository.saveAndFlush(step);
         return readService.retrieveOne(step.getId());
     }
@@ -122,6 +123,7 @@ public class PendingStepWritePlatformServiceImpl implements PendingStepWritePlat
             throw new IllegalStateException("Previous step must be completed first");
         }
         step.setStatus("completed");
+        step.setCompletionDate(DateUtils.getAuditOffsetDateTime());
         if (note != null) {
             step.setNote(note);
         }

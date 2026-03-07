@@ -32,6 +32,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class PendingStepReadPlatformServiceImpl implements PendingStepReadPlatformService {
 
+    private static final List<String> COMPLETED_STATUSES = List.of("completed", "cancelado");
+
     private final PendingStepRepository repository;
     private final PlatformSecurityContext context;
 
@@ -73,6 +75,16 @@ public class PendingStepReadPlatformServiceImpl implements PendingStepReadPlatfo
     }
 
     @Override
+    public List<PendingStepData> retrieveMyCompletedSteps(Long userId, Long officeId) {
+        context.authenticatedUser();
+        List<PendingStep> steps = officeId != null
+                ? repository.findByResponsableUserIdAndStatusInAndOfficeIdOrderByCompletionDateDesc(userId,
+                        COMPLETED_STATUSES, officeId)
+                : repository.findByResponsableUserIdAndStatusInOrderByCompletionDateDesc(userId, COMPLETED_STATUSES);
+        return steps.stream().map(this::mapToData).collect(Collectors.toList());
+    }
+
+    @Override
     public PendingStepData retrieveOne(Long id) {
         context.authenticatedUser();
         PendingStep step = repository.findById(id).orElseThrow(() -> new PendingStepNotFoundException(id));
@@ -92,6 +104,7 @@ public class PendingStepReadPlatformServiceImpl implements PendingStepReadPlatfo
         data.setCreatorName(entity.getCreator() != null ? entity.getCreator().getDisplayName() : null);
         data.setCreationDate(entity.getCreationDate());
         data.setDueDate(entity.getDueDate());
+        data.setCompletionDate(entity.getCompletionDate());
         data.setResponsableUserId(entity.getResponsableUser() != null ? entity.getResponsableUser().getId() : null);
         data.setResponsableUserName(
                 entity.getResponsableUser() != null ? entity.getResponsableUser().getDisplayName() : null);

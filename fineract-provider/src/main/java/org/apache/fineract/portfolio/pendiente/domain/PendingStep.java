@@ -64,6 +64,9 @@ public class PendingStep extends AbstractPersistableCustom<Long> {
     @Column(name = "due_date")
     private OffsetDateTime dueDate;
 
+    @Column(name = "completion_date")
+    private OffsetDateTime completionDate;
+
     @ManyToOne
     @JoinColumn(name = "responsable_user_id")
     private AppUser responsableUser;
@@ -153,6 +156,14 @@ public class PendingStep extends AbstractPersistableCustom<Long> {
 
     public void setDueDate(OffsetDateTime dueDate) {
         this.dueDate = dueDate;
+    }
+
+    public OffsetDateTime getCompletionDate() {
+        return completionDate;
+    }
+
+    public void setCompletionDate(OffsetDateTime completionDate) {
+        this.completionDate = completionDate;
     }
 
     public AppUser getResponsableUser() {

@@ -53,10 +53,15 @@ public class PendingStepApiResource {
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     public String retrieveAll(@Context UriInfo uriInfo, @QueryParam("flowId") Long flowId,
-            @QueryParam("mySteps") Boolean mySteps, @QueryParam("officeId") Long officeId) {
+            @QueryParam("mySteps") Boolean mySteps, @QueryParam("closed") Boolean closed,
+            @QueryParam("officeId") Long officeId) {
         context.authenticatedUser().validateHasPermissionTo("view_pendientes");
         if (Boolean.TRUE.equals(mySteps)) {
             Long userId = context.authenticatedUser().getId();
+            if (Boolean.TRUE.equals(closed)) {
+                List<PendingStepData> data = readService.retrieveMyCompletedSteps(userId, officeId);
+                return toApiJsonSerializer.serialize(data);
+            }
             List<PendingStepData> data = readService.retrieveMySteps(userId, Arrays.asList("open", "pending"),
                     officeId);
             return toApiJsonSerializer.serialize(data);

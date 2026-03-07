@@ -33,5 +33,7 @@ public interface PendingStepReadPlatformService {
 
     List<PendingStepData> retrieveByOfficeId(Long officeId);
 
+    List<PendingStepData> retrieveMyCompletedSteps(Long userId, Long officeId);
+
     PendingStepData retrieveOne(Long id);
 }
