@@ -35,5 +35,9 @@ public interface PendingStepReadPlatformService {
 
     List<PendingStepData> retrieveMyCompletedSteps(Long userId, Long officeId);
 
+    List<PendingStepData> retrieveStepsOnMyFlowsAssignedToOthers(Long userId, List<String> statuses, Long officeId);
+
+    List<PendingStepData> retrieveCompletedStepsOnMyFlowsAssignedToOthers(Long userId, Long officeId);
+
     PendingStepData retrieveOne(Long id);
 }

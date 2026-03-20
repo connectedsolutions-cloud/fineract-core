@@ -162,9 +162,14 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
         if (staffId == null) {
             return null;
         }
+        final Long userId = currentUser.getId();
         final CashierMapper cm = new CashierMapper();
-        final String sql = "select " + cm.schema() + " where c.staff_id = ? and c.end_date is null";
-        final Collection<CashierData> results = this.jdbcTemplate.query(sql, cm, staffId); // NOSONAR
+        // Filter by staff and by app user who opened the session (opened_by_user_id).
+        // Legacy rows with opened_by_user_id null are treated as belonging to any user with that staff_id.
+        final String sql = "select " + cm.schema()
+                + " where c.staff_id = ? and c.end_date is null"
+                + " and (c.opened_by_user_id is null or c.opened_by_user_id = ?)";
+        final Collection<CashierData> results = this.jdbcTemplate.query(sql, cm, staffId, userId); // NOSONAR
         return CollectionUtils.isEmpty(results) ? null : results.iterator().next();
     }
 

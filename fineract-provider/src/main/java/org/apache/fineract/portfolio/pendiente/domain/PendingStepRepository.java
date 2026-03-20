@@ -47,4 +47,20 @@ public interface PendingStepRepository extends JpaRepository<PendingStep, Long>,
     @Query("SELECT ps FROM PendingStep ps WHERE ps.responsableUser.id = :userId AND ps.status IN :statuses AND ps.office.id = :officeId ORDER BY COALESCE(ps.completionDate, ps.creationDate) DESC")
     List<PendingStep> findByResponsableUserIdAndStatusInAndOfficeIdOrderByCompletionDateDesc(@Param("userId") Long userId,
             @Param("statuses") List<String> statuses, @Param("officeId") Long officeId);
+
+    @Query("SELECT ps FROM PendingStep ps JOIN ps.pendingFlow pf WHERE pf.creator.id = :userId AND ps.responsableUser IS NOT NULL AND ps.responsableUser.id <> :userId AND ps.status IN :statuses ORDER BY ps.creationDate DESC")
+    List<PendingStep> findByPendingFlowCreatorIdAndAssignedToOthersAndStatusInOrderByCreationDateDesc(@Param("userId") Long userId,
+            @Param("statuses") List<String> statuses);
+
+    @Query("SELECT ps FROM PendingStep ps JOIN ps.pendingFlow pf WHERE pf.creator.id = :userId AND ps.responsableUser IS NOT NULL AND ps.responsableUser.id <> :userId AND ps.status IN :statuses AND ps.office.id = :officeId ORDER BY ps.creationDate DESC")
+    List<PendingStep> findByPendingFlowCreatorIdAndAssignedToOthersAndStatusInAndOfficeIdOrderByCreationDateDesc(
+            @Param("userId") Long userId, @Param("statuses") List<String> statuses, @Param("officeId") Long officeId);
+
+    @Query("SELECT ps FROM PendingStep ps JOIN ps.pendingFlow pf WHERE pf.creator.id = :userId AND ps.responsableUser IS NOT NULL AND ps.responsableUser.id <> :userId AND ps.status IN :statuses ORDER BY COALESCE(ps.completionDate, ps.creationDate) DESC")
+    List<PendingStep> findByPendingFlowCreatorIdAndAssignedToOthersAndStatusInOrderByCompletionDateDesc(@Param("userId") Long userId,
+            @Param("statuses") List<String> statuses);
+
+    @Query("SELECT ps FROM PendingStep ps JOIN ps.pendingFlow pf WHERE pf.creator.id = :userId AND ps.responsableUser IS NOT NULL AND ps.responsableUser.id <> :userId AND ps.status IN :statuses AND ps.office.id = :officeId ORDER BY COALESCE(ps.completionDate, ps.creationDate) DESC")
+    List<PendingStep> findByPendingFlowCreatorIdAndAssignedToOthersAndStatusInAndOfficeIdOrderByCompletionDateDesc(
+            @Param("userId") Long userId, @Param("statuses") List<String> statuses, @Param("officeId") Long officeId);
 }

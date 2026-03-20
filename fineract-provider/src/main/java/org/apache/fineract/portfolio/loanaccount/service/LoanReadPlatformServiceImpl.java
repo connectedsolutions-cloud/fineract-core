@@ -112,6 +112,7 @@ import org.apache.fineract.portfolio.loanaccount.data.OutstandingAmountsDTO;
 import org.apache.fineract.portfolio.loanaccount.data.PaidInAdvanceData;
 import org.apache.fineract.portfolio.loanaccount.data.RepaymentScheduleRelatedLoanData;
 import org.apache.fineract.portfolio.loanaccount.data.ScheduleGeneratorDTO;
+import org.apache.fineract.portfolio.loanaccount.data.RepaymentScheduledItemData;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanBuyDownFeeBalance;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanBuyDownFeeCalculationType;
@@ -420,6 +421,150 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
         final Object[] objectArray = extraCriterias.toArray();
         final Object[] finalObjectArray = Arrays.copyOf(objectArray, arrayPos);
         return this.paginationHelper.fetchPage(this.jdbcTemplate, sqlBuilder.toString(), finalObjectArray, loanMapper);
+    }
+
+    @Override
+    public Page<LoanAccountData> retrievePendingDisbursementsByExpectedDisbursedOnDateRange(final LocalDate fromDate,
+            final LocalDate toDate, final Long currentOfficeId, final Integer limit, final Integer offset) {
+
+        if (fromDate == null || toDate == null) {
+            throw new IllegalArgumentException("fromDate and toDate must not be null");
+        }
+
+        this.context.authenticatedUser();
+
+        final LoanMapper loanMapper = new LoanMapper(sqlGenerator, delinquencyReadPlatformService);
+
+        final StringBuilder sqlBuilder = new StringBuilder(200);
+        sqlBuilder.append("select " + sqlGenerator.calcFoundRows() + " ");
+        sqlBuilder.append(loanMapper.loanSchema());
+
+        final boolean useCurrentOfficeFilter = currentOfficeId != null && currentOfficeId != 0;
+        int arrayPos;
+        final List<Object> extraCriterias = new ArrayList<>();
+
+        if (useCurrentOfficeFilter) {
+            sqlBuilder.append(" where (c.office_id = ? or g.office_id = ?)");
+            extraCriterias.add(currentOfficeId);
+            extraCriterias.add(currentOfficeId);
+            arrayPos = 2;
+        } else {
+            final String hierarchy = this.context.authenticatedUser().getOffice().getHierarchy();
+            final String hierarchySearchString = hierarchy + "%";
+            sqlBuilder.append(" join m_office o on (o.id = c.office_id or o.id = g.office_id) ");
+            sqlBuilder.append(" left join m_office transferToOffice on transferToOffice.id = c.transfer_to_office_id ");
+            sqlBuilder.append(" where ( o.hierarchy like ? or transferToOffice.hierarchy like ?)");
+            extraCriterias.add(hierarchySearchString);
+            extraCriterias.add(hierarchySearchString);
+            arrayPos = 2;
+        }
+
+        // pending disbursal (matches loan_status_id = 200)
+        sqlBuilder.append(" and l.loan_status_id = ?");
+        extraCriterias.add(200);
+        arrayPos++;
+
+        // expected_disbursedon_date is a DATE column in m_loan, so compare using DATE bounds.
+        // This guarantees "full day" semantics without any timezone/casting ambiguity.
+        sqlBuilder.append(" and l.expected_disbursedon_date >= ?");
+        extraCriterias.add(java.sql.Date.valueOf(fromDate));
+        arrayPos++;
+
+        sqlBuilder.append(" and l.expected_disbursedon_date <= ?");
+        extraCriterias.add(java.sql.Date.valueOf(toDate));
+        arrayPos++;
+
+        sqlBuilder.append(" and l.expected_disbursedon_date is not null");
+        sqlBuilder.append(" order by l.expected_disbursedon_date, c.account_no");
+
+        if (limit != null && limit > 0) {
+            sqlBuilder.append(" ");
+            if (offset != null && offset > 0) {
+                sqlBuilder.append(sqlGenerator.limit(limit, offset));
+            } else {
+                sqlBuilder.append(sqlGenerator.limit(limit));
+            }
+        }
+
+        final Object[] objectArray = extraCriterias.toArray();
+        final Object[] finalObjectArray = Arrays.copyOf(objectArray, arrayPos);
+        return this.paginationHelper.fetchPage(this.jdbcTemplate, sqlBuilder.toString(), finalObjectArray, loanMapper);
+    }
+
+    @Override
+    public Page<RepaymentScheduledItemData> retrieveRepaymentScheduledByDueDateRange(final LocalDate fromDate,
+            final LocalDate toDate, final Long currentOfficeId, final Integer limit, final Integer offset) {
+
+        if (fromDate == null || toDate == null) {
+            throw new IllegalArgumentException("fromDate and toDate must not be null");
+        }
+
+        this.context.authenticatedUser();
+
+        final StringBuilder sqlBuilder = new StringBuilder(250);
+        sqlBuilder.append("select " + sqlGenerator.calcFoundRows() + " ");
+        sqlBuilder.append(
+                " ls.loan_id as id, l.client_id as clientId, c.display_name as clientName, "
+                        + " SUM(COALESCE(ls.principal_amount,0) + COALESCE(ls.interest_amount,0) + COALESCE(ls.fee_charges_amount,0) + COALESCE(ls.penalty_charges_amount,0)) as amountToBeRepaid, "
+                        + " CASE WHEN SUM(CASE WHEN ls.completed_derived THEN 1 ELSE 0 END) = COUNT(*) THEN 'Completado' ELSE 'Pendiente' END as status, "
+                        + " MIN(ls.duedate) as dueDateForOrder, MIN(c.account_no) as clientAccountNoForOrder ");
+        sqlBuilder.append(" from m_loan_repayment_schedule ls ");
+        sqlBuilder.append(" inner join m_loan l on l.id = ls.loan_id ");
+        sqlBuilder.append(" inner join m_client c on c.id = l.client_id ");
+        sqlBuilder.append(" left join m_group g on g.id = l.group_id ");
+
+        final boolean useCurrentOfficeFilter = currentOfficeId != null && currentOfficeId != 0;
+        int arrayPos;
+        final List<Object> extraCriterias = new ArrayList<>();
+
+        if (useCurrentOfficeFilter) {
+            sqlBuilder.append(" where (c.office_id = ? or g.office_id = ?)");
+            extraCriterias.add(currentOfficeId);
+            extraCriterias.add(currentOfficeId);
+            arrayPos = 2;
+        } else {
+            final String hierarchy = this.context.authenticatedUser().getOffice().getHierarchy();
+            final String hierarchySearchString = hierarchy + "%";
+            sqlBuilder.append(" join m_office o on (o.id = c.office_id or o.id = g.office_id) ");
+            sqlBuilder.append(" left join m_office transferToOffice on transferToOffice.id = c.transfer_to_office_id ");
+            sqlBuilder.append(" where ( o.hierarchy like ? or transferToOffice.hierarchy like ?)");
+            extraCriterias.add(hierarchySearchString);
+            extraCriterias.add(hierarchySearchString);
+            arrayPos = 2;
+        }
+
+        // Inclusive due date range semantics (date-based, no timezone ambiguity)
+        sqlBuilder.append(" and ls.duedate >= ?");
+        extraCriterias.add(java.sql.Date.valueOf(fromDate));
+        arrayPos++;
+
+        sqlBuilder.append(" and ls.duedate <= ?");
+        extraCriterias.add(java.sql.Date.valueOf(toDate));
+        arrayPos++;
+
+        sqlBuilder.append(" and ls.duedate is not null");
+
+        // Aggregate per loan account so the UI shows one row per loan for the selected date.
+        sqlBuilder.append(" group by ls.loan_id, l.client_id, c.display_name ");
+        sqlBuilder.append(" order by dueDateForOrder, clientAccountNoForOrder");
+
+        if (limit != null && limit > 0) {
+            sqlBuilder.append(" ");
+            if (offset != null && offset > 0) {
+                sqlBuilder.append(sqlGenerator.limit(limit, offset));
+            } else {
+                sqlBuilder.append(sqlGenerator.limit(limit));
+            }
+        }
+
+        final Object[] objectArray = extraCriterias.toArray();
+        final Object[] finalObjectArray = Arrays.copyOf(objectArray, arrayPos);
+
+        return this.paginationHelper.fetchPage(this.jdbcTemplate, sqlBuilder.toString(), finalObjectArray,
+                (rs, rowNum) -> new RepaymentScheduledItemData(rs.getLong("id"), rs.getLong("clientId"),
+                        rs.getString("clientName"),
+                        JdbcSupport.getBigDecimalDefaultToZeroIfNull(rs, "amountToBeRepaid"),
+                        rs.getString("status")));
     }
 
     @Override

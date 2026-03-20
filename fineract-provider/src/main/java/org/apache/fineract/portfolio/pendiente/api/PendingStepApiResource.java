@@ -54,16 +54,25 @@ public class PendingStepApiResource {
     @Produces({ MediaType.APPLICATION_JSON })
     public String retrieveAll(@Context UriInfo uriInfo, @QueryParam("flowId") Long flowId,
             @QueryParam("mySteps") Boolean mySteps, @QueryParam("closed") Boolean closed,
-            @QueryParam("officeId") Long officeId) {
+            @QueryParam("officeId") Long officeId, @QueryParam("myFlowsOthersSteps") Boolean myFlowsOthersSteps) {
         context.authenticatedUser().validateHasPermissionTo("view_pendientes");
+        Long userId = context.authenticatedUser().getId();
         if (Boolean.TRUE.equals(mySteps)) {
-            Long userId = context.authenticatedUser().getId();
             if (Boolean.TRUE.equals(closed)) {
                 List<PendingStepData> data = readService.retrieveMyCompletedSteps(userId, officeId);
                 return toApiJsonSerializer.serialize(data);
             }
             List<PendingStepData> data = readService.retrieveMySteps(userId, Arrays.asList("open", "pending"),
                     officeId);
+            return toApiJsonSerializer.serialize(data);
+        }
+        if (Boolean.TRUE.equals(myFlowsOthersSteps)) {
+            if (Boolean.TRUE.equals(closed)) {
+                List<PendingStepData> data = readService.retrieveCompletedStepsOnMyFlowsAssignedToOthers(userId, officeId);
+                return toApiJsonSerializer.serialize(data);
+            }
+            List<PendingStepData> data = readService.retrieveStepsOnMyFlowsAssignedToOthers(userId,
+                    Arrays.asList("open", "pending"), officeId);
             return toApiJsonSerializer.serialize(data);
         }
         if (flowId != null) {

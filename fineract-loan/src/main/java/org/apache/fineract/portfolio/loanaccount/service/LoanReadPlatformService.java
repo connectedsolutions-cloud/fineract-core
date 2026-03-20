@@ -36,6 +36,7 @@ import org.apache.fineract.portfolio.loanaccount.data.LoanRepaymentScheduleInsta
 import org.apache.fineract.portfolio.loanaccount.data.LoanTransactionData;
 import org.apache.fineract.portfolio.loanaccount.data.PaidInAdvanceData;
 import org.apache.fineract.portfolio.loanaccount.data.RepaymentScheduleRelatedLoanData;
+import org.apache.fineract.portfolio.loanaccount.data.RepaymentScheduledItemData;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepaymentPeriodData;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType;
@@ -90,6 +91,22 @@ public interface LoanReadPlatformService {
     Collection<CalendarData> retrieveCalendars(Long groupId);
 
     Page<LoanAccountData> retrieveAll(SearchParameters searchParameters);
+
+    /**
+     * Retrieves loans that are waiting for disbursement (loan_status_id = 200) whose expected disbursal date
+     * (m_loan.expected_disbursedon_date) falls within the inclusive UTC range [fromDate, toDate].
+     */
+    Page<LoanAccountData> retrievePendingDisbursementsByExpectedDisbursedOnDateRange(LocalDate fromDate,
+            LocalDate toDate, Long currentOfficeId, Integer limit, Integer offset);
+
+    /**
+     * Retrieves repayment schedule installments for active loan accounts whose due date falls within the inclusive range
+     * [fromDate, toDate], filtered by the current office hierarchy if needed.
+     *
+     * The returned items are aggregated per loan account, and include the scheduled amount and completion status.
+     */
+    Page<RepaymentScheduledItemData> retrieveRepaymentScheduledByDueDateRange(LocalDate fromDate, LocalDate toDate,
+            Long currentOfficeId, Integer limit, Integer offset);
 
     Collection<StaffData> retrieveAllowedLoanOfficers(Long selectedOfficeId, boolean staffInSelectedOfficeOnly);
 

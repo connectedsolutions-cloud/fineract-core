@@ -137,6 +137,7 @@ import org.apache.fineract.portfolio.loanaccount.data.LoanTransactionBalanceWith
 import org.apache.fineract.portfolio.loanaccount.data.LoanTransactionData;
 import org.apache.fineract.portfolio.loanaccount.data.PaidInAdvanceData;
 import org.apache.fineract.portfolio.loanaccount.data.RepaymentScheduleRelatedLoanData;
+import org.apache.fineract.portfolio.loanaccount.data.RepaymentScheduledItemData;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanApprovedAmountHistoryRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanBuyDownFeeCalculationType;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanBuyDownFeeIncomeType;
@@ -263,6 +264,9 @@ public class LoansApiResource {
             LoanApiConstants.COLLECTION_PARAMNAME, LoanApiConstants.INTEREST_RECOGNITION_ON_DISBURSEMENT_DATE,
             LoanApiConstants.daysInYearCustomStrategyParameterName, "readyForComite"));
 
+    private static final Set<String> REPAYMENT_SCHEDULED_DATA_PARAMETERS = new HashSet<>(Arrays.asList("id", "clientId", "clientName",
+            "amountToBeRepaid", "status"));
+
     private static final Set<String> LOAN_APPROVAL_DATA_PARAMETERS = new HashSet<>(Arrays.asList("approvalDate", "approvalAmount"));
     private static final Set<String> GLIM_ACCOUNTS_DATA_PARAMETERS = new HashSet<>(Arrays.asList("glimId", "groupId", "clientId",
             "parentLoanAccountNo", "parentPrincipalAmount", "childLoanAccountNo", "childPrincipalAmount", "clientName"));
@@ -284,6 +288,7 @@ public class LoansApiResource {
     private final DefaultToApiJsonSerializer<LoanApprovalData> loanApprovalDataToApiJsonSerializer;
     private final DefaultToApiJsonSerializer<LoanScheduleData> loanScheduleToApiJsonSerializer;
     private final DefaultToApiJsonSerializer<LoanDelinquencyActionData> delinquencyActionSerializer;
+    private final DefaultToApiJsonSerializer<RepaymentScheduledItemData> repaymentScheduledToApiJsonSerializer;
     private final ApiRequestParameterHelper apiRequestParameterHelper;
     private final FromJsonHelper fromJsonHelper;
     private final PortfolioCommandSourceWritePlatformService commandsSourceWritePlatformService;
@@ -546,6 +551,58 @@ public class LoansApiResource {
         }
         final ApiRequestJsonSerializationSettings settings = this.apiRequestParameterHelper.process(uriInfo.getQueryParameters());
         return this.toApiJsonSerializer.serialize(settings, loanBasicDetails, LOAN_DATA_PARAMETERS);
+    }
+
+    @GET
+    @Path("pending-disbursements")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "List Pending Disbursements",
+            description = "Returns loans waiting for disbursal (loan_status_id = 200) whose expected disbursal date falls within the provided date range.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = LoansApiResourceSwagger.GetLoansResponse.class))) })
+    public String retrievePendingDisbursements(@Context final UriInfo uriInfo,
+            @QueryParam("fromDate") @Parameter(description = "fromDate (YYYY-MM-DD)", required = true) final String fromDate,
+            @QueryParam("toDate") @Parameter(description = "toDate (YYYY-MM-DD)", required = true) final String toDate,
+            @QueryParam("offset") @Parameter(description = "offset") final Integer offset,
+            @QueryParam("limit") @Parameter(description = "limit") final Integer limit,
+            @QueryParam("current_office_id") @Parameter(description = "When set, limits loans to this office only instead of user's office hierarchy") final Long currentOfficeId) {
+
+        this.context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME_FOR_PERMISSIONS);
+
+        final LocalDate fromLocalDate = DateUtils.parseLocalDate(fromDate);
+        final LocalDate toLocalDate = DateUtils.parseLocalDate(toDate);
+
+        final Page<LoanAccountData> pendingLoans = this.loanReadPlatformService
+                .retrievePendingDisbursementsByExpectedDisbursedOnDateRange(fromLocalDate, toLocalDate, currentOfficeId, limit, offset);
+
+        final ApiRequestJsonSerializationSettings settings = this.apiRequestParameterHelper.process(uriInfo.getQueryParameters());
+        return this.toApiJsonSerializer.serialize(settings, pendingLoans, LOAN_DATA_PARAMETERS);
+    }
+
+    @GET
+    @Path("repayment-scheduled")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "List Repayment Scheduled",
+            description = "Returns loan accounts with scheduled repayments (m_loan_repayment_schedule) whose due date falls within the provided date range.")
+    public String retrieveRepaymentScheduled(@Context final UriInfo uriInfo,
+            @QueryParam("fromDate") @Parameter(description = "fromDate (YYYY-MM-DD)", required = true) final String fromDate,
+            @QueryParam("toDate") @Parameter(description = "toDate (YYYY-MM-DD)", required = true) final String toDate,
+            @QueryParam("offset") @Parameter(description = "offset") final Integer offset,
+            @QueryParam("limit") @Parameter(description = "limit") final Integer limit,
+            @QueryParam("current_office_id") @Parameter(description = "When set, limits loans to this office only instead of user's office hierarchy") final Long currentOfficeId) {
+
+        this.context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME_FOR_PERMISSIONS);
+
+        final LocalDate fromLocalDate = DateUtils.parseLocalDate(fromDate);
+        final LocalDate toLocalDate = DateUtils.parseLocalDate(toDate);
+
+        final Page<RepaymentScheduledItemData> scheduledRepayments = this.loanReadPlatformService
+                .retrieveRepaymentScheduledByDueDateRange(fromLocalDate, toLocalDate, currentOfficeId, limit, offset);
+
+        final ApiRequestJsonSerializationSettings settings = this.apiRequestParameterHelper.process(uriInfo.getQueryParameters());
+        return this.repaymentScheduledToApiJsonSerializer.serialize(settings, scheduledRepayments, REPAYMENT_SCHEDULED_DATA_PARAMETERS);
     }
 
     @POST

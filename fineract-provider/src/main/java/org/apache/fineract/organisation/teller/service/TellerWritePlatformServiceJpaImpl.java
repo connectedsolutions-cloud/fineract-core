@@ -255,6 +255,7 @@ public class TellerWritePlatformServiceJpaImpl implements TellerWritePlatformSer
             final Cashier cashier = Cashier.fromJson(tellerOffice, teller, staff, startTime, endTime, command);
             this.cashierTransactionDataValidator.validateCashierAllowedDateAndTime(cashier, teller);
 
+            cashier.setOpenedByUserId(this.context.authenticatedUser().getId());
             this.cashierRepository.save(cashier);
 
             if (cashier.getOpeningBalance() != null) {
@@ -312,9 +313,16 @@ public class TellerWritePlatformServiceJpaImpl implements TellerWritePlatformSer
                 if (currencyCode != null) {
                     BigDecimal closingAmount = cashier.getClosingBalance() != null ? cashier.getClosingBalance()
                             : BigDecimal.ZERO;
+                    String closingNote = "Closing balance";
+                    if (command.parameterExists("closingNote")) {
+                        String note = command.stringValueOfParameterNamed("closingNote");
+                        if (note != null && !note.isBlank()) {
+                            closingNote = note.length() > 200 ? note.substring(0, 200) : note;
+                        }
+                    }
                     CashierTransaction closeTxn = CashierTransaction.createBalanceTransaction(cashier,
                             CashierTxnType.CLOSE_CASHIER.getId(), closingAmount, cashier.getEndDate(), currencyCode,
-                            "Closing balance");
+                            closingNote);
                     this.cashierTxnRepository.save(closeTxn);
                 }
             }

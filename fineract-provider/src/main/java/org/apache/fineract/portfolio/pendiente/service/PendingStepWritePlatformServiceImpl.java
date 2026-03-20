@@ -91,7 +91,7 @@ public class PendingStepWritePlatformServiceImpl implements PendingStepWritePlat
     @Transactional
     @Override
     public PendingStepData cancel(Long id) {
-        context.authenticatedUser();
+        AppUser currentUser = context.authenticatedUser();
         PendingStep step = stepRepository.findById(id).orElseThrow(() -> new PendingStepNotFoundException(id));
         if ("completed".equals(step.getStatus())) {
             return readService.retrieveOne(step.getId());
@@ -101,8 +101,38 @@ public class PendingStepWritePlatformServiceImpl implements PendingStepWritePlat
         }
         step.setStatus("cancelado");
         step.setCompletionDate(DateUtils.getAuditOffsetDateTime());
+        String referencesWithCancel = appendCancelledToReferences(step.getReferences(), currentUser, DateUtils.getAuditOffsetDateTime());
+        step.setReferences(referencesWithCancel);
         step = stepRepository.saveAndFlush(step);
         return readService.retrieveOne(step.getId());
+    }
+
+    /**
+     * Merges cancelled_by (userId, username) and cancelled_at (ISO datetime) into the step's references JSON.
+     */
+    private String appendCancelledToReferences(String existingReferences, AppUser cancelledBy, OffsetDateTime cancelledAt) {
+        JsonObject refs;
+        if (StringUtils.isNotBlank(existingReferences)) {
+            try {
+                refs = fromJsonHelper.parse(existingReferences).getAsJsonObject().deepCopy();
+            } catch (Exception e) {
+                refs = new JsonObject();
+            }
+        } else {
+            refs = new JsonObject();
+        }
+        JsonObject cancelledByObj = new JsonObject();
+        if (cancelledBy != null) {
+            if (cancelledBy.getId() != null) {
+                cancelledByObj.addProperty("userId", cancelledBy.getId());
+            }
+            if (cancelledBy.getUsername() != null) {
+                cancelledByObj.addProperty("username", cancelledBy.getUsername().trim());
+            }
+        }
+        refs.add("cancelled_by", cancelledByObj);
+        refs.addProperty("cancelled_at", cancelledAt != null ? cancelledAt.toString() : null);
+        return fromJsonHelper.toJson(refs);
     }
 
     @Transactional

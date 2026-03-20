@@ -98,6 +98,10 @@ public class Cashier extends AbstractPersistableCustom<Long> {
     @Column(name = "expected_closing_balance", scale = 6, precision = 19, nullable = true)
     private BigDecimal expectedClosingBalance;
 
+    /** App user who opened this cashier session; used to filter active session by current user. */
+    @Column(name = "opened_by_user_id", nullable = true)
+    private Long openedByUserId;
+
     public static Cashier fromJson(final Office cashierOffice, final Teller teller, final Staff staff, final String startTime,
             final String endTime, final JsonCommand command) {
         final String description = command.stringValueOfParameterNamed("description");

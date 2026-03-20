@@ -16,34 +16,32 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.fineract.organisation.teller.domain.model.request;
+package org.apache.fineract.portfolio.loanaccount.data;
 
 import java.io.Serial;
 import java.io.Serializable;
 import java.math.BigDecimal;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
-@Data
-@NoArgsConstructor
-public class CashierRequest implements Serializable {
+@AllArgsConstructor
+@Getter
+public final class RepaymentScheduledItemData implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
-    private String description;
-    private Boolean isFullDay;
-    private Long staffId;
-    private String dateFormat;
-    private String startDate;
-    private String endDate;
-    private String locale;
-    private String hourStartTime;
-    private String minStartTime;
-    private String hourEndTime;
-    private String minEndTime;
-    private BigDecimal openingBalance;
-    private BigDecimal closingBalance;
-    private BigDecimal expectedClosingBalance;
-    private String closingNote;
+    /** Loan account id (m_loan.id). */
+    private final Long id;
+
+    private final Long clientId;
+
+    private final String clientName;
+
+    /** Amount scheduled to be repaid on the selected due date (principal + interest + fees + penalties). */
+    private final BigDecimal amountToBeRepaid;
+
+    /** "Completado" | "Pendiente". */
+    private final String status;
 }
+

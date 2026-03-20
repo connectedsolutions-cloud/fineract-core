@@ -85,6 +85,29 @@ public class PendingStepReadPlatformServiceImpl implements PendingStepReadPlatfo
     }
 
     @Override
+    public List<PendingStepData> retrieveStepsOnMyFlowsAssignedToOthers(Long userId, List<String> statuses, Long officeId) {
+        context.authenticatedUser();
+        List<String> statusList = statuses != null && !statuses.isEmpty() ? statuses : List.of("open", "pending");
+        List<PendingStep> steps = officeId != null
+                ? repository.findByPendingFlowCreatorIdAndAssignedToOthersAndStatusInAndOfficeIdOrderByCreationDateDesc(userId,
+                        statusList, officeId)
+                : repository.findByPendingFlowCreatorIdAndAssignedToOthersAndStatusInOrderByCreationDateDesc(userId, statusList);
+        return steps.stream().map(this::mapToData).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<PendingStepData> retrieveCompletedStepsOnMyFlowsAssignedToOthers(Long userId, Long officeId) {
+        context.authenticatedUser();
+        List<PendingStep> steps = officeId != null
+                ? repository
+                        .findByPendingFlowCreatorIdAndAssignedToOthersAndStatusInAndOfficeIdOrderByCompletionDateDesc(userId,
+                                COMPLETED_STATUSES, officeId)
+                : repository.findByPendingFlowCreatorIdAndAssignedToOthersAndStatusInOrderByCompletionDateDesc(userId,
+                        COMPLETED_STATUSES);
+        return steps.stream().map(this::mapToData).collect(Collectors.toList());
+    }
+
+    @Override
     public PendingStepData retrieveOne(Long id) {
         context.authenticatedUser();
         PendingStep step = repository.findById(id).orElseThrow(() -> new PendingStepNotFoundException(id));

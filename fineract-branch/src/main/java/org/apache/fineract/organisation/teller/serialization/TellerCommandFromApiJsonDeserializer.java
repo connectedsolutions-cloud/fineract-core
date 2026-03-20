@@ -72,6 +72,7 @@ public final class TellerCommandFromApiJsonDeserializer {
     public static final String CLOSING_BALANCE = "closingBalance";
     public static final String EXPECTED_CLOSING_BALANCE = "expectedClosingBalance";
     public static final String MAX_TELLER_CASH_AMOUNT = "maxTellerCashAmount";
+    public static final String CLOSING_NOTE = "closingNote";
     private static final String START_TIME = "startTime";
     /**
      * The parameters supported for this command.
@@ -79,7 +80,7 @@ public final class TellerCommandFromApiJsonDeserializer {
     private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList(OFFICE_ID, NAME, DESCRIPTION, START_DATE, END_DATE,
             STATUS, DATE_FORMAT, LOCALE, IS_FULL_DAY, STAFF_ID, HOUR_START_TIME, MIN_START_TIME, HOUR_END_TIME, MIN_END_TIME, TXN_AMOUNT,
             TXN_DATE, TXN_NOTE, ENTITY_TYPE, ENTITY_ID, CURRENCY_CODE, OPENING_BALANCE, CLOSING_BALANCE, EXPECTED_CLOSING_BALANCE,
-            MAX_TELLER_CASH_AMOUNT));
+            MAX_TELLER_CASH_AMOUNT, CLOSING_NOTE));
     private final FromJsonHelper fromApiJsonHelper;
 
     @Autowired
