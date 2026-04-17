@@ -267,4 +267,5 @@
     <include file="parts/0245_add_teller_vault_transfer_blueprint.xml" relativeToChangelogFile="true" />
     <include file="parts/0246_add_opened_by_user_id_to_m_cashiers.xml" relativeToChangelogFile="true" />
     <include file="parts/0247_add_requerir_fondos_caja_boveda_blueprint.xml" relativeToChangelogFile="true" />
+    <include file="parts/0248_credesal_client_kyc_datatables.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>
