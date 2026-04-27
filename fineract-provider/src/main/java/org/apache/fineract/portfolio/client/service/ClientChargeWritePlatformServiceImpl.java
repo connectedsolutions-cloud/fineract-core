@@ -56,6 +56,7 @@ import org.apache.fineract.portfolio.client.domain.ClientChargeRepositoryWrapper
 import org.apache.fineract.portfolio.client.domain.ClientRepositoryWrapper;
 import org.apache.fineract.portfolio.client.domain.ClientTransaction;
 import org.apache.fineract.portfolio.client.domain.ClientTransactionRepository;
+import org.apache.fineract.portfolio.invoice.service.InvoiceService;
 import org.apache.fineract.portfolio.paymentdetail.domain.PaymentDetail;
 import org.apache.fineract.portfolio.paymentdetail.service.PaymentDetailWritePlatformService;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -78,6 +79,7 @@ public class ClientChargeWritePlatformServiceImpl implements ClientChargeWritePl
     private final ClientTransactionRepository clientTransactionRepository;
     private final PaymentDetailWritePlatformService paymentDetailWritePlatformService;
     private final JournalEntryWritePlatformService journalEntryWritePlatformService;
+    private final InvoiceService invoiceService;
 
     @Override
     public CommandProcessingResult addCharge(Long clientId, JsonCommand command) {
@@ -159,6 +161,7 @@ public class ClientChargeWritePlatformServiceImpl implements ClientChargeWritePl
                 clientTransaction.setCashierId(command.longValueOfParameterNamed("cashierId"));
             }
             this.clientTransactionRepository.saveAndFlush(clientTransaction);
+            invoiceService.createDraftForClientTransactionIfMissing(clientTransaction.getId());
 
             // update charge paid by associations
             final ClientChargePaidBy chargePaidBy = ClientChargePaidBy.instance(clientTransaction, clientCharge, amountPaid);

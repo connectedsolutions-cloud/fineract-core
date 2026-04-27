@@ -141,7 +141,7 @@ public class AuthorizationServerConfig {
     }
 
     @Bean
-    @Order(3)
+    @Order(200)
     public SecurityFilterChain protectedEndpoints(HttpSecurity http) throws Exception {
         http
                 // .securityMatcher(new AntPathRequestMatcher("/api/**"))

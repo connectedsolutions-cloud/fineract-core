@@ -71,6 +71,18 @@ public class Office extends AbstractPersistableCustom<Long> implements Serializa
     @Column(name = "external_id", length = 100, unique = true)
     private ExternalId externalId;
 
+    @Column(name = "mh_nit", length = 20)
+    private String mhNit;
+
+    @Column(name = "mh_password_pri", length = 500)
+    private String mhPasswordPri;
+
+    @Column(name = "mh_firma_secret", length = 255)
+    private String mhFirmaSecret;
+
+    @Column(name = "mh_signing_api_key", length = 255)
+    private String mhSigningApiKey;
+
     public static Office headOffice(final String name, final LocalDate openingDate, final ExternalId externalId) {
         return new Office(null, name, openingDate, externalId);
     }

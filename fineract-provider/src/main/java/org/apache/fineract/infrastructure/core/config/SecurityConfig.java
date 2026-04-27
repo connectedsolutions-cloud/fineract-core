@@ -55,6 +55,7 @@ import org.springframework.boot.autoconfigure.web.ServerProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
@@ -116,6 +117,7 @@ public class SecurityConfig {
     private IdempotencyStoreHelper idempotencyStoreHelper;
 
     @Bean
+    @Order(100)
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http //
                 .securityMatcher(antMatcher("/api/**")).authorizeHttpRequests((auth) -> {

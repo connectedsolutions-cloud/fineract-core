@@ -39,6 +39,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.accounting.journalentry.data.TaxPaymentDTO;
 import org.apache.fineract.accounting.journalentry.service.AccountingProcessorHelper;
+import org.apache.fineract.portfolio.invoice.service.InvoiceService;
 import org.apache.fineract.portfolio.tax.domain.TaxComponent;
 import org.apache.fineract.portfolio.tax.service.TaxUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -76,6 +77,7 @@ public class LoanDisbursementService {
     private final LoanJournalEntryPoster loanJournalEntryPoster;
     private final LoanTransactionRepository loanTransactionRepository;
     private final AccountingProcessorHelper accountingProcessorHelper;
+    private final InvoiceService invoiceService;
 
     public void updateDisbursementDetails(final Loan loan, final JsonCommand jsonCommand, final Map<String, Object> actualChanges) {
         final List<Long> disbursementList = loan.fetchDisbursementIds();
@@ -302,6 +304,7 @@ public class LoanDisbursementService {
                         loan.getLoanProduct().getId(), loan.getId(), paymentTypeId, transactionId, disbursedOn, taxPayments,
                         loan.getDimensions());
             }
+            invoiceService.createDraftForLoanTransactionIfMissing(chargesPayment.getId());
             loanBalanceService.updateLoanOutstandingBalances(loan);
         }
 

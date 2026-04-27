@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0254-1-mysql" author="fineract" context="mysql">
+        <addColumn tableName="m_invoice">
+            <column name="mh_job_id" type="VARCHAR(100)"/>
+            <column name="mh_transmission_id" type="VARCHAR(100)"/>
+            <column name="mh_transmission_status" type="VARCHAR(80)"/>
+            <column name="mh_documento_jws" type="LONGTEXT"/>
+            <column name="mh_recepcion_json" type="LONGTEXT"/>
+            <column name="mh_last_error" type="TEXT"/>
+            <column name="mh_validation_status" type="VARCHAR(40)"/>
+            <column name="mh_submitted_at" type="DATETIME(6)"/>
+            <column name="mh_processed_at" type="DATETIME(6)"/>
+            <column name="mh_callback_received_at" type="DATETIME(6)"/>
+        </addColumn>
+        <createIndex indexName="idx_invoice_mh_job_id" tableName="m_invoice">
+            <column name="mh_job_id"/>
+        </createIndex>
+        <createIndex indexName="idx_invoice_mh_validation_status" tableName="m_invoice">
+            <column name="mh_validation_status"/>
+        </createIndex>
+        <addUniqueConstraint tableName="m_invoice" columnNames="mh_job_id" constraintName="uk_invoice_mh_job_id"/>
+    </changeSet>
+
+    <changeSet id="0254-1-postgresql" author="fineract" context="postgresql">
+        <addColumn tableName="m_invoice">
+            <column name="mh_job_id" type="VARCHAR(100)"/>
+            <column name="mh_transmission_id" type="VARCHAR(100)"/>
+            <column name="mh_transmission_status" type="VARCHAR(80)"/>
+            <column name="mh_documento_jws" type="TEXT"/>
+            <column name="mh_recepcion_json" type="TEXT"/>
+            <column name="mh_last_error" type="TEXT"/>
+            <column name="mh_validation_status" type="VARCHAR(40)"/>
+            <column name="mh_submitted_at" type="TIMESTAMP(6)"/>
+            <column name="mh_processed_at" type="TIMESTAMP(6)"/>
+            <column name="mh_callback_received_at" type="TIMESTAMP(6)"/>
+        </addColumn>
+        <createIndex indexName="idx_invoice_mh_job_id" tableName="m_invoice">
+            <column name="mh_job_id"/>
+        </createIndex>
+        <createIndex indexName="idx_invoice_mh_validation_status" tableName="m_invoice">
+            <column name="mh_validation_status"/>
+        </createIndex>
+        <addUniqueConstraint tableName="m_invoice" columnNames="mh_job_id" constraintName="uk_invoice_mh_job_id"/>
+    </changeSet>
+
+    <changeSet id="0254-2" author="fineract">
+        <createTable tableName="m_mh_company_config">
+            <column name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="nit" type="VARCHAR(20)"/>
+            <column name="password_pri" type="VARCHAR(500)"/>
+            <column name="firma_secret" type="VARCHAR(255)"/>
+            <column name="signing_api_key" type="VARCHAR(255)"/>
+        </createTable>
+        <insert tableName="m_mh_company_config">
+            <column name="id" valueNumeric="1"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0254-3" author="fineract">
+        <addColumn tableName="m_office">
+            <column name="mh_nit" type="VARCHAR(20)"/>
+            <column name="mh_password_pri" type="VARCHAR(500)"/>
+            <column name="mh_firma_secret" type="VARCHAR(255)"/>
+            <column name="mh_signing_api_key" type="VARCHAR(255)"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

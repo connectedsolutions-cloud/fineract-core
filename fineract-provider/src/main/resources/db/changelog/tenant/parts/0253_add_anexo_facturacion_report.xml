@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0253-1" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report WHERE report_name = 'anexo facturacion'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="stretchy_report">
+            <column name="report_name" value="anexo facturacion"/>
+            <column name="report_type" value="Table"/>
+            <column name="report_subtype"/>
+            <column name="report_category" value="Regulatory"/>
+            <column name="report_sql"
+                    value="SELECT i.fec_emi AS fh_emision, 4 AS clase_documento, i.tipo_dte AS tipo_documento, NULL AS numero_resolucion, NULL AS numero_serie, NULL AS numero_control_interno_del, MAX(i.codigo_generacion) AS numero_documento_al, MIN(i.codigo_generacion) AS numero_documento_del, NULL AS numero_documento_del_1, NULL AS numero_documento_al_1, NULL AS numero_registradora, SUM(COALESCE(s.total_exenta, 0)) AS ventas_exentas, 0.0 AS ventas_internas_nosuj, SUM(COALESCE(s.total_no_suj, 0)) AS ventas_no_sujetas, SUM(COALESCE(s.total_gravada, 0)) AS ventas_gravadas_locales, 0.0 AS exportacion_dentro_centroamerica, 0.0 AS exportacion_afuera_centroamerica, 0.0 AS exportaciones_servicios, 0.0 AS venta_zona_franca, SUM(COALESCE(s.total_exenta, 0) + COALESCE(s.total_no_suj, 0) + COALESCE(s.total_gravada, 0)) AS total_ventas, COALESCE(i.tipo_operacion, 4) AS tipo_operacion, 2 AS tipo_ingreso, 2 AS anexo FROM m_invoice i LEFT JOIN m_invoice_summary s ON s.invoice_id = i.id LEFT JOIN m_loan_transaction lt ON lt.id = i.loan_transaction_id LEFT JOIN m_savings_account_transaction sat ON sat.id = i.savings_transaction_id LEFT JOIN m_client_transaction ct ON ct.id = i.client_transaction_id WHERE i.status IN ('SUBMITTED', 'ACCEPTED') AND i.fec_emi &gt;= '${startDate}' AND i.fec_emi &lt;= '${endDate}' AND (${officeId} = -1 OR COALESCE(lt.office_id, sat.office_id, ct.office_id) = ${officeId}) GROUP BY i.fec_emi, i.tipo_dte, COALESCE(i.tipo_operacion, 4) ORDER BY i.fec_emi, i.tipo_dte"/>
+            <column name="description" value="Anexo Facturacion mensual agrupado por dia para DTE"/>
+            <column name="core_report" valueBoolean="false"/>
+            <column name="use_report" valueBoolean="true"/>
+            <column name="self_service_user_report" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0253-2" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report_parameter srp
+                JOIN stretchy_report sr ON sr.id = srp.report_id
+                WHERE sr.report_name = 'anexo facturacion'
+                  AND srp.parameter_id = 1
+                  AND srp.report_parameter_name = 'startDate'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+            VALUES ((SELECT id FROM stretchy_report WHERE report_name = 'anexo facturacion'), 1, 'startDate');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0253-3" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report_parameter srp
+                JOIN stretchy_report sr ON sr.id = srp.report_id
+                WHERE sr.report_name = 'anexo facturacion'
+                  AND srp.parameter_id = 2
+                  AND srp.report_parameter_name = 'endDate'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+            VALUES ((SELECT id FROM stretchy_report WHERE report_name = 'anexo facturacion'), 2, 'endDate');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0253-4" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report_parameter srp
+                JOIN stretchy_report sr ON sr.id = srp.report_id
+                WHERE sr.report_name = 'anexo facturacion'
+                  AND srp.parameter_id = 5
+                  AND srp.report_parameter_name = 'officeId'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+            VALUES ((SELECT id FROM stretchy_report WHERE report_name = 'anexo facturacion'), 5, 'officeId');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0253-5" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'READ_anexo facturacion'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="report"/>
+            <column name="code" value="READ_anexo facturacion"/>
+            <column name="entity_name" value="anexo facturacion"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

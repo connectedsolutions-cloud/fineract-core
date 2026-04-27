@@ -1,0 +1,668 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <!-- credesal_client_ingresos_egresos_mensuales (MySQL) -->
+    <changeSet id="0251-1-mysql" author="credesal" context="mysql">
+        <createTable tableName="credesal_client_ingresos_egresos_mensuales">
+            <column name="client_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="actividad_economica_1" type="VARCHAR(255)"/>
+            <column name="actividad_monto_1" type="DECIMAL(19,6)"/>
+            <column name="actividad_economica_2" type="VARCHAR(255)"/>
+            <column name="actividad_monto_2" type="DECIMAL(19,6)"/>
+            <column name="actividad_economica_3" type="VARCHAR(255)"/>
+            <column name="actividad_monto_3" type="DECIMAL(19,6)"/>
+            <column name="otra_fuente_ingresos" type="VARCHAR(255)"/>
+            <column name="otra_fuente_monto" type="DECIMAL(19,6)"/>
+            <column name="total_ingreso_mensual" type="DECIMAL(19,6)"/>
+            <column name="egreso_mensual_gastos_vida" type="DECIMAL(19,6)"/>
+            <column name="egreso_mensual_por_deuda" type="DECIMAL(19,6)"/>
+            <column name="total_egreso_mensual" type="DECIMAL(19,6)"/>
+            <column name="total_deuda" type="DECIMAL(19,6)"/>
+            <column name="total_bienes" type="DECIMAL(19,6)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_client_ingresos_egresos_mensuales" baseColumnNames="client_id"
+                                 constraintName="FK_credesal_ingresos_egresos_client"
+                                 referencedTableName="m_client" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <!-- credesal_client_ingresos_egresos_mensuales (PostgreSQL) -->
+    <changeSet id="0251-1-postgresql" author="credesal" context="postgresql">
+        <createTable tableName="credesal_client_ingresos_egresos_mensuales">
+            <column name="client_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="actividad_economica_1" type="VARCHAR(255)"/>
+            <column name="actividad_monto_1" type="DECIMAL(19,6)"/>
+            <column name="actividad_economica_2" type="VARCHAR(255)"/>
+            <column name="actividad_monto_2" type="DECIMAL(19,6)"/>
+            <column name="actividad_economica_3" type="VARCHAR(255)"/>
+            <column name="actividad_monto_3" type="DECIMAL(19,6)"/>
+            <column name="otra_fuente_ingresos" type="VARCHAR(255)"/>
+            <column name="otra_fuente_monto" type="DECIMAL(19,6)"/>
+            <column name="total_ingreso_mensual" type="DECIMAL(19,6)"/>
+            <column name="egreso_mensual_gastos_vida" type="DECIMAL(19,6)"/>
+            <column name="egreso_mensual_por_deuda" type="DECIMAL(19,6)"/>
+            <column name="total_egreso_mensual" type="DECIMAL(19,6)"/>
+            <column name="total_deuda" type="DECIMAL(19,6)"/>
+            <column name="total_bienes" type="DECIMAL(19,6)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_client_ingresos_egresos_mensuales" baseColumnNames="client_id"
+                                 constraintName="FK_credesal_ingresos_egresos_client"
+                                 referencedTableName="m_client" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <!-- credesal_client_remesas (MySQL) -->
+    <changeSet id="0251-2-mysql" author="credesal" context="mysql">
+        <createTable tableName="credesal_client_remesas">
+            <column name="client_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="recibe_remesa_familiar" type="boolean"/>
+            <column name="persona_envia" type="VARCHAR(255)"/>
+            <column name="actividad_economica_persona_envia" type="VARCHAR(255)"/>
+            <column name="pais_residencia" type="VARCHAR(150)"/>
+            <column name="tiempo_residencia_anos" type="INT"/>
+            <column name="parentesco" type="VARCHAR(150)"/>
+            <column name="promedio_mensual" type="DECIMAL(19,6)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_client_remesas" baseColumnNames="client_id"
+                                 constraintName="FK_credesal_remesas_client"
+                                 referencedTableName="m_client" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <!-- credesal_client_remesas (PostgreSQL) -->
+    <changeSet id="0251-2-postgresql" author="credesal" context="postgresql">
+        <createTable tableName="credesal_client_remesas">
+            <column name="client_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="recibe_remesa_familiar" type="boolean"/>
+            <column name="persona_envia" type="VARCHAR(255)"/>
+            <column name="actividad_economica_persona_envia" type="VARCHAR(255)"/>
+            <column name="pais_residencia" type="VARCHAR(150)"/>
+            <column name="tiempo_residencia_anos" type="INT"/>
+            <column name="parentesco" type="VARCHAR(150)"/>
+            <column name="promedio_mensual" type="DECIMAL(19,6)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_client_remesas" baseColumnNames="client_id"
+                                 constraintName="FK_credesal_remesas_client"
+                                 referencedTableName="m_client" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <!-- credesal_client_informacion_complementaria (MySQL) -->
+    <changeSet id="0251-3-mysql" author="credesal" context="mysql">
+        <createTable tableName="credesal_client_informacion_complementaria">
+            <column name="client_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="tipo_vivienda" type="VARCHAR(150)"/>
+            <column name="cantidad_dependientes" type="INT"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_client_informacion_complementaria" baseColumnNames="client_id"
+                                 constraintName="FK_credesal_info_complementaria_client"
+                                 referencedTableName="m_client" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <!-- credesal_client_informacion_complementaria (PostgreSQL) -->
+    <changeSet id="0251-3-postgresql" author="credesal" context="postgresql">
+        <createTable tableName="credesal_client_informacion_complementaria">
+            <column name="client_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="tipo_vivienda" type="VARCHAR(150)"/>
+            <column name="cantidad_dependientes" type="INT"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_client_informacion_complementaria" baseColumnNames="client_id"
+                                 constraintName="FK_credesal_info_complementaria_client"
+                                 referencedTableName="m_client" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <!-- credesal_client_actividad_mensual (MySQL) -->
+    <changeSet id="0251-4-mysql" author="credesal" context="mysql">
+        <createTable tableName="credesal_client_actividad_mensual">
+            <column name="client_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="promedio_aportaciones" type="DECIMAL(19,6)"/>
+            <column name="periodicidad_aportacion" type="VARCHAR(100)"/>
+            <column name="promedio_depositos" type="DECIMAL(19,6)"/>
+            <column name="periodicidad_deposito" type="VARCHAR(100)"/>
+            <column name="promedio_pago_prestamos" type="DECIMAL(19,6)"/>
+            <column name="periodicidad_prestamo" type="VARCHAR(100)"/>
+            <column name="promedio_retiros" type="DECIMAL(19,6)"/>
+            <column name="periodicidad_retiro" type="VARCHAR(100)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_client_actividad_mensual" baseColumnNames="client_id"
+                                 constraintName="FK_credesal_actividad_mensual_client"
+                                 referencedTableName="m_client" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <!-- credesal_client_actividad_mensual (PostgreSQL) -->
+    <changeSet id="0251-4-postgresql" author="credesal" context="postgresql">
+        <createTable tableName="credesal_client_actividad_mensual">
+            <column name="client_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="promedio_aportaciones" type="DECIMAL(19,6)"/>
+            <column name="periodicidad_aportacion" type="VARCHAR(100)"/>
+            <column name="promedio_depositos" type="DECIMAL(19,6)"/>
+            <column name="periodicidad_deposito" type="VARCHAR(100)"/>
+            <column name="promedio_pago_prestamos" type="DECIMAL(19,6)"/>
+            <column name="periodicidad_prestamo" type="VARCHAR(100)"/>
+            <column name="promedio_retiros" type="DECIMAL(19,6)"/>
+            <column name="periodicidad_retiro" type="VARCHAR(100)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_client_actividad_mensual" baseColumnNames="client_id"
+                                 constraintName="FK_credesal_actividad_mensual_client"
+                                 referencedTableName="m_client" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <!-- credesal_client_informacion_laboral (MySQL) -->
+    <changeSet id="0251-5-mysql" author="credesal" context="mysql">
+        <createTable tableName="credesal_client_informacion_laboral">
+            <column name="client_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="actividad_laboral" type="VARCHAR(255)"/>
+            <column name="cargo" type="VARCHAR(150)"/>
+            <column name="pais" type="VARCHAR(150)"/>
+            <column name="departamento" type="VARCHAR(150)"/>
+            <column name="municipio" type="VARCHAR(150)"/>
+            <column name="direccion_trabajo" type="TEXT"/>
+            <column name="anos_laborando" type="INT"/>
+            <column name="jubilado" type="boolean"/>
+            <column name="fecha_jubilacion" type="DATE"/>
+            <column name="fecha_ingreso" type="DATE"/>
+            <column name="telefono" type="VARCHAR(50)"/>
+            <column name="jefe_inmediato" type="VARCHAR(255)"/>
+            <column name="cotiza_isss" type="boolean"/>
+            <column name="cotiza_afp" type="boolean"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_client_informacion_laboral" baseColumnNames="client_id"
+                                 constraintName="FK_credesal_info_laboral_client"
+                                 referencedTableName="m_client" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <!-- credesal_client_informacion_laboral (PostgreSQL) -->
+    <changeSet id="0251-5-postgresql" author="credesal" context="postgresql">
+        <createTable tableName="credesal_client_informacion_laboral">
+            <column name="client_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="actividad_laboral" type="VARCHAR(255)"/>
+            <column name="cargo" type="VARCHAR(150)"/>
+            <column name="pais" type="VARCHAR(150)"/>
+            <column name="departamento" type="VARCHAR(150)"/>
+            <column name="municipio" type="VARCHAR(150)"/>
+            <column name="direccion_trabajo" type="TEXT"/>
+            <column name="anos_laborando" type="INT"/>
+            <column name="jubilado" type="boolean"/>
+            <column name="fecha_jubilacion" type="DATE"/>
+            <column name="fecha_ingreso" type="DATE"/>
+            <column name="telefono" type="VARCHAR(50)"/>
+            <column name="jefe_inmediato" type="VARCHAR(255)"/>
+            <column name="cotiza_isss" type="boolean"/>
+            <column name="cotiza_afp" type="boolean"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_client_informacion_laboral" baseColumnNames="client_id"
+                                 constraintName="FK_credesal_info_laboral_client"
+                                 referencedTableName="m_client" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <!-- Register datatables -->
+    <changeSet id="0251-6" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM x_registered_table WHERE registered_table_name = 'credesal_client_ingresos_egresos_mensuales'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="x_registered_table">
+            <column name="registered_table_name" value="credesal_client_ingresos_egresos_mensuales"/>
+            <column name="application_table_name" value="m_client"/>
+            <column name="entity_subtype" value="Person"/>
+            <column name="category" valueNumeric="100"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-7" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM x_registered_table WHERE registered_table_name = 'credesal_client_remesas'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="x_registered_table">
+            <column name="registered_table_name" value="credesal_client_remesas"/>
+            <column name="application_table_name" value="m_client"/>
+            <column name="entity_subtype" value="Person"/>
+            <column name="category" valueNumeric="100"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-8" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM x_registered_table WHERE registered_table_name = 'credesal_client_informacion_complementaria'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="x_registered_table">
+            <column name="registered_table_name" value="credesal_client_informacion_complementaria"/>
+            <column name="application_table_name" value="m_client"/>
+            <column name="entity_subtype" value="Person"/>
+            <column name="category" valueNumeric="100"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-9" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM x_registered_table WHERE registered_table_name = 'credesal_client_actividad_mensual'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="x_registered_table">
+            <column name="registered_table_name" value="credesal_client_actividad_mensual"/>
+            <column name="application_table_name" value="m_client"/>
+            <column name="entity_subtype" value="Person"/>
+            <column name="category" valueNumeric="100"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-10" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM x_registered_table WHERE registered_table_name = 'credesal_client_informacion_laboral'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="x_registered_table">
+            <column name="registered_table_name" value="credesal_client_informacion_laboral"/>
+            <column name="application_table_name" value="m_client"/>
+            <column name="entity_subtype" value="Person"/>
+            <column name="category" valueNumeric="100"/>
+        </insert>
+    </changeSet>
+
+    <!-- Entity-datatable checks: require on CREATE (status_enum 100) -->
+    <changeSet id="0251-11" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_entity_datatable_check
+                WHERE application_table_name = 'm_client' AND x_registered_table_name = 'credesal_client_ingresos_egresos_mensuales' AND status_enum = 100
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_entity_datatable_check">
+            <column name="application_table_name" value="m_client"/>
+            <column name="x_registered_table_name" value="credesal_client_ingresos_egresos_mensuales"/>
+            <column name="status_enum" valueNumeric="100"/>
+            <column name="system_defined" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-12" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_entity_datatable_check
+                WHERE application_table_name = 'm_client' AND x_registered_table_name = 'credesal_client_remesas' AND status_enum = 100
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_entity_datatable_check">
+            <column name="application_table_name" value="m_client"/>
+            <column name="x_registered_table_name" value="credesal_client_remesas"/>
+            <column name="status_enum" valueNumeric="100"/>
+            <column name="system_defined" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-13" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_entity_datatable_check
+                WHERE application_table_name = 'm_client' AND x_registered_table_name = 'credesal_client_informacion_complementaria' AND status_enum = 100
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_entity_datatable_check">
+            <column name="application_table_name" value="m_client"/>
+            <column name="x_registered_table_name" value="credesal_client_informacion_complementaria"/>
+            <column name="status_enum" valueNumeric="100"/>
+            <column name="system_defined" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-14" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_entity_datatable_check
+                WHERE application_table_name = 'm_client' AND x_registered_table_name = 'credesal_client_actividad_mensual' AND status_enum = 100
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_entity_datatable_check">
+            <column name="application_table_name" value="m_client"/>
+            <column name="x_registered_table_name" value="credesal_client_actividad_mensual"/>
+            <column name="status_enum" valueNumeric="100"/>
+            <column name="system_defined" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-15" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_entity_datatable_check
+                WHERE application_table_name = 'm_client' AND x_registered_table_name = 'credesal_client_informacion_laboral' AND status_enum = 100
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_entity_datatable_check">
+            <column name="application_table_name" value="m_client"/>
+            <column name="x_registered_table_name" value="credesal_client_informacion_laboral"/>
+            <column name="status_enum" valueNumeric="100"/>
+            <column name="system_defined" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <!-- Datatable permissions -->
+    <changeSet id="0251-16a" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'CREATE_credesal_client_ingresos_egresos_mensuales'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="CREATE_credesal_client_ingresos_egresos_mensuales"/>
+            <column name="entity_name" value="credesal_client_ingresos_egresos_mensuales"/>
+            <column name="action_name" value="CREATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-16b" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'READ_credesal_client_ingresos_egresos_mensuales'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="READ_credesal_client_ingresos_egresos_mensuales"/>
+            <column name="entity_name" value="credesal_client_ingresos_egresos_mensuales"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-16c" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'UPDATE_credesal_client_ingresos_egresos_mensuales'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="UPDATE_credesal_client_ingresos_egresos_mensuales"/>
+            <column name="entity_name" value="credesal_client_ingresos_egresos_mensuales"/>
+            <column name="action_name" value="UPDATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-16d" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'DELETE_credesal_client_ingresos_egresos_mensuales'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="DELETE_credesal_client_ingresos_egresos_mensuales"/>
+            <column name="entity_name" value="credesal_client_ingresos_egresos_mensuales"/>
+            <column name="action_name" value="DELETE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0251-17a" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'CREATE_credesal_client_remesas'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="CREATE_credesal_client_remesas"/>
+            <column name="entity_name" value="credesal_client_remesas"/>
+            <column name="action_name" value="CREATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-17b" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'READ_credesal_client_remesas'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="READ_credesal_client_remesas"/>
+            <column name="entity_name" value="credesal_client_remesas"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-17c" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'UPDATE_credesal_client_remesas'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="UPDATE_credesal_client_remesas"/>
+            <column name="entity_name" value="credesal_client_remesas"/>
+            <column name="action_name" value="UPDATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-17d" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'DELETE_credesal_client_remesas'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="DELETE_credesal_client_remesas"/>
+            <column name="entity_name" value="credesal_client_remesas"/>
+            <column name="action_name" value="DELETE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0251-18a" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'CREATE_credesal_client_informacion_complementaria'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="CREATE_credesal_client_informacion_complementaria"/>
+            <column name="entity_name" value="credesal_client_informacion_complementaria"/>
+            <column name="action_name" value="CREATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-18b" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'READ_credesal_client_informacion_complementaria'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="READ_credesal_client_informacion_complementaria"/>
+            <column name="entity_name" value="credesal_client_informacion_complementaria"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-18c" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'UPDATE_credesal_client_informacion_complementaria'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="UPDATE_credesal_client_informacion_complementaria"/>
+            <column name="entity_name" value="credesal_client_informacion_complementaria"/>
+            <column name="action_name" value="UPDATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-18d" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'DELETE_credesal_client_informacion_complementaria'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="DELETE_credesal_client_informacion_complementaria"/>
+            <column name="entity_name" value="credesal_client_informacion_complementaria"/>
+            <column name="action_name" value="DELETE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0251-19a" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'CREATE_credesal_client_actividad_mensual'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="CREATE_credesal_client_actividad_mensual"/>
+            <column name="entity_name" value="credesal_client_actividad_mensual"/>
+            <column name="action_name" value="CREATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-19b" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'READ_credesal_client_actividad_mensual'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="READ_credesal_client_actividad_mensual"/>
+            <column name="entity_name" value="credesal_client_actividad_mensual"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-19c" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'UPDATE_credesal_client_actividad_mensual'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="UPDATE_credesal_client_actividad_mensual"/>
+            <column name="entity_name" value="credesal_client_actividad_mensual"/>
+            <column name="action_name" value="UPDATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-19d" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'DELETE_credesal_client_actividad_mensual'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="DELETE_credesal_client_actividad_mensual"/>
+            <column name="entity_name" value="credesal_client_actividad_mensual"/>
+            <column name="action_name" value="DELETE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0251-20a" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'CREATE_credesal_client_informacion_laboral'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="CREATE_credesal_client_informacion_laboral"/>
+            <column name="entity_name" value="credesal_client_informacion_laboral"/>
+            <column name="action_name" value="CREATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-20b" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'READ_credesal_client_informacion_laboral'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="READ_credesal_client_informacion_laboral"/>
+            <column name="entity_name" value="credesal_client_informacion_laboral"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-20c" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'UPDATE_credesal_client_informacion_laboral'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="UPDATE_credesal_client_informacion_laboral"/>
+            <column name="entity_name" value="credesal_client_informacion_laboral"/>
+            <column name="action_name" value="UPDATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0251-20d" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'DELETE_credesal_client_informacion_laboral'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="datatable"/>
+            <column name="code" value="DELETE_credesal_client_informacion_laboral"/>
+            <column name="entity_name" value="credesal_client_informacion_laboral"/>
+            <column name="action_name" value="DELETE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

@@ -67,6 +67,7 @@ import org.apache.fineract.portfolio.interestpauses.service.InterestPauseReadPla
 import org.apache.fineract.portfolio.interestpauses.service.InterestPauseReadPlatformServiceImpl;
 import org.apache.fineract.portfolio.interestpauses.service.InterestPauseWritePlatformService;
 import org.apache.fineract.portfolio.interestpauses.service.InterestPauseWritePlatformServiceImpl;
+import org.apache.fineract.portfolio.invoice.service.InvoiceService;
 import org.apache.fineract.portfolio.loanaccount.domain.GLIMAccountInfoRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanAccountDomainService;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanAccountService;
@@ -508,9 +509,10 @@ public class LoanAccountConfiguration {
     public LoanDisbursementService loanDisbursementService(LoanChargeValidator loanChargeValidator,
             LoanDisbursementValidator loanDisbursementValidator, LoanChargeService loanChargeService, LoanBalanceService loanBalanceService,
             LoanJournalEntryPoster journalEntryPoster, LoanTransactionRepository loanTransactionRepository,
-            org.apache.fineract.accounting.journalentry.service.AccountingProcessorHelper accountingProcessorHelper) {
+            org.apache.fineract.accounting.journalentry.service.AccountingProcessorHelper accountingProcessorHelper,
+            InvoiceService invoiceService) {
         return new LoanDisbursementService(loanChargeValidator, loanDisbursementValidator, loanChargeService, loanBalanceService,
-                journalEntryPoster, loanTransactionRepository, accountingProcessorHelper);
+                journalEntryPoster, loanTransactionRepository, accountingProcessorHelper, invoiceService);
     }
 
     @Bean

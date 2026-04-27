@@ -1,0 +1,448 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0252-1-mysql" author="fineract" context="mysql">
+        <createTable tableName="m_invoice">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="status" type="VARCHAR(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="loan_transaction_id" type="BIGINT"/>
+            <column name="savings_transaction_id" type="BIGINT"/>
+            <column name="client_transaction_id" type="BIGINT"/>
+            <column name="version" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ambiente" type="VARCHAR(2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tipo_dte" type="VARCHAR(4)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="numero_control" type="VARCHAR(31)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="codigo_generacion" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tipo_modelo" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tipo_operacion" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="fec_emi" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="hor_emi" type="TIME">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tipo_moneda" type="VARCHAR(3)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tipo_contingencia" type="INT"/>
+            <column name="motivo_contin" type="VARCHAR(255)"/>
+            <column name="firma_electronica" type="LONGTEXT"/>
+            <column name="sello_recibido" type="VARCHAR(40)"/>
+            <column name="authority_status" type="VARCHAR(40)"/>
+            <column name="authority_message" type="TEXT"/>
+            <column name="authority_processed_at" type="DATETIME(6)"/>
+            <column name="createdby_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_date" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="lastmodifiedby_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="lastmodified_date" type="DATETIME(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="m_invoice" baseColumnNames="loan_transaction_id"
+                                 constraintName="fk_invoice_loan_transaction"
+                                 referencedTableName="m_loan_transaction" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="m_invoice" baseColumnNames="savings_transaction_id"
+                                 constraintName="fk_invoice_savings_transaction"
+                                 referencedTableName="m_savings_account_transaction" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="m_invoice" baseColumnNames="client_transaction_id"
+                                 constraintName="fk_invoice_client_transaction"
+                                 referencedTableName="m_client_transaction" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="m_invoice" baseColumnNames="createdby_id"
+                                 constraintName="fk_invoice_createdby"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="m_invoice" baseColumnNames="lastmodifiedby_id"
+                                 constraintName="fk_invoice_lastmodifiedby"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"/>
+
+        <addUniqueConstraint tableName="m_invoice" columnNames="codigo_generacion" constraintName="uk_invoice_codigo_generacion"/>
+        <addUniqueConstraint tableName="m_invoice" columnNames="numero_control" constraintName="uk_invoice_numero_control"/>
+
+        <createIndex indexName="idx_invoice_status" tableName="m_invoice">
+            <column name="status"/>
+        </createIndex>
+        <createIndex indexName="idx_invoice_fec_emi" tableName="m_invoice">
+            <column name="fec_emi"/>
+        </createIndex>
+        <createIndex indexName="idx_invoice_ambiente" tableName="m_invoice">
+            <column name="ambiente"/>
+        </createIndex>
+        <createIndex indexName="idx_invoice_loan_tx" tableName="m_invoice">
+            <column name="loan_transaction_id"/>
+        </createIndex>
+        <createIndex indexName="idx_invoice_savings_tx" tableName="m_invoice">
+            <column name="savings_transaction_id"/>
+        </createIndex>
+        <createIndex indexName="idx_invoice_client_tx" tableName="m_invoice">
+            <column name="client_transaction_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0252-1-postgresql" author="fineract" context="postgresql">
+        <createTable tableName="m_invoice">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="status" type="VARCHAR(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="loan_transaction_id" type="BIGINT"/>
+            <column name="savings_transaction_id" type="BIGINT"/>
+            <column name="client_transaction_id" type="BIGINT"/>
+            <column name="version" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ambiente" type="VARCHAR(2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tipo_dte" type="VARCHAR(4)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="numero_control" type="VARCHAR(31)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="codigo_generacion" type="VARCHAR(36)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tipo_modelo" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tipo_operacion" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="fec_emi" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="hor_emi" type="TIME">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tipo_moneda" type="VARCHAR(3)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tipo_contingencia" type="INT"/>
+            <column name="motivo_contin" type="VARCHAR(255)"/>
+            <column name="firma_electronica" type="TEXT"/>
+            <column name="sello_recibido" type="VARCHAR(40)"/>
+            <column name="authority_status" type="VARCHAR(40)"/>
+            <column name="authority_message" type="TEXT"/>
+            <column name="authority_processed_at" type="TIMESTAMP(6)"/>
+            <column name="createdby_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_date" type="TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="lastmodifiedby_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="lastmodified_date" type="TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="m_invoice" baseColumnNames="loan_transaction_id"
+                                 constraintName="fk_invoice_loan_transaction"
+                                 referencedTableName="m_loan_transaction" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="m_invoice" baseColumnNames="savings_transaction_id"
+                                 constraintName="fk_invoice_savings_transaction"
+                                 referencedTableName="m_savings_account_transaction" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="m_invoice" baseColumnNames="client_transaction_id"
+                                 constraintName="fk_invoice_client_transaction"
+                                 referencedTableName="m_client_transaction" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="m_invoice" baseColumnNames="createdby_id"
+                                 constraintName="fk_invoice_createdby"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="m_invoice" baseColumnNames="lastmodifiedby_id"
+                                 constraintName="fk_invoice_lastmodifiedby"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"/>
+
+        <addUniqueConstraint tableName="m_invoice" columnNames="codigo_generacion" constraintName="uk_invoice_codigo_generacion"/>
+        <addUniqueConstraint tableName="m_invoice" columnNames="numero_control" constraintName="uk_invoice_numero_control"/>
+
+        <createIndex indexName="idx_invoice_status" tableName="m_invoice">
+            <column name="status"/>
+        </createIndex>
+        <createIndex indexName="idx_invoice_fec_emi" tableName="m_invoice">
+            <column name="fec_emi"/>
+        </createIndex>
+        <createIndex indexName="idx_invoice_ambiente" tableName="m_invoice">
+            <column name="ambiente"/>
+        </createIndex>
+        <createIndex indexName="idx_invoice_loan_tx" tableName="m_invoice">
+            <column name="loan_transaction_id"/>
+        </createIndex>
+        <createIndex indexName="idx_invoice_savings_tx" tableName="m_invoice">
+            <column name="savings_transaction_id"/>
+        </createIndex>
+        <createIndex indexName="idx_invoice_client_tx" tableName="m_invoice">
+            <column name="client_transaction_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0252-2" author="fineract">
+        <createTable tableName="m_invoice_issuer">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="invoice_id" type="BIGINT">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="nit" type="VARCHAR(20)"/>
+            <column name="nrc" type="VARCHAR(20)"/>
+            <column name="nombre" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="cod_actividad" type="VARCHAR(10)"/>
+            <column name="desc_actividad" type="VARCHAR(255)"/>
+            <column name="nombre_comercial" type="VARCHAR(255)"/>
+            <column name="tipo_establecimiento" type="VARCHAR(5)"/>
+            <column name="direccion_departamento" type="VARCHAR(10)"/>
+            <column name="direccion_municipio" type="VARCHAR(10)"/>
+            <column name="direccion_complemento" type="VARCHAR(255)"/>
+            <column name="telefono" type="VARCHAR(30)"/>
+            <column name="correo" type="VARCHAR(100)"/>
+            <column name="cod_estable_mh" type="VARCHAR(20)"/>
+            <column name="cod_estable" type="VARCHAR(20)"/>
+            <column name="cod_punto_venta_mh" type="VARCHAR(20)"/>
+            <column name="cod_punto_venta" type="VARCHAR(20)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_invoice_issuer" baseColumnNames="invoice_id"
+                                 constraintName="fk_invoice_issuer_invoice"
+                                 referencedTableName="m_invoice" referencedColumnNames="id"/>
+    </changeSet>
+
+    <changeSet id="0252-3" author="fineract">
+        <createTable tableName="m_invoice_receiver">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="invoice_id" type="BIGINT">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="nit" type="VARCHAR(20)"/>
+            <column name="doc_id" type="VARCHAR(30)"/>
+            <column name="nrc" type="VARCHAR(20)"/>
+            <column name="nombre" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="cod_actividad" type="VARCHAR(10)"/>
+            <column name="desc_actividad" type="VARCHAR(255)"/>
+            <column name="nombre_comercial" type="VARCHAR(255)"/>
+            <column name="direccion_departamento" type="VARCHAR(10)"/>
+            <column name="direccion_municipio" type="VARCHAR(10)"/>
+            <column name="direccion_complemento" type="VARCHAR(255)"/>
+            <column name="telefono" type="VARCHAR(30)"/>
+            <column name="correo" type="VARCHAR(100)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_invoice_receiver" baseColumnNames="invoice_id"
+                                 constraintName="fk_invoice_receiver_invoice"
+                                 referencedTableName="m_invoice" referencedColumnNames="id"/>
+    </changeSet>
+
+    <changeSet id="0252-4-mysql" author="fineract" context="mysql">
+        <createTable tableName="m_invoice_line">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="invoice_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="num_item" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tipo_item" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="cantidad" type="DECIMAL(19,6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="uni_medida" type="INT"/>
+            <column name="descripcion" type="VARCHAR(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="precio_uni" type="DECIMAL(19,6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="monto_descu" type="DECIMAL(19,6)"/>
+            <column name="venta_no_suj" type="DECIMAL(19,6)"/>
+            <column name="venta_exenta" type="DECIMAL(19,6)"/>
+            <column name="venta_gravada" type="DECIMAL(19,6)"/>
+            <column name="tributos_json" type="JSON"/>
+            <column name="no_gravado" type="DECIMAL(19,6)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_invoice_line" baseColumnNames="invoice_id"
+                                 constraintName="fk_invoice_line_invoice"
+                                 referencedTableName="m_invoice" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="m_invoice_line" columnNames="invoice_id,num_item" constraintName="uk_invoice_line_num_item"/>
+        <createIndex indexName="idx_invoice_line_invoice" tableName="m_invoice_line">
+            <column name="invoice_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0252-4-postgresql" author="fineract" context="postgresql">
+        <createTable tableName="m_invoice_line">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="invoice_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="num_item" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tipo_item" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="cantidad" type="DECIMAL(19,6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="uni_medida" type="INT"/>
+            <column name="descripcion" type="VARCHAR(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="precio_uni" type="DECIMAL(19,6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="monto_descu" type="DECIMAL(19,6)"/>
+            <column name="venta_no_suj" type="DECIMAL(19,6)"/>
+            <column name="venta_exenta" type="DECIMAL(19,6)"/>
+            <column name="venta_gravada" type="DECIMAL(19,6)"/>
+            <column name="tributos_json" type="JSONB"/>
+            <column name="no_gravado" type="DECIMAL(19,6)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_invoice_line" baseColumnNames="invoice_id"
+                                 constraintName="fk_invoice_line_invoice"
+                                 referencedTableName="m_invoice" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="m_invoice_line" columnNames="invoice_id,num_item" constraintName="uk_invoice_line_num_item"/>
+        <createIndex indexName="idx_invoice_line_invoice" tableName="m_invoice_line">
+            <column name="invoice_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0252-5" author="fineract">
+        <createTable tableName="m_invoice_related_document">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="invoice_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tipo_documento" type="VARCHAR(5)"/>
+            <column name="tipo_generacion" type="VARCHAR(1)"/>
+            <column name="numero_documento" type="VARCHAR(64)"/>
+            <column name="fecha_generacion" type="DATE"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_invoice_related_document" baseColumnNames="invoice_id"
+                                 constraintName="fk_invoice_related_document_invoice"
+                                 referencedTableName="m_invoice" referencedColumnNames="id"/>
+        <createIndex indexName="idx_invoice_related_document_invoice" tableName="m_invoice_related_document">
+            <column name="invoice_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0252-6-mysql" author="fineract" context="mysql">
+        <createTable tableName="m_invoice_summary">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="invoice_id" type="BIGINT">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="total_no_suj" type="DECIMAL(19,6)"/>
+            <column name="total_exenta" type="DECIMAL(19,6)"/>
+            <column name="total_gravada" type="DECIMAL(19,6)"/>
+            <column name="sub_total_ventas" type="DECIMAL(19,6)"/>
+            <column name="descu_no_suj" type="DECIMAL(19,6)"/>
+            <column name="descu_exenta" type="DECIMAL(19,6)"/>
+            <column name="descu_gravada" type="DECIMAL(19,6)"/>
+            <column name="tributos_json" type="JSON"/>
+            <column name="sub_total" type="DECIMAL(19,6)"/>
+            <column name="iva_percibido" type="DECIMAL(19,6)"/>
+            <column name="iva_retenido" type="DECIMAL(19,6)"/>
+            <column name="rete_renta" type="DECIMAL(19,6)"/>
+            <column name="monto_total_operacion" type="DECIMAL(19,6)"/>
+            <column name="total_pagar" type="DECIMAL(19,6)"/>
+            <column name="total_letras" type="VARCHAR(500)"/>
+            <column name="condicion_operacion" type="INT"/>
+            <column name="pagos_json" type="JSON"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_invoice_summary" baseColumnNames="invoice_id"
+                                 constraintName="fk_invoice_summary_invoice"
+                                 referencedTableName="m_invoice" referencedColumnNames="id"/>
+    </changeSet>
+
+    <changeSet id="0252-6-postgresql" author="fineract" context="postgresql">
+        <createTable tableName="m_invoice_summary">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="invoice_id" type="BIGINT">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="total_no_suj" type="DECIMAL(19,6)"/>
+            <column name="total_exenta" type="DECIMAL(19,6)"/>
+            <column name="total_gravada" type="DECIMAL(19,6)"/>
+            <column name="sub_total_ventas" type="DECIMAL(19,6)"/>
+            <column name="descu_no_suj" type="DECIMAL(19,6)"/>
+            <column name="descu_exenta" type="DECIMAL(19,6)"/>
+            <column name="descu_gravada" type="DECIMAL(19,6)"/>
+            <column name="tributos_json" type="JSONB"/>
+            <column name="sub_total" type="DECIMAL(19,6)"/>
+            <column name="iva_percibido" type="DECIMAL(19,6)"/>
+            <column name="iva_retenido" type="DECIMAL(19,6)"/>
+            <column name="rete_renta" type="DECIMAL(19,6)"/>
+            <column name="monto_total_operacion" type="DECIMAL(19,6)"/>
+            <column name="total_pagar" type="DECIMAL(19,6)"/>
+            <column name="total_letras" type="VARCHAR(500)"/>
+            <column name="condicion_operacion" type="INT"/>
+            <column name="pagos_json" type="JSONB"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_invoice_summary" baseColumnNames="invoice_id"
+                                 constraintName="fk_invoice_summary_invoice"
+                                 referencedTableName="m_invoice" referencedColumnNames="id"/>
+    </changeSet>
+
+</databaseChangeLog>

@@ -375,6 +375,15 @@
         <class>org.apache.fineract.portfolio.pendiente.domain.PendingFlowBlueprint</class>
         <class>org.apache.fineract.portfolio.pendiente.domain.PendingFlow</class>
         <class>org.apache.fineract.portfolio.pendiente.domain.PendingStep</class>
+        
+        <!-- Invoice Module Entities -->
+        <class>org.apache.fineract.portfolio.invoice.domain.Invoice</class>
+        <class>org.apache.fineract.portfolio.invoice.domain.InvoiceLine</class>
+        <class>org.apache.fineract.portfolio.invoice.domain.InvoiceIssuer</class>
+        <class>org.apache.fineract.portfolio.invoice.domain.InvoiceReceiver</class>
+        <class>org.apache.fineract.portfolio.invoice.domain.InvoiceRelatedDocument</class>
+        <class>org.apache.fineract.portfolio.invoice.domain.MhCompanyConfig</class>
+        <class>org.apache.fineract.portfolio.invoice.domain.InvoiceSummary</class>
 
         <exclude-unlisted-classes>false</exclude-unlisted-classes>
         <properties>

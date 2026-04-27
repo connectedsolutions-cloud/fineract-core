@@ -268,4 +268,10 @@
     <include file="parts/0246_add_opened_by_user_id_to_m_cashiers.xml" relativeToChangelogFile="true" />
     <include file="parts/0247_add_requerir_fondos_caja_boveda_blueprint.xml" relativeToChangelogFile="true" />
     <include file="parts/0248_credesal_client_kyc_datatables.xml" relativeToChangelogFile="true" />
+    <include file="parts/0249_add_estado_civil_conocido_por_credesal_datos_personales.xml" relativeToChangelogFile="true" />
+    <include file="parts/0250_add_modificar_datos_clientes_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0251_credesal_client_additional_financial_datatables.xml" relativeToChangelogFile="true" />
+    <include file="parts/0252_add_invoice_dte_tables.xml" relativeToChangelogFile="true" />
+    <include file="parts/0253_add_anexo_facturacion_report.xml" relativeToChangelogFile="true" />
+    <include file="parts/0254_add_mh_dte_validation_fields.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>
