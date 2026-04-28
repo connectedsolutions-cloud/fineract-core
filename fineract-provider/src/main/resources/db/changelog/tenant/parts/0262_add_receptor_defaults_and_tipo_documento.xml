@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0262-1" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="m_invoice_receiver" columnName="tipo_documento"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="m_invoice_receiver">
+            <column name="tipo_documento" type="VARCHAR(2)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0262-2" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="credesal_client_datos_personales" columnName="cod_actividad_economica"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="credesal_client_datos_personales">
+            <column name="cod_actividad_economica" type="VARCHAR(6)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0262-3" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="credesal_client_datos_personales" columnName="desc_actividad_economica"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="credesal_client_datos_personales">
+            <column name="desc_actividad_economica" type="VARCHAR(150)"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

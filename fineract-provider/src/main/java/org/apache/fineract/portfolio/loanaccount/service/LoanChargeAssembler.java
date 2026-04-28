@@ -249,7 +249,8 @@ public class LoanChargeAssembler {
 
     public LoanCharge createNewFromJson(final Loan loan, final Charge chargeDefinition, final JsonCommand command) {
         final LocalDate dueDate = command.localDateValueOfParameterNamed("dueDate");
-        if (chargeDefinition.getChargeTimeType().equals(ChargeTimeType.SPECIFIED_DUE_DATE.getValue()) && dueDate == null) {
+        if ((chargeDefinition.getChargeTimeType().equals(ChargeTimeType.SPECIFIED_DUE_DATE.getValue())
+                || chargeDefinition.getChargeTimeType().equals(ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE.getValue())) && dueDate == null) {
             final String defaultUserMessage = "Loan charge is missing due date.";
             throw new LoanChargeWithoutMandatoryFieldException("loanCharge", "dueDate", defaultUserMessage, chargeDefinition.getId(),
                     chargeDefinition.getName());
@@ -296,6 +297,9 @@ public class LoanChargeAssembler {
                 } else {
                     amountPercentageAppliedTo = loan.getPrincipal().getAmount();
                 }
+            break;
+            case PERCENT_OF_DELINQUENT_PRINCIPAL:
+                amountPercentageAppliedTo = loanChargeService.determineDelinquentPrincipalBaseForCharge(loan, chargeDefinition);
             break;
             default:
             break;

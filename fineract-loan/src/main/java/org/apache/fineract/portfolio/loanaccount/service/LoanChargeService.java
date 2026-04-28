@@ -58,6 +58,9 @@ import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.Mon
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.TransactionCtx;
 import org.apache.fineract.portfolio.loanaccount.serialization.LoanChargeValidator;
 import org.apache.fineract.portfolio.loanaccount.data.ChargeTaxResult;
+import org.apache.fineract.portfolio.loanaccount.data.CollectionData;
+import org.apache.fineract.portfolio.delinquency.data.DelinquencyRangeData;
+import org.apache.fineract.portfolio.delinquency.service.DelinquencyReadPlatformService;
 import org.apache.fineract.portfolio.tax.domain.TaxGroupMappings;
 import org.apache.fineract.portfolio.tax.service.TaxUtils;
 import org.apache.fineract.organisation.monetary.domain.MoneyHelper;
@@ -70,6 +73,7 @@ public class LoanChargeService {
     private final LoanTransactionProcessingService loanTransactionProcessingService;
     private final LoanLifecycleStateMachine loanLifecycleStateMachine;
     private final LoanBalanceService loanBalanceService;
+    private final DelinquencyReadPlatformService delinquencyReadPlatformService;
 
     public void recalculateAllCharges(final Loan loan) {
         Set<LoanCharge> charges = loan.getActiveCharges();
@@ -288,6 +292,23 @@ public class LoanChargeService {
         loanLifecycleStateMachine.transition(LoanEvent.LOAN_CHARGE_ADDED, loan);
     }
 
+    /**
+     * Base for {@link org.apache.fineract.portfolio.charge.domain.ChargeCalculationType#PERCENT_OF_DELINQUENT_PRINCIPAL}: delinquent
+     * principal from collection data when the loan's current delinquency tag matches the charge definition's range.
+     */
+    public BigDecimal determineDelinquentPrincipalBaseForCharge(final Loan loan, final Charge chargeDefinition) {
+        if (loan == null || loan.getId() == null || chargeDefinition == null || chargeDefinition.getDelinquencyRangeId() == null) {
+            return BigDecimal.ZERO;
+        }
+        final DelinquencyRangeData currentTag = delinquencyReadPlatformService.retrieveCurrentDelinquencyTag(loan.getId());
+        if (currentTag == null || !chargeDefinition.getDelinquencyRangeId().equals(currentTag.getId())) {
+            return BigDecimal.ZERO;
+        }
+        final CollectionData collectionData = delinquencyReadPlatformService.calculateLoanCollectionData(loan.getId());
+        final BigDecimal delinquentPrincipal = collectionData.getDelinquentPrincipal();
+        return delinquentPrincipal != null ? delinquentPrincipal : BigDecimal.ZERO;
+    }
+
     public BigDecimal calculateAmountPercentageAppliedTo(final Loan loan, final LoanCharge loanCharge) {
         if (loanCharge.isOverdueInstallmentCharge()) {
             return loanCharge.getAmountPercentageAppliedTo();
@@ -311,6 +332,7 @@ public class LoanChargeService {
                     yield loan.getPrincipal().getAmount();
                 }
             }
+            case PERCENT_OF_DELINQUENT_PRINCIPAL -> determineDelinquentPrincipalBaseForCharge(loan, loanCharge.getCharge());
             case INVALID, FLAT -> BigDecimal.ZERO;
         };
         if (loanCharge.getChargeCalculation().isPercentageOfAmountReduceDisbursal()) {
@@ -490,6 +512,7 @@ public class LoanChargeService {
                 case PERCENT_OF_INTEREST:
                 case PERCENT_OF_DISBURSEMENT_AMOUNT:
                 case PERCENT_OF_AMOUNT_REDUCE_DISBURSAL:
+                case PERCENT_OF_DELINQUENT_PRINCIPAL:
                     loanCharge.setPercentage(newValue);
                     loanCharge.setAmountPercentageAppliedTo(amount);
                     loanChargeAmount = BigDecimal.ZERO;
@@ -545,6 +568,7 @@ public class LoanChargeService {
             case PERCENT_OF_INTEREST:
             case PERCENT_OF_DISBURSEMENT_AMOUNT:
             case PERCENT_OF_AMOUNT_REDUCE_DISBURSAL:
+            case PERCENT_OF_DELINQUENT_PRINCIPAL:
                 loanCharge.setPercentage(chargeAmount);
                 loanCharge.setAmountPercentageAppliedTo(amountPercentageAppliedTo);
                 if (loanChargeAmount.compareTo(BigDecimal.ZERO) == 0) {
@@ -602,6 +626,9 @@ public class LoanChargeService {
                 case PERCENT_OF_AMOUNT_REDUCE_DISBURSAL:
                     amountPercentageAppliedTo = loanCharge.getLoan().getPrincipal().getAmount();
                 break;
+                case PERCENT_OF_DELINQUENT_PRINCIPAL:
+                    amountPercentageAppliedTo = determineDelinquentPrincipalBaseForCharge(loanCharge.getLoan(), loanCharge.getCharge());
+                break;
                 default:
                 break;
             }
@@ -623,7 +650,8 @@ public class LoanChargeService {
         loanCharge.setChargeTime(chargeTime == null ? chargeDefinition.getChargeTimeType() : chargeTime.getValue());
 
         if (loanCharge.getChargeTimeType().equals(ChargeTimeType.SPECIFIED_DUE_DATE)
-                || loanCharge.getChargeTimeType().equals(ChargeTimeType.OVERDUE_INSTALLMENT)) {
+                || loanCharge.getChargeTimeType().equals(ChargeTimeType.OVERDUE_INSTALLMENT)
+                || loanCharge.getChargeTimeType().equals(ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE)) {
 
             if (dueDate == null) {
                 final String defaultUserMessage = "Loan charge is missing due date.";
@@ -930,6 +958,7 @@ public class LoanChargeService {
                 case PERCENT_OF_INTEREST:
                 case PERCENT_OF_DISBURSEMENT_AMOUNT:
                 case PERCENT_OF_AMOUNT_REDUCE_DISBURSAL:
+                case PERCENT_OF_DELINQUENT_PRINCIPAL:
                     loanCharge.setPercentage(amount);
                     loanCharge.setAmountPercentageAppliedTo(loanPrincipal);
                     if (loanChargeAmount.compareTo(BigDecimal.ZERO) == 0) {
@@ -978,6 +1007,7 @@ public class LoanChargeService {
                 case PERCENT_OF_INTEREST:
                 case PERCENT_OF_DISBURSEMENT_AMOUNT:
                 case PERCENT_OF_AMOUNT_REDUCE_DISBURSAL:
+                case PERCENT_OF_DELINQUENT_PRINCIPAL:
                     loanCharge.setPercentage(amount);
                     loanCharge.setAmountPercentageAppliedTo(loanPrincipal);
                     if (loanChargeAmount.compareTo(BigDecimal.ZERO) == 0) {
@@ -1026,7 +1056,8 @@ public class LoanChargeService {
             case PERCENT_OF_AMOUNT_AND_INTEREST ->
                 installment.getPrincipal(loan.getCurrency()).plus(installment.getInterestCharged(loan.getCurrency()));
             case PERCENT_OF_INTEREST -> installment.getInterestCharged(loan.getCurrency());
-            case PERCENT_OF_DISBURSEMENT_AMOUNT, PERCENT_OF_AMOUNT_REDUCE_DISBURSAL, INVALID, FLAT -> Money.zero(loan.getCurrency());
+            case PERCENT_OF_DISBURSEMENT_AMOUNT, PERCENT_OF_AMOUNT_REDUCE_DISBURSAL, PERCENT_OF_DELINQUENT_PRINCIPAL, INVALID, FLAT ->
+                Money.zero(loan.getCurrency());
 
         };
         return Money.zero(loan.getCurrency()) //

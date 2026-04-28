@@ -55,6 +55,14 @@ public class DteJsonBuilder {
         }
     }
 
+    public String toJsonString(Map<String, Object> payload) {
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to serialize DTE JSON payload", e);
+        }
+    }
+
     private Map<String, Object> buildIdentificacion(Invoice invoice) {
         Map<String, Object> id = new LinkedHashMap<>();
         id.put("version", invoice.getVersion());
@@ -110,6 +118,7 @@ public class DteJsonBuilder {
 
     private Map<String, Object> buildReceptor(InvoiceReceiver r) {
         Map<String, Object> m = new LinkedHashMap<>();
+        m.put("tipoDocumento", defaultTipoDocumento(r.getTipoDocumento()));
         m.put("nit", r.getNit());
         m.put("nrc", r.getNrc());
         m.put("nombre", r.getNombre());
@@ -183,5 +192,9 @@ public class DteJsonBuilder {
         } catch (Exception e) {
             return new ArrayList<>();
         }
+    }
+
+    private String defaultTipoDocumento(String tipoDocumento) {
+        return tipoDocumento == null || tipoDocumento.isBlank() ? "13" : tipoDocumento;
     }
 }

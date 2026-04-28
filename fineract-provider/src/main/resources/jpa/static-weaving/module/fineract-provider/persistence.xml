@@ -384,6 +384,7 @@
         <class>org.apache.fineract.portfolio.invoice.domain.InvoiceRelatedDocument</class>
         <class>org.apache.fineract.portfolio.invoice.domain.MhCompanyConfig</class>
         <class>org.apache.fineract.portfolio.invoice.domain.InvoiceSummary</class>
+        <class>org.apache.fineract.portfolio.invoice.domain.MhDteItemComponent</class>
 
         <exclude-unlisted-classes>false</exclude-unlisted-classes>
         <properties>

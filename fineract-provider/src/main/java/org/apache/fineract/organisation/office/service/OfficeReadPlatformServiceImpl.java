@@ -63,7 +63,10 @@ public class OfficeReadPlatformServiceImpl implements OfficeReadPlatformService 
 
         public String officeSchema() {
             return " o.id as id, o.name as name, " + nameDecoratedBaseOnHierarchy
-                    + " as nameDecorated, o.external_id as externalId, o.opening_date as openingDate, o.hierarchy as hierarchy, parent.id as parentId, parent.name as parentName "
+                    + " as nameDecorated, o.external_id as externalId, o.opening_date as openingDate, o.hierarchy as hierarchy, "
+                    + " parent.id as parentId, parent.name as parentName, o.mh_nit as mhNit, o.mh_password_pri as mhPasswordPri, "
+                    + " o.mh_firma_secret as mhFirmaSecret, o.mh_signing_api_key as mhSigningApiKey, o.mh_cod_estable as mhCodEstable, "
+                    + " o.mh_cod_punto_venta as mhCodPuntoVenta "
                     + "from m_office o LEFT JOIN m_office AS parent ON parent.id = o.parent_id ";
         }
 
@@ -78,9 +81,15 @@ public class OfficeReadPlatformServiceImpl implements OfficeReadPlatformService 
             final String hierarchy = rs.getString("hierarchy");
             final Long parentId = JdbcSupport.getLong(rs, "parentId");
             final String parentName = rs.getString("parentName");
+            final String mhNit = rs.getString("mhNit");
+            final String mhPasswordPri = rs.getString("mhPasswordPri");
+            final String mhFirmaSecret = rs.getString("mhFirmaSecret");
+            final String mhSigningApiKey = rs.getString("mhSigningApiKey");
+            final String mhCodEstable = rs.getString("mhCodEstable");
+            final String mhCodPuntoVenta = rs.getString("mhCodPuntoVenta");
 
             return new OfficeData(id, name, nameDecorated, ExternalIdFactory.produce(externalId), openingDate, hierarchy, parentId,
-                    parentName, null);
+                    parentName, mhNit, mhPasswordPri, mhFirmaSecret, mhSigningApiKey, mhCodEstable, mhCodPuntoVenta, null);
         }
     }
 

@@ -149,6 +149,9 @@ public class Charge extends AbstractPersistableCustom<Long> {
     @JoinColumn(name = "credit_account_id")
     private GLAccount creditAccount;
 
+    @Column(name = "delinquency_range_id")
+    private Long delinquencyRangeId;
+
     public static Charge fromJson(final JsonCommand command, final GLAccount account, final TaxGroup taxGroup,
             final PaymentType paymentType) {
 
@@ -189,9 +192,14 @@ public class Charge extends AbstractPersistableCustom<Long> {
             countFrequencyType = PeriodFrequencyType.fromInt(command.integerValueOfParameterNamed("countFrequencyType"));
         }
 
+        Long delinquencyRangeId = null;
+        if (command.parameterExists(ChargesApiConstants.delinquencyRangeIdParamName)) {
+            delinquencyRangeId = command.longValueOfParameterNamed(ChargesApiConstants.delinquencyRangeIdParamName);
+        }
+
         return new Charge(name, amount, currencyCode, chargeAppliesTo, chargeTimeType, chargeCalculationType, penalty, active, paymentMode,
                 feeOnMonthDay, feeInterval, minCap, maxCap, feeFrequency, enableFreeWithdrawalCharge, freeWithdrawalFrequency,
-                restartCountFrequency, countFrequencyType, account, taxGroup, enablePaymentType, paymentType);
+                restartCountFrequency, countFrequencyType, account, taxGroup, enablePaymentType, paymentType, delinquencyRangeId);
     }
 
     protected Charge() {}
@@ -201,7 +209,8 @@ public class Charge extends AbstractPersistableCustom<Long> {
             final ChargePaymentMode paymentMode, final MonthDay feeOnMonthDay, final Integer feeInterval, final BigDecimal minCap,
             final BigDecimal maxCap, final Integer feeFrequency, final boolean enableFreeWithdrawalCharge,
             final Integer freeWithdrawalFrequency, final Integer restartFrequency, final PeriodFrequencyType restartFrequencyEnum,
-            final GLAccount account, final TaxGroup taxGroup, final boolean enablePaymentType, final PaymentType paymentType) {
+            final GLAccount account, final TaxGroup taxGroup, final boolean enablePaymentType, final PaymentType paymentType,
+            final Long delinquencyRangeId) {
         this.name = name;
         this.amount = amount;
         this.currencyCode = currencyCode;
@@ -213,6 +222,7 @@ public class Charge extends AbstractPersistableCustom<Long> {
         this.account = account;
         this.taxGroup = taxGroup;
         this.chargePaymentMode = paymentMode == null ? null : paymentMode.getValue();
+        this.delinquencyRangeId = delinquencyRangeId;
 
         final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("charges");
@@ -266,8 +276,18 @@ public class Charge extends AbstractPersistableCustom<Long> {
             if (penalty && (chargeTime.isTimeOfDisbursement() || chargeTime.isTrancheDisbursement())) {
                 throw new ChargeDueAtDisbursementCannotBePenaltyException(name);
             }
-            if (!penalty && chargeTime.isOverdueInstallment()) {
+            if (!penalty && (chargeTime.isOverdueInstallment() || chargeTime.isDelinquencyClassificationRange())) {
                 throw new ChargeMustBePenaltyException(name);
+            }
+            if (chargeTime.isDelinquencyClassificationRange()) {
+                if (!chargeCalculationType.isPercentageOfDelinquentPrincipal()) {
+                    baseDataValidator.reset().parameter(CHARGE_CALCULATION_TYPE_PARAM_NAME).value(this.chargeCalculation)
+                            .failWithCodeNoParameterAddedToErrorCode("delinquency.range.charge.calculation.must.be.percent.delinquent.principal");
+                }
+                if (delinquencyRangeId == null) {
+                    baseDataValidator.reset().parameter(ChargesApiConstants.delinquencyRangeIdParamName).value(null)
+                            .failWithCodeNoParameterAddedToErrorCode("delinquency.range.id.required");
+                }
             }
             // TODO vishwas, this validation seems unnecessary as identical
             // validation is performed in the write service
@@ -277,7 +297,8 @@ public class Charge extends AbstractPersistableCustom<Long> {
             }
         }
 
-        if (isPercentageOfDisbursementAmount() || isPercentageOfApprovedAmount() || isPercentageOfAmountReduceDisbursal()) {
+        if (isPercentageOfDisbursementAmount() || isPercentageOfApprovedAmount() || isPercentageOfAmountReduceDisbursal()
+                || isPercentageOfDelinquentPrincipal()) {
             this.minCap = minCap;
             this.maxCap = maxCap;
         }
@@ -361,6 +382,18 @@ public class Charge extends AbstractPersistableCustom<Long> {
 
     public boolean isPercentageOfAmountReduceDisbursal() {
         return ChargeCalculationType.fromInt(this.chargeCalculation).isPercentageOfAmountReduceDisbursal();
+    }
+
+    public boolean isPercentageOfDelinquentPrincipal() {
+        return ChargeCalculationType.fromInt(this.chargeCalculation).isPercentageOfDelinquentPrincipal();
+    }
+
+    public boolean isDelinquencyClassificationRangeCharge() {
+        return ChargeTimeType.fromInt(this.chargeTimeType).isDelinquencyClassificationRange();
+    }
+
+    public Long getDelinquencyRangeId() {
+        return this.delinquencyRangeId;
     }
 
     public BigDecimal getMinCap() {
@@ -634,8 +667,17 @@ public class Charge extends AbstractPersistableCustom<Long> {
         if (this.penalty && ChargeTimeType.fromInt(this.chargeTimeType).isTimeOfDisbursement()) {
             throw new ChargeDueAtDisbursementCannotBePenaltyException(this.name);
         }
-        if (!penalty && ChargeTimeType.fromInt(this.chargeTimeType).isOverdueInstallment()) {
+        if (!penalty && (ChargeTimeType.fromInt(this.chargeTimeType).isOverdueInstallment()
+                || ChargeTimeType.fromInt(this.chargeTimeType).isDelinquencyClassificationRange())) {
             throw new ChargeMustBePenaltyException(name);
+        }
+
+        if (command.parameterExists(ChargesApiConstants.delinquencyRangeIdParamName)) {
+            final Long newValue = command.longValueOfParameterNamed(ChargesApiConstants.delinquencyRangeIdParamName);
+            if (!Objects.equals(this.delinquencyRangeId, newValue)) {
+                actualChanges.put(ChargesApiConstants.delinquencyRangeIdParamName, newValue);
+                this.delinquencyRangeId = newValue;
+            }
         }
 
         if (command.isChangeInLongParameterNamed(ChargesApiConstants.glAccountIdParamName, getIncomeAccountId())) {
@@ -719,7 +761,7 @@ public class Charge extends AbstractPersistableCustom<Long> {
                 .restartFrequency(this.restartFrequency).restartFrequencyEnum(this.restartFrequencyEnum)
                 .isPaymentType(this.enablePaymentType).paymentTypeOptions(paymentTypeData).minCap(this.minCap).maxCap(this.maxCap)
                 .feeFrequency(feeFrequencyType).incomeOrLiabilityAccount(accountData).debitAccount(debitAccountData)
-                .creditAccount(creditAccountData).taxGroup(taxGroupData).build();
+                .creditAccount(creditAccountData).taxGroup(taxGroupData).delinquencyRangeId(this.delinquencyRangeId).build();
 
     }
 

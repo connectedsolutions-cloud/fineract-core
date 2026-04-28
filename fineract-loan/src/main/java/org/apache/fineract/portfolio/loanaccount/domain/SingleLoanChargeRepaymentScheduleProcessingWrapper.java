@@ -123,6 +123,9 @@ public class SingleLoanChargeRepaymentScheduleProcessingWrapper {
         if (loanCharge.isOverdueInstallmentCharge() && calculationType.isPercentageBased()) {
             return Money.of(currency, loanCharge.chargeAmount());
         }
+        if (loanCharge.isDelinquencyClassificationRangeCharge() && calculationType.isPercentageBased()) {
+            return Money.of(currency, loanCharge.chargeAmount());
+        }
         if (calculationType.isFlat()) {
             return loanCharge.getAmount(currency);
         }
@@ -201,6 +204,9 @@ public class SingleLoanChargeRepaymentScheduleProcessingWrapper {
         }
         if (calcType.isPercentageOfInterest()) {
             return interest;
+        }
+        if (calcType.isPercentageOfDelinquentPrincipal()) {
+            return loanCharge.getAmountPercentageAppliedTo() != null ? loanCharge.getAmountPercentageAppliedTo() : BigDecimal.ZERO;
         }
         return principal;
     }

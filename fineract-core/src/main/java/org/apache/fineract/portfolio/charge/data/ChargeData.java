@@ -74,6 +74,10 @@ public final class ChargeData implements Comparable<ChargeData>, Serializable {
     private final GLAccountData creditAccount;
     private final TaxGroupData taxGroup;
 
+    /** For delinquency-classification-range loan charges; m_delinquency_range.id */
+    @Builder.Default
+    private final Long delinquencyRangeId = null;
+
     // template attributes
     private final Collection<CurrencyData> currencyOptions;
     private final List<EnumOptionData> chargeCalculationTypeOptions;//
@@ -91,6 +95,9 @@ public final class ChargeData implements Comparable<ChargeData>, Serializable {
     private final List<EnumOptionData> shareChargeTimeTypeOptions;
 
     private final List<EnumOptionData> feeFrequencyOptions;
+
+    /** Lookup for loan delinquency-range charges (template); {@code id} is {@code m_delinquency_range.id}. */
+    private final List<EnumOptionData> delinquencyRangeOptions;
 
     private final Map<String, List<GLAccountData>> incomeOrLiabilityAccountOptions;
     private final Collection<TaxGroupData> taxGroupOptions;
@@ -111,6 +118,7 @@ public final class ChargeData implements Comparable<ChargeData>, Serializable {
                 .clientChargeCalculationTypeOptions(template.getClientChargeCalculationTypeOptions())
                 .clientChargeTimeTypeOptions(template.getClientChargeTimeTypeOptions())
                 .feeFrequencyOptions(template.getFeeFrequencyOptions())
+                .delinquencyRangeOptions(template.getDelinquencyRangeOptions())
                 .incomeOrLiabilityAccountOptions(template.getIncomeOrLiabilityAccountOptions())
                 .taxGroupOptions(template.getTaxGroupOptions())
                 .shareChargeCalculationTypeOptions(template.getShareChargeCalculationTypeOptions())

@@ -2115,6 +2115,10 @@ public abstract class AbstractCumulativeLoanScheduleGenerator implements LoanSch
             amount = amount.add(principalDisbursed.getAmount()).add(totalInterestChargedForFullLoanTerm.getAmount());
         } else if (loanCharge.getChargeCalculation().isPercentageOfInterest()) {
             amount = amount.add(totalInterestChargedForFullLoanTerm.getAmount());
+        } else if (loanCharge.getChargeCalculation().isPercentageOfDelinquentPrincipal()) {
+            if (loanCharge.getAmountPercentageAppliedTo() != null) {
+                amount = amount.add(loanCharge.getAmountPercentageAppliedTo());
+            }
         } else {
             amount = amount.add(principalDisbursed.getAmount());
         }
@@ -2132,6 +2136,10 @@ public abstract class AbstractCumulativeLoanScheduleGenerator implements LoanSch
                         .add(principalInterestForThisPeriod.interest().getAmount());
             } else if (loanCharge.getChargeCalculation().isPercentageOfInterest()) {
                 amount = amount.add(principalInterestForThisPeriod.interest().getAmount());
+            } else if (loanCharge.getChargeCalculation().isPercentageOfDelinquentPrincipal()) {
+                if (loanCharge.getAmountPercentageAppliedTo() != null) {
+                    amount = amount.add(loanCharge.getAmountPercentageAppliedTo());
+                }
             } else {
                 amount = amount.add(principalInterestForThisPeriod.principal().getAmount());
             }
@@ -2157,6 +2165,8 @@ public abstract class AbstractCumulativeLoanScheduleGenerator implements LoanSch
                 if (loanCharge.isInstalmentFee() && isInstallmentChargeApplicable) {
                     cumulative = calculateInstallmentCharge(principalInterestForThisPeriod, cumulative, loanCharge, mc);
                 } else if (loanCharge.isOverdueInstallmentCharge() && isDue && loanCharge.getChargeCalculation().isPercentageBased()) {
+                    cumulative = cumulative.plus(loanCharge.chargeAmount());
+                } else if (loanCharge.isDelinquencyClassificationRangeCharge() && isDue && loanCharge.getChargeCalculation().isPercentageBased()) {
                     cumulative = cumulative.plus(loanCharge.chargeAmount());
                 } else if (isDue && loanCharge.getChargeCalculation().isPercentageBased()) {
                     cumulative = calculateSpecificDueDateChargeWithPercentage(principalDisbursed, totalInterestChargedForFullLoanTerm,

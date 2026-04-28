@@ -29,4 +29,7 @@ public final class ChargesApiConstants {
     public static final String debitAccountIdParamName = "debitAccountId";
     public static final String creditAccountIdParamName = "creditAccountId";
 
+    /** When charge applies on loan delinquency classification range (COB); links to m_delinquency_range.id */
+    public static final String delinquencyRangeIdParamName = "delinquencyRangeId";
+
 }

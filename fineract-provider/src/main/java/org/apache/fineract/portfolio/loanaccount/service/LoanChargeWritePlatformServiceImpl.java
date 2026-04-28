@@ -1015,7 +1015,17 @@ public class LoanChargeWritePlatformServiceImpl implements LoanChargeWritePlatfo
             final String defaultUserMessage = "Installment charge cannot be added to the loan.";
             throw new LoanChargeCannotBeAddedException("loanCharge", "overdue.charge", defaultUserMessage, null,
                     chargeDefinition.getName());
-        } else if (loanCharge.getDueLocalDate() != null) {
+        } else if (chargeDefinition.isDelinquencyClassificationRangeCharge()) {
+            final String defaultUserMessage = "Delinquency range charge cannot be added manually; it is applied on loan close of business.";
+            throw new LoanChargeCannotBeAddedException("loanCharge", "delinquency.range.charge", defaultUserMessage, null,
+                    chargeDefinition.getName());
+        }
+        validateAddLoanChargeExcludingAutoAppliedTypes(loan, chargeDefinition, loanCharge);
+    }
+
+    /** Validates manual/API-added charges; skips overdue and delinquency-COB-only guards (caller must enforce those). */
+    private void validateAddLoanChargeExcludingAutoAppliedTypes(final Loan loan, final Charge chargeDefinition, final LoanCharge loanCharge) {
+        if (loanCharge.getDueLocalDate() != null) {
             // TODO: Review, error message seems not valid if interest recalculation is not enabled.
             boolean isCumulative = loan.getLoanRepaymentScheduleDetail().getLoanScheduleType().equals(LoanScheduleType.CUMULATIVE);
             LocalDate validationDate = loan.isInterestBearingAndInterestRecalculationEnabled() && isCumulative
@@ -1034,6 +1044,73 @@ public class LoanChargeWritePlatformServiceImpl implements LoanChargeWritePlatfo
             if (!dataValidationErrors.isEmpty()) {
                 throw new PlatformApiDataValidationException(dataValidationErrors);
             }
+        }
+    }
+
+    @Transactional
+    @Override
+    public void applyDelinquencyRangeChargesForLoan(final Long loanId) {
+        Loan loan = this.loanAssembler.assembleFrom(loanId);
+        if (loan.isChargedOff() || !loan.getStatus().isActive()) {
+            return;
+        }
+        final LocalDate businessDate = DateUtils.getBusinessLocalDate();
+        final int penaltyWaitPeriod = this.configurationDomainService.retrievePenaltyWaitPeriod().intValue();
+        boolean touched = false;
+        for (final Charge chargeDefinition : loan.getLoanProduct().getCharges()) {
+            if (!chargeDefinition.isLoanCharge() || !chargeDefinition.isActive() || !chargeDefinition.isDelinquencyClassificationRangeCharge()) {
+                continue;
+            }
+            final Optional<LoanCharge> existingOpt = loan.getCharges().stream()
+                    .filter(lc -> lc.isDelinquencyClassificationRangeCharge() && lc.getCharge() != null
+                            && chargeDefinition.getId().equals(lc.getCharge().getId()))
+                    .findFirst();
+            final BigDecimal base = this.loanChargeService.determineDelinquentPrincipalBaseForCharge(loan, chargeDefinition);
+            if (base.compareTo(BigDecimal.ZERO) <= 0) {
+                if (existingOpt.isPresent() && existingOpt.get().isActive()) {
+                    existingOpt.get().setActive(false);
+                    this.loanChargeRepository.saveAndFlush(existingOpt.get());
+                    touched = true;
+                }
+                continue;
+            }
+            if (existingOpt.isPresent()) {
+                final LoanCharge existing = existingOpt.get();
+                if (!existing.isActive()) {
+                    existing.setActive(true);
+                }
+                this.loanChargeService.recalculateLoanCharge(loan, existing, penaltyWaitPeriod);
+                this.loanChargeRepository.saveAndFlush(existing);
+                touched = true;
+            } else {
+                final JsonObject json = new JsonObject();
+                json.addProperty("chargeId", chargeDefinition.getId());
+                json.addProperty("amount", chargeDefinition.getAmount());
+                json.addProperty("dueDate", businessDate.format(DateTimeFormatter.ISO_DATE));
+                json.addProperty("dateFormat", "yyyy-MM-dd");
+                json.addProperty("locale", "en");
+                final String jsonString = json.toString();
+                final JsonElement parsed = this.fromApiJsonHelper.parse(jsonString);
+                final JsonCommand command = JsonCommand.from(jsonString, parsed, this.fromApiJsonHelper, null, null, null, null, null,
+                        loanId, null, null, null, null, null, null, null, null);
+                final LoanCharge loanCharge = this.loanChargeAssembler.createNewFromJson(loan, chargeDefinition, command, businessDate);
+                if (BigDecimal.ZERO.compareTo(loanCharge.amount()) == 0) {
+                    continue;
+                }
+                this.businessEventNotifierService.notifyPreBusinessEvent(new LoanAddChargeBusinessEvent(loanCharge));
+                this.validateAddLoanChargeExcludingAutoAppliedTypes(loan, chargeDefinition, loanCharge);
+                this.addCharge(loan, chargeDefinition, loanCharge);
+                touched = true;
+            }
+        }
+        if (touched) {
+            if (loan.isProgressiveSchedule()) {
+                final ScheduleGeneratorDTO scheduleGeneratorDTO = this.loanUtilService.buildScheduleGeneratorDTO(loan, null);
+                this.loanScheduleService.regenerateRepaymentSchedule(loan, scheduleGeneratorDTO);
+            }
+            this.reprocessLoanTransactionsService.reprocessTransactions(loan);
+            this.loanAccountService.saveAndFlushLoanWithDataIntegrityViolationChecks(loan);
+            this.loanAccountDomainService.setLoanDelinquencyTag(loan, businessDate);
         }
     }
 

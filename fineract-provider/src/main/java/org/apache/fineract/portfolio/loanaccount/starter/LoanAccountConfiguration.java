@@ -519,8 +519,10 @@ public class LoanAccountConfiguration {
     @ConditionalOnMissingBean(LoanChargeService.class)
     public LoanChargeService loanChargeService(final LoanChargeValidator loanChargeValidator,
             final LoanTransactionProcessingService loanTransactionProcessingService,
-            final LoanLifecycleStateMachine loanLifecycleStateMachine, final LoanBalanceService loanBalanceService) {
-        return new LoanChargeService(loanChargeValidator, loanTransactionProcessingService, loanLifecycleStateMachine, loanBalanceService);
+            final LoanLifecycleStateMachine loanLifecycleStateMachine, final LoanBalanceService loanBalanceService,
+            final org.apache.fineract.portfolio.delinquency.service.DelinquencyReadPlatformService delinquencyReadPlatformService) {
+        return new LoanChargeService(loanChargeValidator, loanTransactionProcessingService, loanLifecycleStateMachine, loanBalanceService,
+                delinquencyReadPlatformService);
     }
 
     @Bean

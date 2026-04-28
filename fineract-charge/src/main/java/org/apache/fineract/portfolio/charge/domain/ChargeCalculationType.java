@@ -26,7 +26,9 @@ public enum ChargeCalculationType {
     PERCENT_OF_AMOUNT_AND_INTEREST(3, "chargeCalculationType.percent.of.amount.and.interest"), //
     PERCENT_OF_INTEREST(4, "chargeCalculationType.percent.of.interest"), //
     PERCENT_OF_DISBURSEMENT_AMOUNT(5, "chargeCalculationType.percent.of.disbursement.amount"), //
-    PERCENT_OF_AMOUNT_REDUCE_DISBURSAL(6, "chargeCalculationType.percent.of.amount.reduce.disbursal"); //
+    PERCENT_OF_AMOUNT_REDUCE_DISBURSAL(6, "chargeCalculationType.percent.of.amount.reduce.disbursal"), //
+    /** Percent of delinquent principal when loan-level delinquency tag matches charge's delinquency range (loan charges only) */
+    PERCENT_OF_DELINQUENT_PRINCIPAL(7, "chargeCalculationType.percent.of.delinquent.principal"); //
 
     private final Integer value;
     private final String code;
@@ -48,7 +50,8 @@ public enum ChargeCalculationType {
         return new Integer[] { ChargeCalculationType.FLAT.getValue(), ChargeCalculationType.PERCENT_OF_AMOUNT.getValue(),
                 ChargeCalculationType.PERCENT_OF_AMOUNT_AND_INTEREST.getValue(), ChargeCalculationType.PERCENT_OF_INTEREST.getValue(),
                 ChargeCalculationType.PERCENT_OF_DISBURSEMENT_AMOUNT.getValue(),
-                ChargeCalculationType.PERCENT_OF_AMOUNT_REDUCE_DISBURSAL.getValue() };
+                ChargeCalculationType.PERCENT_OF_AMOUNT_REDUCE_DISBURSAL.getValue(),
+                ChargeCalculationType.PERCENT_OF_DELINQUENT_PRINCIPAL.getValue() };
     }
 
     public static Object[] validValuesForSavings() {
@@ -99,6 +102,9 @@ public enum ChargeCalculationType {
             case 6:
                 chargeCalculationType = PERCENT_OF_AMOUNT_REDUCE_DISBURSAL;
             break;
+            case 7:
+                chargeCalculationType = PERCENT_OF_DELINQUENT_PRINCIPAL;
+            break;
         }
         return chargeCalculationType;
     }
@@ -129,7 +135,7 @@ public enum ChargeCalculationType {
 
     public boolean isPercentageBased() {
         return isPercentageOfAmount() || isPercentageOfAmountAndInterest() || isPercentageOfInterest()
-                || isPercentageOfDisbursementAmount() || isPercentageOfAmountReduceDisbursal();
+                || isPercentageOfDisbursementAmount() || isPercentageOfAmountReduceDisbursal() || isPercentageOfDelinquentPrincipal();
     }
 
     public boolean hasInterest() {
@@ -142,5 +148,9 @@ public enum ChargeCalculationType {
 
     public boolean isPercentageOfAmountReduceDisbursal() {
         return this.value.equals(ChargeCalculationType.PERCENT_OF_AMOUNT_REDUCE_DISBURSAL.getValue());
+    }
+
+    public boolean isPercentageOfDelinquentPrincipal() {
+        return this.value.equals(ChargeCalculationType.PERCENT_OF_DELINQUENT_PRINCIPAL.getValue());
     }
 }

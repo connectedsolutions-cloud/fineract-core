@@ -81,7 +81,8 @@ public final class ChargeDefinitionCommandFromApiJsonDeserializer {
             ACTIVE, CHARGE_PAYMENT_MODE, FEE_ON_MONTH_DAY, FEE_INTERVAL, MONTH_DAY_FORMAT, MIN_CAP, MAX_CAP, FEE_FREQUENCY,
             ENABLE_FREE_WITHDRAWAL_CHARGE, FREE_WITHDRAWAL_FREQUENCY, RESTART_COUNT_FREQUENCY, COUNT_FREQUENCY_TYPE, PAYMENT_TYPE_ID,
             ENABLE_PAYMENT_TYPE, ChargesApiConstants.glAccountIdParamName, ChargesApiConstants.taxGroupIdParamName,
-            ChargesApiConstants.debitAccountIdParamName, ChargesApiConstants.creditAccountIdParamName));
+            ChargesApiConstants.debitAccountIdParamName, ChargesApiConstants.creditAccountIdParamName,
+            ChargesApiConstants.delinquencyRangeIdParamName));
     private final FromJsonHelper fromApiJsonHelper;
 
     @Autowired
@@ -181,6 +182,22 @@ public final class ChargeDefinitionCommandFromApiJsonDeserializer {
 
             if (chargeTimeType != null && chargeCalculationType != null) {
                 performChargeTimeNCalculationTypeValidation(baseDataValidator, chargeTimeType, chargeCalculationType);
+            }
+
+            if (chargeTimeType != null && chargeTimeType.equals(ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE.getValue())) {
+                final Long delinquencyRangeId = this.fromApiJsonHelper.extractLongNamed(ChargesApiConstants.delinquencyRangeIdParamName,
+                        element);
+                baseDataValidator.reset().parameter(ChargesApiConstants.delinquencyRangeIdParamName).value(delinquencyRangeId).notNull()
+                        .longGreaterThanZero();
+            }
+            if (chargeCalculationType != null
+                    && chargeCalculationType.equals(ChargeCalculationType.PERCENT_OF_DELINQUENT_PRINCIPAL.getValue())) {
+                final Long delinquencyRangeId = this.fromApiJsonHelper.extractLongNamed(ChargesApiConstants.delinquencyRangeIdParamName,
+                        element);
+                baseDataValidator.reset().parameter(ChargesApiConstants.delinquencyRangeIdParamName).value(delinquencyRangeId).notNull()
+                        .longGreaterThanZero();
+                baseDataValidator.reset().parameter(CHARGE_TIME_TYPE).value(chargeTimeType).notNull().isOneOfTheseValues(
+                        new Object[] { ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE.getValue() });
             }
 
         } else if (appliesTo.isSavingsCharge()) {
@@ -429,7 +446,7 @@ public final class ChargeDefinitionCommandFromApiJsonDeserializer {
         if (this.fromApiJsonHelper.parameterExists(CHARGE_CALCULATION_TYPE, element)) {
             final Integer chargeCalculationType = this.fromApiJsonHelper.extractIntegerNamed(CHARGE_CALCULATION_TYPE, element,
                     Locale.getDefault());
-            baseDataValidator.reset().parameter(CHARGE_CALCULATION_TYPE).value(chargeCalculationType).notNull().inMinMaxRange(1, 6);
+            baseDataValidator.reset().parameter(CHARGE_CALCULATION_TYPE).value(chargeCalculationType).notNull().inMinMaxRange(1, 7);
         }
 
         if (this.fromApiJsonHelper.parameterExists(CHARGE_PAYMENT_MODE, element)) {
@@ -498,6 +515,16 @@ public final class ChargeDefinitionCommandFromApiJsonDeserializer {
 
     private void performChargeTimeNCalculationTypeValidation(DataValidatorBuilder baseDataValidator, final Integer chargeTimeType,
             final Integer chargeCalculationType) {
+        if (chargeTimeType.equals(ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE.getValue())) {
+            baseDataValidator.reset().parameter(CHARGE_CALCULATION_TYPE).value(chargeCalculationType)
+                    .isOneOfTheseValues(new Object[] { ChargeCalculationType.PERCENT_OF_DELINQUENT_PRINCIPAL.getValue() });
+            return;
+        }
+        if (chargeCalculationType != null && chargeCalculationType.equals(ChargeCalculationType.PERCENT_OF_DELINQUENT_PRINCIPAL.getValue())) {
+            baseDataValidator.reset().parameter(CHARGE_TIME_TYPE).value(chargeTimeType)
+                    .isOneOfTheseValues(new Object[] { ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE.getValue() });
+            return;
+        }
         if (chargeTimeType.equals(ChargeTimeType.SHAREACCOUNT_ACTIVATION.getValue())) {
             baseDataValidator.reset().parameter(CHARGE_CALCULATION_TYPE).value(chargeCalculationType)
                     .isOneOfTheseValues(ChargeCalculationType.validValuesForShareAccountActivation());

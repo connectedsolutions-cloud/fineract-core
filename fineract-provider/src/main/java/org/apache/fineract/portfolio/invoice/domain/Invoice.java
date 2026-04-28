@@ -2,6 +2,7 @@ package org.apache.fineract.portfolio.invoice.domain;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -14,6 +15,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.fineract.infrastructure.core.domain.AbstractAuditableCustom;
+import org.apache.fineract.infrastructure.core.persistence.converter.JsonbStringAttributeConverter;
 
 @Entity
 @Table(name = "m_invoice")
@@ -97,6 +99,10 @@ public class Invoice extends AbstractAuditableCustom {
 
     @Column(name = "mh_recepcion_json", columnDefinition = "text")
     private String mhRecepcionJson;
+
+    @Column(name = "mh_dte_payload_json", columnDefinition = "json")
+    @Convert(converter = JsonbStringAttributeConverter.class)
+    private String mhDtePayloadJson;
 
     @Column(name = "mh_last_error", columnDefinition = "text")
     private String mhLastError;
@@ -247,6 +253,10 @@ public class Invoice extends AbstractAuditableCustom {
         return mhRecepcionJson;
     }
 
+    public String getMhDtePayloadJson() {
+        return mhDtePayloadJson;
+    }
+
     public String getMhLastError() {
         return mhLastError;
     }
@@ -272,6 +282,10 @@ public class Invoice extends AbstractAuditableCustom {
         this.mhSubmittedAt = submittedAt;
         this.mhValidationStatus = "PENDING";
         this.mhLastError = null;
+    }
+
+    public void setMhDtePayloadJson(String mhDtePayloadJson) {
+        this.mhDtePayloadJson = mhDtePayloadJson;
     }
 
     public void applyMhWebhookSuccess(String transmissionId, String transmissionStatus, String documentoJws, String mhRecepcionJson,

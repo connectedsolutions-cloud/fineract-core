@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
+    OR CONDITIONS OF ANY KIND, either express or implied. See the
+    License for the specific language governing permissions and
+    limitations under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0256-1" author="fineract">
+        <createTable tableName="m_mh_dte_item_component">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="dte_amount_type" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="charge_id" type="BIGINT"/>
+            <column name="loan_component" type="VARCHAR(32)"/>
+            <column name="client_type" type="VARCHAR(255)"/>
+            <column name="client_type_key" type="VARCHAR(256)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_uq" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="createdby_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_date" type="TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="lastmodifiedby_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="lastmodified_date" type="TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="m_mh_dte_item_component" baseColumnNames="charge_id"
+                                 constraintName="fk_mh_dte_item_component_charge"
+                                 referencedTableName="m_charge" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="m_mh_dte_item_component" baseColumnNames="createdby_id"
+                                 constraintName="fk_mh_dte_item_component_createdby"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="m_mh_dte_item_component" baseColumnNames="lastmodifiedby_id"
+                                 constraintName="fk_mh_dte_item_component_lastmodifiedby"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"/>
+
+        <addUniqueConstraint tableName="m_mh_dte_item_component" columnNames="target_uq,client_type_key"
+                             constraintName="uk_mh_dte_item_component_target_client"/>
+    </changeSet>
+
+    <changeSet id="0256-2-permissions" author="fineract">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(1) FROM m_permission WHERE code = 'READ_MH_DTE_ITEM_COMPONENT'</sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="portfolio"/>
+            <column name="code" value="READ_MH_DTE_ITEM_COMPONENT"/>
+            <column name="entity_name" value="MH_DTE_ITEM_COMPONENT"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="portfolio"/>
+            <column name="code" value="CREATE_MH_DTE_ITEM_COMPONENT"/>
+            <column name="entity_name" value="MH_DTE_ITEM_COMPONENT"/>
+            <column name="action_name" value="CREATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="portfolio"/>
+            <column name="code" value="UPDATE_MH_DTE_ITEM_COMPONENT"/>
+            <column name="entity_name" value="MH_DTE_ITEM_COMPONENT"/>
+            <column name="action_name" value="UPDATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="portfolio"/>
+            <column name="code" value="DELETE_MH_DTE_ITEM_COMPONENT"/>
+            <column name="entity_name" value="MH_DTE_ITEM_COMPONENT"/>
+            <column name="action_name" value="DELETE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

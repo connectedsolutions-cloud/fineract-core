@@ -50,6 +50,12 @@ import org.apache.fineract.organisation.office.exception.RootOfficeParentCannotB
 @Getter
 @Setter
 public class Office extends AbstractPersistableCustom<Long> implements Serializable {
+    private static final String MH_NIT_PARAM = "mhNit";
+    private static final String MH_PASSWORD_PRI_PARAM = "mhPasswordPri";
+    private static final String MH_FIRMA_SECRET_PARAM = "mhFirmaSecret";
+    private static final String MH_SIGNING_API_KEY_PARAM = "mhSigningApiKey";
+    private static final String MH_COD_ESTABLE_PARAM = "mhCodEstable";
+    private static final String MH_COD_PUNTO_VENTA_PARAM = "mhCodPuntoVenta";
 
     @OneToMany(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
@@ -83,6 +89,20 @@ public class Office extends AbstractPersistableCustom<Long> implements Serializa
     @Column(name = "mh_signing_api_key", length = 255)
     private String mhSigningApiKey;
 
+    @Column(name = "mh_cod_estable", length = 20)
+    private String mhCodEstable;
+
+    @Column(name = "mh_cod_punto_venta", length = 20)
+    private String mhCodPuntoVenta;
+
+    public String getMhCodEstable() {
+        return mhCodEstable;
+    }
+
+    public String getMhCodPuntoVenta() {
+        return mhCodPuntoVenta;
+    }
+
     public static Office headOffice(final String name, final LocalDate openingDate, final ExternalId externalId) {
         return new Office(null, name, openingDate, externalId);
     }
@@ -92,7 +112,14 @@ public class Office extends AbstractPersistableCustom<Long> implements Serializa
         final String name = command.stringValueOfParameterNamed("name");
         final LocalDate openingDate = command.localDateValueOfParameterNamed("openingDate");
         final String externalId = command.stringValueOfParameterNamed("externalId");
-        return new Office(parentOffice, name, openingDate, ExternalIdFactory.produce(externalId));
+        Office office = new Office(parentOffice, name, openingDate, ExternalIdFactory.produce(externalId));
+        office.mhNit = command.stringValueOfParameterNamed(MH_NIT_PARAM);
+        office.mhPasswordPri = command.stringValueOfParameterNamed(MH_PASSWORD_PRI_PARAM);
+        office.mhFirmaSecret = command.stringValueOfParameterNamed(MH_FIRMA_SECRET_PARAM);
+        office.mhSigningApiKey = command.stringValueOfParameterNamed(MH_SIGNING_API_KEY_PARAM);
+        office.mhCodEstable = command.stringValueOfParameterNamed(MH_COD_ESTABLE_PARAM);
+        office.mhCodPuntoVenta = command.stringValueOfParameterNamed(MH_COD_PUNTO_VENTA_PARAM);
+        return office;
     }
 
     protected Office() {
@@ -162,6 +189,42 @@ public class Office extends AbstractPersistableCustom<Long> implements Serializa
             final String newValue = command.stringValueOfParameterNamed(externalIdParamName);
             actualChanges.put(externalIdParamName, newValue);
             this.externalId = ExternalIdFactory.produce(StringUtils.defaultIfEmpty(newValue, null));
+        }
+
+        if (command.isChangeInStringParameterNamed(MH_NIT_PARAM, this.mhNit)) {
+            final String newValue = command.stringValueOfParameterNamed(MH_NIT_PARAM);
+            actualChanges.put(MH_NIT_PARAM, newValue);
+            this.mhNit = newValue;
+        }
+
+        if (command.isChangeInStringParameterNamed(MH_PASSWORD_PRI_PARAM, this.mhPasswordPri)) {
+            final String newValue = command.stringValueOfParameterNamed(MH_PASSWORD_PRI_PARAM);
+            actualChanges.put(MH_PASSWORD_PRI_PARAM, newValue);
+            this.mhPasswordPri = newValue;
+        }
+
+        if (command.isChangeInStringParameterNamed(MH_FIRMA_SECRET_PARAM, this.mhFirmaSecret)) {
+            final String newValue = command.stringValueOfParameterNamed(MH_FIRMA_SECRET_PARAM);
+            actualChanges.put(MH_FIRMA_SECRET_PARAM, newValue);
+            this.mhFirmaSecret = newValue;
+        }
+
+        if (command.isChangeInStringParameterNamed(MH_SIGNING_API_KEY_PARAM, this.mhSigningApiKey)) {
+            final String newValue = command.stringValueOfParameterNamed(MH_SIGNING_API_KEY_PARAM);
+            actualChanges.put(MH_SIGNING_API_KEY_PARAM, newValue);
+            this.mhSigningApiKey = newValue;
+        }
+
+        if (command.isChangeInStringParameterNamed(MH_COD_ESTABLE_PARAM, this.mhCodEstable)) {
+            final String newValue = command.stringValueOfParameterNamed(MH_COD_ESTABLE_PARAM);
+            actualChanges.put(MH_COD_ESTABLE_PARAM, newValue);
+            this.mhCodEstable = newValue;
+        }
+
+        if (command.isChangeInStringParameterNamed(MH_COD_PUNTO_VENTA_PARAM, this.mhCodPuntoVenta)) {
+            final String newValue = command.stringValueOfParameterNamed(MH_COD_PUNTO_VENTA_PARAM);
+            actualChanges.put(MH_COD_PUNTO_VENTA_PARAM, newValue);
+            this.mhCodPuntoVenta = newValue;
         }
 
         return actualChanges;

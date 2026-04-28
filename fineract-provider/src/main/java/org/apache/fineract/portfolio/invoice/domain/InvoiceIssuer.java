@@ -70,60 +70,120 @@ public class InvoiceIssuer extends AbstractPersistableCustom<Long> {
         return nit;
     }
 
+    public void setNit(String nit) {
+        this.nit = nit;
+    }
+
     public String getNrc() {
         return nrc;
+    }
+
+    public void setNrc(String nrc) {
+        this.nrc = nrc;
     }
 
     public String getCodActividad() {
         return codActividad;
     }
 
+    public void setCodActividad(String codActividad) {
+        this.codActividad = codActividad;
+    }
+
     public String getDescActividad() {
         return descActividad;
+    }
+
+    public void setDescActividad(String descActividad) {
+        this.descActividad = descActividad;
     }
 
     public String getNombreComercial() {
         return nombreComercial;
     }
 
+    public void setNombreComercial(String nombreComercial) {
+        this.nombreComercial = nombreComercial;
+    }
+
     public String getTipoEstablecimiento() {
         return tipoEstablecimiento;
+    }
+
+    public void setTipoEstablecimiento(String tipoEstablecimiento) {
+        this.tipoEstablecimiento = tipoEstablecimiento;
     }
 
     public String getDireccionDepartamento() {
         return direccionDepartamento;
     }
 
+    public void setDireccionDepartamento(String direccionDepartamento) {
+        this.direccionDepartamento = direccionDepartamento;
+    }
+
     public String getDireccionMunicipio() {
         return direccionMunicipio;
+    }
+
+    public void setDireccionMunicipio(String direccionMunicipio) {
+        this.direccionMunicipio = direccionMunicipio;
     }
 
     public String getDireccionComplemento() {
         return direccionComplemento;
     }
 
+    public void setDireccionComplemento(String direccionComplemento) {
+        this.direccionComplemento = direccionComplemento;
+    }
+
     public String getTelefono() {
         return telefono;
+    }
+
+    public void setTelefono(String telefono) {
+        this.telefono = telefono;
     }
 
     public String getCorreo() {
         return correo;
     }
 
+    public void setCorreo(String correo) {
+        this.correo = correo;
+    }
+
     public String getCodEstableMh() {
         return codEstableMh;
+    }
+
+    public void setCodEstableMh(String codEstableMh) {
+        this.codEstableMh = codEstableMh;
     }
 
     public String getCodEstable() {
         return codEstable;
     }
 
+    public void setCodEstable(String codEstable) {
+        this.codEstable = codEstable;
+    }
+
     public String getCodPuntoVentaMh() {
         return codPuntoVentaMh;
     }
 
+    public void setCodPuntoVentaMh(String codPuntoVentaMh) {
+        this.codPuntoVentaMh = codPuntoVentaMh;
+    }
+
     public String getCodPuntoVenta() {
         return codPuntoVenta;
+    }
+
+    public void setCodPuntoVenta(String codPuntoVenta) {
+        this.codPuntoVenta = codPuntoVenta;
     }
 }
 

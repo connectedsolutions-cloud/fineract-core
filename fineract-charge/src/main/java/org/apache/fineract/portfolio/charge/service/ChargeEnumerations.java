@@ -107,6 +107,10 @@ public final class ChargeEnumerations {
                 optionData = new EnumOptionData(ChargeTimeType.AVAILABLE_AT_CASHIER.getValue().longValue(),
                         ChargeTimeType.AVAILABLE_AT_CASHIER.getCode(), "Available at Cashier");
             break;
+            case DELINQUENCY_CLASSIFICATION_RANGE:
+                optionData = new EnumOptionData(ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE.getValue().longValue(),
+                        ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE.getCode(), "Delinquency classification range (COB)");
+            break;
             default:
                 optionData = new EnumOptionData(ChargeTimeType.INVALID.getValue().longValue(), ChargeTimeType.INVALID.getCode(), "Invalid");
             break;
@@ -172,6 +176,10 @@ public final class ChargeEnumerations {
             case PERCENT_OF_AMOUNT_REDUCE_DISBURSAL:
                 optionData = new EnumOptionData(ChargeCalculationType.PERCENT_OF_AMOUNT_REDUCE_DISBURSAL.getValue().longValue(),
                         ChargeCalculationType.PERCENT_OF_AMOUNT_REDUCE_DISBURSAL.getCode(), "%amount *reduce disbursal");
+            break;
+            case PERCENT_OF_DELINQUENT_PRINCIPAL:
+                optionData = new EnumOptionData(ChargeCalculationType.PERCENT_OF_DELINQUENT_PRINCIPAL.getValue().longValue(),
+                        ChargeCalculationType.PERCENT_OF_DELINQUENT_PRINCIPAL.getCode(), "% Delinquent principal (range)");
             break;
             default:
                 optionData = new EnumOptionData(ChargeCalculationType.INVALID.getValue().longValue(),

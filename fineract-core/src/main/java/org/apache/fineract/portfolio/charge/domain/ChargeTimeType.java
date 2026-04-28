@@ -37,7 +37,9 @@ public enum ChargeTimeType {
     SHARE_PURCHASE(14, "chargeTimeType.sharespurchase"), // only for shares
     SHARE_REDEEM(15, "chargeTimeType.sharesredeem"), // only for shares
     SAVINGS_NOACTIVITY_FEE(16, "chargeTimeType.savingsNoActivityFee"), // only for savings
-    AVAILABLE_AT_CASHIER(17, "chargeTimeType.availableAtCashier"); // only for loan charges
+    AVAILABLE_AT_CASHIER(17, "chargeTimeType.availableAtCashier"), // only for loan charges
+    /** Loan charge applied on COB when loan-level delinquency tag matches linked range; see ChargeCalculationType.PERCENT_OF_DELINQUENT_PRINCIPAL */
+    DELINQUENCY_CLASSIFICATION_RANGE(18, "chargeTimeType.delinquencyClassificationRange"); // only for loan charges
 
     private final Integer value;
     private final String code;
@@ -58,7 +60,8 @@ public enum ChargeTimeType {
     public static Object[] validLoanValues() {
         return new Integer[] { ChargeTimeType.DISBURSEMENT.getValue(), ChargeTimeType.SPECIFIED_DUE_DATE.getValue(),
                 ChargeTimeType.INSTALMENT_FEE.getValue(), ChargeTimeType.OVERDUE_INSTALLMENT.getValue(),
-                ChargeTimeType.TRANCHE_DISBURSEMENT.getValue(), ChargeTimeType.AVAILABLE_AT_CASHIER.getValue() };
+                ChargeTimeType.TRANCHE_DISBURSEMENT.getValue(), ChargeTimeType.AVAILABLE_AT_CASHIER.getValue(),
+                ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE.getValue() };
     }
 
     public static Object[] validLoanChargeValues() {
@@ -137,6 +140,9 @@ public enum ChargeTimeType {
                 case 17:
                     chargeTimeType = AVAILABLE_AT_CASHIER;
                 break;
+                case 18:
+                    chargeTimeType = DELINQUENCY_CLASSIFICATION_RANGE;
+                break;
                 default:
                     chargeTimeType = INVALID;
                 break;
@@ -194,7 +200,12 @@ public enum ChargeTimeType {
     }
 
     public boolean isAllowedLoanChargeTime() {
-        return isTimeOfDisbursement() || isOnSpecifiedDueDate() || isInstalmentFee() || isOverdueInstallment() || isTrancheDisbursement() || isAvailableAtCashier();
+        return isTimeOfDisbursement() || isOnSpecifiedDueDate() || isInstalmentFee() || isOverdueInstallment() || isTrancheDisbursement()
+                || isAvailableAtCashier() || isDelinquencyClassificationRange();
+    }
+
+    public boolean isDelinquencyClassificationRange() {
+        return this.equals(ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE);
     }
 
     public boolean isAllowedClientChargeTime() {

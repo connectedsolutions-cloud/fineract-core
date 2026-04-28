@@ -47,13 +47,20 @@ public final class OfficeCommandFromApiJsonDeserializer {
     public static final String NAME = "name";
     public static final String OPENING_DATE = "openingDate";
     public static final String EXTERNAL_ID = "externalId";
+    public static final String MH_NIT = "mhNit";
+    public static final String MH_PASSWORD_PRI = "mhPasswordPri";
+    public static final String MH_FIRMA_SECRET = "mhFirmaSecret";
+    public static final String MH_SIGNING_API_KEY = "mhSigningApiKey";
+    public static final String MH_COD_ESTABLE = "mhCodEstable";
+    public static final String MH_COD_PUNTO_VENTA = "mhCodPuntoVenta";
     public static final String LOCALE = "locale";
     public static final String DATE_FORMAT = "dateFormat";
     /**
      * The parameters supported for this command.
      */
     private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(
-            Arrays.asList(NAME, PARENT_ID, OPENING_DATE, EXTERNAL_ID, LOCALE, DATE_FORMAT));
+            Arrays.asList(NAME, PARENT_ID, OPENING_DATE, EXTERNAL_ID, MH_NIT, MH_PASSWORD_PRI, MH_FIRMA_SECRET, MH_SIGNING_API_KEY,
+                    MH_COD_ESTABLE, MH_COD_PUNTO_VENTA, LOCALE, DATE_FORMAT));
 
     private final FromJsonHelper fromApiJsonHelper;
 
@@ -90,6 +97,8 @@ public final class OfficeCommandFromApiJsonDeserializer {
             final Long parentId = this.fromApiJsonHelper.extractLongNamed(PARENT_ID, element);
             baseDataValidator.reset().parameter(PARENT_ID).value(parentId).notNull().integerGreaterThanZero();
         }
+
+        validateMhFields(element, baseDataValidator);
 
         throwExceptionIfValidationWarningsExist(dataValidationErrors);
     }
@@ -134,6 +143,35 @@ public final class OfficeCommandFromApiJsonDeserializer {
             baseDataValidator.reset().parameter(PARENT_ID).value(parentId).notNull().integerGreaterThanZero();
         }
 
+        validateMhFields(element, baseDataValidator);
+
         throwExceptionIfValidationWarningsExist(dataValidationErrors);
+    }
+
+    private void validateMhFields(JsonElement element, DataValidatorBuilder baseDataValidator) {
+        if (this.fromApiJsonHelper.parameterExists(MH_NIT, element)) {
+            final String mhNit = this.fromApiJsonHelper.extractStringNamed(MH_NIT, element);
+            baseDataValidator.reset().parameter(MH_NIT).value(mhNit).notExceedingLengthOf(20);
+        }
+        if (this.fromApiJsonHelper.parameterExists(MH_PASSWORD_PRI, element)) {
+            final String mhPasswordPri = this.fromApiJsonHelper.extractStringNamed(MH_PASSWORD_PRI, element);
+            baseDataValidator.reset().parameter(MH_PASSWORD_PRI).value(mhPasswordPri).notExceedingLengthOf(500);
+        }
+        if (this.fromApiJsonHelper.parameterExists(MH_FIRMA_SECRET, element)) {
+            final String mhFirmaSecret = this.fromApiJsonHelper.extractStringNamed(MH_FIRMA_SECRET, element);
+            baseDataValidator.reset().parameter(MH_FIRMA_SECRET).value(mhFirmaSecret).notExceedingLengthOf(255);
+        }
+        if (this.fromApiJsonHelper.parameterExists(MH_SIGNING_API_KEY, element)) {
+            final String mhSigningApiKey = this.fromApiJsonHelper.extractStringNamed(MH_SIGNING_API_KEY, element);
+            baseDataValidator.reset().parameter(MH_SIGNING_API_KEY).value(mhSigningApiKey).notExceedingLengthOf(255);
+        }
+        if (this.fromApiJsonHelper.parameterExists(MH_COD_ESTABLE, element)) {
+            final String mhCodEstable = this.fromApiJsonHelper.extractStringNamed(MH_COD_ESTABLE, element);
+            baseDataValidator.reset().parameter(MH_COD_ESTABLE).value(mhCodEstable).notExceedingLengthOf(20);
+        }
+        if (this.fromApiJsonHelper.parameterExists(MH_COD_PUNTO_VENTA, element)) {
+            final String mhCodPuntoVenta = this.fromApiJsonHelper.extractStringNamed(MH_COD_PUNTO_VENTA, element);
+            baseDataValidator.reset().parameter(MH_COD_PUNTO_VENTA).value(mhCodPuntoVenta).notExceedingLengthOf(20);
+        }
     }
 }

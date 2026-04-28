@@ -50,6 +50,18 @@ final class OfficesApiResourceSwagger {
         public String dateFormat;
         @Schema(example = "en")
         public String locale;
+        @Schema(example = "0614-290990-102-4")
+        public String mhNit;
+        @Schema(example = "secret123")
+        public String mhPasswordPri;
+        @Schema(example = "firma-secret")
+        public String mhFirmaSecret;
+        @Schema(example = "api-key")
+        public String mhSigningApiKey;
+        @Schema(example = "0001")
+        public String mhCodEstable;
+        @Schema(example = "0002")
+        public String mhCodPuntoVenta;
 
         public Collection<GetOfficesResponse> allowedParents;
     }
@@ -85,6 +97,18 @@ final class OfficesApiResourceSwagger {
         public Long parentId;
         @Schema(example = "SYS54-88")
         public String externalId;
+        @Schema(example = "0614-290990-102-4")
+        public String mhNit;
+        @Schema(example = "secret123")
+        public String mhPasswordPri;
+        @Schema(example = "firma-secret")
+        public String mhFirmaSecret;
+        @Schema(example = "api-key")
+        public String mhSigningApiKey;
+        @Schema(example = "0001")
+        public String mhCodEstable;
+        @Schema(example = "0002")
+        public String mhCodPuntoVenta;
 
     }
 
@@ -119,6 +143,18 @@ final class OfficesApiResourceSwagger {
         public String openingDate;
         @Schema(example = "SYS54-88")
         public String externalId;
+        @Schema(example = "0614-290990-102-4")
+        public String mhNit;
+        @Schema(example = "secret123")
+        public String mhPasswordPri;
+        @Schema(example = "firma-secret")
+        public String mhFirmaSecret;
+        @Schema(example = "api-key")
+        public String mhSigningApiKey;
+        @Schema(example = "0001")
+        public String mhCodEstable;
+        @Schema(example = "0002")
+        public String mhCodPuntoVenta;
     }
 
     @Schema(description = "PutOfficesOfficeIdResponse")

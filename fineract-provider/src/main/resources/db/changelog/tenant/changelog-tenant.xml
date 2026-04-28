@@ -274,4 +274,12 @@
     <include file="parts/0252_add_invoice_dte_tables.xml" relativeToChangelogFile="true" />
     <include file="parts/0253_add_anexo_facturacion_report.xml" relativeToChangelogFile="true" />
     <include file="parts/0254_add_mh_dte_validation_fields.xml" relativeToChangelogFile="true" />
+    <include file="parts/0255_add_office_mh_control_codes.xml" relativeToChangelogFile="true" />
+    <include file="parts/0256_add_m_mh_dte_item_component.xml" relativeToChangelogFile="true" />
+    <include file="parts/0257_m_mh_dte_item_component_optional_type.xml" relativeToChangelogFile="true" />
+    <include file="parts/0258_delinquency_range_charge_and_cob_step.xml" relativeToChangelogFile="true" />
+    <include file="parts/0259_add_mh_dte_payload_json.xml" relativeToChangelogFile="true" />
+    <include file="parts/0260_add_mh_company_last_dte_correlativo.xml" relativeToChangelogFile="true" />
+    <include file="parts/0261_add_mh_company_emisor_fields.xml" relativeToChangelogFile="true" />
+    <include file="parts/0262_add_receptor_defaults_and_tipo_documento.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

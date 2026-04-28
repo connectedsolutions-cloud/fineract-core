@@ -7,15 +7,20 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
+import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.organisation.office.domain.Office;
 import org.apache.fineract.portfolio.invoice.data.InvoiceCreateRequest;
 import org.apache.fineract.portfolio.invoice.data.InvoiceLineRequest;
 import org.apache.fineract.portfolio.invoice.data.InvoiceMetadataUpdateRequest;
 import org.apache.fineract.portfolio.invoice.domain.Invoice;
 import org.apache.fineract.portfolio.invoice.domain.InvoiceIssuer;
 import org.apache.fineract.portfolio.invoice.domain.InvoiceLine;
+import org.apache.fineract.portfolio.invoice.domain.MhCompanyConfig;
+import org.apache.fineract.portfolio.invoice.domain.MhCompanyConfigRepository;
 import org.apache.fineract.portfolio.invoice.domain.InvoiceReceiver;
 import org.apache.fineract.portfolio.invoice.domain.InvoiceRepository;
 import org.apache.fineract.portfolio.invoice.domain.InvoiceStatus;
@@ -24,25 +29,39 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class InvoiceServiceImpl implements InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
+    private final PlatformSecurityContext platformSecurityContext;
+    private final InvoiceLineMhCategoryBuilderService invoiceLineMhCategoryBuilderService;
+    private final MhCompanyConfigRepository mhCompanyConfigRepository;
 
     @Override
     @Transactional
     public Invoice createDraft(InvoiceCreateRequest request) {
+        log.info("INVOICE_DRAFT_CREATE_START loanTransactionId={} savingsTransactionId={} clientTransactionId={} lineCount={}",
+                request.getLoanTransactionId(), request.getSavingsTransactionId(), request.getClientTransactionId(),
+                request.getLines() != null ? request.getLines().size() : 0);
         validateTransactionLink(request.getLoanTransactionId(), request.getSavingsTransactionId(), request.getClientTransactionId());
-        validateCreatePayload(request);
+        Office office = resolveCurrentUserOffice();
+        String numeroControl = resolveNumeroControl(request, office);
+        validateCreatePayload(request, numeroControl);
 
         Invoice invoice = Invoice.draft(request.getLoanTransactionId(), request.getSavingsTransactionId(), request.getClientTransactionId(),
-                request.getVersion(), request.getAmbiente(), request.getTipoDte(), request.getNumeroControl(),
+                request.getVersion(), request.getAmbiente(), request.getTipoDte(), numeroControl,
                 request.getCodigoGeneracion(), request.getTipoModelo(), request.getTipoOperacion(), request.getFecEmi(),
                 request.getHorEmi(), request.getTipoMoneda());
         invoice.setContingency(request.getTipoContingencia(), request.getMotivoContin());
+        MhCompanyConfig mhCompanyConfig = mhCompanyConfigRepository.findById(MhCompanyConfig.SINGLETON_ID).orElse(null);
 
         InvoiceIssuer issuer = InvoiceIssuer.empty();
-        issuer.setNombre(request.getEmisorNombre());
+        applyMhCompanyIssuerDefaults(issuer, mhCompanyConfig);
+        if (StringUtils.isBlank(issuer.getNombre()) && StringUtils.isNotBlank(request.getEmisorNombre())) {
+            issuer.setNombre(request.getEmisorNombre());
+        }
+        applyOfficeControlCodes(issuer, office);
         invoice.setIssuer(issuer);
 
         InvoiceReceiver receiver = InvoiceReceiver.empty();
@@ -51,7 +70,14 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         invoice.replaceLines(toDomainLines(request.getLines()));
         invoice.setSummary(buildSummaryFromLines(invoice.getLines()));
-        return invoiceRepository.save(invoice);
+        Invoice saved = invoiceRepository.save(invoice);
+        log.info("INVOICE_DRAFT_CREATE_OK invoiceId={} linkedLoanTx={} linkedSavingsTx={} linkedClientTx={} totalNoSuj={} totalExenta={} totalGravada={} totalPagar={}",
+                saved.getId(), saved.getLoanTransactionId(), saved.getSavingsTransactionId(), saved.getClientTransactionId(),
+                saved.getSummary() != null ? saved.getSummary().getTotalNoSuj() : null,
+                saved.getSummary() != null ? saved.getSummary().getTotalExenta() : null,
+                saved.getSummary() != null ? saved.getSummary().getTotalGravada() : null,
+                saved.getSummary() != null ? saved.getSummary().getTotalPagar() : null);
+        return saved;
     }
 
     @Override
@@ -61,6 +87,23 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .orElseThrow(() -> new PlatformDataIntegrityException("error.msg.invoice.not.found", "Invoice not found", invoiceId));
         if (StringUtils.isNotBlank(request.getFirmaElectronica())) {
             invoice.setFirmaElectronica(request.getFirmaElectronica());
+        }
+        if (invoice.getReceiver() != null) {
+            invoice.getReceiver().setTipoDocumento(defaultTipoDocumento(request.getReceptorTipoDocumento()));
+            if (StringUtils.isNotBlank(request.getReceptorNombre())) {
+                invoice.getReceiver().setNombre(request.getReceptorNombre());
+            }
+            invoice.getReceiver().setDocId(request.getReceptorDocId());
+            invoice.getReceiver().setNit(request.getReceptorNit());
+            invoice.getReceiver().setNrc(request.getReceptorNrc());
+            invoice.getReceiver().setCodActividad(request.getReceptorCodActividad());
+            invoice.getReceiver().setDescActividad(request.getReceptorDescActividad());
+            invoice.getReceiver().setNombreComercial(request.getReceptorNombreComercial());
+            invoice.getReceiver().setDireccionDepartamento(request.getReceptorDireccionDepartamento());
+            invoice.getReceiver().setDireccionMunicipio(request.getReceptorDireccionMunicipio());
+            invoice.getReceiver().setDireccionComplemento(request.getReceptorDireccionComplemento());
+            invoice.getReceiver().setCorreo(request.getReceptorCorreo());
+            invoice.getReceiver().setTelefono(request.getReceptorTelefono());
         }
         invoice.setAuthorityData(request.getAuthorityStatus(), request.getAuthorityMessage(), request.getSelloRecibido(),
                 LocalDateTime.now());
@@ -96,6 +139,8 @@ public class InvoiceServiceImpl implements InvoiceService {
     @Transactional
     public void createDraftForLoanTransactionIfMissing(Long loanTransactionId) {
         if (loanTransactionId == null || invoiceRepository.findByLoanTransactionId(loanTransactionId).isPresent()) {
+            log.debug("INVOICE_DRAFT_SKIP_LOAN loanTransactionId={} reason={}", loanTransactionId,
+                    loanTransactionId == null ? "NULL_TRANSACTION_ID" : "ALREADY_EXISTS");
             return;
         }
         InvoiceCreateRequest request = new InvoiceCreateRequest();
@@ -103,7 +148,6 @@ public class InvoiceServiceImpl implements InvoiceService {
         request.setVersion(3);
         request.setAmbiente("00");
         request.setTipoDte("03");
-        request.setNumeroControl(("DTE-" + loanTransactionId + "-" + System.currentTimeMillis()).substring(0, 31));
         request.setCodigoGeneracion(UUID.randomUUID().toString());
         request.setTipoModelo(1);
         request.setTipoOperacion(1);
@@ -112,7 +156,9 @@ public class InvoiceServiceImpl implements InvoiceService {
         request.setTipoMoneda("USD");
         request.setEmisorNombre("PENDING_ISSUER");
         request.setReceptorNombre("PENDING_RECEIVER");
-        request.setLines(new ArrayList<>());
+        request.setLines(invoiceLineMhCategoryBuilderService.buildForLoanTransaction(loanTransactionId));
+        log.info("INVOICE_DRAFT_BUILD_LOAN_LINE loanTransactionId={} generatedLineCount={}", loanTransactionId,
+                request.getLines() != null ? request.getLines().size() : 0);
         createDraft(request);
     }
 
@@ -120,6 +166,8 @@ public class InvoiceServiceImpl implements InvoiceService {
     @Transactional
     public void createDraftForClientTransactionIfMissing(Long clientTransactionId) {
         if (clientTransactionId == null || invoiceRepository.findByClientTransactionId(clientTransactionId).isPresent()) {
+            log.debug("INVOICE_DRAFT_SKIP_CLIENT clientTransactionId={} reason={}", clientTransactionId,
+                    clientTransactionId == null ? "NULL_TRANSACTION_ID" : "ALREADY_EXISTS");
             return;
         }
         InvoiceCreateRequest request = new InvoiceCreateRequest();
@@ -127,7 +175,6 @@ public class InvoiceServiceImpl implements InvoiceService {
         request.setVersion(3);
         request.setAmbiente("00");
         request.setTipoDte("03");
-        request.setNumeroControl(("DTE-CLI-" + clientTransactionId + "-" + System.currentTimeMillis()).substring(0, 31));
         request.setCodigoGeneracion(UUID.randomUUID().toString());
         request.setTipoModelo(1);
         request.setTipoOperacion(1);
@@ -136,19 +183,98 @@ public class InvoiceServiceImpl implements InvoiceService {
         request.setTipoMoneda("USD");
         request.setEmisorNombre("PENDING_ISSUER");
         request.setReceptorNombre("PENDING_RECEIVER");
-        request.setLines(new ArrayList<>());
+        request.setLines(invoiceLineMhCategoryBuilderService.buildForClientTransaction(clientTransactionId));
+        log.info("INVOICE_DRAFT_BUILD_CLIENT_LINE clientTransactionId={} generatedLineCount={}", clientTransactionId,
+                request.getLines() != null ? request.getLines().size() : 0);
         createDraft(request);
     }
 
-    private void validateCreatePayload(InvoiceCreateRequest request) {
+    // Savings transaction invoice auto-draft hook is intentionally pending until a savings-side trigger invokes InvoiceService.
+
+    private void validateCreatePayload(InvoiceCreateRequest request, String numeroControl) {
         if (!isUuidV4(request.getCodigoGeneracion())) {
             throw new PlatformDataIntegrityException("error.msg.invoice.codigo.generacion.invalid", "codigoGeneracion must be UUID v4",
                     request.getCodigoGeneracion());
         }
-        if (StringUtils.length(request.getNumeroControl()) != 31) {
+        if (StringUtils.length(numeroControl) != 31) {
             throw new PlatformDataIntegrityException("error.msg.invoice.numero.control.invalid", "numeroControl must be 31 chars",
-                    request.getNumeroControl());
+                    numeroControl);
         }
+    }
+
+    private Office resolveCurrentUserOffice() {
+        if (platformSecurityContext.getAuthenticatedUserIfPresent() == null) {
+            return null;
+        }
+        return platformSecurityContext.getAuthenticatedUserIfPresent().getOffice();
+    }
+
+    private void applyOfficeControlCodes(InvoiceIssuer issuer, Office office) {
+        if (issuer == null || office == null) {
+            return;
+        }
+        issuer.setCodEstable(office.getMhCodEstable());
+        issuer.setCodPuntoVenta(office.getMhCodPuntoVenta());
+    }
+
+    private void applyMhCompanyIssuerDefaults(InvoiceIssuer issuer, MhCompanyConfig config) {
+        if (issuer == null || config == null) {
+            return;
+        }
+        issuer.setNit(config.getNit());
+        issuer.setNrc(config.getNrc());
+        issuer.setNombre(config.getNombre());
+        issuer.setNombreComercial(config.getNombreComercial());
+        issuer.setCodActividad(config.getCodActividad());
+        issuer.setDescActividad(config.getDescActividad());
+        issuer.setTipoEstablecimiento(config.getTipoEstablecimiento());
+        issuer.setDireccionDepartamento(config.getDireccionDepartamento());
+        issuer.setDireccionMunicipio(config.getDireccionMunicipio());
+        issuer.setDireccionComplemento(config.getDireccionComplemento());
+        issuer.setTelefono(config.getTelefono());
+        issuer.setCorreo(config.getCorreo());
+    }
+
+    private String resolveNumeroControl(InvoiceCreateRequest request, Office office) {
+        if (StringUtils.isNotBlank(request.getNumeroControl())) {
+            return request.getNumeroControl();
+        }
+        if (office == null) {
+            throw new PlatformDataIntegrityException("error.msg.invoice.numero.control.office.missing",
+                    "Cannot generate numeroControl without authenticated user office");
+        }
+
+        String codEstable = normalizeDigits(office.getMhCodEstable());
+        String codPuntoVenta = normalizeDigits(office.getMhCodPuntoVenta());
+        if (StringUtils.isBlank(codEstable) || StringUtils.isBlank(codPuntoVenta)) {
+            throw new PlatformDataIntegrityException("error.msg.invoice.numero.control.office.codes.missing",
+                    "Office must define mhCodEstable and mhCodPuntoVenta to generate numeroControl", office.getId());
+        }
+
+        String tipoDte = StringUtils.leftPad(normalizeDigits(request.getTipoDte()), 2, '0');
+        tipoDte = StringUtils.right(tipoDte, 2);
+        String establecimientoPunto = StringUtils.right(StringUtils.leftPad(codEstable, 4, '0'), 4)
+                + StringUtils.right(StringUtils.leftPad(codPuntoVenta, 4, '0'), 4);
+        String correlativo = StringUtils.leftPad(String.valueOf(nextCorrelativo()), 15, '0');
+        correlativo = StringUtils.right(correlativo, 15);
+        return "DTE-" + tipoDte + "-" + establecimientoPunto + "-" + correlativo;
+    }
+
+    private static String normalizeDigits(String value) {
+        if (StringUtils.isBlank(value)) {
+            return "";
+        }
+        return value.replaceAll("\\D+", "");
+    }
+
+    private long nextCorrelativo() {
+        MhCompanyConfig config = mhCompanyConfigRepository.findByIdForUpdate(MhCompanyConfig.SINGLETON_ID)
+                .orElseGet(MhCompanyConfig::emptySingleton);
+        long lastValue = config.getLastDteCorrelativo() == null ? 0L : config.getLastDteCorrelativo();
+        long nextValue = lastValue + 1;
+        config.setLastDteCorrelativo(nextValue);
+        mhCompanyConfigRepository.save(config);
+        return nextValue;
     }
 
     private void validateByState(Invoice invoice) {
@@ -224,6 +350,10 @@ public class InvoiceServiceImpl implements InvoiceService {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private String defaultTipoDocumento(String tipoDocumento) {
+        return StringUtils.defaultIfBlank(tipoDocumento, "13");
     }
 }
 

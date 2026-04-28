@@ -42,6 +42,8 @@ import org.apache.fineract.portfolio.charge.domain.ChargeAppliesTo;
 import org.apache.fineract.portfolio.charge.domain.ChargeTimeType;
 import org.apache.fineract.portfolio.charge.exception.ChargeNotFoundException;
 import org.apache.fineract.portfolio.common.service.CommonEnumerations;
+import org.apache.fineract.portfolio.delinquency.data.DelinquencyRangeData;
+import org.apache.fineract.portfolio.delinquency.service.DelinquencyReadPlatformService;
 import org.apache.fineract.portfolio.common.service.DropdownReadPlatformService;
 import org.apache.fineract.portfolio.paymenttype.data.PaymentTypeData;
 import org.apache.fineract.portfolio.tax.data.TaxGroupData;
@@ -68,6 +70,7 @@ public class ChargeReadPlatformServiceImpl implements ChargeReadPlatformService 
     private final TaxReadPlatformService taxReadPlatformService;
     private final ConfigurationDomainServiceJpa configurationDomainServiceJpa;
     private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+    private final DelinquencyReadPlatformService delinquencyReadPlatformService;
 
     @Override
     @Cacheable(value = "charges", key = "T(org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil).getTenant().getTenantIdentifier().concat('ch')")
@@ -139,6 +142,7 @@ public class ChargeReadPlatformServiceImpl implements ChargeReadPlatformService 
         final String accountMappingForChargeConfig = this.configurationDomainServiceJpa.getAccountMappingForCharge();
         final List<GLAccountData> expenseAccountOptions = this.accountingDropdownReadPlatformService.retrieveExpenseAccountOptions();
         final List<GLAccountData> assetAccountOptions = this.accountingDropdownReadPlatformService.retrieveAssetAccountOptions();
+        final List<EnumOptionData> delinquencyRangeOptions = buildDelinquencyRangeOptions();
 
         return ChargeData.builder().currencyOptions(currencyOptions).chargeCalculationTypeOptions(allowedChargeCalculationTypeOptions)
                 .chargeAppliesToOptions(allowedChargeAppliesToOptions).chargeTimeTypeOptions(allowedChargeTimeOptions)
@@ -148,10 +152,26 @@ public class ChargeReadPlatformServiceImpl implements ChargeReadPlatformService 
                 .savingsChargeTimeTypeOptions(savingsChargeTimeTypeOptions)
                 .clientChargeCalculationTypeOptions(clientChargeCalculationTypeOptions)
                 .clientChargeTimeTypeOptions(clientChargeTimeTypeOptions).feeFrequencyOptions(feeFrequencyOptions)
+                .delinquencyRangeOptions(delinquencyRangeOptions)
                 .incomeOrLiabilityAccountOptions(incomeOrLiabilityAccountOptions).taxGroupOptions(taxGroupOptions)
                 .shareChargeCalculationTypeOptions(shareChargeCalculationTypeOptions).shareChargeTimeTypeOptions(shareChargeTimeTypeOptions)
                 .accountMappingForChargeConfig(accountMappingForChargeConfig).expenseAccountOptions(expenseAccountOptions)
                 .assetAccountOptions(assetAccountOptions).build();
+    }
+
+    private List<EnumOptionData> buildDelinquencyRangeOptions() {
+        return delinquencyReadPlatformService.retrieveAllDelinquencyRanges().stream().filter(r -> r.getId() != null)
+                .map(r -> new EnumOptionData(r.getId(), "delinquencyRange", formatDelinquencyRangeLabel(r))).toList();
+    }
+
+    private static String formatDelinquencyRangeLabel(DelinquencyRangeData r) {
+        String cls = r.getClassification() != null ? r.getClassification() : "";
+        Integer min = r.getMinimumAgeDays() != null ? r.getMinimumAgeDays() : 0;
+        Integer max = r.getMaximumAgeDays();
+        if (max != null) {
+            return cls + " (" + min + "-" + max + " d)";
+        }
+        return cls + " (" + min + "+ d)";
     }
 
     @Override
@@ -273,7 +293,7 @@ public class ChargeReadPlatformServiceImpl implements ChargeReadPlatformService 
             return "c.id as id, c.name as name, c.amount as amount, c.currency_code as currencyCode, "
                     + "c.charge_applies_to_enum as chargeAppliesTo, c.charge_time_enum as chargeTime, "
                     + "c.charge_payment_mode_enum as chargePaymentMode, "
-                    + "c.charge_calculation_enum as chargeCalculation, c.is_penalty as penalty, "
+                    + "c.charge_calculation_enum as chargeCalculation, c.delinquency_range_id as delinquencyRangeId, c.is_penalty as penalty, "
                     + "c.is_active as active, c.is_free_withdrawal as isFreeWithdrawal, c.free_withdrawal_charge_frequency as freeWithdrawalChargeFrequency, c.restart_frequency as restartFrequency, c.restart_frequency_enum as restartFrequencyEnum,"
                     + "oc.name as currencyName, oc.decimal_places as currencyDecimalPlaces, "
                     + "oc.currency_multiplesof as inMultiplesOf, oc.display_symbol as currencyDisplaySymbol, "
@@ -329,6 +349,8 @@ public class ChargeReadPlatformServiceImpl implements ChargeReadPlatformService 
 
             final int paymentMode = rs.getInt("chargePaymentMode");
             final EnumOptionData chargePaymentMode = ChargeEnumerations.chargePaymentMode(paymentMode);
+
+            final Long delinquencyRangeId = JdbcSupport.getLong(rs, "delinquencyRangeId");
 
             final boolean penalty = rs.getBoolean("penalty");
             final boolean active = rs.getBoolean("active");
@@ -400,7 +422,8 @@ public class ChargeReadPlatformServiceImpl implements ChargeReadPlatformService 
                     .freeWithdrawalChargeFrequency(freeWithdrawalChargeFrequency).restartFrequency(restartFrequency)
                     .restartFrequencyEnum(restartFrequencyEnum).isPaymentType(isPaymentType).paymentTypeOptions(paymentTypeData)
                     .minCap(minCap).maxCap(maxCap).feeFrequency(feeFrequencyType).incomeOrLiabilityAccount(glAccountData)
-                    .debitAccount(debitAccountData).creditAccount(creditAccountData).taxGroup(taxGroupData).build();
+                    .debitAccount(debitAccountData).creditAccount(creditAccountData).taxGroup(taxGroupData).delinquencyRangeId(delinquencyRangeId)
+                    .build();
 
         }
     }

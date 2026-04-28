@@ -487,4 +487,14 @@ public interface LoanTransactionRepository extends JpaRepository<LoanTransaction
             """)
     CodeValue fetchClassificationCodeValueByTransactionId(@Param("transactionId") Long transactionId);
 
+    @Query("""
+            SELECT DISTINCT lt FROM LoanTransaction lt
+            JOIN FETCH lt.loan l
+            LEFT JOIN FETCH lt.loanChargesPaid pb
+            LEFT JOIN FETCH pb.loanCharge lc
+            LEFT JOIN FETCH lc.charge
+            WHERE lt.id = :id
+            """)
+    Optional<LoanTransaction> findByIdWithLoanAndChargesPaid(@Param("id") Long id);
+
 }

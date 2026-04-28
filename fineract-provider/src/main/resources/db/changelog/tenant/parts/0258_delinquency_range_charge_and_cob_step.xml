@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+    <changeSet id="1" author="credesal">
+        <addColumn tableName="m_charge">
+            <column name="delinquency_range_id" type="BIGINT">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        <addForeignKeyConstraint baseTableName="m_charge" baseColumnNames="delinquency_range_id"
+                                 constraintName="fk_charge_delinquency_range"
+                                 referencedTableName="m_delinquency_range" referencedColumnNames="id"
+                                 deferrable="false" initiallyDeferred="false"/>
+    </changeSet>
+    <changeSet id="2" author="credesal">
+        <insert tableName="m_batch_business_steps">
+            <column name="job_name" value="LOAN_CLOSE_OF_BUSINESS"/>
+            <column name="step_name" value="APPLY_DELINQUENCY_RANGE_CHARGES"/>
+            <column name="step_order" value="3"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

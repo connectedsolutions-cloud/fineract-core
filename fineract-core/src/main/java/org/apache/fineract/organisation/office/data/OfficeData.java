@@ -39,6 +39,12 @@ public class OfficeData implements Serializable {
     private final String hierarchy;
     private final Long parentId;
     private final String parentName;
+    private final String mhNit;
+    private final String mhPasswordPri;
+    private final String mhFirmaSecret;
+    private final String mhSigningApiKey;
+    private final String mhCodEstable;
+    private final String mhCodPuntoVenta;
     private final Collection<OfficeData> allowedParents;
 
     // import fields
@@ -48,7 +54,7 @@ public class OfficeData implements Serializable {
 
     public static OfficeData importInstance(final String name, final Long parentId, final LocalDate openingDate,
             final ExternalId externalId) {
-        return new OfficeData(null, name, null, externalId, openingDate, null, parentId, null, null);
+        return new OfficeData(null, name, null, externalId, openingDate, null, parentId, null, null, null, null, null, null, null, null);
     }
 
     public void setImportFields(final Integer rowIndex, final String locale, final String dateFormat) {
@@ -58,25 +64,34 @@ public class OfficeData implements Serializable {
     }
 
     public static OfficeData testInstance(final Long id, final String name) {
-        return new OfficeData(id, name, null, null, null, null, null, null, null);
+        return new OfficeData(id, name, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     public static OfficeData dropdown(final Long id, final String name, final String nameDecorated) {
-        return new OfficeData(id, name, nameDecorated, null, null, null, null, null, null);
+        return new OfficeData(id, name, nameDecorated, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     public static OfficeData template(final List<OfficeData> parentLookups, final LocalDate defaultOpeningDate) {
-        return new OfficeData(null, null, null, null, defaultOpeningDate, null, null, null, parentLookups);
+        return new OfficeData(null, null, null, null, defaultOpeningDate, null, null, null, null, null, null, null, null, null, parentLookups);
     }
 
     public static OfficeData appendedTemplate(final OfficeData office, final Collection<OfficeData> allowedParents) {
         return new OfficeData(office.id, office.name, office.nameDecorated, office.externalId, office.openingDate, office.hierarchy,
-                office.parentId, office.parentName, allowedParents);
+                office.parentId, office.parentName, office.mhNit, office.mhPasswordPri, office.mhFirmaSecret, office.mhSigningApiKey,
+                office.mhCodEstable, office.mhCodPuntoVenta, allowedParents);
     }
 
     public OfficeData(final Long id, final String name, final String nameDecorated, final ExternalId externalId,
             final LocalDate openingDate, final String hierarchy, final Long parentId, final String parentName,
             final Collection<OfficeData> allowedParents) {
+        this(id, name, nameDecorated, externalId, openingDate, hierarchy, parentId, parentName, null, null, null, null, null, null,
+                allowedParents);
+    }
+
+    public OfficeData(final Long id, final String name, final String nameDecorated, final ExternalId externalId,
+            final LocalDate openingDate, final String hierarchy, final Long parentId, final String parentName, final String mhNit,
+            final String mhPasswordPri, final String mhFirmaSecret, final String mhSigningApiKey, final String mhCodEstable,
+            final String mhCodPuntoVenta, final Collection<OfficeData> allowedParents) {
         this.id = id;
         this.name = name;
         this.nameDecorated = nameDecorated;
@@ -85,6 +100,12 @@ public class OfficeData implements Serializable {
         this.hierarchy = hierarchy;
         this.parentName = parentName;
         this.parentId = parentId;
+        this.mhNit = mhNit;
+        this.mhPasswordPri = mhPasswordPri;
+        this.mhFirmaSecret = mhFirmaSecret;
+        this.mhSigningApiKey = mhSigningApiKey;
+        this.mhCodEstable = mhCodEstable;
+        this.mhCodPuntoVenta = mhCodPuntoVenta;
         this.allowedParents = allowedParents;
     }
 

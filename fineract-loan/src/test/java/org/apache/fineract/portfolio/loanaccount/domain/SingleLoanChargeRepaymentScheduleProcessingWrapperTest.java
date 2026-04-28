@@ -43,6 +43,7 @@ import org.apache.fineract.portfolio.charge.domain.Charge;
 import org.apache.fineract.portfolio.charge.domain.ChargeCalculationType;
 import org.apache.fineract.portfolio.charge.domain.ChargePaymentMode;
 import org.apache.fineract.portfolio.charge.domain.ChargeTimeType;
+import org.apache.fineract.portfolio.delinquency.service.DelinquencyReadPlatformService;
 import org.apache.fineract.portfolio.loanaccount.serialization.LoanChargeValidator;
 import org.apache.fineract.portfolio.loanaccount.service.LoanBalanceService;
 import org.apache.fineract.portfolio.loanaccount.service.LoanChargeService;
@@ -69,7 +70,8 @@ public class SingleLoanChargeRepaymentScheduleProcessingWrapperTest {
     private ArgumentCaptor<Money> penaltyChargesWrittenOff = ArgumentCaptor.forClass(Money.class);
 
     private final LoanChargeService loanChargeService = new LoanChargeService(mock(LoanChargeValidator.class),
-            mock(LoanTransactionProcessingService.class), mock(LoanLifecycleStateMachine.class), mock(LoanBalanceService.class));
+            mock(LoanTransactionProcessingService.class), mock(LoanLifecycleStateMachine.class), mock(LoanBalanceService.class),
+            mock(DelinquencyReadPlatformService.class));
 
     @BeforeAll
     public static void init() {
