@@ -39,7 +39,6 @@ import org.apache.fineract.infrastructure.accountnumberformat.domain.EntityAccou
 import org.apache.fineract.infrastructure.codes.domain.CodeValue;
 import org.apache.fineract.infrastructure.codes.domain.CodeValueRepositoryWrapper;
 import org.apache.fineract.infrastructure.configuration.domain.ConfigurationDomainService;
-import org.apache.fineract.infrastructure.configuration.service.TemporaryConfigurationServiceContainer;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.api.JsonQuery;
 import org.apache.fineract.infrastructure.core.domain.ExternalId;
@@ -246,7 +245,7 @@ public class LoanAssemblerImpl implements LoanAssembler {
         }
 
         final String externalIdStr = this.fromApiJsonHelper.extractStringNamed("externalId", element);
-        ExternalId externalId = externalIdFactory.create(externalIdStr);
+        ExternalId externalId = ExternalIdFactory.produce(externalIdStr);
         final LocalDate submittedOnDate = this.fromApiJsonHelper.extractLocalDateNamed("submittedOnDate", element);
 
         Boolean isEnableInstallmentLevelDelinquency = this.fromApiJsonHelper
@@ -562,8 +561,9 @@ public class LoanAssemblerImpl implements LoanAssembler {
         if (command.isChangeInStringParameterNamed(LoanApiConstants.externalIdParameterName, loan.getExternalId().getValue())) {
             final String newValue = command.stringValueOfParameterNamed(LoanApiConstants.externalIdParameterName);
             ExternalId externalId = ExternalIdFactory.produce(newValue);
-            if (externalId.isEmpty() && TemporaryConfigurationServiceContainer.isExternalIdAutoGenerationEnabled()) {
-                externalId = ExternalId.generate();
+            if (externalId.isEmpty()) {
+                loan.assignDefaultExternalIdFromInternalIdIfEmpty();
+                externalId = loan.getExternalId();
             }
             changes.put(LoanApiConstants.externalIdParameterName, externalId);
             loan.setExternalId(externalId);

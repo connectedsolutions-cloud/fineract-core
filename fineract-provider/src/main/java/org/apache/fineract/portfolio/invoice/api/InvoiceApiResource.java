@@ -35,7 +35,7 @@ public class InvoiceApiResource {
     @Produces({ MediaType.APPLICATION_JSON })
     public InvoiceData create(InvoiceCreateRequest request) {
         context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME);
-        return InvoiceData.from(invoiceService.createDraft(request));
+        return invoiceService.toInvoiceData(invoiceService.createDraft(request));
     }
 
     @GET
@@ -43,7 +43,7 @@ public class InvoiceApiResource {
     @Produces({ MediaType.APPLICATION_JSON })
     public InvoiceData getById(@PathParam("invoiceId") Long invoiceId) {
         context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME);
-        return invoiceService.findById(invoiceId).map(InvoiceData::from).orElse(null);
+        return invoiceService.findById(invoiceId).map(invoiceService::toInvoiceData).orElse(null);
     }
 
     @GET
@@ -51,8 +51,8 @@ public class InvoiceApiResource {
     public InvoiceData getByTransaction(@QueryParam("loanTransactionId") Long loanTransactionId,
             @QueryParam("savingsTransactionId") Long savingsTransactionId, @QueryParam("clientTransactionId") Long clientTransactionId) {
         context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME);
-        return invoiceService.findByTransaction(loanTransactionId, savingsTransactionId, clientTransactionId).map(InvoiceData::from)
-                .orElse(null);
+        return invoiceService.findByTransaction(loanTransactionId, savingsTransactionId, clientTransactionId)
+                .map(invoiceService::toInvoiceData).orElse(null);
     }
 
     @PUT
@@ -61,7 +61,7 @@ public class InvoiceApiResource {
     @Produces({ MediaType.APPLICATION_JSON })
     public InvoiceData updateMetadata(@PathParam("invoiceId") Long invoiceId, InvoiceMetadataUpdateRequest request) {
         context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME);
-        return InvoiceData.from(invoiceService.updateMetadata(invoiceId, request));
+        return invoiceService.toInvoiceData(invoiceService.updateMetadata(invoiceId, request));
     }
 
     @POST
@@ -69,7 +69,7 @@ public class InvoiceApiResource {
     @Produces({ MediaType.APPLICATION_JSON })
     public InvoiceData submitMhValidationByInvoice(@PathParam("invoiceId") Long invoiceId) {
         context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME);
-        return InvoiceData.from(invoiceMhValidationService.submitMhValidationByInvoiceId(invoiceId));
+        return invoiceService.toInvoiceData(invoiceMhValidationService.submitMhValidationByInvoiceId(invoiceId));
     }
 
     @POST
@@ -84,12 +84,12 @@ public class InvoiceApiResource {
                     "Provide exactly one of loanTransactionId, savingsTransactionId, or clientTransactionId");
         }
         if (loanTransactionId != null) {
-            return InvoiceData.from(invoiceMhValidationService.submitMhValidationByLoanTransactionId(loanTransactionId));
+            return invoiceService.toInvoiceData(invoiceMhValidationService.submitMhValidationByLoanTransactionId(loanTransactionId));
         }
         if (savingsTransactionId != null) {
-            return InvoiceData.from(invoiceMhValidationService.submitMhValidationBySavingsTransactionId(savingsTransactionId));
+            return invoiceService.toInvoiceData(invoiceMhValidationService.submitMhValidationBySavingsTransactionId(savingsTransactionId));
         }
-        return InvoiceData.from(invoiceMhValidationService.submitMhValidationByClientTransactionId(clientTransactionId));
+        return invoiceService.toInvoiceData(invoiceMhValidationService.submitMhValidationByClientTransactionId(clientTransactionId));
     }
 }
 

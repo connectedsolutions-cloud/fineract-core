@@ -283,4 +283,5 @@
     <include file="parts/0261_add_mh_company_emisor_fields.xml" relativeToChangelogFile="true" />
     <include file="parts/0262_add_receptor_defaults_and_tipo_documento.xml" relativeToChangelogFile="true" />
     <include file="parts/0263_add_audit_columns_to_credesal_client_datatables.xml" relativeToChangelogFile="true" />
+    <include file="parts/0264_add_listado_facturas_report.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

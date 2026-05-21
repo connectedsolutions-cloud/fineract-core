@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0264-1" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report WHERE report_name = 'listado facturas'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="stretchy_report">
+            <column name="report_name" value="listado facturas"/>
+            <column name="report_type" value="Table"/>
+            <column name="report_subtype"/>
+            <column name="report_category" value="Accounting"/>
+            <column name="report_sql"
+                    value="SELECT i.id AS &quot;Invoice Id&quot;, i.status AS &quot;Status&quot;, i.tipo_dte AS &quot;Tipo DTE&quot;, i.numero_control AS &quot;Numero Control&quot;, i.codigo_generacion AS &quot;Codigo Generacion&quot;, i.fec_emi AS &quot;Fec Emi&quot;, i.hor_emi AS &quot;Hor Emi&quot;, i.tipo_moneda AS &quot;Tipo Moneda&quot;, c.id AS &quot;Client Id&quot;, c.display_name AS &quot;Client Name&quot;, o.id AS &quot;Office Id&quot;, o.name AS &quot;Office Name&quot;, i.loan_transaction_id AS &quot;Loan Transaction Id&quot;, i.savings_transaction_id AS &quot;Savings Transaction Id&quot;, i.client_transaction_id AS &quot;Client Transaction Id&quot;, COALESCE(s.total_gravada, 0) AS &quot;Total Gravada&quot;, COALESCE(s.total_exenta, 0) AS &quot;Total Exenta&quot;, COALESCE(s.total_no_suj, 0) AS &quot;Total No Suj&quot;, COALESCE(s.total_pagar, 0) AS &quot;Total Pagar&quot;, r.nombre AS &quot;Receptor Nombre&quot;, r.nit AS &quot;Receptor NIT&quot;, i.mh_validation_status AS &quot;MH Validation Status&quot;, i.mh_job_id AS &quot;MH Job Id&quot;, i.mh_transmission_id AS &quot;MH Transmission Id&quot;, i.mh_transmission_status AS &quot;MH Transmission Status&quot;, i.mh_submitted_at AS &quot;MH Submitted At&quot;, i.mh_processed_at AS &quot;MH Processed At&quot;, i.mh_last_error AS &quot;MH Last Error&quot; FROM m_invoice i LEFT JOIN m_invoice_summary s ON s.invoice_id = i.id LEFT JOIN m_invoice_receiver r ON r.invoice_id = i.id LEFT JOIN m_loan_transaction lt ON lt.id = i.loan_transaction_id LEFT JOIN m_loan l ON l.id = lt.loan_id LEFT JOIN m_savings_account_transaction sat ON sat.id = i.savings_transaction_id LEFT JOIN m_savings_account sa ON sa.id = sat.savings_account_id LEFT JOIN m_client_transaction ct ON ct.id = i.client_transaction_id LEFT JOIN m_client c ON c.id = COALESCE(l.client_id, sa.client_id, ct.client_id) LEFT JOIN m_office o ON o.id = COALESCE(lt.office_id, sat.office_id, ct.office_id) WHERE i.fec_emi &gt;= '${startDate}' AND i.fec_emi &lt;= '${endDate}' AND (${officeId} = -1 OR COALESCE(lt.office_id, sat.office_id, ct.office_id) = ${officeId}) AND (${clientId} = -1 OR COALESCE(l.client_id, sa.client_id, ct.client_id) = ${clientId}) AND (o.id IS NULL OR o.hierarchy LIKE CONCAT('${currentUserHierarchy}', '%')) ORDER BY i.fec_emi DESC, i.id DESC"/>
+            <column name="description" value="Listado de facturas DTE por fecha de emision, oficina y cliente"/>
+            <column name="core_report" valueBoolean="false"/>
+            <column name="use_report" valueBoolean="true"/>
+            <column name="self_service_user_report" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0264-2" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report_parameter srp
+                JOIN stretchy_report sr ON sr.id = srp.report_id
+                WHERE sr.report_name = 'listado facturas'
+                  AND srp.parameter_id = 1
+                  AND srp.report_parameter_name = 'startDate'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+            VALUES ((SELECT id FROM stretchy_report WHERE report_name = 'listado facturas'), 1, 'startDate');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0264-3" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report_parameter srp
+                JOIN stretchy_report sr ON sr.id = srp.report_id
+                WHERE sr.report_name = 'listado facturas'
+                  AND srp.parameter_id = 2
+                  AND srp.report_parameter_name = 'endDate'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+            VALUES ((SELECT id FROM stretchy_report WHERE report_name = 'listado facturas'), 2, 'endDate');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0264-4" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report_parameter srp
+                JOIN stretchy_report sr ON sr.id = srp.report_id
+                WHERE sr.report_name = 'listado facturas'
+                  AND srp.parameter_id = 5
+                  AND srp.report_parameter_name = 'officeId'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+            VALUES ((SELECT id FROM stretchy_report WHERE report_name = 'listado facturas'), 5, 'officeId');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0264-5" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report_parameter srp
+                JOIN stretchy_report sr ON sr.id = srp.report_id
+                WHERE sr.report_name = 'listado facturas'
+                  AND srp.parameter_id = 1018
+                  AND srp.report_parameter_name = 'clientId'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+            VALUES ((SELECT id FROM stretchy_report WHERE report_name = 'listado facturas'), 1018, 'clientId');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0264-6" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'READ_listado facturas'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="report"/>
+            <column name="code" value="READ_listado facturas"/>
+            <column name="entity_name" value="listado facturas"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

@@ -21,6 +21,7 @@ import org.apache.fineract.portfolio.invoice.domain.MhCompanyConfig;
 import org.apache.fineract.portfolio.invoice.domain.MhCompanyConfigRepository;
 import org.apache.fineract.portfolio.invoice.domain.InvoiceRepository;
 import org.apache.fineract.portfolio.invoice.domain.InvoiceStatus;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,13 +39,15 @@ class InvoiceServiceImplTest {
     private InvoiceLineMhCategoryBuilderService invoiceLineMhCategoryBuilderService;
     @Mock
     private MhCompanyConfigRepository mhCompanyConfigRepository;
+    @Mock
+    private LoanTransactionRepository loanTransactionRepository;
 
     private InvoiceServiceImpl service;
 
     @BeforeEach
     void setup() {
         service = new InvoiceServiceImpl(invoiceRepository, platformSecurityContext, invoiceLineMhCategoryBuilderService,
-                mhCompanyConfigRepository);
+                mhCompanyConfigRepository, loanTransactionRepository);
     }
 
     @Test

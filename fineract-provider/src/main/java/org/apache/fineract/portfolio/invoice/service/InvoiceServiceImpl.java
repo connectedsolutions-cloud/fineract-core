@@ -14,8 +14,12 @@ import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.organisation.office.domain.Office;
 import org.apache.fineract.portfolio.invoice.data.InvoiceCreateRequest;
+import org.apache.fineract.portfolio.invoice.data.InvoiceData;
 import org.apache.fineract.portfolio.invoice.data.InvoiceLineRequest;
 import org.apache.fineract.portfolio.invoice.data.InvoiceMetadataUpdateRequest;
+import org.apache.fineract.portfolio.loanaccount.domain.Loan;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepository;
 import org.apache.fineract.portfolio.invoice.domain.Invoice;
 import org.apache.fineract.portfolio.invoice.domain.InvoiceIssuer;
 import org.apache.fineract.portfolio.invoice.domain.InvoiceLine;
@@ -37,6 +41,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final PlatformSecurityContext platformSecurityContext;
     private final InvoiceLineMhCategoryBuilderService invoiceLineMhCategoryBuilderService;
     private final MhCompanyConfigRepository mhCompanyConfigRepository;
+    private final LoanTransactionRepository loanTransactionRepository;
 
     @Override
     @Transactional
@@ -133,6 +138,32 @@ public class InvoiceServiceImpl implements InvoiceService {
             return invoiceRepository.findByClientTransactionId(clientTransactionId);
         }
         return Optional.empty();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InvoiceData toInvoiceData(Invoice invoice) {
+        InvoiceData data = InvoiceData.from(invoice);
+        Long loanTransactionId = invoice.getLoanTransactionId();
+        if (loanTransactionId == null) {
+            return data;
+        }
+        loanTransactionRepository.findByIdWithLoanAndChargesPaid(loanTransactionId).ifPresent(txn -> enrichLoanContext(data, txn));
+        return data;
+    }
+
+    private void enrichLoanContext(InvoiceData data, LoanTransaction txn) {
+        Loan loan = txn.getLoan();
+        if (loan == null) {
+            return;
+        }
+        data.setLoanId(loan.getId());
+        if (loan.getLoanProduct() != null) {
+            data.setLoanProductName(loan.getLoanProduct().getName());
+        }
+        if (loan.getExternalId() != null && !loan.getExternalId().isEmpty()) {
+            data.setLoanExternalId(loan.getExternalId().getValue());
+        }
     }
 
     @Override

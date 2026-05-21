@@ -1103,6 +1103,20 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
         return loanId.equals(getId());
     }
 
+    /**
+     * When no external id was supplied at creation, default it to the internal loan id so lookups can use
+     * {@code external_id} as the single canonical identifier (native loans and legacy imports).
+     */
+    public void assignDefaultExternalIdFromInternalIdIfEmpty() {
+        if (externalId != null && !externalId.isEmpty()) {
+            return;
+        }
+        if (getId() == null) {
+            return;
+        }
+        this.externalId = new ExternalId(getId().toString());
+    }
+
     public boolean hasLoanOfficer(final Staff fromLoanOfficer) {
         if (this.loanOfficer != null) {
             return this.loanOfficer.identifiedBy(fromLoanOfficer);

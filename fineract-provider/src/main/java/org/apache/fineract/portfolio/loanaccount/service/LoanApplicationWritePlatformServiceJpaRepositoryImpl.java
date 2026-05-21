@@ -142,6 +142,10 @@ public class LoanApplicationWritePlatformServiceJpaRepositoryImpl implements Loa
             this.loanApplicationValidator.validateForCreate(loan);
             // Need to flush to gather loan id
             this.loanRepositoryWrapper.saveAndFlush(loan);
+            loan.assignDefaultExternalIdFromInternalIdIfEmpty();
+            if (!loan.getExternalId().isEmpty()) {
+                this.loanRepositoryWrapper.saveAndFlush(loan);
+            }
             // Account number regeneration (need loan id...)
             this.loanAssembler.accountNumberGeneration(command, loan);
             // Save interest recalculation calendar
