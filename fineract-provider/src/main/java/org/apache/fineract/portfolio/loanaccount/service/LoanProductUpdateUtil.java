@@ -267,6 +267,22 @@ public class LoanProductUpdateUtil {
             actualChanges.put(LoanProductConstants.DELINQUENCY_BUCKET_PARAM_NAME, newValue);
         }
 
+        String existingIdTipoLinea = null;
+        if (loanProduct.getTipoLinea() != null) {
+            existingIdTipoLinea = loanProduct.getTipoLinea().getId();
+        }
+        if (command.isChangeInStringParameterNamed(LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME, existingIdTipoLinea)) {
+            final String newValue = command.stringValueOfParameterNamed(LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME);
+            actualChanges.put(LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME, StringUtils.defaultIfBlank(newValue, null));
+        }
+
+        if (command.hasParameter(LoanProductConstants.ID_SLUS_PARAM_NAME)) {
+            final JsonArray jsonArray = command.arrayOfParameterNamed(LoanProductConstants.ID_SLUS_PARAM_NAME);
+            if (jsonArray != null) {
+                actualChanges.put(LoanProductConstants.ID_SLUS_PARAM_NAME, command.jsonFragment(LoanProductConstants.ID_SLUS_PARAM_NAME));
+            }
+        }
+
         // Update interest recalculation settings
         final boolean isInterestRecalculationEnabledChanged = actualChanges
                 .containsKey(LoanProductConstants.IS_INTEREST_RECALCULATION_ENABLED_PARAMETER_NAME);

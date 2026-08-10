@@ -56,6 +56,8 @@ import org.apache.fineract.portfolio.common.domain.DaysInMonthType;
 import org.apache.fineract.portfolio.common.domain.DaysInYearCustomStrategyType;
 import org.apache.fineract.portfolio.common.domain.DaysInYearType;
 import org.apache.fineract.portfolio.common.domain.PeriodFrequencyType;
+import org.apache.fineract.portfolio.crd.domain.CrdSlu;
+import org.apache.fineract.portfolio.crd.domain.CrdTipoLinea;
 import org.apache.fineract.portfolio.delinquency.domain.DelinquencyBucket;
 import org.apache.fineract.portfolio.floatingrates.data.FloatingRateDTO;
 import org.apache.fineract.portfolio.floatingrates.data.FloatingRatePeriodData;
@@ -236,6 +238,14 @@ public class LoanProduct extends AbstractPersistableCustom<Long> {
     @Column(name = "dimensions", columnDefinition = "json")
     @Convert(converter = JsonbStringAttributeConverter.class)
     private String dimensions;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "id_tipo_linea", referencedColumnName = "id_tipo_linea")
+    private CrdTipoLinea tipoLinea;
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "m_product_loan_slu", joinColumns = @JoinColumn(name = "product_loan_id"), inverseJoinColumns = @JoinColumn(name = "id_slu"))
+    private List<CrdSlu> slus;
 
     public void updateLoanProductInRelatedClasses() {
         if (this.isInterestRecalculationEnabled()) {
@@ -524,6 +534,26 @@ public class LoanProduct extends AbstractPersistableCustom<Long> {
         } else {
             updated = true;
             this.rates = newProductRates;
+        }
+        return updated;
+    }
+
+    public boolean updateSlus(final List<CrdSlu> newProductSlus) {
+        if (newProductSlus == null) {
+            return false;
+        }
+
+        boolean updated = false;
+        if (this.slus != null) {
+            final Set<CrdSlu> currentSet = new HashSet<>(this.slus);
+            final Set<CrdSlu> newSet = new HashSet<>(newProductSlus);
+            if (!currentSet.equals(newSet)) {
+                updated = true;
+                this.slus = newProductSlus;
+            }
+        } else {
+            updated = true;
+            this.slus = newProductSlus;
         }
         return updated;
     }

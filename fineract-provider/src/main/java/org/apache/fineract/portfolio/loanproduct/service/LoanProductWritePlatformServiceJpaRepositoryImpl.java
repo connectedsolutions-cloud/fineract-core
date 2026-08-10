@@ -19,6 +19,7 @@
 package org.apache.fineract.portfolio.loanproduct.service;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import jakarta.persistence.PersistenceException;
 import java.time.LocalDate;
@@ -27,12 +28,14 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.fineract.accounting.producttoaccountmapping.service.ProductToGLAccountMappingWritePlatformService;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResultBuilder;
 import org.apache.fineract.infrastructure.core.exception.ErrorHandler;
+import org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRuleException;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.entityaccess.domain.FineractEntityAccessType;
@@ -43,6 +46,12 @@ import org.apache.fineract.infrastructure.security.service.PlatformSecurityConte
 import org.apache.fineract.organisation.monetary.exception.InvalidCurrencyException;
 import org.apache.fineract.portfolio.charge.domain.Charge;
 import org.apache.fineract.portfolio.charge.domain.ChargeRepositoryWrapper;
+import org.apache.fineract.portfolio.crd.domain.CrdSlu;
+import org.apache.fineract.portfolio.crd.domain.CrdSluRepository;
+import org.apache.fineract.portfolio.crd.domain.CrdTipoLinea;
+import org.apache.fineract.portfolio.crd.domain.CrdTipoLineaRepository;
+import org.apache.fineract.portfolio.crd.exception.CrdSluNotFoundException;
+import org.apache.fineract.portfolio.crd.exception.CrdTipoLineaNotFoundException;
 import org.apache.fineract.portfolio.delinquency.domain.DelinquencyBucket;
 import org.apache.fineract.portfolio.delinquency.domain.DelinquencyBucketRepository;
 import org.apache.fineract.portfolio.delinquency.exception.DelinquencyBucketNotFoundException;
@@ -97,6 +106,8 @@ public class LoanProductWritePlatformServiceJpaRepositoryImpl implements LoanPro
     private final CreditAllocationsJsonParser creditAllocationsJsonParser;
     private final LoanProductAssembler loanProductAssembler;
     private final LoanProductUpdateUtil loanProductUpdateUtil;
+    private final CrdTipoLineaRepository crdTipoLineaRepository;
+    private final CrdSluRepository crdSluRepository;
     private final LoanProductPaymentAllocationRuleMerger loanProductPaymentAllocationRuleMerger = new LoanProductPaymentAllocationRuleMerger();
     private final LoanProductCreditAllocationRuleMerger loanProductCreditAllocationRuleMerger = new LoanProductCreditAllocationRuleMerger();
 
@@ -138,6 +149,8 @@ public class LoanProductWritePlatformServiceJpaRepositoryImpl implements LoanPro
                 loanProduct
                         .setDelinquencyBucket(findDelinquencyBucketIdIfProvided(command.longValueOfParameterNamed("delinquencyBucketId")));
             }
+
+            applyCrdCatalogTags(loanProduct, command);
 
             this.loanProductRepository.saveAndFlush(loanProduct);
 
@@ -182,6 +195,56 @@ public class LoanProductWritePlatformServiceJpaRepositoryImpl implements LoanPro
                     .orElseThrow(() -> DelinquencyBucketNotFoundException.notFound(delinquencyBucketId));
         }
         return delinquencyBucket;
+    }
+
+    private void applyCrdCatalogTags(final LoanProduct loanProduct, final JsonCommand command) {
+        if (command.parameterExists(LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME)) {
+            loanProduct.setTipoLinea(findTipoLineaByIdIfProvided(command.stringValueOfParameterNamed(LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME)));
+        }
+        if (command.parameterExists(LoanProductConstants.ID_SLUS_PARAM_NAME)) {
+            loanProduct.setSlus(assembleListOfProductSlus(command));
+        }
+        validateCrdCatalogConsistency(loanProduct);
+    }
+
+    private CrdTipoLinea findTipoLineaByIdIfProvided(final String idTipoLinea) {
+        if (StringUtils.isBlank(idTipoLinea)) {
+            return null;
+        }
+        return this.crdTipoLineaRepository.findById(idTipoLinea).orElseThrow(() -> new CrdTipoLineaNotFoundException(idTipoLinea));
+    }
+
+    private List<CrdSlu> assembleListOfProductSlus(final JsonCommand command) {
+        final List<CrdSlu> slus = new ArrayList<>();
+        if (!command.parameterExists(LoanProductConstants.ID_SLUS_PARAM_NAME)) {
+            return slus;
+        }
+        final JsonArray idSlusArray = command.arrayOfParameterNamed(LoanProductConstants.ID_SLUS_PARAM_NAME);
+        if (idSlusArray == null) {
+            return slus;
+        }
+        for (final JsonElement element : idSlusArray) {
+            if (element == null || element.isJsonNull()) {
+                continue;
+            }
+            final Short idSlu = element.getAsShort();
+            final CrdSlu slu = this.crdSluRepository.findById(idSlu).orElseThrow(() -> new CrdSluNotFoundException(idSlu));
+            slus.add(slu);
+        }
+        return slus;
+    }
+
+    private void validateCrdCatalogConsistency(final LoanProduct loanProduct) {
+        if (loanProduct.getTipoLinea() == null || loanProduct.getSlus() == null || loanProduct.getSlus().isEmpty()) {
+            return;
+        }
+        final String expectedTipoLinea = loanProduct.getTipoLinea().getId();
+        for (final CrdSlu slu : loanProduct.getSlus()) {
+            if (slu.getTipoLinea() == null || !expectedTipoLinea.equals(slu.getTipoLinea().getId())) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loanproduct.slu.tipo.linea.mismatch",
+                        "Selected segmento SLU " + slu.getId() + " does not belong to tipo de línea " + expectedTipoLinea);
+            }
+        }
     }
 
     @Transactional
@@ -282,6 +345,21 @@ public class LoanProductWritePlatformServiceJpaRepositoryImpl implements LoanPro
                     changes.remove(LoanProductConstants.RATES_PARAM_NAME);
                 }
             }
+
+            if (changes.containsKey(LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME)) {
+                final String idTipoLinea = (String) changes.get(LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME);
+                product.setTipoLinea(findTipoLineaByIdIfProvided(idTipoLinea));
+            }
+
+            if (changes.containsKey(LoanProductConstants.ID_SLUS_PARAM_NAME)) {
+                final List<CrdSlu> productSlus = assembleListOfProductSlus(command);
+                final boolean updated = product.updateSlus(productSlus);
+                if (!updated) {
+                    changes.remove(LoanProductConstants.ID_SLUS_PARAM_NAME);
+                }
+            }
+
+            validateCrdCatalogConsistency(product);
 
             if (command.parameterExists(LoanProductConstants.SUPPORTED_INTEREST_REFUND_TYPES)) {
                 JsonArray supportedTransactionsForInterestRefund = command

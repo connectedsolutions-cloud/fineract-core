@@ -77,6 +77,9 @@ import org.apache.fineract.portfolio.charge.data.ChargeData;
 import org.apache.fineract.portfolio.charge.service.ChargeReadPlatformService;
 import org.apache.fineract.portfolio.common.domain.DaysInYearCustomStrategyType;
 import org.apache.fineract.portfolio.common.service.DropdownReadPlatformService;
+import org.apache.fineract.portfolio.crd.data.CrdSluData;
+import org.apache.fineract.portfolio.crd.data.CrdTipoLineaData;
+import org.apache.fineract.portfolio.crd.service.CrdCatalogReadPlatformService;
 import org.apache.fineract.portfolio.delinquency.data.DelinquencyBucketData;
 import org.apache.fineract.portfolio.delinquency.service.DelinquencyReadPlatformService;
 import org.apache.fineract.portfolio.floatingrates.data.FloatingRateData;
@@ -142,7 +145,9 @@ public class LoanProductsApiResource {
             LoanProductConstants.CAPITALIZED_INCOME_CALCULATION_TYPE_PARAM_NAME,
             LoanProductConstants.CAPITALIZED_INCOME_STRATEGY_PARAM_NAME, LoanProductConstants.CAPITALIZED_INCOME_TYPE_PARAM_NAME,
             LoanProductConstants.ENABLE_BUY_DOWN_FEE_PARAM_NAME, LoanProductConstants.BUY_DOWN_FEE_CALCULATION_TYPE_PARAM_NAME,
-            LoanProductConstants.BUY_DOWN_FEE_STRATEGY_PARAM_NAME, LoanProductConstants.BUY_DOWN_FEE_INCOME_TYPE_PARAM_NAME));
+            LoanProductConstants.BUY_DOWN_FEE_STRATEGY_PARAM_NAME, LoanProductConstants.BUY_DOWN_FEE_INCOME_TYPE_PARAM_NAME,
+            LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME, "tipoLineaName", LoanProductConstants.ID_SLUS_PARAM_NAME, "slus",
+            "tipoLineaOptions", "sluOptions"));
 
     private static final Set<String> PRODUCT_MIX_DATA_PARAMETERS = new HashSet<>(
             Arrays.asList("productId", "productName", "restrictedProducts", "allowedProducts", "productOptions"));
@@ -171,6 +176,7 @@ public class LoanProductsApiResource {
     private final ConfigurationDomainService configurationDomainService;
     private final DelinquencyReadPlatformService delinquencyReadPlatformService;
     private final CodeValueReadPlatformService codeValueReadPlatformService;
+    private final CrdCatalogReadPlatformService crdCatalogReadPlatformService;
 
     @POST
     @Consumes({ MediaType.APPLICATION_JSON })
@@ -425,6 +431,16 @@ public class LoanProductsApiResource {
             delinquencyBucketOptions = null;
         }
 
+        Collection<CrdTipoLineaData> tipoLineaOptions = this.crdCatalogReadPlatformService.retrieveAllTipoLineas();
+        if (tipoLineaOptions.isEmpty()) {
+            tipoLineaOptions = null;
+        }
+
+        Collection<CrdSluData> sluOptions = this.crdCatalogReadPlatformService.retrieveAllActiveSlus();
+        if (sluOptions.isEmpty()) {
+            sluOptions = null;
+        }
+
         final Collection<TransactionProcessingStrategyData> transactionProcessingStrategyOptions = this.dropdownReadPlatformService
                 .retrieveTransactionProcessingStrategies();
 
@@ -486,7 +502,7 @@ public class LoanProductsApiResource {
         final List<CodeValueData> buydownFeeClassificationOptions = codeValueReadPlatformService
                 .retrieveCodeValuesByCode(LoanTransactionApiConstants.BUY_DOWN_FEE_CLASSIFICATION_CODE);
 
-        return new LoanProductData(productData, chargeOptions, penaltyOptions, paymentTypeOptions, currencyOptions, amortizationTypeOptions,
+        final LoanProductData loanProductData = new LoanProductData(productData, chargeOptions, penaltyOptions, paymentTypeOptions, currencyOptions, amortizationTypeOptions,
                 interestTypeOptions, interestCalculationPeriodTypeOptions, repaymentFrequencyTypeOptions, interestRateFrequencyTypeOptions,
                 fundOptions, transactionProcessingStrategyOptions, rateOptions, accountOptions, accountingRuleTypeOptions,
                 loanCycleValueConditionTypeOptions, daysInMonthTypeOptions, daysInYearTypeOptions,
@@ -500,6 +516,9 @@ public class LoanProductsApiResource {
                 daysInYearCustomStrategyOptions, capitalizedIncomeCalculationTypeOptions, capitalizedIncomeStrategyOptions,
                 capitalizedIncomeTypeOptions, buyDownFeeCalculationTypeOptions, buyDownFeeStrategyOptions, buyDownFeeIncomeTypeOptions,
                 writeOffReasonOptions, capitalizedIncomeClassificationOptions, buydownFeeClassificationOptions);
+        loanProductData.setTipoLineaOptions(tipoLineaOptions);
+        loanProductData.setSluOptions(sluOptions);
+        return loanProductData;
     }
 
 }

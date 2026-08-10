@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0268-1-add-id-tipo-linea-to-product-loan" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="m_product_loan" columnName="id_tipo_linea"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="m_product_loan">
+            <column name="id_tipo_linea" type="VARCHAR(3)"/>
+        </addColumn>
+        <addForeignKeyConstraint baseTableName="m_product_loan"
+                                 baseColumnNames="id_tipo_linea"
+                                 constraintName="fk_m_product_loan_crd_tipo_linea"
+                                 referencedTableName="crd_tipo_linea"
+                                 referencedColumnNames="id_tipo_linea"
+                                 onDelete="RESTRICT"
+                                 onUpdate="RESTRICT"/>
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="m_product_loan" constraintName="fk_m_product_loan_crd_tipo_linea"/>
+            <dropColumn tableName="m_product_loan" columnName="id_tipo_linea"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0268-2-create-m-product-loan-slu" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="m_product_loan_slu"/>
+            </not>
+        </preConditions>
+        <createTable tableName="m_product_loan_slu">
+            <column name="product_loan_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_m_product_loan_slu"/>
+            </column>
+            <column name="id_slu" type="SMALLINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_m_product_loan_slu"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_product_loan_slu"
+                                 baseColumnNames="product_loan_id"
+                                 constraintName="fk_m_product_loan_slu_product"
+                                 referencedTableName="m_product_loan"
+                                 referencedColumnNames="id"
+                                 onDelete="CASCADE"
+                                 onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="m_product_loan_slu"
+                                 baseColumnNames="id_slu"
+                                 constraintName="fk_m_product_loan_slu_crd_slu"
+                                 referencedTableName="crd_slu"
+                                 referencedColumnNames="id_slu"
+                                 onDelete="RESTRICT"
+                                 onUpdate="RESTRICT"/>
+        <rollback>
+            <dropTable tableName="m_product_loan_slu"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

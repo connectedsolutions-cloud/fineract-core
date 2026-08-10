@@ -185,4 +185,8 @@ public interface LoanProductConstants {
     String BUY_DOWN_FEE_STRATEGY_PARAM_NAME = "buyDownFeeStrategy";
     String BUY_DOWN_FEE_INCOME_TYPE_PARAM_NAME = "buyDownFeeIncomeType";
     String MERCHANT_BUY_DOWN_FEE_PARAM_NAME = "merchantBuyDownFee";
+
+    // Credesal CRD catalog tags
+    String ID_TIPO_LINEA_PARAM_NAME = "idTipoLinea";
+    String ID_SLUS_PARAM_NAME = "idSlus";
 }

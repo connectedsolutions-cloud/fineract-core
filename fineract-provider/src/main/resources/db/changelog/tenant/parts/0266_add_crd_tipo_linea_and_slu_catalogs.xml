@@ -1,0 +1,323 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <!-- Catalog copied from Credesal SQL Server dbo.CRD_TIPO_LINEA on 2026-08-06. -->
+    <changeSet id="0266-1-create-crd-tipo-linea" author="credesal">
+        <preConditions onFail="HALT">
+            <not>
+                <tableExists tableName="crd_tipo_linea"/>
+            </not>
+        </preConditions>
+        <createTable tableName="crd_tipo_linea">
+            <column name="id_tipo_linea" type="VARCHAR(3)">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_crd_tipo_linea"/>
+            </column>
+            <column name="nombre_tipo_linea" type="VARCHAR(50)"/>
+            <column name="descripcion_tipo_linea" type="VARCHAR(100)"/>
+            <column name="es_tarjeta_socio_activo" type="VARCHAR(1)"/>
+            <column name="cs_puntos" type="DECIMAL(8,2)"/>
+        </createTable>
+        <rollback>
+            <dropTable tableName="crd_tipo_linea"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0266-2-seed-crd-tipo-linea" author="credesal">
+        <insert tableName="crd_tipo_linea">
+            <column name="id_tipo_linea" value="001"/>
+            <column name="nombre_tipo_linea" value="MICROCRÉDITO"/>
+            <column name="descripcion_tipo_linea" value="MICROCRÉDITO"/>
+            <column name="es_tarjeta_socio_activo" value="1"/>
+            <column name="cs_puntos" valueNumeric="80.00"/>
+        </insert>
+        <insert tableName="crd_tipo_linea">
+            <column name="id_tipo_linea" value="002"/>
+            <column name="nombre_tipo_linea" value="CONSUMO"/>
+            <column name="descripcion_tipo_linea" value="CONSUMO"/>
+            <column name="cs_puntos" valueNumeric="50.00"/>
+        </insert>
+        <insert tableName="crd_tipo_linea">
+            <column name="id_tipo_linea" value="003"/>
+            <column name="nombre_tipo_linea" value="EMPRESA"/>
+            <column name="descripcion_tipo_linea" value="EMPRESA"/>
+            <column name="cs_puntos" valueNumeric="100.00"/>
+        </insert>
+        <insert tableName="crd_tipo_linea">
+            <column name="id_tipo_linea" value="004"/>
+            <column name="nombre_tipo_linea" value="VIVIENDA"/>
+            <column name="descripcion_tipo_linea" value="VIVIENDA"/>
+            <column name="cs_puntos" valueNumeric="100.00"/>
+        </insert>
+        <insert tableName="crd_tipo_linea">
+            <column name="id_tipo_linea" value="005"/>
+            <column name="nombre_tipo_linea" value="ROTATIVO"/>
+            <column name="descripcion_tipo_linea" value="ROTATIVO"/>
+            <column name="cs_puntos" valueNumeric="0.00"/>
+        </insert>
+        <insert tableName="crd_tipo_linea">
+            <column name="id_tipo_linea" value="100"/>
+            <column name="nombre_tipo_linea" value="RESERVA SANEAMIENTO"/>
+            <column name="descripcion_tipo_linea" value="RESERVA SANEAMIENTO"/>
+        </insert>
+        <rollback>
+            <delete tableName="crd_tipo_linea"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Catalog copied from Credesal SQL Server dbo.CRD_SLU on 2026-08-06. -->
+    <changeSet id="0266-3-create-crd-slu" author="credesal">
+        <preConditions onFail="HALT">
+            <not>
+                <tableExists tableName="crd_slu"/>
+            </not>
+        </preConditions>
+        <createTable tableName="crd_slu">
+            <column name="id_slu" type="SMALLINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_crd_slu"/>
+            </column>
+            <column name="id_empresa" type="VARCHAR(3)"/>
+            <column name="id_tipo_linea" type="VARCHAR(3)"/>
+            <column name="descripcion" type="VARCHAR(500)"/>
+            <column name="monto_ini" type="DECIMAL(18,2)"/>
+            <column name="monto_fin" type="DECIMAL(18,2)"/>
+            <column name="tea" type="DECIMAL(8,2)"/>
+            <column name="activo" type="BOOLEAN"/>
+            <column name="slu" type="VARCHAR(5)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="crd_slu"
+                                 baseColumnNames="id_tipo_linea"
+                                 constraintName="fk_crd_slu_crd_tipo_linea"
+                                 referencedTableName="crd_tipo_linea"
+                                 referencedColumnNames="id_tipo_linea"
+                                 onDelete="RESTRICT"
+                                 onUpdate="RESTRICT"/>
+        <rollback>
+            <dropTable tableName="crd_slu"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0266-4-seed-crd-slu" author="credesal">
+        <insert tableName="crd_slu">
+            <column name="id_slu" valueNumeric="1"/>
+            <column name="id_empresa" value="001"/>
+            <column name="id_tipo_linea" value="002"/>
+            <column name="descripcion" value="CREDITO DE CONSUMO PARA PERSONAS NATURALES CON ORDEN DE DESCUENTO O CARGO A CUENTA"/>
+            <column name="monto_ini" valueNumeric="0.00"/>
+            <column name="monto_fin" valueNumeric="4905.60"/>
+            <column name="tea" valueNumeric="33.72"/>
+            <column name="activo" valueBoolean="true"/>
+            <column name="slu" value="11"/>
+        </insert>
+        <insert tableName="crd_slu">
+            <column name="id_slu" valueNumeric="2"/>
+            <column name="id_empresa" value="001"/>
+            <column name="id_tipo_linea" value="002"/>
+            <column name="descripcion" value="CREDITO DE CONSUMO PARA PERSONAS NATURALES CON ORDEN DE DESCUENTO O CARGO A CUENTA"/>
+            <column name="monto_ini" valueNumeric="4905.60"/>
+            <column name="monto_fin" valueNumeric="999999999.00"/>
+            <column name="tea" valueNumeric="24.17"/>
+            <column name="activo" valueBoolean="true"/>
+            <column name="slu" value="11"/>
+        </insert>
+        <insert tableName="crd_slu">
+            <column name="id_slu" valueNumeric="3"/>
+            <column name="id_empresa" value="001"/>
+            <column name="id_tipo_linea" value="002"/>
+            <column name="descripcion" value="CREDITO DE CONSUMO PARA PERSONAS NATURALES SIN ORDEN DE DESCUENTO O SIN CARGO A CUENTA"/>
+            <column name="monto_ini" valueNumeric="0.00"/>
+            <column name="monto_fin" valueNumeric="4905.60"/>
+            <column name="tea" valueNumeric="82.87"/>
+            <column name="activo" valueBoolean="true"/>
+            <column name="slu" value="12"/>
+        </insert>
+        <insert tableName="crd_slu">
+            <column name="id_slu" valueNumeric="4"/>
+            <column name="id_empresa" value="001"/>
+            <column name="id_tipo_linea" value="002"/>
+            <column name="descripcion" value="CREDITO DE CONSUMO PARA PERSONAS NATURALES SIN ORDEN DE DESCUENTO O SIN CARGO A CUENTA"/>
+            <column name="monto_ini" valueNumeric="4905.60"/>
+            <column name="monto_fin" valueNumeric="999999999.00"/>
+            <column name="tea" valueNumeric="29.52"/>
+            <column name="activo" valueBoolean="true"/>
+            <column name="slu" value="12"/>
+        </insert>
+        <insert tableName="crd_slu">
+            <column name="id_slu" valueNumeric="5"/>
+            <column name="id_empresa" value="001"/>
+            <column name="id_tipo_linea" value="005"/>
+            <column name="descripcion" value="CREDITO OTORGADO A PERSONAS NATURALES POR MEDIO DE TARJETAS DE CREDITO (ROTATIVO)"/>
+            <column name="monto_ini" valueNumeric="0.00"/>
+            <column name="monto_fin" valueNumeric="1226.40"/>
+            <column name="tea" valueNumeric="71.73"/>
+            <column name="activo" valueBoolean="true"/>
+            <column name="slu" value="20"/>
+        </insert>
+        <insert tableName="crd_slu">
+            <column name="id_slu" valueNumeric="6"/>
+            <column name="id_empresa" value="001"/>
+            <column name="id_tipo_linea" value="005"/>
+            <column name="descripcion" value="CREDITO OTORGADO A PERSONAS NATURALES POR MEDIO DE TARJETAS DE CREDITO (ROTATIVO)"/>
+            <column name="monto_ini" valueNumeric="1226.41"/>
+            <column name="monto_fin" valueNumeric="2044.00"/>
+            <column name="tea" valueNumeric="64.43"/>
+            <column name="activo" valueBoolean="true"/>
+            <column name="slu" value="20"/>
+        </insert>
+        <insert tableName="crd_slu">
+            <column name="id_slu" valueNumeric="7"/>
+            <column name="id_empresa" value="001"/>
+            <column name="id_tipo_linea" value="005"/>
+            <column name="descripcion" value="CREDITO OTORGADO A PERSONAS NATURALES POR MEDIO DE TARJETAS DE CREDITO (ROTATIVO)"/>
+            <column name="monto_ini" valueNumeric="2044.00"/>
+            <column name="monto_fin" valueNumeric="999999999.00"/>
+            <column name="tea" valueNumeric="56.08"/>
+            <column name="activo" valueBoolean="true"/>
+            <column name="slu" value="20"/>
+        </insert>
+        <insert tableName="crd_slu">
+            <column name="id_slu" valueNumeric="8"/>
+            <column name="id_empresa" value="001"/>
+            <column name="id_tipo_linea" value="004"/>
+            <column name="descripcion" value="CREDITO PARA VIVIENDA. ADQUISICIÓN Y CONSTRUCCIÓN DE VIVIENDA"/>
+            <column name="monto_ini" valueNumeric="4905.61"/>
+            <column name="monto_fin" valueNumeric="9402.40"/>
+            <column name="tea" valueNumeric="23.92"/>
+            <column name="activo" valueBoolean="true"/>
+            <column name="slu" value="31"/>
+        </insert>
+        <insert tableName="crd_slu">
+            <column name="id_slu" valueNumeric="9"/>
+            <column name="id_empresa" value="001"/>
+            <column name="id_tipo_linea" value="004"/>
+            <column name="descripcion" value="CREDITO PARA VIVIENDA. ADQUISICIÓN Y CONSTRUCCIÓN DE VIVIENDA"/>
+            <column name="monto_ini" valueNumeric="9402.41"/>
+            <column name="monto_fin" valueNumeric="45785.60"/>
+            <column name="tea" valueNumeric="17.44"/>
+            <column name="activo" valueBoolean="true"/>
+            <column name="slu" value="31"/>
+        </insert>
+        <insert tableName="crd_slu">
+            <column name="id_slu" valueNumeric="10"/>
+            <column name="id_empresa" value="001"/>
+            <column name="id_tipo_linea" value="004"/>
+            <column name="descripcion" value="CREDITO PARA VIVIENDA. ADQUISICIÓN Y CONSTRUCCIÓN DE VIVIENDA"/>
+            <column name="monto_ini" valueNumeric="45785.60"/>
+            <column name="monto_fin" valueNumeric="999999999.00"/>
+            <column name="tea" valueNumeric="15.79"/>
+            <column name="activo" valueBoolean="true"/>
+            <column name="slu" value="31"/>
+        </insert>
+        <insert tableName="crd_slu">
+            <column name="id_slu" valueNumeric="11"/>
+            <column name="id_empresa" value="001"/>
+            <column name="id_tipo_linea" value="004"/>
+            <column name="descripcion" value="CREDITO PARA VIVIENDA. REMODELACIÓN Y REPARACIÓN DE VIVIENDA"/>
+            <column name="monto_ini" valueNumeric="0.00"/>
+            <column name="monto_fin" valueNumeric="4905.60"/>
+            <column name="tea" valueNumeric="50.35"/>
+            <column name="activo" valueBoolean="true"/>
+            <column name="slu" value="32"/>
+        </insert>
+        <insert tableName="crd_slu">
+            <column name="id_slu" valueNumeric="12"/>
+            <column name="id_empresa" value="001"/>
+            <column name="id_tipo_linea" value="004"/>
+            <column name="descripcion" value="CREDITO PARA VIVIENDA. REMODELACIÓN Y REPARACIÓN DE VIVIENDA"/>
+            <column name="monto_ini" valueNumeric="4905.61"/>
+            <column name="monto_fin" valueNumeric="9402.40"/>
+            <column name="tea" valueNumeric="48.18"/>
+            <column name="activo" valueBoolean="true"/>
+            <column name="slu" value="32"/>
+        </insert>
+        <insert tableName="crd_slu">
+            <column name="id_slu" valueNumeric="13"/>
+            <column name="id_empresa" value="001"/>
+            <column name="id_tipo_linea" value="004"/>
+            <column name="descripcion" value="CREDITO PARA VIVIENDA. REMODELACIÓN Y REPARACIÓN DE VIVIENDA"/>
+            <column name="monto_ini" valueNumeric="9402.41"/>
+            <column name="monto_fin" valueNumeric="45785.60"/>
+            <column name="tea" valueNumeric="29.75"/>
+            <column name="activo" valueBoolean="true"/>
+            <column name="slu" value="32"/>
+        </insert>
+        <insert tableName="crd_slu">
+            <column name="id_slu" valueNumeric="14"/>
+            <column name="id_empresa" value="001"/>
+            <column name="id_tipo_linea" value="004"/>
+            <column name="descripcion" value="CREDITO PARA VIVIENDA. REMODELACIÓN Y REPARACIÓN DE VIVIENDA"/>
+            <column name="monto_ini" valueNumeric="45785.60"/>
+            <column name="monto_fin" valueNumeric="999999999.00"/>
+            <column name="tea" valueNumeric="20.76"/>
+            <column name="activo" valueBoolean="true"/>
+            <column name="slu" value="32"/>
+        </insert>
+        <insert tableName="crd_slu">
+            <column name="id_slu" valueNumeric="15"/>
+            <column name="id_empresa" value="001"/>
+            <column name="id_tipo_linea" value="003"/>
+            <column name="descripcion" value="CREDITO PARA EMPRESA"/>
+            <column name="monto_ini" valueNumeric="16760.81"/>
+            <column name="monto_fin" valueNumeric="999999999.00"/>
+            <column name="tea" valueNumeric="26.57"/>
+            <column name="activo" valueBoolean="true"/>
+            <column name="slu" value="40"/>
+        </insert>
+        <insert tableName="crd_slu">
+            <column name="id_slu" valueNumeric="16"/>
+            <column name="id_empresa" value="001"/>
+            <column name="id_tipo_linea" value="001"/>
+            <column name="descripcion" value="MICROCREDITO MULTIDESTINO"/>
+            <column name="monto_ini" valueNumeric="0.00"/>
+            <column name="monto_fin" valueNumeric="4905.60"/>
+            <column name="tea" valueNumeric="96.88"/>
+            <column name="activo" valueBoolean="true"/>
+            <column name="slu" value="50"/>
+        </insert>
+        <insert tableName="crd_slu">
+            <column name="id_slu" valueNumeric="17"/>
+            <column name="id_empresa" value="001"/>
+            <column name="id_tipo_linea" value="001"/>
+            <column name="descripcion" value="MICROCREDITO MULTIDESTINO"/>
+            <column name="monto_ini" valueNumeric="4905.61"/>
+            <column name="monto_fin" valueNumeric="9811.20"/>
+            <column name="tea" valueNumeric="58.10"/>
+            <column name="activo" valueBoolean="true"/>
+            <column name="slu" value="50"/>
+        </insert>
+        <insert tableName="crd_slu">
+            <column name="id_slu" valueNumeric="18"/>
+            <column name="id_empresa" value="001"/>
+            <column name="id_tipo_linea" value="001"/>
+            <column name="descripcion" value="MICROCREDITO MULTIDESTINO"/>
+            <column name="monto_ini" valueNumeric="9811.21"/>
+            <column name="monto_fin" valueNumeric="16760.80"/>
+            <column name="tea" valueNumeric="38.63"/>
+            <column name="activo" valueBoolean="true"/>
+            <column name="slu" value="50"/>
+        </insert>
+        <rollback>
+            <delete tableName="crd_slu"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

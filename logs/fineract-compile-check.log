@@ -1,0 +1,131 @@
+> Task :buildSrc:extractPluginRequests UP-TO-DATE
+> Task :buildSrc:generatePluginAdapters UP-TO-DATE
+> Task :buildSrc:compileJava UP-TO-DATE
+> Task :buildSrc:compileGroovy UP-TO-DATE
+> Task :buildSrc:compileGroovyPlugins UP-TO-DATE
+> Task :buildSrc:pluginDescriptors UP-TO-DATE
+> Task :buildSrc:processResources UP-TO-DATE
+> Task :buildSrc:classes UP-TO-DATE
+> Task :buildSrc:jar UP-TO-DATE
+
+> Configure project :
+matching ref: COMMIT - 06b5cee5fd2c91e3614dfb7fc437c84e692fd069
+  ref configuration: COMMIT - pattern: null
+    version: ${describe.tag.version.major}.${describe.tag.version.minor.next}.0-SNAPSHOT
+    describeTagPattern: .*(\d+\.\d+\.\d+).*
+    describeTagFirstParent: false
+
+project version: 1.14.0-SNAPSHOT
+
+> Configure project :fineract-provider
+Loading environment variables from .env file...
+[jib] no explicit credentials provided; relying on Docker credential helper if available
+
+> Task :fineract-accounting:processResources UP-TO-DATE
+> Task :spotlessInternalRegisterDependencies UP-TO-DATE
+> Task :fineract-charge:processResources UP-TO-DATE
+> Task :fineract-tax:processResources UP-TO-DATE
+> Task :fineract-avro-schemas:preprocessAvroSchemas UP-TO-DATE
+> Task :fineract-cob:processResources UP-TO-DATE
+> Task :fineract-rates:processResources UP-TO-DATE
+> Task :fineract-core:processResources
+> Task :fineract-avro-schemas:spotlessJson UP-TO-DATE
+> Task :fineract-avro-schemas:spotlessJsonApply UP-TO-DATE
+> Task :fineract-avro-schemas:buildJavaSdk UP-TO-DATE
+> Task :fineract-validation:compileJava UP-TO-DATE
+> Task :fineract-command:compileJava UP-TO-DATE
+> Task :fineract-validation:processResources UP-TO-DATE
+> Task :fineract-validation:classes UP-TO-DATE
+> Task :fineract-avro-schemas:compileJava UP-TO-DATE
+> Task :fineract-command:processResources UP-TO-DATE
+> Task :fineract-command:classes UP-TO-DATE
+> Task :fineract-validation:jar UP-TO-DATE
+> Task :fineract-command:jar UP-TO-DATE
+> Task :fineract-avro-schemas:processResources UP-TO-DATE
+> Task :fineract-avro-schemas:classes UP-TO-DATE
+> Task :fineract-avro-schemas:jar UP-TO-DATE
+> Task :fineract-core:compileJava UP-TO-DATE
+> Task :fineract-core:classes
+> Task :fineract-core:jar
+> Task :fineract-rates:compileJava UP-TO-DATE
+> Task :fineract-tax:compileJava UP-TO-DATE
+> Task :fineract-cob:compileJava UP-TO-DATE
+> Task :fineract-rates:classes UP-TO-DATE
+> Task :fineract-cob:classes UP-TO-DATE
+> Task :fineract-tax:classes UP-TO-DATE
+> Task :fineract-rates:jar UP-TO-DATE
+> Task :fineract-tax:jar UP-TO-DATE
+> Task :fineract-cob:jar UP-TO-DATE
+> Task :fineract-charge:compileJava UP-TO-DATE
+> Task :fineract-charge:classes UP-TO-DATE
+> Task :fineract-charge:jar UP-TO-DATE
+> Task :fineract-accounting:compileJava UP-TO-DATE
+> Task :fineract-accounting:classes UP-TO-DATE
+> Task :fineract-accounting:jar UP-TO-DATE
+
+> Task :fineract-loan:compileJava
+/Users/robertayala/Desktop/endomotion/projects/experiments/credesal/credesal-sistema/fineract-core/fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/data/LoanTransactionData.java:88: warning: @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+    private Collection<CodeValueData> writeOffReasonOptions = null;
+                                      ^
+/Users/robertayala/Desktop/endomotion/projects/experiments/credesal/credesal-sistema/fineract-core/fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/data/LoanTransactionData.java:91: warning: @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+    private Integer numberOfRepayments = 0;
+                    ^
+/Users/robertayala/Desktop/endomotion/projects/experiments/credesal/credesal-sistema/fineract-core/fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/data/LoanTransactionData.java:117: warning: @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+    private Collection<CodeValueData> chargeOffReasonOptions = null;
+                                      ^
+/Users/robertayala/Desktop/endomotion/projects/experiments/credesal/credesal-sistema/fineract-core/fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/data/LoanTransactionData.java:118: warning: @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+    private Collection<CodeValueData> classificationOptions = null;
+                                      ^
+/Users/robertayala/Desktop/endomotion/projects/experiments/credesal/credesal-sistema/fineract-core/fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/data/LoanTransactionData.java:121: warning: @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+    private Collection<CodeValueData> reAgeReasonOptions = null;
+                                      ^
+/Users/robertayala/Desktop/endomotion/projects/experiments/credesal/credesal-sistema/fineract-core/fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/data/LoanTransactionData.java:122: warning: @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+    private Collection<PeriodFrequencyType> periodFrequencyOptions = null;
+                                            ^
+/Users/robertayala/Desktop/endomotion/projects/experiments/credesal/credesal-sistema/fineract-core/fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/data/LoanTransactionData.java:123: warning: @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+    private Collection<StringEnumOptionData> reAgeInterestHandlingOptions = null;
+                                             ^
+/Users/robertayala/Desktop/endomotion/projects/experiments/credesal/credesal-sistema/fineract-core/fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/data/LoanTransactionData.java:124: warning: @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+    private Collection<CodeValueData> reAmortizationReasonOptions = null;
+                                      ^
+/Users/robertayala/Desktop/endomotion/projects/experiments/credesal/credesal-sistema/fineract-core/fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/data/LoanTransactionData.java:125: warning: @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+    private Collection<StringEnumOptionData> reAmortizationInterestHandlingOptions = null;
+                                             ^
+warning: No processor claimed any of these annotations: /io.swagger.v3.oas.annotations.Parameter,/org.mapstruct.Mapper,/jakarta.validation.constraints.NotNull,/io.swagger.v3.oas.annotations.responses.ApiResponses,/jakarta.ws.rs.QueryParam,/jakarta.persistence.PersistenceContext,/jakarta.ws.rs.GET,/jakarta.persistence.Entity,/jakarta.persistence.Convert,/org.springframework.data.jpa.repository.Query,/org.mapstruct.Mappings,/io.swagger.v3.oas.annotations.tags.Tag,/org.springframework.context.annotation.Scope,/org.springframework.beans.factory.annotation.Value,/org.springframework.stereotype.Component,/org.springframework.transaction.annotation.Transactional,/io.swagger.v3.oas.annotations.media.Schema,/jakarta.persistence.JoinTable,/org.springframework.context.annotation.Bean,/jakarta.persistence.Column,/jakarta.persistence.JoinColumn,/jakarta.validation.constraints.NotBlank,/org.springframework.beans.factory.annotation.Qualifier,/jakarta.persistence.Enumerated,/jakarta.persistence.ManyToMany,/org.apache.fineract.commands.annotation.CommandType,/org.springframework.stereotype.Service,/jakarta.persistence.Version,/org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean,/jakarta.ws.rs.core.Context,/jakarta.ws.rs.Consumes,/jakarta.ws.rs.PathParam,/jakarta.persistence.Converter,/jakarta.persistence.OneToOne,/edu.umd.cs.findbugs.annotations.SuppressFBWarnings,/org.springframework.context.annotation.Configuration,/jakarta.persistence.Transient,/jakarta.annotation.PostConstruct,/org.springframework.integration.annotation.Default,/jakarta.persistence.OrderBy,/jakarta.persistence.OneToMany,/org.springframework.data.repository.query.Param,/jakarta.persistence.Table,/jakarta.persistence.Embedded,/org.springframework.stereotype.Repository,/jakarta.persistence.ManyToOne,/jakarta.persistence.Embeddable,/jakarta.ws.rs.Path,/jakarta.ws.rs.Produces,/jakarta.ws.rs.PUT,/jakarta.ws.rs.ext.Provider,/org.springframework.data.jpa.repository.Modifying,/io.swagger.v3.oas.annotations.parameters.RequestBody,/io.swagger.v3.oas.annotations.Operation,/org.mapstruct.Mapping,/jakarta.annotation.Nullable,/org.springframework.lang.NonNull,/org.springframework.beans.factory.annotation.Autowired,/jakarta.ws.rs.POST,/jakarta.ws.rs.DELETE
+warning: No processor claimed any of these annotations: java.compiler/javax.annotation.processing.Generated,/org.springframework.beans.factory.annotation.Autowired,/org.springframework.stereotype.Component
+/Users/robertayala/Desktop/endomotion/projects/experiments/credesal/credesal-sistema/fineract-core/fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/domain/LoanRepaymentScheduleInstallment.java:1196: warning: [deprecation] equals(CharSequence,CharSequence) in StringUtils has been deprecated
+                        && StringUtils.equals(pdc.getBankName(), npdc.getBankName()) //
+                                      ^
+/Users/robertayala/Desktop/endomotion/projects/experiments/credesal/credesal-sistema/fineract-core/fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/exception/LoanTransactionNotFoundException.java:50: warning: [deprecation] <T>defaultIfNull(T,T) in ObjectUtils has been deprecated
+                + ObjectUtils.defaultIfNull(transactionExternalId, ExternalId.empty()).getValue() + " does not exist",
+                             ^
+  where T is a type-variable:
+    T extends Object declared in method <T>defaultIfNull(T,T)
+/Users/robertayala/Desktop/endomotion/projects/experiments/credesal/credesal-sistema/fineract-core/fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/exception/LoanTransactionNotFoundException.java:56: warning: [deprecation] <T>defaultIfNull(T,T) in ObjectUtils has been deprecated
+                + ObjectUtils.defaultIfNull(transactionExternalId, ExternalId.empty()).getValue() + " does not exist",
+                             ^
+  where T is a type-variable:
+    T extends Object declared in method <T>defaultIfNull(T,T)
+/Users/robertayala/Desktop/endomotion/projects/experiments/credesal/credesal-sistema/fineract-core/fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/exception/LoanNotFoundException.java:44: warning: [deprecation] <T>defaultIfNull(T,T) in ObjectUtils has been deprecated
+                "Loan with external identifier " + ObjectUtils.defaultIfNull(externalId, ExternalId.empty()).getValue() + " does not exist",
+                                                              ^
+  where T is a type-variable:
+    T extends Object declared in method <T>defaultIfNull(T,T)
+/Users/robertayala/Desktop/endomotion/projects/experiments/credesal/credesal-sistema/fineract-core/fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/exception/LoanNotFoundException.java:50: warning: [deprecation] <T>defaultIfNull(T,T) in ObjectUtils has been deprecated
+                "Loan with external identifier " + ObjectUtils.defaultIfNull(externalId, ExternalId.empty()).getValue() + " does not exist",
+                                                              ^
+  where T is a type-variable:
+    T extends Object declared in method <T>defaultIfNull(T,T)
+16 warnings
+
+[Incubating] Problems report is available at: file:///Users/robertayala/Desktop/endomotion/projects/experiments/credesal/credesal-sistema/fineract-core/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 17s
+41 actionable tasks: 3 executed, 38 up-to-date
+The build is running offline. A build scan will not be published at this time, but it can be published if you run the 'buildScanPublishPrevious' task in the next build.

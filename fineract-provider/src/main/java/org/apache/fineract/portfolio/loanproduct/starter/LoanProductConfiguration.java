@@ -25,6 +25,9 @@ import org.apache.fineract.infrastructure.event.business.service.BusinessEventNo
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.portfolio.charge.domain.ChargeRepositoryWrapper;
 import org.apache.fineract.portfolio.charge.service.ChargeReadPlatformService;
+import org.apache.fineract.portfolio.crd.domain.CrdSluRepository;
+import org.apache.fineract.portfolio.crd.domain.CrdTipoLineaRepository;
+import org.apache.fineract.portfolio.crd.service.CrdCatalogReadPlatformService;
 import org.apache.fineract.portfolio.delinquency.domain.DelinquencyBucketRepository;
 import org.apache.fineract.portfolio.delinquency.service.DelinquencyReadPlatformService;
 import org.apache.fineract.portfolio.floatingrates.domain.FloatingRateRepositoryWrapper;
@@ -66,9 +69,9 @@ public class LoanProductConfiguration {
     public LoanProductReadPlatformService loanProductReadPlatformService(PlatformSecurityContext context, JdbcTemplate jdbcTemplate,
             ChargeReadPlatformService chargeReadPlatformService, RateReadService rateReadService, DatabaseSpecificSQLGenerator sqlGenerator,
             FineractEntityAccessUtil fineractEntityAccessUtil, DelinquencyReadPlatformService delinquencyReadPlatformService,
-            LoanProductRepository loanProductRepository) {
+            LoanProductRepository loanProductRepository, CrdCatalogReadPlatformService crdCatalogReadPlatformService) {
         return new LoanProductReadPlatformServiceImpl(context, jdbcTemplate, chargeReadPlatformService, rateReadService, sqlGenerator,
-                fineractEntityAccessUtil, delinquencyReadPlatformService, loanProductRepository);
+                fineractEntityAccessUtil, delinquencyReadPlatformService, loanProductRepository, crdCatalogReadPlatformService);
     }
 
     @Bean
@@ -82,11 +85,12 @@ public class LoanProductConfiguration {
             DelinquencyBucketRepository delinquencyBucketRepository,
             LoanRepaymentScheduleTransactionProcessorFactory loanRepaymentScheduleTransactionProcessorFactory,
             AdvancedPaymentAllocationsJsonParser advancedPaymentJsonParser, CreditAllocationsJsonParser creditAllocationsJsonParser,
-            LoanProductAssembler loanProductAssembler, LoanProductUpdateUtil loanProductUpdateUtil) {
+            LoanProductAssembler loanProductAssembler, LoanProductUpdateUtil loanProductUpdateUtil,
+            CrdTipoLineaRepository crdTipoLineaRepository, CrdSluRepository crdSluRepository) {
         return new LoanProductWritePlatformServiceJpaRepositoryImpl(context, fromApiJsonDeserializer, loanProductRepository, aprCalculator,
                 fundRepository, chargeRepository, rateRepository, accountMappingWritePlatformService, fineractEntityAccessUtil,
                 floatingRateRepository, loanRepositoryWrapper, businessEventNotifierService, delinquencyBucketRepository,
                 loanRepaymentScheduleTransactionProcessorFactory, advancedPaymentJsonParser, creditAllocationsJsonParser,
-                loanProductAssembler, loanProductUpdateUtil);
+                loanProductAssembler, loanProductUpdateUtil, crdTipoLineaRepository, crdSluRepository);
     }
 }

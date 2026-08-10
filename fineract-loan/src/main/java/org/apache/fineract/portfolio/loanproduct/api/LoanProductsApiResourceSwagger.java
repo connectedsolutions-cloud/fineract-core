@@ -76,6 +76,10 @@ public final class LoanProductsApiResourceSwagger {
         public String closeDate;
         @Schema(example = "3")
         public Long fundId;
+        @Schema(example = "001")
+        public String idTipoLinea;
+        @Schema(example = "[16, 17]")
+        public List<Integer> idSlus;
 
         @Schema(example = "USD")
         public String currencyCode;
@@ -1497,6 +1501,13 @@ public final class LoanProductsApiResourceSwagger {
         public Integer principalThresholdForLastInstalment;
         public DelinquencyBucketData delinquencyBucket;
         public List<DelinquencyBucketData> delinquencyBucketOptions;
+        @Schema(example = "001")
+        public String idTipoLinea;
+        @Schema(example = "MICROCRÉDITO")
+        public String tipoLineaName;
+        public List<Object> slus;
+        public List<Object> tipoLineaOptions;
+        public List<Object> sluOptions;
         @Schema(example = "false")
         public Boolean enableInstallmentLevelDelinquency;
         @Schema(example = "3")
@@ -1573,6 +1584,10 @@ public final class LoanProductsApiResourceSwagger {
         public String closeDate;
         @Schema(example = "3")
         public Long fundId;
+        @Schema(example = "001")
+        public String idTipoLinea;
+        @Schema(example = "[16, 17]")
+        public List<Integer> idSlus;
 
         @Schema(example = "USD")
         public String currencyCode;

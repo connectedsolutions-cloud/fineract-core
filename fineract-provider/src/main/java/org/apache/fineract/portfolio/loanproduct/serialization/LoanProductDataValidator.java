@@ -209,7 +209,8 @@ public final class LoanProductDataValidator {
             LoanProductConstants.MERCHANT_BUY_DOWN_FEE_PARAM_NAME,
             LoanProductAccountingParams.CAPITALIZED_INCOME_CLASSIFICATION_TO_INCOME_ACCOUNT_MAPPINGS.getValue(), //
             LoanProductAccountingParams.BUYDOWN_FEE_CLASSIFICATION_TO_INCOME_ACCOUNT_MAPPINGS.getValue(), //
-            LoanProductConstants.DIMENSIONS
+            LoanProductConstants.DIMENSIONS,
+            LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME, LoanProductConstants.ID_SLUS_PARAM_NAME
     ));
 
     private static final String[] SUPPORTED_LOAN_CONFIGURABLE_ATTRIBUTES = { LoanProductConstants.amortizationTypeParamName,
@@ -255,6 +256,26 @@ public final class LoanProductDataValidator {
         if (this.fromApiJsonHelper.parameterExists(FUND_ID, element)) {
             final Long fundId = this.fromApiJsonHelper.extractLongNamed(FUND_ID, element);
             baseDataValidator.reset().parameter(FUND_ID).value(fundId).ignoreIfNull().integerGreaterThanZero();
+        }
+
+        if (this.fromApiJsonHelper.parameterExists(LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME, element)) {
+            final String idTipoLinea = this.fromApiJsonHelper.extractStringNamed(LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME, element);
+            baseDataValidator.reset().parameter(LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME).value(idTipoLinea).ignoreIfNull()
+                    .notExceedingLengthOf(3);
+        }
+
+        if (this.fromApiJsonHelper.parameterExists(LoanProductConstants.ID_SLUS_PARAM_NAME, element)) {
+            final JsonArray idSlusArray = this.fromApiJsonHelper.extractJsonArrayNamed(LoanProductConstants.ID_SLUS_PARAM_NAME, element);
+            baseDataValidator.reset().parameter(LoanProductConstants.ID_SLUS_PARAM_NAME).value(idSlusArray).ignoreIfNull();
+            if (idSlusArray != null) {
+                for (int i = 0; i < idSlusArray.size(); i++) {
+                    final JsonElement sluElement = idSlusArray.get(i);
+                    final Integer idSlu = sluElement == null || sluElement.isJsonNull() ? null : sluElement.getAsInt();
+                    baseDataValidator.reset().parameter(LoanProductConstants.ID_SLUS_PARAM_NAME)
+                            .parameterAtIndexArray(LoanProductConstants.ID_SLUS_PARAM_NAME, i + 1).value(idSlu).notNull()
+                            .integerGreaterThanZero();
+                }
+            }
         }
 
         boolean isEqualAmortization = false;
@@ -1323,6 +1344,26 @@ public final class LoanProductDataValidator {
         if (this.fromApiJsonHelper.parameterExists(FUND_ID, element)) {
             final Long fundId = this.fromApiJsonHelper.extractLongNamed(FUND_ID, element);
             baseDataValidator.reset().parameter(FUND_ID).value(fundId).ignoreIfNull().integerGreaterThanZero();
+        }
+
+        if (this.fromApiJsonHelper.parameterExists(LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME, element)) {
+            final String idTipoLinea = this.fromApiJsonHelper.extractStringNamed(LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME, element);
+            baseDataValidator.reset().parameter(LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME).value(idTipoLinea).ignoreIfNull()
+                    .notExceedingLengthOf(3);
+        }
+
+        if (this.fromApiJsonHelper.parameterExists(LoanProductConstants.ID_SLUS_PARAM_NAME, element)) {
+            final JsonArray idSlusArray = this.fromApiJsonHelper.extractJsonArrayNamed(LoanProductConstants.ID_SLUS_PARAM_NAME, element);
+            baseDataValidator.reset().parameter(LoanProductConstants.ID_SLUS_PARAM_NAME).value(idSlusArray).ignoreIfNull();
+            if (idSlusArray != null) {
+                for (int i = 0; i < idSlusArray.size(); i++) {
+                    final JsonElement sluElement = idSlusArray.get(i);
+                    final Integer idSlu = sluElement == null || sluElement.isJsonNull() ? null : sluElement.getAsInt();
+                    baseDataValidator.reset().parameter(LoanProductConstants.ID_SLUS_PARAM_NAME)
+                            .parameterAtIndexArray(LoanProductConstants.ID_SLUS_PARAM_NAME, i + 1).value(idSlu).notNull()
+                            .integerGreaterThanZero();
+                }
+            }
         }
 
         if (this.fromApiJsonHelper.parameterExists(INCLUDE_IN_BORROWER_CYCLE, element)) {

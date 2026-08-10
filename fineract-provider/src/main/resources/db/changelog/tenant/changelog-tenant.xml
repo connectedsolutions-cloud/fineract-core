@@ -284,4 +284,8 @@
     <include file="parts/0262_add_receptor_defaults_and_tipo_documento.xml" relativeToChangelogFile="true" />
     <include file="parts/0263_add_audit_columns_to_credesal_client_datatables.xml" relativeToChangelogFile="true" />
     <include file="parts/0264_add_listado_facturas_report.xml" relativeToChangelogFile="true" />
+    <include file="parts/0265_move_anexo_facturacion_to_especiales.xml" relativeToChangelogFile="true" />
+    <include file="parts/0266_add_crd_tipo_linea_and_slu_catalogs.xml" relativeToChangelogFile="true" />
+    <include file="parts/0267_add_infored_report.xml" relativeToChangelogFile="true" />
+    <include file="parts/0268_add_crd_catalog_fks_to_loan_product.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

@@ -68,6 +68,8 @@
         <class>org.apache.fineract.infrastructure.codes.domain.Code</class>
         <class>org.apache.fineract.infrastructure.businessdate.domain.BusinessDate</class>
         <class>org.apache.fineract.infrastructure.codes.domain.CodeValue</class>
+        <class>org.apache.fineract.portfolio.crd.domain.CrdTipoLinea</class>
+        <class>org.apache.fineract.portfolio.crd.domain.CrdSlu</class>
 
         <!-- Accounting Module Entities -->
         <class>org.apache.fineract.accounting.closure.domain.GLClosure</class>

@@ -46,6 +46,8 @@ import org.apache.fineract.portfolio.common.domain.DaysInYearCustomStrategyType;
 import org.apache.fineract.portfolio.common.domain.DaysInYearType;
 import org.apache.fineract.portfolio.common.domain.PeriodFrequencyType;
 import org.apache.fineract.portfolio.common.service.CommonEnumerations;
+import org.apache.fineract.portfolio.crd.data.CrdSluData;
+import org.apache.fineract.portfolio.crd.data.CrdTipoLineaData;
 import org.apache.fineract.portfolio.delinquency.data.DelinquencyBucketData;
 import org.apache.fineract.portfolio.floatingrates.data.FloatingRateData;
 import org.apache.fineract.portfolio.fund.data.FundData;
@@ -269,6 +271,13 @@ public class LoanProductData implements Serializable {
     private List<ClassificationToGLAccountData> buydownFeeClassificationToIncomeAccountMappings;
 
     private final String dimensions;
+
+    // Credesal CRD catalog tags (mutable so they can be enriched after construction)
+    private String idTipoLinea;
+    private String tipoLineaName;
+    private Collection<CrdSluData> slus;
+    private Collection<CrdTipoLineaData> tipoLineaOptions;
+    private Collection<CrdSluData> sluOptions;
 
     /**
      * Used when returning lookup information about loan product for dropdowns.
@@ -1147,6 +1156,11 @@ public class LoanProductData implements Serializable {
         this.status = productData.status;
         this.externalId = productData.externalId;
         this.dimensions = productData.dimensions;
+        this.idTipoLinea = productData.idTipoLinea;
+        this.tipoLineaName = productData.tipoLineaName;
+        this.slus = productData.slus;
+        this.tipoLineaOptions = null;
+        this.sluOptions = null;
 
         this.charges = nullIfEmpty(productData.charges());
         this.principalVariationsForBorrowerCycle = productData.principalVariationsForBorrowerCycle;
@@ -1299,6 +1313,26 @@ public class LoanProductData implements Serializable {
             chargesLocal = null;
         }
         return chargesLocal;
+    }
+
+    public void setIdTipoLinea(final String idTipoLinea) {
+        this.idTipoLinea = idTipoLinea;
+    }
+
+    public void setTipoLineaName(final String tipoLineaName) {
+        this.tipoLineaName = tipoLineaName;
+    }
+
+    public void setSlus(final Collection<CrdSluData> slus) {
+        this.slus = slus;
+    }
+
+    public void setTipoLineaOptions(final Collection<CrdTipoLineaData> tipoLineaOptions) {
+        this.tipoLineaOptions = tipoLineaOptions;
+    }
+
+    public void setSluOptions(final Collection<CrdSluData> sluOptions) {
+        this.sluOptions = sluOptions;
     }
 
     public Collection<ChargeData> charges() {

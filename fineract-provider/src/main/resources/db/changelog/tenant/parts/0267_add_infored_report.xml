@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<!--
+    InfoRed monthly credit extract (Especiales).
+    Row grain: person-to-loan (borrower tipo_rel=1 + guarantor tipo_rel=3).
+    Layout and provisional catalog codes follow docs/INFORED_REPORT_STRUCTURE.md.
+    Open catalog items (inst, forma_pag, linea_cre, calif_act, estcredito, tipo_mon, dia)
+    use sample/inferred values until official INFORED mappings are confirmed.
+
+    Date fields (Credesal mapping):
+    - ult_pag  = actual date of the last repayment transaction (m_loan_transaction,
+                 type REPAYMENT, not reversed). NOT the scheduled installment due date.
+    - fecha_can = loan closed/fully repaid date (m_loan.closedon_date).
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0267-1" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report WHERE report_name = 'InfoRed'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="stretchy_report">
+            <column name="report_name" value="InfoRed"/>
+            <column name="report_type" value="Table"/>
+            <column name="report_subtype"/>
+            <column name="report_category" value="Especiales"/>
+            <column name="report_sql" value="SELECT 1"/>
+            <column name="description"
+                    value="INFORED monthly credit extract. One row per person-to-loan relationship (borrower + guarantors). Column order matches OrdenCamposInfored."/>
+            <column name="core_report" valueBoolean="false"/>
+            <column name="use_report" valueBoolean="true"/>
+            <column name="self_service_user_report" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0267-2" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="1">
+                SELECT COUNT(1) FROM stretchy_report WHERE report_name = 'InfoRed'
+            </sqlCheck>
+        </preConditions>
+        <update tableName="stretchy_report">
+            <column name="report_sql"><![CDATA[
+WITH loan_base AS (
+    SELECT
+        l.id AS loan_id,
+        l.account_no AS Num_ptmo,
+        l.client_id,
+        l.disbursedon_date AS fec_otor,
+        COALESCE(l.principal_amount, 0) AS monto,
+        l.number_of_repayments AS plazo,
+        COALESCE(l.total_outstanding_derived, 0) AS saldo,
+        COALESCE(laa.total_overdue_derived, 0) AS mora,
+        CASE
+            WHEN l.repayment_period_frequency_enum = 2 AND COALESCE(l.repay_every, 1) = 1 THEN 5
+            WHEN l.repayment_period_frequency_enum = 1 AND COALESCE(l.repay_every, 1) = 2 THEN 6
+            WHEN l.repayment_period_frequency_enum = 1 AND COALESCE(l.repay_every, 1) = 1 THEN 7
+            ELSE 5
+        END AS forma_pag,
+        CASE
+            WHEN laa.overdue_since_date_derived IS NULL THEN 0
+            ELSE GREATEST(DATEDIFF('${endDate}', laa.overdue_since_date_derived), 0)
+        END AS dias,
+        /* ult_pag: actual last payment date (repayment txn), not schedule due date */
+        (
+            SELECT MAX(lt.transaction_date)
+            FROM m_loan_transaction lt
+            WHERE lt.loan_id = l.id
+              AND lt.transaction_type_enum = 2
+              AND lt.is_reversed = 0
+        ) AS ult_pag,
+        CASE
+            WHEN EXISTS (
+                SELECT 1 FROM m_guarantor g
+                WHERE g.loan_id = l.id AND g.is_active = 1 AND g.type_enum IN (1, 3)
+            ) THEN 'FI'
+            ELSE 'NA'
+        END AS tipo_gar,
+        COALESCE(
+            l.fixed_emi_amount,
+            (
+                SELECT ROUND(
+                    COALESCE(rs.principal_amount, 0)
+                    + COALESCE(rs.interest_amount, 0)
+                    + COALESCE(rs.fee_charges_amount, 0)
+                    + COALESCE(rs.penalty_charges_amount, 0),
+                    2
+                )
+                FROM m_loan_repayment_schedule rs
+                WHERE rs.loan_id = l.id
+                ORDER BY rs.installment ASC
+                LIMIT 1
+            ),
+            0
+        ) AS valcuota,
+        l.closedon_date AS fecha_can,
+        l.expected_maturedon_date AS fecha_ven,
+        l.number_of_repayments AS ncuotascre,
+        CASE
+            WHEN l.loan_status_id = 600 THEN 3
+            WHEN l.loan_status_id = 300 THEN 1
+            WHEN l.loan_status_id = 601 THEN 4
+            WHEN l.loan_status_id = 700 THEN 3
+            ELSE l.loan_status_id
+        END AS estcredito
+    FROM m_loan l
+    JOIN m_client c ON c.id = l.client_id
+    JOIN m_office o ON o.id = c.office_id
+    LEFT JOIN m_loan_arrears_aging laa ON laa.loan_id = l.id
+    WHERE l.disbursedon_date IS NOT NULL
+      AND l.disbursedon_date <= '${endDate}'
+      AND (
+            l.loan_status_id = 300
+            OR (
+                l.closedon_date IS NOT NULL
+                AND l.closedon_date >= '${startDate}'
+                AND l.closedon_date <= '${endDate}'
+            )
+          )
+      AND (${officeId} = -1 OR c.office_id = ${officeId})
+      AND o.hierarchy LIKE CONCAT('${currentUserHierarchy}', '%')
+),
+borrowers AS (
+    SELECT
+        YEAR('${endDate}') AS `Año`,
+        MONTH('${endDate}') AS mes,
+        c.display_name AS nombre,
+        1 AS tipo_per,
+        lb.Num_ptmo AS Num_ptmo,
+        'J2409111257NS' AS inst,
+        DATE_FORMAT(lb.fec_otor, '%d/%m/%Y') AS fec_otor,
+        ROUND(lb.monto, 2) AS monto,
+        lb.plazo AS plazo,
+        ROUND(lb.saldo, 2) AS saldo,
+        ROUND(lb.mora, 2) AS mora,
+        lb.forma_pag AS forma_pag,
+        1 AS tipo_rel,
+        'COM' AS linea_cre,
+        lb.dias AS dias,
+        DATE_FORMAT(lb.ult_pag, '%d/%m/%Y') AS ult_pag,
+        lb.tipo_gar AS tipo_gar,
+        2 AS tipo_mon,
+        ROUND(lb.valcuota, 2) AS valcuota,
+        5 AS dia,
+        DATE_FORMAT(c.date_of_birth, '%d/%m/%Y') AS fechanac,
+        TRIM(COALESCE(
+            CASE
+                WHEN UPPER(COALESCE(dp.tipo_documento_identificacion, '')) LIKE '%NIT%' THEN NULL
+                ELSE NULLIF(TRIM(dp.numero_documento_identificacion), '')
+            END,
+            (
+                SELECT NULLIF(TRIM(ci.document_key), '')
+                FROM m_client_identifier ci
+                JOIN m_code_value idt ON idt.id = ci.document_type_id
+                WHERE ci.client_id = c.id
+                  AND UPPER(idt.code_value) LIKE '%DUI%'
+                LIMIT 1
+            )
+        )) AS dui,
+        TRIM(COALESCE(
+            CASE
+                WHEN UPPER(COALESCE(dp.tipo_documento_identificacion, '')) LIKE '%NIT%'
+                THEN NULLIF(TRIM(dp.numero_documento_identificacion), '')
+                ELSE NULL
+            END,
+            (
+                SELECT NULLIF(TRIM(ci.document_key), '')
+                FROM m_client_identifier ci
+                JOIN m_code_value idt ON idt.id = ci.document_type_id
+                WHERE ci.client_id = c.id
+                  AND UPPER(idt.code_value) LIKE '%NIT%'
+                LIMIT 1
+            )
+        )) AS nit,
+        DATE_FORMAT(lb.fecha_can, '%d/%m/%Y') AS fecha_can,
+        DATE_FORMAT(lb.fecha_ven, '%d/%m/%Y') AS fecha_ven,
+        lb.ncuotascre AS ncuotascre,
+        'A1' AS calif_act,
+        COALESCE(
+            NULLIF(TRIM(dp.desc_actividad_economica), ''),
+            NULLIF(TRIM(dp.ocupacion_actividad_real), '')
+        ) AS activi_eco,
+        CASE
+            WHEN gender.code_value IS NULL THEN NULL
+            WHEN UPPER(LEFT(TRIM(gender.code_value), 1)) IN ('F', 'M') THEN UPPER(LEFT(TRIM(gender.code_value), 1))
+            WHEN UPPER(gender.code_value) LIKE '%FEM%'
+              OR UPPER(gender.code_value) LIKE '%MUJ%' THEN 'F'
+            WHEN UPPER(gender.code_value) LIKE '%MAS%'
+              OR UPPER(gender.code_value) LIKE '%HOM%' THEN 'M'
+            ELSE NULL
+        END AS sexo,
+        lb.estcredito AS estcredito
+    FROM loan_base lb
+    JOIN m_client c ON c.id = lb.client_id
+    LEFT JOIN credesal_client_datos_personales dp ON dp.client_id = c.id
+    LEFT JOIN m_code_value gender ON gender.id = c.gender_cv_id
+),
+guarantors AS (
+    SELECT
+        YEAR('${endDate}') AS `Año`,
+        MONTH('${endDate}') AS mes,
+        CASE
+            WHEN g.type_enum = 1 THEN gc.display_name
+            ELSE TRIM(CONCAT(COALESCE(g.firstname, ''), ' ', COALESCE(g.lastname, '')))
+        END AS nombre,
+        1 AS tipo_per,
+        lb.Num_ptmo AS Num_ptmo,
+        'J2409111257NS' AS inst,
+        DATE_FORMAT(lb.fec_otor, '%d/%m/%Y') AS fec_otor,
+        ROUND(lb.monto, 2) AS monto,
+        lb.plazo AS plazo,
+        ROUND(lb.saldo, 2) AS saldo,
+        ROUND(lb.mora, 2) AS mora,
+        lb.forma_pag AS forma_pag,
+        3 AS tipo_rel,
+        'COM' AS linea_cre,
+        lb.dias AS dias,
+        DATE_FORMAT(lb.ult_pag, '%d/%m/%Y') AS ult_pag,
+        'FI' AS tipo_gar,
+        2 AS tipo_mon,
+        ROUND(lb.valcuota, 2) AS valcuota,
+        5 AS dia,
+        DATE_FORMAT(COALESCE(gc.date_of_birth, g.dob), '%d/%m/%Y') AS fechanac,
+        CASE
+            WHEN g.type_enum = 1 THEN TRIM(COALESCE(
+                CASE
+                    WHEN UPPER(COALESCE(gdp.tipo_documento_identificacion, '')) LIKE '%NIT%' THEN NULL
+                    ELSE NULLIF(TRIM(gdp.numero_documento_identificacion), '')
+                END,
+                (
+                    SELECT NULLIF(TRIM(ci.document_key), '')
+                    FROM m_client_identifier ci
+                    JOIN m_code_value idt ON idt.id = ci.document_type_id
+                    WHERE ci.client_id = gc.id
+                      AND UPPER(idt.code_value) LIKE '%DUI%'
+                    LIMIT 1
+                )
+            ))
+            ELSE NULL
+        END AS dui,
+        CASE
+            WHEN g.type_enum = 1 THEN TRIM(COALESCE(
+                CASE
+                    WHEN UPPER(COALESCE(gdp.tipo_documento_identificacion, '')) LIKE '%NIT%'
+                    THEN NULLIF(TRIM(gdp.numero_documento_identificacion), '')
+                    ELSE NULL
+                END,
+                (
+                    SELECT NULLIF(TRIM(ci.document_key), '')
+                    FROM m_client_identifier ci
+                    JOIN m_code_value idt ON idt.id = ci.document_type_id
+                    WHERE ci.client_id = gc.id
+                      AND UPPER(idt.code_value) LIKE '%NIT%'
+                    LIMIT 1
+                )
+            ))
+            ELSE NULL
+        END AS nit,
+        DATE_FORMAT(lb.fecha_can, '%d/%m/%Y') AS fecha_can,
+        DATE_FORMAT(lb.fecha_ven, '%d/%m/%Y') AS fecha_ven,
+        lb.ncuotascre AS ncuotascre,
+        'A1' AS calif_act,
+        CASE
+            WHEN g.type_enum = 1 THEN COALESCE(
+                NULLIF(TRIM(gdp.desc_actividad_economica), ''),
+                NULLIF(TRIM(gdp.ocupacion_actividad_real), '')
+            )
+            ELSE NULL
+        END AS activi_eco,
+        CASE
+            WHEN g.type_enum <> 1 OR ggender.code_value IS NULL THEN NULL
+            WHEN UPPER(LEFT(TRIM(ggender.code_value), 1)) IN ('F', 'M') THEN UPPER(LEFT(TRIM(ggender.code_value), 1))
+            WHEN UPPER(ggender.code_value) LIKE '%FEM%'
+              OR UPPER(ggender.code_value) LIKE '%MUJ%' THEN 'F'
+            WHEN UPPER(ggender.code_value) LIKE '%MAS%'
+              OR UPPER(ggender.code_value) LIKE '%HOM%' THEN 'M'
+            ELSE NULL
+        END AS sexo,
+        lb.estcredito AS estcredito
+    FROM loan_base lb
+    JOIN m_guarantor g ON g.loan_id = lb.loan_id AND g.is_active = 1 AND g.type_enum IN (1, 3)
+    LEFT JOIN m_client gc ON g.type_enum = 1 AND gc.id = g.entity_id
+    LEFT JOIN credesal_client_datos_personales gdp ON gdp.client_id = gc.id
+    LEFT JOIN m_code_value ggender ON ggender.id = gc.gender_cv_id
+)
+SELECT * FROM borrowers
+UNION ALL
+SELECT * FROM guarantors
+ORDER BY Num_ptmo, tipo_rel
+            ]]></column>
+            <where>report_name = 'InfoRed'</where>
+        </update>
+    </changeSet>
+
+    <changeSet id="0267-3" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report_parameter srp
+                JOIN stretchy_report sr ON sr.id = srp.report_id
+                WHERE sr.report_name = 'InfoRed'
+                  AND srp.parameter_id = 1
+                  AND srp.report_parameter_name = 'startDate'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+            VALUES ((SELECT id FROM stretchy_report WHERE report_name = 'InfoRed'), 1, 'startDate');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0267-4" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report_parameter srp
+                JOIN stretchy_report sr ON sr.id = srp.report_id
+                WHERE sr.report_name = 'InfoRed'
+                  AND srp.parameter_id = 2
+                  AND srp.report_parameter_name = 'endDate'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+            VALUES ((SELECT id FROM stretchy_report WHERE report_name = 'InfoRed'), 2, 'endDate');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0267-5" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report_parameter srp
+                JOIN stretchy_report sr ON sr.id = srp.report_id
+                WHERE sr.report_name = 'InfoRed'
+                  AND srp.parameter_id = 5
+                  AND srp.report_parameter_name = 'officeId'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+            VALUES ((SELECT id FROM stretchy_report WHERE report_name = 'InfoRed'), 5, 'officeId');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0267-6" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'READ_InfoRed'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="report"/>
+            <column name="code" value="READ_InfoRed"/>
+            <column name="entity_name" value="InfoRed"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

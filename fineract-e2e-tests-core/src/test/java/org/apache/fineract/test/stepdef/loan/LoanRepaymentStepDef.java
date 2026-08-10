@@ -315,7 +315,9 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
                 .extractingData(
                         loanTransactionAdjustmentDataV1 -> loanTransactionAdjustmentDataV1.getTransactionToAdjust().getManuallyReversed())
                 .isEqualTo(Boolean.TRUE);
-        eventAssertionBuilder.extractingData(LoanTransactionAdjustmentDataV1::getNewTransactionDetail).isEqualTo(null);
+        eventAssertionBuilder
+                .extractingData(loanTransactionAdjustmentDataV1 -> loanTransactionAdjustmentDataV1.getNewTransactionDetail())
+                .isEqualTo(null);
         eventCheckHelper.loanBalanceChangedEventCheck(loanId);
     }
 
@@ -341,7 +343,9 @@ public class LoanRepaymentStepDef extends AbstractStepDef {
                 .extractingData(
                         loanTransactionAdjustmentDataV1 -> loanTransactionAdjustmentDataV1.getTransactionToAdjust().getManuallyReversed())
                 .isEqualTo(Boolean.TRUE);
-        eventAssertionBuilder.extractingData(LoanTransactionAdjustmentDataV1::getNewTransactionDetail).isEqualTo(null);
+        eventAssertionBuilder
+                .extractingData(loanTransactionAdjustmentDataV1 -> loanTransactionAdjustmentDataV1.getNewTransactionDetail())
+                .isEqualTo(null);
         eventCheckHelper.loanBalanceChangedEventCheck(loanId);
     }
 

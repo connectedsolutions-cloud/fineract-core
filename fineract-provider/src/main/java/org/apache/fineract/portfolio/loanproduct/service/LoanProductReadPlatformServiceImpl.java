@@ -44,6 +44,8 @@ import org.apache.fineract.portfolio.charge.data.ChargeData;
 import org.apache.fineract.portfolio.charge.service.ChargeReadPlatformService;
 import org.apache.fineract.portfolio.common.domain.DaysInYearCustomStrategyType;
 import org.apache.fineract.portfolio.common.service.CommonEnumerations;
+import org.apache.fineract.portfolio.crd.data.CrdSluData;
+import org.apache.fineract.portfolio.crd.service.CrdCatalogReadPlatformService;
 import org.apache.fineract.portfolio.delinquency.data.DelinquencyBucketData;
 import org.apache.fineract.portfolio.delinquency.service.DelinquencyReadPlatformService;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanBuyDownFeeCalculationType;
@@ -86,6 +88,7 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
     private final FineractEntityAccessUtil fineractEntityAccessUtil;
     private final DelinquencyReadPlatformService delinquencyReadPlatformService;
     private final LoanProductRepository loanProductRepository;
+    private final CrdCatalogReadPlatformService crdCatalogReadPlatformService;
 
     @Override
     public LoanProductData retrieveLoanProduct(final Long loanProductId) {
@@ -99,8 +102,9 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
             final Collection<CreditAllocationData> creditAllocationData = retrieveCreditAllocationData(loanProductId);
             final Collection<DelinquencyBucketData> delinquencyBucketOptions = this.delinquencyReadPlatformService
                     .retrieveAllDelinquencyBuckets();
+            final Collection<CrdSluData> slus = this.crdCatalogReadPlatformService.retrieveLoanProductSlus(loanProductId);
             final LoanProductMapper rm = new LoanProductMapper(charges, borrowerCycleVariationDatas, rates, delinquencyBucketOptions,
-                    advancedPaymentData, creditAllocationData);
+                    advancedPaymentData, creditAllocationData, slus);
             final String sql = "select " + rm.loanProductSchema() + " where lp.id = ?";
 
             return this.jdbcTemplate.queryForObject(sql, rm, loanProductId); // NOSONAR
@@ -151,7 +155,7 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
 
         this.context.authenticatedUser();
 
-        final LoanProductMapper rm = new LoanProductMapper(null, null, null, null, null, null);
+        final LoanProductMapper rm = new LoanProductMapper(null, null, null, null, null, null, null);
 
         String sql = "select " + rm.loanProductSchema();
 
@@ -236,21 +240,25 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
 
         private final Collection<DelinquencyBucketData> delinquencyBucketOptions;
 
+        private final Collection<CrdSluData> slus;
+
         LoanProductMapper(final Collection<ChargeData> charges,
                 final Collection<LoanProductBorrowerCycleVariationData> borrowerCycleVariationDatas, final Collection<RateData> rates,
                 final Collection<DelinquencyBucketData> delinquencyBucketOptions, Collection<AdvancedPaymentData> advancedPaymentData,
-                Collection<CreditAllocationData> creditAllocationData) {
+                Collection<CreditAllocationData> creditAllocationData, final Collection<CrdSluData> slus) {
             this.charges = charges;
             this.borrowerCycleVariationDatas = borrowerCycleVariationDatas;
             this.rates = rates;
             this.delinquencyBucketOptions = delinquencyBucketOptions;
             this.advancedPaymentData = advancedPaymentData;
             this.creditAllocationData = creditAllocationData;
+            this.slus = slus;
         }
 
         public String loanProductSchema() {
             return "lp.id as id, lp.fund_id as fundId, f.name as fundName, lp.loan_transaction_strategy_code as transactionStrategyCode, lp.loan_transaction_strategy_name as transactionStrategyName, "
                     + "lp.name as name, lp.short_name as shortName, lp.description as description, "
+                    + "lp.id_tipo_linea as idTipoLinea, ctl.nombre_tipo_linea as tipoLineaName, "
                     + "lp.principal_amount as principal, lp.min_principal_amount as minPrincipal, lp.max_principal_amount as maxPrincipal, lp.currency_code as currencyCode, lp.currency_digits as currencyDigits, lp.currency_multiplesof as inMultiplesOf, "
                     + "lp.nominal_interest_rate_per_period as interestRatePerPeriod, lp.min_nominal_interest_rate_per_period as minInterestRatePerPeriod, lp.max_nominal_interest_rate_per_period as maxInterestRatePerPeriod, lp.interest_period_frequency_enum as interestRatePerPeriodFreq, "
                     + "lp.annual_nominal_interest_rate as annualInterestRate, lp.interest_method_enum as interestMethod, lp.interest_calculated_in_period_enum as interestCalculationInPeriodMethod,lp.allow_partial_period_interest_calcualtion as allowPartialPeriodInterestCalcualtion, "
@@ -310,6 +318,7 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
                     + "lp.buy_down_fee_strategy as buyDownFeeStrategy, " + "lp.buy_down_fee_income_type as buyDownFeeIncomeType, "
                     + "lp.dimensions as dimensions "
                     + " from m_product_loan lp " + " left join m_fund f on f.id = lp.fund_id "
+                    + " left join crd_tipo_linea ctl on ctl.id_tipo_linea = lp.id_tipo_linea "
                     + " left join m_product_loan_recalculation_details lpr on lpr.product_id=lp.id "
                     + " left join m_product_loan_guarantee_details lpg on lpg.loan_product_id=lp.id "
                     + " left join m_product_loan_configurable_attributes lca on lca.loan_product_id = lp.id "
@@ -588,8 +597,10 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
                     rs.getString("buyDownFeeIncomeType"));
             final boolean merchantBuyDownFee = rs.getBoolean("merchantBuyDownFee");
             final String dimensions = rs.getString("dimensions");
+            final String idTipoLinea = rs.getString("idTipoLinea");
+            final String tipoLineaName = rs.getString("tipoLineaName");
 
-            return new LoanProductData(id, name, shortName, description, currency, principal, minPrincipal, maxPrincipal, tolerance,
+            final LoanProductData loanProductData = new LoanProductData(id, name, shortName, description, currency, principal, minPrincipal, maxPrincipal, tolerance,
                     numberOfRepayments, minNumberOfRepayments, maxNumberOfRepayments, repaymentEvery, interestRatePerPeriod,
                     minInterestRatePerPeriod, maxInterestRatePerPeriod, annualInterestRate, repaymentFrequencyType,
                     interestRateFrequencyType, amortizationType, interestType, interestCalculationPeriodType,
@@ -615,6 +626,10 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
                     daysInYearCustomStrategy, enableIncomeCapitalization, capitalizedIncomeCalculationType, capitalizedIncomeStrategy,
                     capitalizedIncome, enableBuyDownFee, buyDownFeeCalculationType, buyDownFeeStrategy, buyDownFeeIncomeType,
                     merchantBuyDownFee, null, null, dimensions);
+            loanProductData.setIdTipoLinea(idTipoLinea);
+            loanProductData.setTipoLineaName(tipoLineaName);
+            loanProductData.setSlus(this.slus);
+            return loanProductData;
         }
     }
 
@@ -736,7 +751,7 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
     public Collection<LoanProductData> retrieveAllLoanProductsForCurrency(String currencyCode) {
         this.context.authenticatedUser();
 
-        final LoanProductMapper rm = new LoanProductMapper(null, null, null, null, null, null);
+        final LoanProductMapper rm = new LoanProductMapper(null, null, null, null, null, null, null);
 
         String sql = "select " + rm.loanProductSchema() + " where lp.currency_code= ? ";
 
