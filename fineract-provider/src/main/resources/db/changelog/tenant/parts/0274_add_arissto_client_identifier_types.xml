@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0274-1-add-arissto-client-identifier-types-postgresql" author="credesal" dbms="postgresql">
+        <preConditions onFail="HALT">
+            <sqlCheck expectedResult="1">
+                SELECT COUNT(*) FROM m_code WHERE code_name = 'Customer Identifier'
+            </sqlCheck>
+        </preConditions>
+        <sql><![CDATA[
+            INSERT INTO m_code_value
+                (id, code_id, code_value, code_description, order_position, code_score, is_active, is_mandatory)
+            SELECT nextval('m_code_value_id_seq'), code.id, requested.code_value,
+                   'Required by Arissto client KYC migration', requested.order_position, NULL, TRUE, FALSE
+            FROM m_code code
+            CROSS JOIN (VALUES ('NIT', 5), ('Carné de residencia', 6)) requested(code_value, order_position)
+            WHERE code.code_name = 'Customer Identifier'
+              AND NOT EXISTS (
+                  SELECT 1 FROM m_code_value existing
+                  WHERE existing.code_id = code.id AND existing.code_value = requested.code_value
+              );
+        ]]></sql>
+        <rollback>
+            <sql><![CDATA[
+                DELETE FROM m_code_value value
+                USING m_code code
+                WHERE value.code_id = code.id
+                  AND code.code_name = 'Customer Identifier'
+                  AND value.code_value IN ('NIT', 'Carné de residencia')
+                  AND value.code_description = 'Required by Arissto client KYC migration'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM m_client_identifier identifier
+                      WHERE identifier.document_type_id = value.id
+                  );
+            ]]></sql>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0274-2-add-arissto-client-identifier-types-mariadb" author="credesal" dbms="mariadb,mysql">
+        <preConditions onFail="HALT">
+            <sqlCheck expectedResult="1">
+                SELECT COUNT(*) FROM m_code WHERE code_name = 'Customer Identifier'
+            </sqlCheck>
+        </preConditions>
+        <sql><![CDATA[
+            INSERT INTO m_code_value
+                (code_id, code_value, code_description, order_position, code_score, is_active, is_mandatory)
+            SELECT code.id, requested.code_value,
+                   'Required by Arissto client KYC migration', requested.order_position, NULL, TRUE, FALSE
+            FROM m_code code
+            CROSS JOIN (
+                SELECT 'NIT' AS code_value, 5 AS order_position
+                UNION ALL SELECT 'Carné de residencia', 6
+            ) requested
+            WHERE code.code_name = 'Customer Identifier'
+              AND NOT EXISTS (
+                  SELECT 1 FROM m_code_value existing
+                  WHERE existing.code_id = code.id AND existing.code_value = requested.code_value
+              );
+        ]]></sql>
+        <rollback>
+            <sql><![CDATA[
+                DELETE value FROM m_code_value value
+                JOIN m_code code ON code.id = value.code_id
+                WHERE code.code_name = 'Customer Identifier'
+                  AND value.code_value IN ('NIT', 'Carné de residencia')
+                  AND value.code_description = 'Required by Arissto client KYC migration'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM m_client_identifier identifier
+                      WHERE identifier.document_type_id = value.id
+                  );
+            ]]></sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

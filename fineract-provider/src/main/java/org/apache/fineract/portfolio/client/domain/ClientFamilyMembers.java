@@ -51,6 +51,18 @@ public class ClientFamilyMembers extends AbstractPersistableCustom<Long> {
     @Column(name = "mobile_number")
     private String mobileNumber;
 
+    @Column(name = "secondary_mobile_number")
+    private String secondaryMobileNumber;
+
+    @Column(name = "address")
+    private String address;
+
+    @Column(name = "external_id")
+    private String externalId;
+
+    @Column(name = "source_relationship")
+    private String sourceRelationship;
+
     @Column(name = "age")
     private Long age;
 
@@ -77,8 +89,10 @@ public class ClientFamilyMembers extends AbstractPersistableCustom<Long> {
     private LocalDate dateOfBirth;
 
     private ClientFamilyMembers(final Client client, final String firstName, final String middleName, final String lastName,
-            final String qualification, final String mobileNumber, final Long age, final Boolean isDependent, final CodeValue relationship,
-            final CodeValue maritalStatus, final CodeValue gender, final LocalDate dateOfBirth, final CodeValue profession) {
+            final String qualification, final String mobileNumber, final String secondaryMobileNumber, final String address,
+            final String externalId, final String sourceRelationship, final Long age, final Boolean isDependent,
+            final CodeValue relationship, final CodeValue maritalStatus, final CodeValue gender, final LocalDate dateOfBirth,
+            final CodeValue profession) {
 
         this.client = client;
         this.firstName = firstName;
@@ -87,6 +101,10 @@ public class ClientFamilyMembers extends AbstractPersistableCustom<Long> {
         this.qualification = qualification;
         this.age = age;
         this.mobileNumber = mobileNumber;
+        this.secondaryMobileNumber = secondaryMobileNumber;
+        this.address = address;
+        this.externalId = externalId;
+        this.sourceRelationship = sourceRelationship;
         this.isDependent = isDependent;
         this.relationship = relationship;
         this.maritalStatus = maritalStatus;
@@ -100,10 +118,12 @@ public class ClientFamilyMembers extends AbstractPersistableCustom<Long> {
     }
 
     public static ClientFamilyMembers fromJson(final Client client, final String firstName, final String middleName, final String lastName,
-            final String qualification, final String mobileNumber, final Long age, final Boolean isDependent, final CodeValue relationship,
-            final CodeValue maritalStatus, final CodeValue gender, final LocalDate dateOfBirth, final CodeValue profession) {
-        return new ClientFamilyMembers(client, firstName, middleName, lastName, qualification, mobileNumber, age, isDependent, relationship,
-                maritalStatus, gender, dateOfBirth, profession);
+            final String qualification, final String mobileNumber, final String secondaryMobileNumber, final String address,
+            final String externalId, final String sourceRelationship, final Long age, final Boolean isDependent,
+            final CodeValue relationship, final CodeValue maritalStatus, final CodeValue gender, final LocalDate dateOfBirth,
+            final CodeValue profession) {
+        return new ClientFamilyMembers(client, firstName, middleName, lastName, qualification, mobileNumber, secondaryMobileNumber, address,
+                externalId, sourceRelationship, age, isDependent, relationship, maritalStatus, gender, dateOfBirth, profession);
     }
 
     public Client getClient() {
@@ -192,6 +212,38 @@ public class ClientFamilyMembers extends AbstractPersistableCustom<Long> {
 
     public void setMobileNumber(String mobileNumber) {
         this.mobileNumber = mobileNumber;
+    }
+
+    public String getSecondaryMobileNumber() {
+        return this.secondaryMobileNumber;
+    }
+
+    public void setSecondaryMobileNumber(String secondaryMobileNumber) {
+        this.secondaryMobileNumber = secondaryMobileNumber;
+    }
+
+    public String getAddress() {
+        return this.address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getExternalId() {
+        return this.externalId;
+    }
+
+    public void setExternalId(String externalId) {
+        this.externalId = externalId;
+    }
+
+    public String getSourceRelationship() {
+        return this.sourceRelationship;
+    }
+
+    public void setSourceRelationship(String sourceRelationship) {
+        this.sourceRelationship = sourceRelationship;
     }
 
     public Long getAge() {

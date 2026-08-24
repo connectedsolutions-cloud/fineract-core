@@ -34,6 +34,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.data.ApiParameterError;
 import org.apache.fineract.infrastructure.core.data.DataValidatorBuilder;
 import org.apache.fineract.infrastructure.core.exception.InvalidJsonException;
+import org.apache.fineract.infrastructure.core.exception.PlatformApiDataValidationException;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +50,10 @@ public final class ClientFamilyMemberCommandFromApiJsonDeserializer {
     public static final String LAST_NAME = "lastName";
     public static final String QUALIFICATION = "qualification";
     public static final String MOBILE_NUMBER = "mobileNumber";
+    public static final String SECONDARY_MOBILE_NUMBER = "secondaryMobileNumber";
+    public static final String ADDRESS = "address";
+    public static final String EXTERNAL_ID = "externalId";
+    public static final String SOURCE_RELATIONSHIP = "sourceRelationship";
     public static final String AGE = "age";
     public static final String IS_DEPENDENT = "isDependent";
     public static final String RELATIONSHIP_ID = "relationshipId";
@@ -61,9 +66,9 @@ public final class ClientFamilyMemberCommandFromApiJsonDeserializer {
     public static final String FAMILY_MEMBERS = "familyMembers";
     private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(
             Arrays.asList(ID, CLIENT_ID, FIRST_NAME, MIDDLE_NAME, LAST_NAME, QUALIFICATION, MOBILE_NUMBER, AGE, IS_DEPENDENT,
-                    RELATIONSHIP_ID, MARITAL_STATUS_ID, GENDER_ID, DATE_OF_BIRTH, PROFESSION_ID, LOCALE, DATE_FORMAT, FAMILY_MEMBERS));
+                    SECONDARY_MOBILE_NUMBER, ADDRESS, EXTERNAL_ID, SOURCE_RELATIONSHIP, RELATIONSHIP_ID, MARITAL_STATUS_ID, GENDER_ID,
+                    DATE_OF_BIRTH, PROFESSION_ID, LOCALE, DATE_FORMAT, FAMILY_MEMBERS));
     public static final String FAMILY_MEMBERS1 = "FamilyMembers";
-    public static final String RELATION_SHIP_ID = "relationShipId";
     private final FromJsonHelper fromApiJsonHelper;
 
     @Autowired
@@ -93,7 +98,12 @@ public final class ClientFamilyMemberCommandFromApiJsonDeserializer {
             baseDataValidator.reset().value(this.fromApiJsonHelper.extractJsonArrayNamed(FAMILY_MEMBERS, element)).arrayNotEmpty();
         }
 
-        validateForCreate(1, json);
+        if (!dataValidationErrors.isEmpty()) {
+            throw new PlatformApiDataValidationException(dataValidationErrors);
+        }
+        for (JsonElement member : this.fromApiJsonHelper.extractJsonArrayNamed(FAMILY_MEMBERS, element)) {
+            validateForCreate(1, member.toString());
+        }
 
     }
 
@@ -143,17 +153,22 @@ public final class ClientFamilyMemberCommandFromApiJsonDeserializer {
             baseDataValidator.reset().parameter(MOBILE_NUMBER).value(mobileNumber).notNull().notBlank().notExceedingLengthOf(100);
         }
 
+        validateOptionalString(baseDataValidator, element, SECONDARY_MOBILE_NUMBER, 50);
+        validateOptionalString(baseDataValidator, element, ADDRESS, 254);
+        validateOptionalString(baseDataValidator, element, EXTERNAL_ID, 100);
+        validateOptionalString(baseDataValidator, element, SOURCE_RELATIONSHIP, 50);
+
         if (this.fromApiJsonHelper.extractBooleanNamed(IS_DEPENDENT, element) != null) {
             final Boolean isDependent = this.fromApiJsonHelper.extractBooleanNamed(IS_DEPENDENT, element);
-            baseDataValidator.reset().parameter(IS_DEPENDENT).value(isDependent).notNull().notBlank().notExceedingLengthOf(100);
+            baseDataValidator.reset().parameter(IS_DEPENDENT).value(isDependent).notNull();
         }
 
-        if (this.fromApiJsonHelper.extractLongNamed(RELATION_SHIP_ID, element) != null) {
-            final long relationShipId = this.fromApiJsonHelper.extractLongNamed(RELATION_SHIP_ID, element);
-            baseDataValidator.reset().parameter(RELATION_SHIP_ID).value(relationShipId).notBlank().longGreaterThanZero();
+        if (this.fromApiJsonHelper.extractLongNamed(RELATIONSHIP_ID, element) != null) {
+            final long relationshipId = this.fromApiJsonHelper.extractLongNamed(RELATIONSHIP_ID, element);
+            baseDataValidator.reset().parameter(RELATIONSHIP_ID).value(relationshipId).notBlank().longGreaterThanZero();
 
         } else {
-            baseDataValidator.reset().parameter(RELATION_SHIP_ID).value(this.fromApiJsonHelper.extractLongNamed(RELATION_SHIP_ID, element))
+            baseDataValidator.reset().parameter(RELATIONSHIP_ID).value(this.fromApiJsonHelper.extractLongNamed(RELATIONSHIP_ID, element))
                     .notBlank().longGreaterThanZero();
         }
 
@@ -186,6 +201,10 @@ public final class ClientFamilyMemberCommandFromApiJsonDeserializer {
             baseDataValidator.reset().parameter(DATE_OF_BIRTH).value(dateOfBirth).value(dateOfBirth).notNull()
                     .validateDateBefore(DateUtils.getBusinessLocalDate());
 
+        }
+
+        if (!dataValidationErrors.isEmpty()) {
+            throw new PlatformApiDataValidationException(dataValidationErrors);
         }
 
     }
@@ -228,9 +247,15 @@ public final class ClientFamilyMemberCommandFromApiJsonDeserializer {
             baseDataValidator.reset().parameter(QUALIFICATION).value(qualification).notNull().notBlank().notExceedingLengthOf(100);
         }
 
-        if (this.fromApiJsonHelper.extractLongNamed(RELATION_SHIP_ID, element) != null) {
-            final long relationShipId = this.fromApiJsonHelper.extractLongNamed(RELATION_SHIP_ID, element);
-            baseDataValidator.reset().parameter(RELATION_SHIP_ID).value(relationShipId).notBlank().longGreaterThanZero();
+        validateOptionalString(baseDataValidator, element, MOBILE_NUMBER, 50);
+        validateOptionalString(baseDataValidator, element, SECONDARY_MOBILE_NUMBER, 50);
+        validateOptionalString(baseDataValidator, element, ADDRESS, 254);
+        validateOptionalString(baseDataValidator, element, EXTERNAL_ID, 100);
+        validateOptionalString(baseDataValidator, element, SOURCE_RELATIONSHIP, 50);
+
+        if (this.fromApiJsonHelper.extractLongNamed(RELATIONSHIP_ID, element) != null) {
+            final long relationshipId = this.fromApiJsonHelper.extractLongNamed(RELATIONSHIP_ID, element);
+            baseDataValidator.reset().parameter(RELATIONSHIP_ID).value(relationshipId).notBlank().longGreaterThanZero();
 
         }
 
@@ -258,6 +283,10 @@ public final class ClientFamilyMemberCommandFromApiJsonDeserializer {
 
         }
 
+        if (!dataValidationErrors.isEmpty()) {
+            throw new PlatformApiDataValidationException(dataValidationErrors);
+        }
+
     }
 
     public void validateForDelete(final long familyMemberId) {
@@ -268,6 +297,17 @@ public final class ClientFamilyMemberCommandFromApiJsonDeserializer {
         // final JsonElement element = this.fromApiJsonHelper.parse(json);
 
         baseDataValidator.reset().value(familyMemberId).notBlank().integerGreaterThanZero();
+        if (!dataValidationErrors.isEmpty()) {
+            throw new PlatformApiDataValidationException(dataValidationErrors);
+        }
+    }
+
+    private void validateOptionalString(final DataValidatorBuilder validator, final JsonElement element, final String parameter,
+            final int maximumLength) {
+        final String value = this.fromApiJsonHelper.extractStringNamed(parameter, element);
+        if (value != null) {
+            validator.reset().parameter(parameter).value(value).notExceedingLengthOf(maximumLength);
+        }
     }
 
 }

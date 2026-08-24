@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "services": [
+    {
+      "id": "clients",
+      "name": "Clients",
+      "kind": "sync-block",
+      "status": "available",
+      "executable": true,
+      "cli_block": "clients",
+      "depends_on": [],
+      "post_sync_services": ["client-pep", "client-family-references"],
+      "description": "Migrates reviewed AFI_SOCIO natural-person identity and non-PEP KYC/profile data into Fineract core client fields, identifiers, and Credesal datatables, including plain-text home/work addresses; products are excluded.",
+      "documentation": "migration-services/clients/README.md",
+      "detail_documents": [
+        "migration-services/clients/contract.md",
+        "migration-services/client-system-codes/contract.md"
+      ],
+      "configuration": "config/clients.json",
+      "commands": {
+        "inspect": "./arissto-sync inspect --block clients --target TARGET",
+        "plan": "./arissto-sync plan --block clients --target TARGET --source-key NUMERO_AFILIACION",
+        "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
+        "apply_with_pep": "./arissto-sync apply --plan PLAN_ID --target TARGET --with-pep",
+        "apply_with_family_references": "./arissto-sync apply --plan PLAN_ID --target TARGET --with-family-references",
+        "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
+        "status": "./arissto-sync status --block clients --target TARGET"
+      }
+    },
+    {
+      "id": "client-pep",
+      "name": "Client PEP",
+      "kind": "sync-block",
+      "status": "available",
+      "executable": true,
+      "cli_block": "client-pep",
+      "depends_on": ["clients"],
+      "trigger": {
+        "after": "clients",
+        "condition": "successful-client-reconciliation",
+        "command": "./arissto-sync apply --plan CLIENT_PLAN_ID --target TARGET --with-pep"
+      },
+      "description": "Synchronizes the verified AFI_SOCIO direct PEP flag into credesal_client_pep only after the parent Fineract client exists and the scoped clients run reconciles successfully.",
+      "documentation": "migration-services/client-pep/README.md",
+      "detail_documents": ["migration-services/client-pep/contract.md"],
+      "configuration": "config/client_pep.json",
+      "commands": {
+        "inspect": "./arissto-sync inspect --block client-pep --target TARGET",
+        "plan": "./arissto-sync plan --block client-pep --target TARGET --source-key NUMERO_AFILIACION",
+        "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
+        "apply_after_clients": "./arissto-sync apply --plan CLIENT_PLAN_ID --target TARGET --with-pep",
+        "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
+        "status": "./arissto-sync status --block client-pep --target TARGET"
+      }
+    },
+    {
+      "id": "client-family-references",
+      "name": "Client family references",
+      "kind": "sync-block",
+      "status": "available",
+      "executable": true,
+      "cli_block": "client-family-references",
+      "depends_on": ["clients"],
+      "description": "Synchronizes AFI_REF_FAMILIAR_SOCIO personal/family references for both Arissto CLIENTE and SOCIO parties into Fineract family members, with durable source identity, API-only writes, retry, and exact reconciliation; it can run independently or as an opt-in dependent step of client apply.",
+      "documentation": "migration-services/client-family-references/README.md",
+      "detail_documents": ["migration-services/client-family-references/contract.md"],
+      "configuration": "config/client_family_references.json",
+      "commands": {
+        "inspect": "./arissto-sync inspect --block client-family-references --target TARGET",
+        "plan": "./arissto-sync plan --block client-family-references --target TARGET --source-key NUMERO_AFILIACION:ID_REF_FAM",
+        "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
+        "apply_after_clients": "./arissto-sync apply --plan CLIENT_PLAN_ID --target TARGET --with-family-references",
+        "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
+        "status": "./arissto-sync status --block client-family-references --target TARGET"
+      }
+    },
+    {
+      "id": "employees",
+      "name": "Employees",
+      "kind": "sync-block",
+      "status": "available",
+      "executable": true,
+      "cli_block": "employees",
+      "depends_on": [],
+      "description": "Synchronizes the complete PERSONAS_EMPRESA profile into Fineract staff core plus credesal_staff_profile, including contact and sensitive HR data; app-user creation, credentials, permissions, and client/loan assignments remain separate.",
+      "documentation": "migration-services/employees/README.md",
+      "detail_documents": ["migration-services/employees/contract.md"],
+      "configuration": "config/employees.json",
+      "commands": {
+        "inspect": "./arissto-sync inspect --block employees --target TARGET",
+        "plan": "./arissto-sync plan --block employees --target TARGET --source-key ID_EMPRESA:ID_PERSONA",
+        "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
+        "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
+        "status": "./arissto-sync status --block employees --target TARGET"
+      }
+    },
+    {
+      "id": "membership-share-capital",
+      "name": "Membership and share capital",
+      "kind": "sync-block",
+      "status": "blocked",
+      "executable": true,
+      "cli_block": "membership-share-capital",
+      "depends_on": ["clients"],
+      "description": "Preserves reviewed cooperative membership, share, certificate, contribution, dividend, governance, and current-party operational records in versioned Fineract extension tables; blocked pending controlled local reconciliation of the narrowed operation-log scope, while native shares remain deferred until real dividend savings accounts exist.",
+      "documentation": "migration-services/membership-share-capital/README.md",
+      "detail_documents": [
+        "migration-services/membership-share-capital/contract.md",
+        "migration-services/membership-share-capital/lifecycle.md",
+        "migration-services/membership-share-capital/implementation-sequence.md"
+      ],
+      "configuration": "config/membership_share_capital.json",
+      "commands": {
+        "inspect": "./arissto-sync inspect --block membership-share-capital --target TARGET",
+        "plan": "./arissto-sync plan --block membership-share-capital --target TARGET --source-key 'SOURCE_TABLE|COMPOSITE_KEY'",
+        "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
+        "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
+        "status": "./arissto-sync status --block membership-share-capital --target TARGET"
+      }
+    },
+    {
+      "id": "aml-alerts",
+      "name": "AML alerts",
+      "kind": "sync-block",
+      "status": "available",
+      "executable": true,
+      "cli_block": "aml-alerts",
+      "depends_on": ["clients"],
+      "description": "Plans lossless migration of Arissto AML/LAFT subtype 69 and 70 alert headers, client or membership-role subjects, and related movement references into the versioned Credesal AML domain tables; runtime rule evaluation and case workflows are deferred.",
+      "documentation": "migration-services/aml-alerts/README.md",
+      "detail_documents": ["migration-services/aml-alerts/contract.md"],
+      "configuration": "config/aml_alerts.json",
+      "commands": {
+        "inspect": "./arissto-sync inspect --block aml-alerts --target TARGET",
+        "plan": "./arissto-sync plan --block aml-alerts --target TARGET --source-key ID_EVENTO",
+        "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
+        "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
+        "status": "./arissto-sync status --block aml-alerts --target TARGET"
+      }
+    }
+  ]
+}

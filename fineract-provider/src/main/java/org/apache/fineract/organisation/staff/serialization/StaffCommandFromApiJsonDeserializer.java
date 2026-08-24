@@ -48,6 +48,7 @@ public final class StaffCommandFromApiJsonDeserializer {
     public static final String OFFICE_IDS = "officeIds";
     public static final String EXTERNAL_ID = "externalId";
     public static final String MOBILE_NO = "mobileNo";
+    public static final String EMAIL_ADDRESS = "emailAddress";
     public static final String IS_LOAN_OFFICER = "isLoanOfficer";
     public static final String IS_ACTIVE = "isActive";
     public static final String JOINING_DATE = "joiningDate";
@@ -58,7 +59,7 @@ public final class StaffCommandFromApiJsonDeserializer {
      * The parameters supported for this command.
      */
     private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList(FIRSTNAME, LASTNAME, OFFICE_ID, OFFICE_IDS, EXTERNAL_ID,
-            MOBILE_NO, IS_LOAN_OFFICER, IS_ACTIVE, JOINING_DATE, DATE_FORMAT, LOCALE, FORCE_STATUS));
+            MOBILE_NO, EMAIL_ADDRESS, IS_LOAN_OFFICER, IS_ACTIVE, JOINING_DATE, DATE_FORMAT, LOCALE, FORCE_STATUS));
 
     private final FromJsonHelper fromApiJsonHelper;
 
@@ -127,6 +128,11 @@ public final class StaffCommandFromApiJsonDeserializer {
             final String mobileNo = this.fromApiJsonHelper.extractStringNamed(ClientApiConstants.mobileNoParamName, element);
             baseDataValidator.reset().parameter(ClientApiConstants.mobileNoParamName).value(mobileNo).ignoreIfNull()
                     .notExceedingLengthOf(50);
+        }
+
+        if (this.fromApiJsonHelper.parameterExists(EMAIL_ADDRESS, element)) {
+            final String emailAddress = this.fromApiJsonHelper.extractStringNamed(EMAIL_ADDRESS, element);
+            baseDataValidator.reset().parameter(EMAIL_ADDRESS).value(emailAddress).ignoreIfNull().notExceedingLengthOf(150);
         }
 
         if (this.fromApiJsonHelper.parameterExists(IS_LOAN_OFFICER, element)) {
@@ -215,6 +221,12 @@ public final class StaffCommandFromApiJsonDeserializer {
         if (this.fromApiJsonHelper.parameterExists(ClientApiConstants.mobileNoParamName, element)) {
             final String mobileNo = this.fromApiJsonHelper.extractStringNamed(ClientApiConstants.mobileNoParamName, element);
             baseDataValidator.reset().parameter(ClientApiConstants.mobileNoParamName).value(mobileNo).notExceedingLengthOf(50);
+        }
+
+
+        if (this.fromApiJsonHelper.parameterExists(EMAIL_ADDRESS, element)) {
+            final String emailAddress = this.fromApiJsonHelper.extractStringNamed(EMAIL_ADDRESS, element);
+            baseDataValidator.reset().parameter(EMAIL_ADDRESS).value(emailAddress).ignoreIfNull().notExceedingLengthOf(150);
         }
 
         if (this.fromApiJsonHelper.parameterExists(IS_LOAN_OFFICER, element)) {

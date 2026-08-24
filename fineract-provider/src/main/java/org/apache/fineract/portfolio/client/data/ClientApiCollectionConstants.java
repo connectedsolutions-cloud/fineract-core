@@ -27,7 +27,8 @@ public class ClientApiCollectionConstants extends ClientApiConstants {
 
     protected static final Set<String> CLIENT_CREATE_REQUEST_DATA_PARAMETERS = new HashSet<>(Arrays.asList(familyMembers, address,
             localeParamName, dateFormatParamName, groupIdParamName, accountNoParamName, externalIdParamName, mobileNoParamName,
-            emailAddressParamName, firstnameParamName, middlenameParamName, lastnameParamName, fullnameParamName, officeIdParamName,
+            emailAddressParamName, firstnameParamName, middlenameParamName, lastnameParamName, secondlastnameParamName,
+            marriedlastnameParamName, fullnameParamName, officeIdParamName,
             activeParamName, activationDateParamName, staffIdParamName, gestorIdParamName, submittedOnDateParamName, savingsProductIdParamName,
             dateOfBirthParamName, genderIdParamName, clientTypeIdParamName, clientClassificationIdParamName,
             clientNonPersonDetailsParamName, displaynameParamName, legalFormIdParamName, datatables, isStaffParamName, tagIdsParamName));
@@ -38,9 +39,8 @@ public class ClientApiCollectionConstants extends ClientApiConstants {
 
     protected static final Set<String> CLIENT_UPDATE_REQUEST_DATA_PARAMETERS = new HashSet<>(Arrays.asList(localeParamName,
             dateFormatParamName, accountNoParamName, externalIdParamName, mobileNoParamName, emailAddressParamName, firstnameParamName,
-            middlenameParamName,
-
-            lastnameParamName, fullnameParamName, activeParamName, activationDateParamName, staffIdParamName, gestorIdParamName, savingsProductIdParamName,
+            middlenameParamName, lastnameParamName, secondlastnameParamName, marriedlastnameParamName, fullnameParamName, activeParamName,
+            activationDateParamName, staffIdParamName, gestorIdParamName, savingsProductIdParamName,
             dateOfBirthParamName, genderIdParamName, clientTypeIdParamName, clientClassificationIdParamName, submittedOnDateParamName,
             clientNonPersonDetailsParamName, displaynameParamName, legalFormIdParamName, isStaffParamName, tagIdsParamName));
 

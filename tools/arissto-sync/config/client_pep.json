@@ -1,0 +1,21 @@
+{
+  "source": {
+    "table": "AFI_SOCIO",
+    "external_key": "NUMERO_AFILIACION",
+    "pep_key": "PEP"
+  },
+  "target": {
+    "client_table": "m_client",
+    "datatable": "credesal_client_pep",
+    "client_key": "client_id",
+    "pep_column": "es_pep"
+  },
+  "value_map": {
+    "0": false,
+    "1": true
+  },
+  "depends_on": "clients",
+  "ownership": "legacy-owned",
+  "unknown_policy": "require-row-absent",
+  "unexpected_row_policy": "quarantine-no-delete"
+}

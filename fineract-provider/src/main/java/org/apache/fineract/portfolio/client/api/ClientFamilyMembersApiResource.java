@@ -36,9 +36,7 @@ import org.apache.fineract.commands.domain.CommandWrapper;
 import org.apache.fineract.commands.service.CommandWrapperBuilder;
 import org.apache.fineract.commands.service.PortfolioCommandSourceWritePlatformService;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
-import org.apache.fineract.infrastructure.core.serialization.ToApiJsonSerializer;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
-import org.apache.fineract.portfolio.client.data.ClientFamilyMemberRequest;
 import org.apache.fineract.portfolio.client.data.ClientFamilyMembersData;
 import org.apache.fineract.portfolio.client.service.ClientFamilyMembersReadPlatformService;
 import org.springframework.stereotype.Component;
@@ -52,7 +50,6 @@ public class ClientFamilyMembersApiResource {
     private static final String RESOURCE_NAME_FOR_PERMISSIONS = "FamilyMembers";
     private final PlatformSecurityContext context;
     private final ClientFamilyMembersReadPlatformService readPlatformService;
-    private final ToApiJsonSerializer<ClientFamilyMembersData> toApiJsonSerializer;
     private final PortfolioCommandSourceWritePlatformService commandsSourceWritePlatformService;
 
     @GET
@@ -89,10 +86,10 @@ public class ClientFamilyMembersApiResource {
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     public CommandProcessingResult updateClientFamilyMembers(@PathParam("familyMemberId") final long familyMemberId,
-            ClientFamilyMemberRequest clientFamilyMemberRequest,
+            @Parameter(hidden = true) final String apiRequestBodyAsJson,
             @PathParam("clientId") @Parameter(description = "clientId") final Long clientId) {
         final CommandWrapper commandRequest = new CommandWrapperBuilder().updateFamilyMembers(familyMemberId)
-                .withJson(toApiJsonSerializer.serialize(clientFamilyMemberRequest)).build();
+                .withJson(apiRequestBodyAsJson).build();
 
         return this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
     }
@@ -101,9 +98,8 @@ public class ClientFamilyMembersApiResource {
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     public CommandProcessingResult addClientFamilyMembers(@PathParam("clientId") final long clientid,
-            ClientFamilyMemberRequest clientFamilyMemberRequest) {
-        final CommandWrapper commandRequest = new CommandWrapperBuilder().addFamilyMembers(clientid)
-                .withJson(toApiJsonSerializer.serialize(clientFamilyMemberRequest)).build();
+            @Parameter(hidden = true) final String apiRequestBodyAsJson) {
+        final CommandWrapper commandRequest = new CommandWrapperBuilder().addFamilyMembers(clientid).withJson(apiRequestBodyAsJson).build();
 
         return this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
     }

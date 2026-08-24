@@ -322,7 +322,7 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
             sqlBuilder.append(
                     "cvSubStatus.code_value as subStatusValue,cvSubStatus.code_description as subStatusDesc,c.office_id as officeId, o.name as officeName, ");
             sqlBuilder.append("c.transfer_to_office_id as transferToOfficeId, transferToOffice.name as transferToOfficeName, ");
-            sqlBuilder.append("c.firstname as firstname, c.middlename as middlename, c.lastname as lastname, ");
+            sqlBuilder.append("c.firstname as firstname, c.middlename as middlename, c.lastname as lastname, c.secondlastname as secondlastname, c.marriedlastname as marriedlastname, ");
             sqlBuilder.append("c.fullname as fullname, c.display_name as displayName, ");
             sqlBuilder.append("c.mobile_no as mobileNo, ");
             sqlBuilder.append("c.is_staff as isStaff, ");
@@ -413,6 +413,8 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
             final String firstname = rs.getString("firstname");
             final String middlename = rs.getString("middlename");
             final String lastname = rs.getString("lastname");
+            final String secondlastname = rs.getString("secondlastname");
+            final String marriedlastname = rs.getString("marriedlastname");
             final String fullname = rs.getString("fullname");
             final String displayName = rs.getString("displayName");
             final ExternalId externalId = ExternalIdFactory.produce(rs.getString("externalId"));
@@ -481,10 +483,13 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
                     submittedByLastname, activationDate, activatedByUsername, activatedByFirstname, activatedByLastname, closedOnDate,
                     closedByUsername, closedByFirstname, closedByLastname);
 
-            return ClientData.instance(accountNo, status, subStatus, officeId, officeName, transferToOfficeId, transferToOfficeName, id,
-                    firstname, middlename, lastname, fullname, displayName, externalId, mobileNo, emailAddress, dateOfBirth, gender,
-                    activationDate, imageId, staffId, staffName, gestorId, gestorName, timeline, savingsProductId, savingsProductName, savingsAccountId,
-                    clienttype, classification, legalForm, clientNonPerson, isStaff);
+            final ClientData clientData = ClientData.instance(accountNo, status, subStatus, officeId, officeName, transferToOfficeId,
+                    transferToOfficeName, id, firstname, middlename, lastname, fullname, displayName, externalId, mobileNo, emailAddress,
+                    dateOfBirth, gender, activationDate, imageId, staffId, staffName, gestorId, gestorName, timeline, savingsProductId,
+                    savingsProductName, savingsAccountId, clienttype, classification, legalForm, clientNonPerson, isStaff);
+            clientData.setSecondlastname(secondlastname);
+            clientData.setMarriedlastname(marriedlastname);
+            return clientData;
 
         }
     }
@@ -568,7 +573,7 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
     private static final class ClientIdentifierMapper implements RowMapper<ClientData> {
 
         public String clientLookupByIdentifierSchema() {
-            return "c.id as id, c.account_no as accountNo, c.firstname as firstname, c.middlename as middlename, c.lastname as lastname, "
+            return "c.id as id, c.account_no as accountNo, c.firstname as firstname, c.middlename as middlename, c.lastname as lastname, c.secondlastname as secondlastname, c.marriedlastname as marriedlastname, "
                     + "c.fullname as fullname, c.display_name as displayName," + "c.office_id as officeId, o.name as officeName "
                     + " from m_client c, m_office o, m_client_identifier ci " + "where o.id = c.office_id and c.id=ci.client_id "
                     + "and ci.document_type_id= ? and ci.document_key like ?";
@@ -583,13 +588,19 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
             final String firstname = rs.getString("firstname");
             final String middlename = rs.getString("middlename");
             final String lastname = rs.getString("lastname");
+            final String secondlastname = rs.getString("secondlastname");
+            final String marriedlastname = rs.getString("marriedlastname");
             final String fullname = rs.getString("fullname");
             final String displayName = rs.getString("displayName");
 
             final Long officeId = rs.getLong("officeId");
             final String officeName = rs.getString("officeName");
 
-            return ClientData.clientIdentifier(id, accountNo, firstname, middlename, lastname, fullname, displayName, officeId, officeName);
+            final ClientData clientData = ClientData.clientIdentifier(id, accountNo, firstname, middlename, lastname, fullname, displayName,
+                    officeId, officeName);
+            clientData.setSecondlastname(secondlastname);
+            clientData.setMarriedlastname(marriedlastname);
+            return clientData;
         }
     }
 
@@ -639,7 +650,7 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
             builder.append(
                     "cvSubStatus.code_value as subStatusValue,cvSubStatus.code_description as subStatusDesc,c.office_id as officeId, o.name as officeName, ");
             builder.append("c.transfer_to_office_id as transferToOfficeId, transferToOffice.name as transferToOfficeName, ");
-            builder.append("c.firstname as firstname, c.middlename as middlename, c.lastname as lastname, ");
+            builder.append("c.firstname as firstname, c.middlename as middlename, c.lastname as lastname, c.secondlastname as secondlastname, c.marriedlastname as marriedlastname, ");
             builder.append("c.fullname as fullname, c.display_name as displayName, ");
             builder.append("c.mobile_no as mobileNo, ");
             builder.append("c.is_staff as isStaff, ");
@@ -729,6 +740,8 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
             final String firstname = rs.getString("firstname");
             final String middlename = rs.getString("middlename");
             final String lastname = rs.getString("lastname");
+            final String secondlastname = rs.getString("secondlastname");
+            final String marriedlastname = rs.getString("marriedlastname");
             final String fullname = rs.getString("fullname");
             final String displayName = rs.getString("displayName");
             final ExternalId externalId = ExternalIdFactory.produce(rs.getString("externalId"));
@@ -796,10 +809,13 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
                     submittedByLastname, activationDate, activatedByUsername, activatedByFirstname, activatedByLastname, closedOnDate,
                     closedByUsername, closedByFirstname, closedByLastname);
 
-            return ClientData.instance(accountNo, status, subStatus, officeId, officeName, transferToOfficeId, transferToOfficeName, id,
-                    firstname, middlename, lastname, fullname, displayName, externalId, mobileNo, emailAddress, dateOfBirth, gender,
-                    activationDate, imageId, staffId, staffName, gestorId, gestorName, timeline, savingsProductId, savingsProductName, savingsAccountId,
-                    clienttype, classification, legalForm, clientNonPerson, isStaff);
+            final ClientData clientData = ClientData.instance(accountNo, status, subStatus, officeId, officeName, transferToOfficeId,
+                    transferToOfficeName, id, firstname, middlename, lastname, fullname, displayName, externalId, mobileNo, emailAddress,
+                    dateOfBirth, gender, activationDate, imageId, staffId, staffName, gestorId, gestorName, timeline, savingsProductId,
+                    savingsProductName, savingsAccountId, clienttype, classification, legalForm, clientNonPerson, isStaff);
+            clientData.setSecondlastname(secondlastname);
+            clientData.setMarriedlastname(marriedlastname);
+            return clientData;
 
         }
     }

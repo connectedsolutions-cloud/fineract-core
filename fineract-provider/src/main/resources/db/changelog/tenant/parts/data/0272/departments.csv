@@ -1,0 +1,72 @@
+arissto_department_id,arissto_country_id,name,zone_code
+00,0222,Otro (Para extranjeros),ZOC
+01,0222,AHUACHAPAN,ZOC
+02,0222,SANTA ANA,ZOC
+03,0222,SONSONATE,ZOC
+04,0222,CHALATENANGO,ZCE
+05,0222,LA LIBERTAD,ZCE
+06,0222,SAN SALVADOR,ZCE
+07,0222,CUSCATLAN,ZCE
+08,0222,LA PAZ,ZCE
+09,0222,CABAÑAS,ZCE
+10,0222,SAN VICENTE,ZCE
+11,0222,USULUTAN,ZOR
+12,0222,SAN MIGUEL,ZOR
+13,0222,MORAZAN,ZOR
+14,0222,LA UNION,ZOR
+15,0840,Alabama (AL),
+16,0840,Alaska (AK),
+17,0840,Arizona (AZ),
+18,0840,Arkansas (AR),
+19,0840,California (CA),
+20,0840,Carolina del Norte (NC),
+21,0840,Carolina del Sur (SC),
+22,0840,Colorado (CO),
+23,0840,Connecticut (CT),
+24,0840,Dakota del Norte (ND),
+25,0840,Dakota del Sur (SD),
+26,0840,Delaware (DE),
+27,0840,Florida (FL),
+28,0840,Georgia (GA),
+29,0840,Hawái (HI),
+30,0840,Idaho (ID),
+31,0840,Illinois (IL),
+32,0840,Indiana (IN),
+33,0840,Iowa (IA),
+34,0840,Kansas (KS),
+35,0840,Kentucky (KY),
+36,0840,Luisiana (LA),
+37,0840,Maine (ME),
+38,0840,Maryland (MD),
+39,0840,Massachusetts (MA),
+40,0840,Míchigan (MI),
+41,0840,Minnesota (MN),
+42,0840,Misisipi (MS),
+43,0840,Misuri (MO),
+44,0840,Montana (MT),
+45,0840,Nebraska (NE),
+46,0840,Nevada (NV),
+47,0840,Nueva Jersey (NJ),
+48,0840,Nueva York (NY),
+49,0840,Nuevo Hampshire (NH),
+50,0840,Nuevo México (NM),
+51,0840,Ohio (OH),
+52,0840,Oklahoma (OK),
+53,0840,Oregón (OR),
+54,0840,Pensilvania (PA),
+55,0840,Rhode Island (RI),
+56,0840,Tennessee (TN),
+57,0840,Texas (TX),
+58,0840,Utah (UT),
+59,0840,Vermont (VT),
+60,0840,Virginia (VA),
+61,0840,Virginia Occidental (WV),
+62,0840,Washington (WA),
+63,0840,Wisconsin (WI),
+64,0840,Wyoming (WY),
+65,0840,Puerto Rico,
+66,0840,American Samoa,
+67,0840,District of Columbia,
+68,0840,Northern Mariana Islands,
+69,0840,Minor Outlying Islands,
+70,0840,United States Virgin Islands,

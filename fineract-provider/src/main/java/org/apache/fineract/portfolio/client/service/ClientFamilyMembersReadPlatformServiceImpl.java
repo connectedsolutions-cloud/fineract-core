@@ -53,7 +53,10 @@ public class ClientFamilyMembersReadPlatformServiceImpl implements ClientFamilyM
 
         public String schema() {
             return "fmb.id AS id, fmb.client_id AS clientId, fmb.firstname AS firstName, fmb.middlename AS middleName,"
-                    + "fmb.lastname AS lastName,fmb.qualification AS qualification,fmb.mobile_number as mobileNumber,fmb.age as age,fmb.is_dependent as isDependent,cv.code_value AS relationship,fmb.relationship_cv_id AS relationshipId,"
+                    + "fmb.lastname AS lastName,fmb.qualification AS qualification,fmb.mobile_number as mobileNumber,"
+                    + "fmb.secondary_mobile_number as secondaryMobileNumber,fmb.address as address,fmb.external_id as externalId,"
+                    + "fmb.source_relationship as sourceRelationship,fmb.age as age,fmb.is_dependent as isDependent,"
+                    + "cv.code_value AS relationship,fmb.relationship_cv_id AS relationshipId,"
                     + "c.code_value AS maritalStatus,fmb.marital_status_cv_id AS maritalStatusId,"
                     + "c1.code_value AS gender, fmb.gender_cv_id AS genderId, fmb.date_of_birth AS dateOfBirth, c2.code_value AS profession, fmb.profession_cv_id AS professionId"
                     + " FROM m_family_members fmb" + " LEFT JOIN m_code_value cv ON fmb.relationship_cv_id=cv.id"
@@ -70,20 +73,26 @@ public class ClientFamilyMembersReadPlatformServiceImpl implements ClientFamilyM
             final String lastName = rs.getString("lastName");
             final String qualification = rs.getString("qualification");
             final String mobileNumber = rs.getString("mobileNumber");
-            final long age = rs.getLong("age");
-            final boolean isDependent = rs.getBoolean("isDependent");
+            final String secondaryMobileNumber = rs.getString("secondaryMobileNumber");
+            final String address = rs.getString("address");
+            final String externalId = rs.getString("externalId");
+            final String sourceRelationship = rs.getString("sourceRelationship");
+            final Long age = JdbcSupport.getLong(rs, "age");
+            final Boolean isDependent = rs.getObject("isDependent", Boolean.class);
             final String relationship = rs.getString("relationship");
             final long relationshipId = rs.getLong("relationshipId");
             final String maritalStatus = rs.getString("maritalStatus");
-            final long maritalStatusId = rs.getLong("maritalStatusId");
+            final Long maritalStatusId = JdbcSupport.getLong(rs, "maritalStatusId");
             final String gender = rs.getString("gender");
-            final long genderId = rs.getLong("genderId");
+            final Long genderId = JdbcSupport.getLong(rs, "genderId");
             final LocalDate dateOfBirth = JdbcSupport.getLocalDate(rs, "dateOfBirth");
             final String profession = rs.getString("profession");
-            final long professionId = rs.getLong("professionId");
+            final Long professionId = JdbcSupport.getLong(rs, "professionId");
 
             return ClientFamilyMembersData.builder().id(id).clientId(clientId).firstName(firstName).middleName(middleName)
-                    .lastName(lastName).qualification(qualification).mobileNumber(mobileNumber).age(age).isDependent(isDependent)
+                    .lastName(lastName).qualification(qualification).mobileNumber(mobileNumber)
+                    .secondaryMobileNumber(secondaryMobileNumber).address(address).externalId(externalId)
+                    .sourceRelationship(sourceRelationship).age(age).isDependent(isDependent)
                     .relationship(relationship).relationshipId(relationshipId).maritalStatus(maritalStatus).maritalStatusId(maritalStatusId)
                     .gender(gender).genderId(genderId).dateOfBirth(dateOfBirth).profession(profession).professionId(professionId).build();
         }

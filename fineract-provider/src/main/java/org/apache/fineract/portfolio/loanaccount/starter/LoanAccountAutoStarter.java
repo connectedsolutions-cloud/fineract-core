@@ -23,6 +23,7 @@ import org.apache.fineract.infrastructure.core.service.ExternalIdFactory;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleTransactionProcessorFactory;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.LoanRepaymentScheduleTransactionProcessor;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.AdvancedPaymentScheduleTransactionProcessor;
+import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.CredesalPenaltiesFeesInterestPrincipalLoanRepaymentScheduleTransactionProcessor;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.CreocoreLoanRepaymentScheduleTransactionProcessor;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.DuePenFeeIntPriInAdvancePriPenFeeIntLoanRepaymentScheduleTransactionProcessor;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.DuePenIntPriFeeInAdvancePenIntPriFeeLoanRepaymentScheduleTransactionProcessor;
@@ -104,6 +105,15 @@ public class LoanAccountAutoStarter {
             final ExternalIdFactory externalIdFactory, final LoanChargeValidator loanChargeValidator,
             final LoanBalanceService loanBalanceService) {
         return new RBILoanRepaymentScheduleTransactionProcessor(externalIdFactory, loanChargeValidator, loanBalanceService);
+    }
+
+    @Bean
+    @Conditional(CredesalPenaltiesFeesInterestPrincipalLoanRepaymentScheduleTransactionProcessorCondition.class)
+    public CredesalPenaltiesFeesInterestPrincipalLoanRepaymentScheduleTransactionProcessor credesalPenaltiesFeesInterestPrincipalLoanRepaymentScheduleTransactionProcessor(
+            final ExternalIdFactory externalIdFactory, final LoanChargeValidator loanChargeValidator,
+            final LoanBalanceService loanBalanceService) {
+        return new CredesalPenaltiesFeesInterestPrincipalLoanRepaymentScheduleTransactionProcessor(externalIdFactory, loanChargeValidator,
+                loanBalanceService);
     }
 
     @Bean

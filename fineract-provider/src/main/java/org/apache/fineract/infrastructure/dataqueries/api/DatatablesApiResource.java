@@ -101,7 +101,7 @@ public class DatatablesApiResource {
             + "\n" + "Field Descriptions\n" + "\n" + "Mandatory - datatableName : \n" + "\nThe name of the Data Table.\n" + "\n"
             + "Mandatory - apptableName\n" + "\n" + "Application table name. Must be one of the following:\n" + "\n" + "m_client\n" + "\n"
             + "m_group" + "\n" + "\n" + "m_loan" + "\n" + "\n" + "m_office" + "\n" + "\n" + "m_saving_account" + "\n" + "\n"
-            + "m_product_loan" + "\n" + "\n" + "m_savings_product" + "\n" + "\n" + "Mandatory - columns  " + "\n"
+            + "m_product_loan" + "\n" + "\n" + "m_savings_product" + "\n" + "\n" + "m_staff" + "\n" + "\n" + "Mandatory - columns  " + "\n"
             + "An array of columns in the new Data Table." + "\n" + "\n" + "Optional - multiRow" + "\n" + "\n"
             + "Allows to create multiple entries in the Data Table. Optional, defaults to false. If this property is not provided Data Table will allow only one entry."
             + "\n" + "\n" + "Field Descriptions - columns" + "\n" + "\n" + "Mandatory - name" + "\n" + "\n"

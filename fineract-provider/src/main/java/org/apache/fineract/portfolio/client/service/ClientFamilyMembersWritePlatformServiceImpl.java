@@ -75,13 +75,17 @@ public class ClientFamilyMembersWritePlatformServiceImpl implements ClientFamily
         CodeValue gender = null;
         Long professionId = null;
         CodeValue profession = null;
-        String firstName = "";
-        String middleName = "";
-        String lastName = "";
-        String qualification = "";
-        String mobileNumber = "";
+        String firstName = null;
+        String middleName = null;
+        String lastName = null;
+        String qualification = null;
+        String mobileNumber = null;
+        String secondaryMobileNumber = null;
+        String address = null;
+        String externalId = null;
+        String sourceRelationship = null;
         Long age = null;
-        Boolean isDependent = false;
+        Boolean isDependent = null;
         LocalDate dateOfBirth = null;
 
         this.context.authenticatedUser();
@@ -89,10 +93,14 @@ public class ClientFamilyMembersWritePlatformServiceImpl implements ClientFamily
 
         Client client = clientRepositoryWrapper.findOneWithNotFoundDetection(clientId);
         firstName = command.stringValueOfParameterNamed("firstName");
-        middleName = command.stringValueOfParameterNamed("middleName");
-        lastName = command.stringValueOfParameterNamed("lastName");
-        qualification = command.stringValueOfParameterNamed("qualification");
-        mobileNumber = command.stringValueOfParameterNamed("mobileNumber");
+        middleName = command.stringValueOfParameterNamedAllowingNull("middleName");
+        lastName = command.stringValueOfParameterNamedAllowingNull("lastName");
+        qualification = command.stringValueOfParameterNamedAllowingNull("qualification");
+        mobileNumber = command.stringValueOfParameterNamedAllowingNull("mobileNumber");
+        secondaryMobileNumber = command.stringValueOfParameterNamedAllowingNull("secondaryMobileNumber");
+        address = command.stringValueOfParameterNamedAllowingNull("address");
+        externalId = command.stringValueOfParameterNamedAllowingNull("externalId");
+        sourceRelationship = command.stringValueOfParameterNamedAllowingNull("sourceRelationship");
         age = command.longValueOfParameterNamed("age");
         isDependent = command.booleanObjectValueOfParameterNamed("isDependent");
 
@@ -119,7 +127,8 @@ public class ClientFamilyMembersWritePlatformServiceImpl implements ClientFamily
         dateOfBirth = command.localDateValueOfParameterNamed("dateOfBirth");
 
         ClientFamilyMembers clientFamilyMembers = ClientFamilyMembers.fromJson(client, firstName, middleName, lastName, qualification,
-                mobileNumber, age, isDependent, relationship, maritalStatus, gender, dateOfBirth, profession);
+                mobileNumber, secondaryMobileNumber, address, externalId, sourceRelationship, age, isDependent, relationship,
+                maritalStatus, gender, dateOfBirth, profession);
 
         this.clientFamilyRepository.saveAndFlush(clientFamilyMembers);
 
@@ -138,14 +147,18 @@ public class ClientFamilyMembersWritePlatformServiceImpl implements ClientFamily
         CodeValue gender = null;
         Long professionId = null;
         CodeValue profession = null;
-        String firstName = "";
-        String middleName = "";
-        String lastName = "";
-        String qualification = "";
+        String firstName = null;
+        String middleName = null;
+        String lastName = null;
+        String qualification = null;
         LocalDate dateOfBirth = null;
-        String mobileNumber = "";
+        String mobileNumber = null;
+        String secondaryMobileNumber = null;
+        String address = null;
+        String externalId = null;
+        String sourceRelationship = null;
         Long age = null;
-        Boolean isDependent = false;
+        Boolean isDependent = null;
 
         this.context.authenticatedUser();
 
@@ -159,6 +172,23 @@ public class ClientFamilyMembersWritePlatformServiceImpl implements ClientFamily
         JsonArray familyMembers = command.arrayOfParameterNamed("familyMembers");
 
         for (JsonElement members : familyMembers) {
+
+            relationship = null;
+            maritalStatus = null;
+            gender = null;
+            profession = null;
+            firstName = null;
+            middleName = null;
+            lastName = null;
+            qualification = null;
+            dateOfBirth = null;
+            mobileNumber = null;
+            secondaryMobileNumber = null;
+            address = null;
+            externalId = null;
+            sourceRelationship = null;
+            age = null;
+            isDependent = null;
 
             apiJsonDeserializer.validateForCreate(members.toString());
 
@@ -182,6 +212,22 @@ public class ClientFamilyMembersWritePlatformServiceImpl implements ClientFamily
 
             if (member.get("mobileNumber") != null) {
                 mobileNumber = member.get("mobileNumber").getAsString();
+            }
+
+            if (member.get("secondaryMobileNumber") != null) {
+                secondaryMobileNumber = member.get("secondaryMobileNumber").getAsString();
+            }
+
+            if (member.get("address") != null) {
+                address = member.get("address").getAsString();
+            }
+
+            if (member.get("externalId") != null) {
+                externalId = member.get("externalId").getAsString();
+            }
+
+            if (member.get("sourceRelationship") != null) {
+                sourceRelationship = member.get("sourceRelationship").getAsString();
             }
 
             if (member.get("age") != null) {
@@ -231,8 +277,9 @@ public class ClientFamilyMembersWritePlatformServiceImpl implements ClientFamily
 
             }
 
-            familyMember = ClientFamilyMembers.fromJson(client, firstName, middleName, lastName, qualification, mobileNumber, age,
-                    isDependent, relationship, maritalStatus, gender, dateOfBirth, profession);
+            familyMember = ClientFamilyMembers.fromJson(client, firstName, middleName, lastName, qualification, mobileNumber,
+                    secondaryMobileNumber, address, externalId, sourceRelationship, age, isDependent, relationship, maritalStatus, gender,
+                    dateOfBirth, profession);
 
             this.clientFamilyRepository.saveAndFlush(familyMember);
 
@@ -282,61 +329,73 @@ public class ClientFamilyMembersWritePlatformServiceImpl implements ClientFamily
             clientFamilyMember.setFirstName(firstName);
         }
 
-        if (command.stringValueOfParameterNamed("middleName") != null) {
-            middleName = command.stringValueOfParameterNamed("middleName");
+        if (command.parameterExists("middleName")) {
+            middleName = command.stringValueOfParameterNamedAllowingNull("middleName");
             clientFamilyMember.setMiddleName(middleName);
         }
 
-        if (command.stringValueOfParameterNamed("lastName") != null) {
-            lastName = command.stringValueOfParameterNamed("lastName");
+        if (command.parameterExists("lastName")) {
+            lastName = command.stringValueOfParameterNamedAllowingNull("lastName");
             clientFamilyMember.setLastName(lastName);
         }
 
-        if (command.stringValueOfParameterNamed("qualification") != null) {
-            qualification = command.stringValueOfParameterNamed("qualification");
+        if (command.parameterExists("qualification")) {
+            qualification = command.stringValueOfParameterNamedAllowingNull("qualification");
             clientFamilyMember.setQualification(qualification);
         }
 
-        if (command.stringValueOfParameterNamed("mobileNumber") != null) {
-            mobileNumber = command.stringValueOfParameterNamed("mobileNumber");
+        if (command.parameterExists("mobileNumber")) {
+            mobileNumber = command.stringValueOfParameterNamedAllowingNull("mobileNumber");
             clientFamilyMember.setMobileNumber(mobileNumber);
         }
 
-        if (command.longValueOfParameterNamed("age") != null) {
+        if (command.parameterExists("secondaryMobileNumber")) {
+            clientFamilyMember.setSecondaryMobileNumber(command.stringValueOfParameterNamedAllowingNull("secondaryMobileNumber"));
+        }
+
+        if (command.parameterExists("address")) {
+            clientFamilyMember.setAddress(command.stringValueOfParameterNamedAllowingNull("address"));
+        }
+
+        if (command.parameterExists("sourceRelationship")) {
+            clientFamilyMember.setSourceRelationship(command.stringValueOfParameterNamedAllowingNull("sourceRelationship"));
+        }
+
+        if (command.parameterExists("age")) {
             age = command.longValueOfParameterNamed("age");
             clientFamilyMember.setAge(age);
         }
 
-        if (command.booleanObjectValueOfParameterNamed("isDependent") != null) {
+        if (command.parameterExists("isDependent")) {
             isDependent = command.booleanObjectValueOfParameterNamed("isDependent");
             clientFamilyMember.setIsDependent(isDependent);
         }
 
-        if (command.longValueOfParameterNamed("relationShipId") != null) {
-            relationshipId = command.longValueOfParameterNamed("relationShipId");
+        if (command.longValueOfParameterNamed("relationshipId") != null) {
+            relationshipId = command.longValueOfParameterNamed("relationshipId");
             relationship = this.codeValueRepository.getReferenceById(relationshipId);
             clientFamilyMember.setRelationship(relationship);
         }
 
-        if (command.longValueOfParameterNamed("maritalStatusId") != 0) {
+        if (command.parameterExists("maritalStatusId")) {
             maritalStatusId = command.longValueOfParameterNamed("maritalStatusId");
-            maritalStatus = this.codeValueRepository.getReferenceById(maritalStatusId);
+            maritalStatus = maritalStatusId == null ? null : this.codeValueRepository.getReferenceById(maritalStatusId);
             clientFamilyMember.setMaritalStatus(maritalStatus);
         }
 
-        if (command.longValueOfParameterNamed("genderId") != 0) {
+        if (command.parameterExists("genderId")) {
             genderId = command.longValueOfParameterNamed("genderId");
-            gender = this.codeValueRepository.getReferenceById(genderId);
+            gender = genderId == null ? null : this.codeValueRepository.getReferenceById(genderId);
             clientFamilyMember.setGender(gender);
         }
 
-        if (command.longValueOfParameterNamed("professionId") != 0) {
+        if (command.parameterExists("professionId")) {
             professionId = command.longValueOfParameterNamed("professionId");
-            profession = this.codeValueRepository.getReferenceById(professionId);
+            profession = professionId == null ? null : this.codeValueRepository.getReferenceById(professionId);
             clientFamilyMember.setProfession(profession);
         }
 
-        if (command.localDateValueOfParameterNamed("dateOfBirth") != null) {
+        if (command.parameterExists("dateOfBirth")) {
             dateOfBirth = command.localDateValueOfParameterNamed("dateOfBirth");
             clientFamilyMember.setDateOfBirth(dateOfBirth);
 

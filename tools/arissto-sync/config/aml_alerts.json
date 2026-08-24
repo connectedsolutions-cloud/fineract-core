@@ -1,0 +1,59 @@
+{
+  "source": {
+    "alert_table": "EVE_EVENTO",
+    "alert_key": "ID_EVENTO",
+    "alert_type_table": "EVE_SUBTIPO_EVENTO",
+    "movement_table": "EVE_MOVIMIENTOS",
+    "party_table": "AFI_SOCIO",
+    "included_subtypes": [69, 70],
+    "party_join": {
+      "alert_column": "ID_ASOCIADO",
+      "party_column": "ID_ASOCIADO",
+      "fineract_client_external_key": "NUMERO_AFILIACION"
+    },
+    "subject_type_by_relationship_state": {
+      "001": "MEMBERSHIP",
+      "003": "CLIENT",
+      "004": "MEMBERSHIP",
+      "006": "MEMBERSHIP",
+      "007": "MEMBERSHIP"
+    },
+    "movement_references": [
+      {
+        "column": "ID_APO_MOVIMIENTO",
+        "entity_type": "MOV_APORTACIONES",
+        "relationship_type": "RELATED_MOVEMENT"
+      },
+      {
+        "column": "ID_AHO_MOVIMIENTO",
+        "entity_type": "AHO_MOVIMIENTOS",
+        "relationship_type": "RELATED_MOVEMENT"
+      },
+      {
+        "column": "ID_CRD_MOVIMIENTO",
+        "entity_type": "CRD_MOVIMIENTOS_CARTERA",
+        "relationship_type": "RELATED_MOVEMENT"
+      }
+    ]
+  },
+  "target": {
+    "alert_type_table": "credesal_aml_alert_type",
+    "status_table": "credesal_aml_alert_status",
+    "alert_table": "credesal_aml_alert",
+    "subject_table": "credesal_aml_alert_subject",
+    "reference_table": "credesal_aml_alert_reference",
+    "status_history_table": "credesal_aml_alert_status_history",
+    "initial_status": "NEW",
+    "client_table": "m_client",
+    "client_external_id": "external_id",
+    "batch_size": 500
+  },
+  "type_map": {
+    "69": "ARISSTO_69",
+    "70": "ARISSTO_70"
+  },
+  "ownership": "legacy-alert-owned-until-native-detector-exists",
+  "missing_client_policy": "quarantine",
+  "unresolved_movement_policy": "preserve-source-reference",
+  "unexpected_subtype_policy": "exclude-and-report"
+}

@@ -44,8 +44,7 @@ import org.apache.fineract.organisation.office.domain.Office;
 @Getter
 @Entity
 @Table(name = "m_staff", uniqueConstraints = { @UniqueConstraint(columnNames = { "display_name" }, name = "display_name"),
-        @UniqueConstraint(columnNames = { "external_id" }, name = "external_id_UNIQUE"),
-        @UniqueConstraint(columnNames = { "mobile_no" }, name = "mobile_no_UNIQUE") })
+        @UniqueConstraint(columnNames = { "external_id" }, name = "external_id_UNIQUE") })
 public class Staff extends AbstractPersistableCustom<Long> {
 
     @Column(name = "firstname", length = 50)
@@ -57,13 +56,13 @@ public class Staff extends AbstractPersistableCustom<Long> {
     @Column(name = "display_name", length = 100)
     private String displayName;
 
-    @Column(name = "mobile_no", length = 50, nullable = false, unique = true)
+    @Column(name = "mobile_no", length = 50)
     private String mobileNo;
 
     @Column(name = "external_id", length = 100, unique = true)
     private String externalId;
 
-    @Column(name = "email_address", length = 50, unique = true)
+    @Column(name = "email_address", length = 150)
     private String emailAddress;
 
     @ManyToOne
@@ -108,6 +107,9 @@ public class Staff extends AbstractPersistableCustom<Long> {
         final String mobileNoParamName = "mobileNo";
         final String mobileNo = command.stringValueOfParameterNamedAllowingNull(mobileNoParamName);
 
+        final String emailAddressParamName = "emailAddress";
+        final String emailAddress = command.stringValueOfParameterNamedAllowingNull(emailAddressParamName);
+
         final String isLoanOfficerParamName = "isLoanOfficer";
         final boolean isLoanOfficer = command.booleanPrimitiveValueOfParameterNamed(isLoanOfficerParamName);
 
@@ -121,7 +123,7 @@ public class Staff extends AbstractPersistableCustom<Long> {
             joiningDate = command.localDateValueOfParameterNamed(joiningDateParamName);
         }
 
-        return new Staff(staffOffice, firstname, lastname, externalId, mobileNo, isLoanOfficer, isActive, joiningDate);
+        return new Staff(staffOffice, firstname, lastname, externalId, mobileNo, emailAddress, isLoanOfficer, isActive, joiningDate);
     }
 
     // Overloaded method to allow creating staff without primary office
@@ -138,6 +140,9 @@ public class Staff extends AbstractPersistableCustom<Long> {
         final String mobileNoParamName = "mobileNo";
         final String mobileNo = command.stringValueOfParameterNamedAllowingNull(mobileNoParamName);
 
+        final String emailAddressParamName = "emailAddress";
+        final String emailAddress = command.stringValueOfParameterNamedAllowingNull(emailAddressParamName);
+
         final String isLoanOfficerParamName = "isLoanOfficer";
         final boolean isLoanOfficer = command.booleanPrimitiveValueOfParameterNamed(isLoanOfficerParamName);
 
@@ -151,7 +156,7 @@ public class Staff extends AbstractPersistableCustom<Long> {
             joiningDate = command.localDateValueOfParameterNamed(joiningDateParamName);
         }
 
-        return new Staff(null, firstname, lastname, externalId, mobileNo, isLoanOfficer, isActive, joiningDate);
+        return new Staff(null, firstname, lastname, externalId, mobileNo, emailAddress, isLoanOfficer, isActive, joiningDate);
     }
 
     protected Staff() {
@@ -159,12 +164,13 @@ public class Staff extends AbstractPersistableCustom<Long> {
     }
 
     private Staff(final Office staffOffice, final String firstname, final String lastname, final String externalId, final String mobileNo,
-            final boolean isLoanOfficer, final Boolean isActive, final LocalDate joiningDate) {
+            final String emailAddress, final boolean isLoanOfficer, final Boolean isActive, final LocalDate joiningDate) {
         this.office = staffOffice; // Can be null now
         this.firstname = StringUtils.defaultIfEmpty(firstname, null);
         this.lastname = StringUtils.defaultIfEmpty(lastname, null);
         this.externalId = StringUtils.defaultIfEmpty(externalId, null);
         this.mobileNo = StringUtils.defaultIfEmpty(mobileNo, null);
+        this.emailAddress = StringUtils.defaultIfEmpty(emailAddress, null);
         this.loanOfficer = isLoanOfficer;
         this.active = isActive == null ? true : isActive;
         deriveDisplayName(firstname);
@@ -300,6 +306,13 @@ public class Staff extends AbstractPersistableCustom<Long> {
             final String newValue = command.stringValueOfParameterNamed(mobileNoParamName);
             actualChanges.put(mobileNoParamName, newValue);
             this.mobileNo = StringUtils.defaultIfEmpty(newValue, null);
+        }
+
+        final String emailAddressParamName = "emailAddress";
+        if (command.isChangeInStringParameterNamed(emailAddressParamName, this.emailAddress)) {
+            final String newValue = command.stringValueOfParameterNamed(emailAddressParamName);
+            actualChanges.put(emailAddressParamName, newValue);
+            this.emailAddress = StringUtils.defaultIfEmpty(newValue, null);
         }
 
         final String isLoanOfficerParamName = "isLoanOfficer";

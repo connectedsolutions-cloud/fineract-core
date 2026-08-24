@@ -102,13 +102,19 @@ public class Client extends AbstractAuditableWithUTCDateTimeCustom<Long> {
     @Column(name = "lastname", length = 50)
     private String lastname;
 
+    @Column(name = "secondlastname", length = 50)
+    private String secondlastname;
+
+    @Column(name = "marriedlastname", length = 50)
+    private String marriedlastname;
+
     @Column(name = "fullname", length = 160)
     private String fullname;
 
     @Column(name = "display_name", length = 160, nullable = false)
     private String displayName;
 
-    @Column(name = "mobile_no", length = 50, unique = true)
+    @Column(name = "mobile_no", length = 50)
     private String mobileNo;
 
     @Column(name = "email_address", length = 50, unique = true)
@@ -220,24 +226,24 @@ public class Client extends AbstractAuditableWithUTCDateTimeCustom<Long> {
     private Set<ClientTagMapping> tagMappings = new HashSet<>();
 
     public static Client instance(final AppUser currentUser, final ClientStatus status, final Office office, final Group clientParentGroup,
-            final String accountNo, final String firstname, final String middlename, final String lastname, final String fullname,
-            final LocalDate activationDate, final LocalDate officeJoiningDate, final ExternalId externalId, final String mobileNo,
-            final String emailAddress, final Staff staff, final LocalDate submittedOnDate, final Long savingsProductId,
-            final Long savingsAccountId, final LocalDate dateOfBirth, final CodeValue gender, final CodeValue clientType,
-            final CodeValue clientClassification, final Integer legalForm, final Boolean isStaff) {
-        return new Client(currentUser, status, office, clientParentGroup, accountNo, firstname, middlename, lastname, fullname,
-                activationDate, officeJoiningDate, externalId, mobileNo, emailAddress, staff, submittedOnDate, savingsProductId,
-                savingsAccountId, dateOfBirth, gender, clientType, clientClassification, legalForm, isStaff);
+            final String accountNo, final String firstname, final String middlename, final String lastname, final String secondlastname,
+            final String marriedlastname, final String fullname, final LocalDate activationDate, final LocalDate officeJoiningDate,
+            final ExternalId externalId, final String mobileNo, final String emailAddress, final Staff staff, final LocalDate submittedOnDate,
+            final Long savingsProductId, final Long savingsAccountId, final LocalDate dateOfBirth, final CodeValue gender,
+            final CodeValue clientType, final CodeValue clientClassification, final Integer legalForm, final Boolean isStaff) {
+        return new Client(currentUser, status, office, clientParentGroup, accountNo, firstname, middlename, lastname, secondlastname,
+                marriedlastname, fullname, activationDate, officeJoiningDate, externalId, mobileNo, emailAddress, staff, submittedOnDate,
+                savingsProductId, savingsAccountId, dateOfBirth, gender, clientType, clientClassification, legalForm, isStaff);
     }
 
     protected Client() {}
 
     private Client(final AppUser currentUser, final ClientStatus status, final Office office, final Group clientParentGroup,
-            final String accountNo, final String firstname, final String middlename, final String lastname, final String fullname,
-            final LocalDate activationDate, final LocalDate officeJoiningDate, final ExternalId externalId, final String mobileNo,
-            final String emailAddress, final Staff staff, final LocalDate submittedOnDate, final Long savingsProductId,
-            final Long savingsAccountId, final LocalDate dateOfBirth, final CodeValue gender, final CodeValue clientType,
-            final CodeValue clientClassification, final Integer legalForm, final Boolean isStaff) {
+            final String accountNo, final String firstname, final String middlename, final String lastname, final String secondlastname,
+            final String marriedlastname, final String fullname, final LocalDate activationDate, final LocalDate officeJoiningDate,
+            final ExternalId externalId, final String mobileNo, final String emailAddress, final Staff staff, final LocalDate submittedOnDate,
+            final Long savingsProductId, final Long savingsAccountId, final LocalDate dateOfBirth, final CodeValue gender,
+            final CodeValue clientType, final CodeValue clientClassification, final Integer legalForm, final Boolean isStaff) {
 
         if (StringUtils.isBlank(accountNo)) {
             this.accountNumber = new RandomPasswordGenerator(19).generate();
@@ -276,6 +282,14 @@ public class Client extends AbstractAuditableWithUTCDateTimeCustom<Long> {
 
         if (StringUtils.isNotBlank(lastname)) {
             this.lastname = lastname.trim();
+        }
+
+        if (StringUtils.isNotBlank(secondlastname)) {
+            this.secondlastname = secondlastname.trim();
+        }
+
+        if (StringUtils.isNotBlank(marriedlastname)) {
+            this.marriedlastname = marriedlastname.trim();
         }
 
         if (StringUtils.isNotBlank(fullname)) {
@@ -417,6 +431,12 @@ public class Client extends AbstractAuditableWithUTCDateTimeCustom<Long> {
 
             baseDataValidator.reset().parameter(ClientApiConstants.lastnameParamName).value(this.lastname)
                     .mustBeBlankWhenParameterProvided(ClientApiConstants.fullnameParamName, this.fullname);
+
+            baseDataValidator.reset().parameter(ClientApiConstants.secondlastnameParamName).value(this.secondlastname)
+                    .mustBeBlankWhenParameterProvided(ClientApiConstants.fullnameParamName, this.fullname);
+
+            baseDataValidator.reset().parameter(ClientApiConstants.marriedlastnameParamName).value(this.marriedlastname)
+                    .mustBeBlankWhenParameterProvided(ClientApiConstants.fullnameParamName, this.fullname);
         } else {
 
             baseDataValidator.reset().parameter(ClientApiConstants.firstnameParamName).value(this.firstname).notBlank()
@@ -424,6 +444,10 @@ public class Client extends AbstractAuditableWithUTCDateTimeCustom<Long> {
             baseDataValidator.reset().parameter(ClientApiConstants.middlenameParamName).value(this.middlename).ignoreIfNull()
                     .notExceedingLengthOf(50);
             baseDataValidator.reset().parameter(ClientApiConstants.lastnameParamName).value(this.lastname).notBlank()
+                    .notExceedingLengthOf(50);
+            baseDataValidator.reset().parameter(ClientApiConstants.secondlastnameParamName).value(this.secondlastname).ignoreIfNull()
+                    .notExceedingLengthOf(50);
+            baseDataValidator.reset().parameter(ClientApiConstants.marriedlastnameParamName).value(this.marriedlastname).ignoreIfNull()
                     .notExceedingLengthOf(50);
         }
     }
@@ -488,6 +512,12 @@ public class Client extends AbstractAuditableWithUTCDateTimeCustom<Long> {
                         nameBuilder.append(' ');
                     }
                     nameBuilder.append(this.lastname);
+                }
+                if (StringUtils.isNotBlank(this.secondlastname)) {
+                    if (!nameBuilder.isEmpty()) {
+                        nameBuilder.append(' ');
+                    }
+                    nameBuilder.append(this.secondlastname);
                 }
             }
             this.displayName = nameBuilder.toString();
@@ -751,7 +781,10 @@ public class Client extends AbstractAuditableWithUTCDateTimeCustom<Long> {
             setFullname(null);
         } else if (legalForm.isEntity()) {
             setFirstname(null);
+            setMiddlename(null);
             setLastname(null);
+            setSecondlastname(null);
+            setMarriedlastname(null);
             setDisplayName(null);
         }
     }

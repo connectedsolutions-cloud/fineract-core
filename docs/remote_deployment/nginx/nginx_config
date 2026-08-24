@@ -1,0 +1,83 @@
+server {
+    server_name backend.credesal.com;
+
+    client_max_body_size 50m;
+
+    # CORS for the sistema.credesal.com frontend. Fineract's own Spring
+    # Security CORS filter hard-rejects unknown origins on preflight (403
+    # "Invalid CORS request"), so OPTIONS is answered here directly instead
+    # of being proxied through.
+    set $cors_origin "";
+    if ($http_origin = "https://sistema.credesal.com") {
+        set $cors_origin $http_origin;
+    }
+
+    location / {
+        if ($request_method = OPTIONS) {
+            add_header Access-Control-Allow-Origin $cors_origin always;
+            add_header Access-Control-Allow-Credentials true always;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization, Fineract-Platform-TenantId, X-Requested-With, Accept" always;
+            add_header Access-Control-Max-Age 86400 always;
+            add_header Content-Length 0;
+            add_header Content-Type "text/plain; charset=utf-8";
+            return 204;
+        }
+
+        # Some Fineract endpoints (e.g. actuator, via
+        # management.endpoints.web.cors.allowed-origins=*) set their own
+        # Access-Control-Allow-Origin. Strip it so nginx's header below is
+        # the only one sent -- otherwise browsers see two values and reject
+        # the response outright.
+        proxy_hide_header Access-Control-Allow-Origin;
+        proxy_hide_header Access-Control-Allow-Credentials;
+        proxy_hide_header Access-Control-Allow-Methods;
+        proxy_hide_header Access-Control-Allow-Headers;
+
+        add_header Access-Control-Allow-Origin $cors_origin always;
+        add_header Access-Control-Allow-Credentials true always;
+
+        proxy_pass https://127.0.0.1:8443;
+        proxy_ssl_verify off;
+
+        # Fineract's own Spring Security CORS filter hard-codes its allowed
+        # origins to localhost/127.0.0.1 only (confirmed via decompiling
+        # SecurityConfig.corsConfigurationSource() in the running image --
+        # not configurable via property/env var). Any real Origin header
+        # reaching Fineract gets a 403 "Invalid CORS request" regardless of
+        # credentials. Strip Origin before proxying so Fineract treats the
+        # request as same-origin and skips that filter; nginx above already
+        # supplies the real Access-Control-Allow-Origin back to the browser.
+        proxy_set_header Origin "";
+
+         proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 60s;
+    }
+
+    listen [::]:443 ssl ipv6only=on; # managed by Certbot
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/backend.credesal.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/backend.credesal.com/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+
+}
+server {
+    if ($host = backend.credesal.com) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    listen 80;
+    listen [::]:80;
+    server_name backend.credesal.com;
+    return 404; # managed by Certbot
+
+
+}
+

@@ -62,6 +62,8 @@ public final class ClientData implements Comparable<ClientData>, Serializable {
     private String firstname;
     private String middlename;
     private String lastname;
+    private String secondlastname;
+    private String marriedlastname;
     private String fullname;
     private String displayName;
     private String mobileNo;
@@ -349,6 +351,7 @@ public final class ClientData implements Comparable<ClientData>, Serializable {
                 templateData.clientNonPersonMainBusinessLineOptions, clientData.clientNonPersonDetails, templateData.clientLegalFormOptions,
                 templateData.familyMemberOptions, clientData.legalForm, clientData.address, clientData.isAddressEnabled, null,
                 clientData.isStaff, clientCollateralManagements);
+        copyExtendedNameFields(clientData, mergedData);
         mergedData.tags = clientData.tags;
         mergedData.tagOptions = templateData.tagOptions;
         return mergedData;
@@ -370,6 +373,7 @@ public final class ClientData implements Comparable<ClientData>, Serializable {
                 clientData.clientNonPersonMainBusinessLineOptions, clientData.clientNonPersonDetails, clientData.clientLegalFormOptions,
                 clientData.familyMemberOptions, clientData.legalForm, clientData.address, clientData.isAddressEnabled, null,
                 clientData.isStaff, clientCollateralManagements);
+        copyExtendedNameFields(clientData, mergedData);
         mergedData.tags = clientData.tags;
         mergedData.tagOptions = clientData.tagOptions;
         return mergedData;
@@ -389,6 +393,7 @@ public final class ClientData implements Comparable<ClientData>, Serializable {
                 clientData.clientNonPersonMainBusinessLineOptions, clientData.clientNonPersonDetails, clientData.clientLegalFormOptions,
                 clientData.familyMemberOptions, clientData.legalForm, clientData.address, clientData.isAddressEnabled, null,
                 clientData.isStaff, clientCollateralManagements);
+        copyExtendedNameFields(clientData, mergedData);
         mergedData.tags = clientData.tags;
         mergedData.tagOptions = clientData.tagOptions;
         return mergedData;
@@ -624,6 +629,14 @@ public final class ClientData implements Comparable<ClientData>, Serializable {
         this.isAddressEnabled = isAddressEnabled;
         this.datatables = datatables;
         this.clientCollateralManagements = clientCollateralManagements;
+    }
+
+    private static void copyExtendedNameFields(final ClientData source, final ClientData target) {
+        if (source == null || target == null) {
+            return;
+        }
+        target.secondlastname = source.secondlastname;
+        target.marriedlastname = source.marriedlastname;
     }
 
     public ExternalId getExternalId() {

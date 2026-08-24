@@ -1,0 +1,39 @@
+{
+  "source": {
+    "table": "AFI_REF_FAMILIAR_SOCIO",
+    "party_table": "AFI_SOCIO",
+    "company_key": "ID_EMPRESA",
+    "branch_key": "ID_SUCURSAL",
+    "party_key": "ID_SOCIO",
+    "external_key": "NUMERO_AFILIACION",
+    "reference_key": "ID_REF_FAM"
+  },
+  "target": {
+    "table": "m_family_members",
+    "relationship_code": "RELATIONSHIP",
+    "external_id_prefix": "arissto:afi_ref_familiar:"
+  },
+  "relationship_map": {
+    "Padre/Madre": ["MADRE", "MAMA", "MAMÁ", "MADRRE", "PADRE", "PAPA", "PAPÁ", "PADRASTRO", "PADRASTROQ", "MADRE POLITICA", "PADRE POLITICO"],
+    "Hermano": ["HERMANO", "HERMANA", "HERMANDA"],
+    "hijo": ["HIJO", "HIJA", "HJA", "HIIJA", "HIJIA", "HIUJO"],
+    "Primo(a)": ["PRIMO", "PRIMA", "´PRIMA"],
+    "Esposo(a)/Pareja": ["ESPOSO", "ESPOSA", "ESPOSOS", "ESPESA", "CONYUGE", "CONYUGUE", "PAREJA", "COMPAÑERA DE VIDA", "COMPAÑERO DE VIDA", "COM. DE VIDA", "COMP. DE VIDA", "NOVIA"],
+    "Tío(a)": ["TIO", "TIA", "TÍO", "TÍA"],
+    "Sobrino(a)": ["SOBRINO", "SOBRINA", "SOBBRINA"],
+    "Cuñado(a)": ["CUÑADO", "CUÑADA"],
+    "Suegro(a)": ["SUEGRO", "SUEGRA"],
+    "Yerno/Nuera": ["YERNO", "NUERA"],
+    "Abuelo(a)": ["ABUELO", "ABUELA"],
+    "Nieto(a)": ["NIETO", "NIETA"],
+    "Amigo": ["AMIGO", "AMIGA"],
+    "Familiar": ["PARIENTE", "COMADRE"],
+    "Sin especificar": [""]
+  },
+  "notes": [
+    "The service includes both Arissto CLIENTE and SOCIO classifications because both resolve to Fineract m_client.",
+    "The complete source name is preserved in firstname; surname boundaries are not inferred.",
+    "Gender, dependency, age, birth date, profession, marital status, and qualification remain null because AFI_REF_FAMILIAR_SOCIO does not establish them.",
+    "Missing source rows are reported as stale and are never deleted automatically."
+  ]
+}

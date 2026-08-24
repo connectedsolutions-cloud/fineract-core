@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+import os
+import sys
+from pathlib import Path
+
+
+project_python = Path(__file__).resolve().parent / ".venv/bin/python"
+if sys.prefix == sys.base_prefix and project_python.exists():
+    os.execv(str(project_python), [str(project_python), *sys.argv])
+
+from arissto_sync.cli import main
+
+raise SystemExit(main())

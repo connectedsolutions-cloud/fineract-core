@@ -398,9 +398,22 @@ jib {
     from {
         image = 'azul/zulu-openjdk-alpine:21'
         platforms {
-            platform {
-                architecture = System.getProperty("os.arch").equals("aarch64")?"arm64":"amd64"
-                os = 'linux'
+            // -Djib.from.platforms=linux/amd64,linux/arm64 for a multi-arch registry push.
+            // Default stays host arch so local jibDockerBuild still works.
+            def platformsProp = System.getProperty('jib.from.platforms')
+            if (platformsProp) {
+                platformsProp.split(',').each { spec ->
+                    def parts = spec.trim().split('/')
+                    platform {
+                        os = parts[0]
+                        architecture = parts[1]
+                    }
+                }
+            } else {
+                platform {
+                    architecture = System.getProperty("os.arch").equals("aarch64") ? "arm64" : "amd64"
+                    os = 'linux'
+                }
             }
         }
     }

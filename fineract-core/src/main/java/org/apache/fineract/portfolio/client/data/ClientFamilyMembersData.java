@@ -62,6 +62,14 @@ public final class ClientFamilyMembersData implements Serializable {
 
     private final String mobileNumber;
 
+    private final String secondaryMobileNumber;
+
+    private final String address;
+
+    private final String externalId;
+
+    private final String sourceRelationship;
+
     private final Long age;
 
     private final Boolean isDependent;

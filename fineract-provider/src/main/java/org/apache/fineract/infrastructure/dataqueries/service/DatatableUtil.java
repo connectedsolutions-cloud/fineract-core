@@ -176,6 +176,9 @@ public class DatatableUtil {
             case OFFICE ->
                 "select o.id as officeId, null as groupId, null as clientId, null as savingsId, null as loanId, null as transactionId, null as entityId from m_office o "
                         + "where o.hierarchy like '" + officeHierarchy + "%'" + " and o.id = " + appTableId;
+            case STAFF ->
+                "select o.id as officeId, null as groupId, null as clientId, null as savingsId, null as loanId, null as transactionId, s.id as entityId from m_staff s "
+                        + getOfficeJoinCondition(officeHierarchy, "s") + " where s.id = " + appTableId;
             case LOAN_PRODUCT, SAVINGS_PRODUCT, SHARE_PRODUCT ->
                 "select null as officeId, null as groupId, null as clientId, null as savingsId, null as loanId, null as transactionId, p.id as entityId from "
                         + entityTable.getName() + " as p WHERE p.id = " + appTableId;

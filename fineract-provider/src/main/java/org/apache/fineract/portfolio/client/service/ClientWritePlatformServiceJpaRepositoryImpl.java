@@ -177,10 +177,6 @@ public class ClientWritePlatformServiceJpaRepositoryImpl implements ClientWriteP
             final String accountNo = command.stringValueOfParameterNamed("accountNo");
             throw new PlatformDataIntegrityException("error.msg.client.duplicate.accountNo",
                     "Client with accountNo `" + accountNo + "` already exists", "accountNo", accountNo);
-        } else if (realCause.getMessage().contains("mobile_no")) {
-            final String mobileNo = command.stringValueOfParameterNamed("mobileNo");
-            throw new PlatformDataIntegrityException("error.msg.client.duplicate.mobileNo",
-                    "Client with mobileNo `" + mobileNo + "` already exists", "mobileNo", mobileNo);
         }
 
         logAsErrorUnexpectedDataIntegrityException(dve);
@@ -267,6 +263,8 @@ public class ClientWritePlatformServiceJpaRepositoryImpl implements ClientWriteP
             final String firstname = command.stringValueOfParameterNamed(ClientApiConstants.firstnameParamName);
             final String middlename = command.stringValueOfParameterNamed(ClientApiConstants.middlenameParamName);
             final String lastname = command.stringValueOfParameterNamed(ClientApiConstants.lastnameParamName);
+            final String secondlastname = command.stringValueOfParameterNamed(ClientApiConstants.secondlastnameParamName);
+            final String marriedlastname = command.stringValueOfParameterNamed(ClientApiConstants.marriedlastnameParamName);
             final String fullname = command.stringValueOfParameterNamed(ClientApiConstants.fullnameParamName);
             final boolean isStaff = command.booleanPrimitiveValueOfParameterNamed(ClientApiConstants.isStaffParamName);
             final LocalDate dataOfBirth = command.localDateValueOfParameterNamed(ClientApiConstants.dateOfBirthParamName);
@@ -297,9 +295,9 @@ public class ClientWritePlatformServiceJpaRepositoryImpl implements ClientWriteP
             final ExternalId externalId = externalIdFactory.createFromCommand(command, ClientApiConstants.externalIdParamName);
 
             final Client newClient = Client.instance(currentUser, status, clientOffice, clientParentGroup, accountNo, firstname, middlename,
-                    lastname, fullname, activationDate, officeJoiningDate, externalId, mobileNo, emailAddress, staff, submittedOnDate,
-                    savingsProductId, savingsAccountId, dataOfBirth, gender, clientType, clientClassification, legalForm.getValue(),
-                    isStaff);
+                    lastname, secondlastname, marriedlastname, fullname, activationDate, officeJoiningDate, externalId, mobileNo,
+                    emailAddress, staff, submittedOnDate, savingsProductId, savingsAccountId, dataOfBirth, gender, clientType,
+                    clientClassification, legalForm.getValue(), isStaff);
 
             // Set gestor if provided
             if (gestor != null) {
@@ -509,6 +507,18 @@ public class ClientWritePlatformServiceJpaRepositoryImpl implements ClientWriteP
                 final String newValue = command.stringValueOfParameterNamed(ClientApiConstants.lastnameParamName);
                 changes.put(ClientApiConstants.lastnameParamName, newValue);
                 clientForUpdate.setLastname(StringUtils.defaultIfEmpty(newValue, null));
+            }
+
+            if (command.isChangeInStringParameterNamed(ClientApiConstants.secondlastnameParamName, clientForUpdate.getSecondlastname())) {
+                final String newValue = command.stringValueOfParameterNamed(ClientApiConstants.secondlastnameParamName);
+                changes.put(ClientApiConstants.secondlastnameParamName, newValue);
+                clientForUpdate.setSecondlastname(StringUtils.defaultIfEmpty(newValue, null));
+            }
+
+            if (command.isChangeInStringParameterNamed(ClientApiConstants.marriedlastnameParamName, clientForUpdate.getMarriedlastname())) {
+                final String newValue = command.stringValueOfParameterNamed(ClientApiConstants.marriedlastnameParamName);
+                changes.put(ClientApiConstants.marriedlastnameParamName, newValue);
+                clientForUpdate.setMarriedlastname(StringUtils.defaultIfEmpty(newValue, null));
             }
 
             if (command.isChangeInStringParameterNamed(ClientApiConstants.fullnameParamName, clientForUpdate.getFullname())) {

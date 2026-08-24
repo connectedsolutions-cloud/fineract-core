@@ -133,6 +133,7 @@ import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepositor
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType;
 import org.apache.fineract.portfolio.loanaccount.domain.reaging.LoanReAgeInterestHandlingType;
 import org.apache.fineract.portfolio.loanaccount.domain.reamortization.LoanReAmortizationInterestHandlingType;
+import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.CredesalPenaltiesFeesInterestPrincipalLoanRepaymentScheduleTransactionProcessor;
 import org.apache.fineract.portfolio.loanaccount.exception.LoanNotFoundException;
 import org.apache.fineract.portfolio.loanaccount.exception.LoanTransactionNotFoundException;
 import org.apache.fineract.portfolio.loanaccount.loanschedule.data.LoanScheduleData;
@@ -707,12 +708,55 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
 
         this.context.authenticatedUser();
 
+        final Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId, true);
+        if (CredesalPenaltiesFeesInterestPrincipalLoanRepaymentScheduleTransactionProcessor.STRATEGY_CODE
+                .equals(loan.transactionProcessingStrategy())) {
+            return retrieveCredesalHorizontalRepaymentTemplate(loan);
+        }
+
         RepaymentTransactionTemplateMapper mapper = new RepaymentTransactionTemplateMapper(sqlGenerator);
         String sql = "select " + mapper.schema();
         LoanTransactionData loanTransactionData = this.jdbcTemplate.queryForObject(sql, mapper, // NOSONAR
                 LoanTransactionType.REPAYMENT.getValue(), LoanTransactionType.DOWN_PAYMENT.getValue(),
                 LoanTransactionType.REPAYMENT.getValue(), LoanTransactionType.DOWN_PAYMENT.getValue(), loanId, loanId);
         final Collection<PaymentTypeData> paymentOptions = this.paymentTypeReadPlatformService.retrieveAllPaymentTypes();
+        return LoanTransactionData.templateOnTop(loanTransactionData, paymentOptions);
+    }
+
+    /**
+     * Due-through-business-date outstanding components for Credesal horizontal allocation (Pen→Fee→Int→Prin across
+     * installments).
+     */
+    private LoanTransactionData retrieveCredesalHorizontalRepaymentTemplate(final Loan loan) {
+        final MonetaryCurrency currency = loan.getCurrency();
+        final ApplicationCurrency applicationCurrency = this.applicationCurrencyRepository.findOneWithNotFoundDetection(currency);
+        final CurrencyData currencyData = applicationCurrency.toData();
+        final LocalDate businessDate = DateUtils.getBusinessLocalDate();
+        final LoanTransactionEnumData transactionType = LoanEnumerations.transactionType(LoanTransactionType.REPAYMENT);
+
+        Money principalDue = Money.zero(currency);
+        Money interestDue = Money.zero(currency);
+        Money feeDue = Money.zero(currency);
+        Money penaltyDue = Money.zero(currency);
+
+        for (final LoanRepaymentScheduleInstallment installment : loan.getRepaymentScheduleInstallments()) {
+            if (!installment.isNotFullyPaidOff() || DateUtils.isAfter(installment.getDueDate(), businessDate)) {
+                continue;
+            }
+            principalDue = principalDue.plus(installment.getPrincipalOutstanding(currency));
+            interestDue = interestDue.plus(installment.getInterestOutstanding(currency));
+            feeDue = feeDue.plus(installment.getFeeChargesOutstanding(currency));
+            penaltyDue = penaltyDue.plus(installment.getPenaltyChargesOutstanding(currency));
+        }
+
+        final Money totalDue = principalDue.plus(interestDue).plus(feeDue).plus(penaltyDue);
+        final Collection<PaymentTypeData> paymentOptions = this.paymentTypeReadPlatformService.retrieveAllPaymentTypes();
+
+        final LoanTransactionData loanTransactionData = LoanTransactionData.builder().type(transactionType).currency(currencyData)
+                .date(businessDate).amount(totalDue.getAmount()).netDisbursalAmount(loan.getNetDisbursalAmount())
+                .principalPortion(principalDue.getAmount()).interestPortion(interestDue.getAmount()).feeChargesPortion(feeDue.getAmount())
+                .penaltyChargesPortion(penaltyDue.getAmount()).externalId(ExternalId.empty()).manuallyReversed(false).loanId(loan.getId())
+                .externalLoanId(loan.getExternalId()).build();
         return LoanTransactionData.templateOnTop(loanTransactionData, paymentOptions);
     }
 

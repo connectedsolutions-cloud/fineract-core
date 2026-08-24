@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<!--
+    Credesal share-migration support.
+
+    These extension tables preserve operational certificate data and the
+    durable source-to-native event crosswalk. Native Fineract share products,
+    accounts, transactions, and journal entries must still be created through
+    supported Fineract APIs; this migration never seeds those core records.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0283-1-expand-membership-share-summary" author="credesal">
+        <addColumn tableName="credesal_member_profile">
+            <column name="common_subscribed_share_count" type="DECIMAL(18,2)"/>
+            <column name="common_paid_share_count" type="DECIMAL(18,2)"/>
+            <column name="preferred_subscribed_share_count" type="DECIMAL(18,2)"/>
+            <column name="preferred_paid_share_count" type="DECIMAL(18,2)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0283-2-create-share-certificate" author="credesal">
+        <createTable tableName="credesal_share_certificate">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="source_system" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_key" type="VARCHAR(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_hash" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="client_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="share_account_id" type="BIGINT"/>
+            <column name="arissto_certificate_id" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="arissto_associate_id" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="arissto_share_type_id" type="SMALLINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="share_type_name" type="VARCHAR(50)"/>
+            <column name="arissto_status_id" type="SMALLINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status_name" type="VARCHAR(25)"/>
+            <column name="branch_id" type="VARCHAR(3)"/>
+            <column name="book_id" type="SMALLINT"/>
+            <column name="certificate_number" type="VARCHAR(50)"/>
+            <column name="certificate_date" type="DATE"/>
+            <column name="unit_price" type="DECIMAL(10,2)"/>
+            <column name="represented_shares" type="DECIMAL(18,2)"/>
+            <column name="initial_share_number" type="VARCHAR(50)"/>
+            <column name="final_share_number" type="VARCHAR(50)"/>
+            <column name="current_balance" type="DECIMAL(19,2)"/>
+            <column name="pledged_balance" type="DECIMAL(19,2)"/>
+            <column name="subscribed_shares" type="DECIMAL(18,2)"/>
+            <column name="subscribed_balance" type="DECIMAL(19,2)"/>
+            <column name="paid_shares" type="DECIMAL(18,2)"/>
+            <column name="paid_balance" type="DECIMAL(19,2)"/>
+            <column name="blocked_balance" type="DECIMAL(19,2)"/>
+            <column name="available_balance" type="DECIMAL(19,2)"/>
+            <column name="folio" type="SMALLINT"/>
+            <column name="line_number" type="SMALLINT"/>
+            <column name="series" type="VARCHAR(25)"/>
+            <column name="printed" type="BOOLEAN"/>
+            <column name="blocked" type="BOOLEAN"/>
+            <column name="restricted" type="BOOLEAN"/>
+            <column name="printed_at" type="DATETIME"/>
+            <column name="last_movement_at" type="DATETIME"/>
+            <column name="reference" type="VARCHAR(25)"/>
+            <column name="certification" type="VARCHAR(100)"/>
+            <column name="capital_account_source_id" type="VARCHAR(10)"/>
+            <column name="interest_account_source_id" type="VARCHAR(10)"/>
+            <column name="created_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="DATETIME"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_share_certificate" baseColumnNames="client_id"
+                                 constraintName="FK_cr_share_cert_client"
+                                 referencedTableName="m_client" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_share_certificate" baseColumnNames="share_account_id"
+                                 constraintName="FK_cr_share_cert_account"
+                                 referencedTableName="m_share_account" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addUniqueConstraint tableName="credesal_share_certificate" columnNames="source_system,source_key"
+                             constraintName="UK_cr_share_cert_source_key"/>
+        <addUniqueConstraint tableName="credesal_share_certificate"
+                             columnNames="source_system,arissto_certificate_id,arissto_associate_id,arissto_share_type_id"
+                             constraintName="UK_cr_share_cert_identity"/>
+        <createIndex tableName="credesal_share_certificate" indexName="IX_cr_share_cert_client">
+            <column name="client_id"/>
+        </createIndex>
+        <createIndex tableName="credesal_share_certificate" indexName="IX_cr_share_cert_account">
+            <column name="share_account_id"/>
+        </createIndex>
+        <createIndex tableName="credesal_share_certificate" indexName="IX_cr_share_cert_number">
+            <column name="certificate_number"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0283-3-create-share-certificate-beneficiary" author="credesal">
+        <createTable tableName="credesal_share_certificate_beneficiary">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="certificate_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_system" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_key" type="VARCHAR(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_hash" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="arissto_beneficiary_id" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="first_names" type="VARCHAR(50)"/>
+            <column name="last_names" type="VARCHAR(50)"/>
+            <column name="relationship" type="VARCHAR(50)"/>
+            <column name="percentage" type="DECIMAL(5,2)"/>
+            <column name="address" type="VARCHAR(254)"/>
+            <column name="benefit_type" type="VARCHAR(1)"/>
+            <column name="source_age" type="VARCHAR(5)"/>
+            <column name="phone" type="VARCHAR(15)"/>
+            <column name="date_of_birth" type="DATE"/>
+            <column name="notify_designation" type="BOOLEAN"/>
+            <column name="created_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="DATETIME"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_share_certificate_beneficiary" baseColumnNames="certificate_id"
+                                 constraintName="FK_cr_share_cert_ben_cert"
+                                 referencedTableName="credesal_share_certificate" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addUniqueConstraint tableName="credesal_share_certificate_beneficiary" columnNames="source_system,source_key"
+                             constraintName="UK_cr_share_cert_ben_source_key"/>
+        <addUniqueConstraint tableName="credesal_share_certificate_beneficiary"
+                             columnNames="source_system,arissto_beneficiary_id"
+                             constraintName="UK_cr_share_cert_ben_identity"/>
+        <createIndex tableName="credesal_share_certificate_beneficiary" indexName="IX_cr_share_cert_ben_cert">
+            <column name="certificate_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0283-4-create-share-native-event-map" author="credesal">
+        <createTable tableName="credesal_share_native_event_map">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="source_system" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_table" type="VARCHAR(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_key" type="VARCHAR(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_hash" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="contract_hash" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="plan_id" type="VARCHAR(64)"/>
+            <column name="run_id" type="VARCHAR(64)"/>
+            <column name="client_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="share_product_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="share_account_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="share_transaction_id" type="BIGINT"/>
+            <column name="event_kind" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="event_status" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="event_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="total_shares" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="unit_price" type="DECIMAL(10,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="amount" type="DECIMAL(20,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="error_code" type="VARCHAR(128)"/>
+            <column name="applied_at" type="DATETIME"/>
+            <column name="reconciled_at" type="DATETIME"/>
+            <column name="created_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="DATETIME"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_share_native_event_map" baseColumnNames="client_id"
+                                 constraintName="FK_cr_share_event_client"
+                                 referencedTableName="m_client" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_share_native_event_map" baseColumnNames="share_product_id"
+                                 constraintName="FK_cr_share_event_product"
+                                 referencedTableName="m_share_product" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_share_native_event_map" baseColumnNames="share_account_id"
+                                 constraintName="FK_cr_share_event_account"
+                                 referencedTableName="m_share_account" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_share_native_event_map" baseColumnNames="share_transaction_id"
+                                 constraintName="FK_cr_share_event_transaction"
+                                 referencedTableName="m_share_account_transactions" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addUniqueConstraint tableName="credesal_share_native_event_map"
+                             columnNames="source_system,source_table,source_key"
+                             constraintName="UK_cr_share_event_source"/>
+        <addUniqueConstraint tableName="credesal_share_native_event_map" columnNames="share_transaction_id"
+                             constraintName="UK_cr_share_event_transaction"/>
+        <createIndex tableName="credesal_share_native_event_map" indexName="IX_cr_share_event_account">
+            <column name="share_account_id"/>
+        </createIndex>
+        <createIndex tableName="credesal_share_native_event_map" indexName="IX_cr_share_event_status">
+            <column name="event_status"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

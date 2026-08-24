@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<!--
+    Credesal AML/LAFT persistence foundation.
+
+    This migration stores alert definitions, alert instances, their subjects,
+    typed source/target references, and status history. It intentionally does
+    not implement alert evaluation, transaction triggers, case-management APIs,
+    or regulatory-report generation.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0282-1-create-aml-alert-type" author="credesal">
+        <createTable tableName="credesal_aml_alert_type">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="code" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="TEXT"/>
+            <column name="category_code" type="VARCHAR(64)"/>
+            <column name="source_system" type="VARCHAR(32)"/>
+            <column name="source_event_type_code" type="VARCHAR(64)"/>
+            <column name="source_subtype_code" type="VARCHAR(64)"/>
+            <column name="comparison_basis_code" type="VARCHAR(64)"/>
+            <column name="aggregation_mode_code" type="VARCHAR(64)"/>
+            <column name="default_severity_code" type="VARCHAR(32)"/>
+            <column name="settings_json" type="TEXT"/>
+            <column name="active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="DATETIME"/>
+        </createTable>
+        <addUniqueConstraint tableName="credesal_aml_alert_type" columnNames="code"
+                             constraintName="UK_credesal_aml_alert_type_code"/>
+        <addUniqueConstraint tableName="credesal_aml_alert_type" columnNames="source_system,source_subtype_code"
+                             constraintName="UK_credesal_aml_alert_type_source"/>
+    </changeSet>
+
+    <changeSet id="0282-2-create-aml-alert-status" author="credesal">
+        <createTable tableName="credesal_aml_alert_status">
+            <column name="code" type="VARCHAR(32)">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="name" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="TEXT"/>
+            <column name="terminal" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sort_order" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="0282-3-create-aml-alert" author="credesal">
+        <createTable tableName="credesal_aml_alert">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="alert_type_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status_code" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_system" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_alert_key" type="VARCHAR(255)"/>
+            <column name="source_event_type_code" type="VARCHAR(64)"/>
+            <column name="source_status_code" type="VARCHAR(64)"/>
+            <column name="source_alert_class_code" type="VARCHAR(64)"/>
+            <column name="source_temporary" type="BOOLEAN"/>
+            <column name="occurred_at" type="DATETIME">
+                <constraints nullable="false"/>
+            </column>
+            <column name="business_date" type="DATE"/>
+            <column name="detected_at" type="DATETIME"/>
+            <column name="evaluation_period_start" type="DATE"/>
+            <column name="evaluation_period_end" type="DATE"/>
+            <column name="source_message" type="TEXT"/>
+            <column name="triggering_amount" type="DECIMAL(19,6)"/>
+            <column name="observed_amount" type="DECIMAL(19,6)"/>
+            <column name="threshold_amount" type="DECIMAL(19,6)"/>
+            <column name="currency_code" type="VARCHAR(3)"/>
+            <column name="product_type_code" type="VARCHAR(32)"/>
+            <column name="severity_code" type="VARCHAR(32)"/>
+            <column name="source_payload" type="TEXT"/>
+            <column name="source_hash" type="VARCHAR(64)"/>
+            <column name="created_by" type="BIGINT"/>
+            <column name="updated_by" type="BIGINT"/>
+            <column name="created_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="DATETIME"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_aml_alert" baseColumnNames="alert_type_id"
+                                 constraintName="FK_credesal_aml_alert_type"
+                                 referencedTableName="credesal_aml_alert_type" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_aml_alert" baseColumnNames="status_code"
+                                 constraintName="FK_credesal_aml_alert_status"
+                                 referencedTableName="credesal_aml_alert_status" referencedColumnNames="code"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_aml_alert" baseColumnNames="created_by"
+                                 constraintName="FK_credesal_aml_alert_created_by"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_aml_alert" baseColumnNames="updated_by"
+                                 constraintName="FK_credesal_aml_alert_updated_by"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addUniqueConstraint tableName="credesal_aml_alert" columnNames="source_system,source_alert_key"
+                             constraintName="UK_credesal_aml_alert_source"/>
+        <createIndex tableName="credesal_aml_alert" indexName="IX_credesal_aml_alert_type">
+            <column name="alert_type_id"/>
+        </createIndex>
+        <createIndex tableName="credesal_aml_alert" indexName="IX_credesal_aml_alert_status">
+            <column name="status_code"/>
+        </createIndex>
+        <createIndex tableName="credesal_aml_alert" indexName="IX_credesal_aml_alert_occurred">
+            <column name="occurred_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0282-4-create-aml-alert-subject" author="credesal">
+        <createTable tableName="credesal_aml_alert_subject">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="alert_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="subject_type" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="subject_role" type="VARCHAR(32)" defaultValue="PRIMARY">
+                <constraints nullable="false"/>
+            </column>
+            <column name="client_id" type="BIGINT"/>
+            <column name="source_system" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_subject_type" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_subject_key" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="primary_subject" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_aml_alert_subject" baseColumnNames="alert_id"
+                                 constraintName="FK_credesal_aml_alert_subject_alert"
+                                 referencedTableName="credesal_aml_alert" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_aml_alert_subject" baseColumnNames="client_id"
+                                 constraintName="FK_credesal_aml_alert_subject_client"
+                                 referencedTableName="m_client" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addUniqueConstraint tableName="credesal_aml_alert_subject"
+                             columnNames="alert_id,subject_type,subject_role,source_system,source_subject_type,source_subject_key"
+                             constraintName="UK_credesal_aml_alert_subject_source"/>
+        <createIndex tableName="credesal_aml_alert_subject" indexName="IX_credesal_aml_alert_subject_client">
+            <column name="client_id"/>
+            <column name="subject_type"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0282-5-create-aml-alert-reference" author="credesal">
+        <createTable tableName="credesal_aml_alert_reference">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="alert_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="relationship_type" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_system" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_entity_type" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_entity_key" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_reference_key" type="VARCHAR(255)"/>
+            <column name="target_entity_type" type="VARCHAR(64)"/>
+            <column name="target_entity_id" type="BIGINT"/>
+            <column name="occurred_at" type="DATETIME"/>
+            <column name="amount" type="DECIMAL(19,6)"/>
+            <column name="currency_code" type="VARCHAR(3)"/>
+            <column name="details_json" type="TEXT"/>
+            <column name="created_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_aml_alert_reference" baseColumnNames="alert_id"
+                                 constraintName="FK_credesal_aml_alert_ref_alert"
+                                 referencedTableName="credesal_aml_alert" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+        <addUniqueConstraint tableName="credesal_aml_alert_reference"
+                             columnNames="alert_id,relationship_type,source_system,source_entity_type,source_entity_key,source_reference_key"
+                             constraintName="UK_credesal_aml_alert_ref_source"/>
+        <createIndex tableName="credesal_aml_alert_reference" indexName="IX_credesal_aml_alert_ref_target">
+            <column name="target_entity_type"/>
+            <column name="target_entity_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0282-6-create-aml-alert-status-history" author="credesal">
+        <createTable tableName="credesal_aml_alert_status_history">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="alert_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="previous_status_code" type="VARCHAR(32)"/>
+            <column name="status_code" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reason_code" type="VARCHAR(64)"/>
+            <column name="comment_text" type="TEXT"/>
+            <column name="changed_by" type="BIGINT"/>
+            <column name="changed_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_aml_alert_status_history" baseColumnNames="alert_id"
+                                 constraintName="FK_credesal_aml_alert_history_alert"
+                                 referencedTableName="credesal_aml_alert" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_aml_alert_status_history" baseColumnNames="previous_status_code"
+                                 constraintName="FK_credesal_aml_alert_history_previous"
+                                 referencedTableName="credesal_aml_alert_status" referencedColumnNames="code"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_aml_alert_status_history" baseColumnNames="status_code"
+                                 constraintName="FK_credesal_aml_alert_history_status"
+                                 referencedTableName="credesal_aml_alert_status" referencedColumnNames="code"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_aml_alert_status_history" baseColumnNames="changed_by"
+                                 constraintName="FK_credesal_aml_alert_history_user"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <createIndex tableName="credesal_aml_alert_status_history" indexName="IX_credesal_aml_alert_history_alert">
+            <column name="alert_id"/>
+            <column name="changed_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0282-7-seed-aml-alert-status-new" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(1) FROM credesal_aml_alert_status WHERE code = 'NEW'</sqlCheck>
+        </preConditions>
+        <insert tableName="credesal_aml_alert_status">
+            <column name="code" value="NEW"/>
+            <column name="name" value="New"/>
+            <column name="description" value="Alert recorded but not yet placed into a reviewed workflow."/>
+            <column name="terminal" valueBoolean="false"/>
+            <column name="active" valueBoolean="true"/>
+            <column name="sort_order" valueNumeric="100"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0282-8-seed-arissto-alert-type-69" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(1) FROM credesal_aml_alert_type WHERE code = 'ARISSTO_69'</sqlCheck>
+        </preConditions>
+        <insert tableName="credesal_aml_alert_type">
+            <column name="code" value="ARISSTO_69"/>
+            <column name="name" value="Activity above declared monthly amount"/>
+            <column name="description" value="ALERTA UNICA/ACUMULADA: OPERACIONES DE INVERSIÓN, AHORROS Y PAGOS DE CRÉDITOS MAYOR AL MONTO MENSUAL DECLARADO"/>
+            <column name="category_code" value="TRANSACTION_MONITORING"/>
+            <column name="source_system" value="ARISSTO"/>
+            <column name="source_event_type_code" value="1"/>
+            <column name="source_subtype_code" value="69"/>
+            <column name="comparison_basis_code" value="DECLARED_MONTHLY_AMOUNT"/>
+            <column name="aggregation_mode_code" value="SINGLE_OR_ACCUMULATED"/>
+            <column name="active" valueBoolean="true"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0282-9-seed-arissto-alert-type-70" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(1) FROM credesal_aml_alert_type WHERE code = 'ARISSTO_70'</sqlCheck>
+        </preConditions>
+        <insert tableName="credesal_aml_alert_type">
+            <column name="code" value="ARISSTO_70"/>
+            <column name="name" value="Activity above monthly income"/>
+            <column name="description" value="ALERTA UNICA/ACUMULADA: OPERACIONES DE INVERSIÓN, AHORROS Y PAGOS DE CRÉDITOS MAYOR AL MONTO MENSUAL DE INGRESOS"/>
+            <column name="category_code" value="TRANSACTION_MONITORING"/>
+            <column name="source_system" value="ARISSTO"/>
+            <column name="source_event_type_code" value="1"/>
+            <column name="source_subtype_code" value="70"/>
+            <column name="comparison_basis_code" value="MONTHLY_INCOME"/>
+            <column name="aggregation_mode_code" value="SINGLE_OR_ACCUMULATED"/>
+            <column name="active" valueBoolean="true"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

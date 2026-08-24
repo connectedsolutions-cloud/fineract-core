@@ -42,6 +42,10 @@ public class ClientFamilyMemberRequest implements Serializable {
     private Long clientId;
     private String dateFormat;
     private String mobileNumber;
+    private String secondaryMobileNumber;
+    private String address;
+    private String externalId;
+    private String sourceRelationship;
     private Long genderId;
     private Boolean isDependent;
     private String dateOfBirth;

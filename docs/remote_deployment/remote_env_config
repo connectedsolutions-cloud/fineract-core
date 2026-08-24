@@ -1,0 +1,44 @@
+
+# Usually leave these as-is unless your DB uses different schema/tenant names
+# NOTE: schema/tenant DB connection fields below (NAME/HOSTNAME/PORT/UID/PWD/CONN_PARAMS)
+# only take effect on FIRST boot (Liquibase seeds a row in fineract_tenants.tenants /
+# tenant_server_connections). After that, the persisted DB row is the source of truth
+# for connection routing -- these env vars just document the intended value for a
+# future re-seed. They are routed through the DO PgBouncer pool `default-pool`
+# (transaction mode, port 25061) rather than the direct connection (25060), since this
+# datasource carries all Fineract API/business traffic.
+FINERACT_DEFAULT_TENANTDB_NAME=default-pool
+FINERACT_DEFAULT_TENANTDB_IDENTIFIER=default
+FINERACT_DEFAULT_TENANTDB_CONN_PARAMS=sslmode=require&prepareThreshold=0
+
+# Tenant datasource (Hikari) pool size -- these DO override the persisted DB row's
+# pool_min_idle/pool_max_active on every boot (see HikariDataSourceFactory /
+# DataSourcePerTenantServiceFactory: isMinPoolSizeSet()/isMaxPoolSizeSet()).
+# Sized for ~10 concurrent Mifos clients now, with headroom toward ~80 total clients;
+# the physical connection cap is enforced by the DO pool size (10), not this value.
+FINERACT_CONFIG_MIN_POOL_SIZE=5
+FINERACT_CONFIG_MAX_POOL_SIZE=20
+
+FINERACT_HIKARI_DRIVER_SOURCE_CLASS_NAME=org.postgresql.Driver
+FINERACT_HIKARI_JDBC_URL=jdbc:postgresql://db-postgresql-nyc3-21477-do-user-13658387-0.d.db.ondigitalocean.com:25060/fineract_tenants?sslmode=require
+FINERACT_HIKARI_USERNAME=doadmin
+FINERACT_HIKARI_PASSWORD=<YOUR_PASSWORD>
+# Master/tenant-lookup datasource stays on the direct connection (25060), not pooled:
+# low traffic (tenant lookup is cached, only Liquibase touches this heavily) and
+# schema-migration work is safer outside transaction-mode PgBouncer.
+FINERACT_HIKARI_MINIMUM_IDLE=2
+FINERACT_HIKARI_MAXIMUM_POOL_SIZE=4
+FINERACT_DEFAULT_TENANTDB_HOSTNAME=db-postgresql-nyc3-21477-do-user-13658387-0.d.db.ondigitalocean.com
+FINERACT_DEFAULT_TENANTDB_PORT=25061
+FINERACT_DEFAULT_TENANTDB_UID=doadmin
+FINERACT_DEFAULT_TENANTDB_PWD=<YOUR_PASSWORD>
+FINERACT_LIQUIBASE_ENABLED=TRUE
+FINERACT_DEFAULT_MASTER_PASSWORD=fineract
+FINERACT_JWT_KEY=<YOUR_JWT_secret_key>
+SPRING_PROFILES_ACTIVE=production
+
+
+MH_VALIDATION_BASE_URL=http://localhost:8113/firma
+MH_VALIDATION_PATH=/validardocumento/?sync=false
+MH_WEBHOOK_SHARED_SECRET=dewdeASASA45DSA7DS4
+

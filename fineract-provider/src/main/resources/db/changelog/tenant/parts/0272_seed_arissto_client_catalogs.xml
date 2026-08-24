@@ -1,0 +1,399 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <!--
+        One-time bootstrap from read-only Arissto catalog snapshots exported on 2026-08-12.
+        The CSV manifest under data/0272 records row counts and SHA-256 checksums.
+    -->
+    <changeSet id="0272-1-create-arissto-country-catalog" author="credesal">
+        <preConditions onFail="HALT">
+            <not><tableExists tableName="credesal_geo_country"/></not>
+        </preConditions>
+        <createTable tableName="credesal_geo_country">
+            <column name="arissto_country_id" type="VARCHAR(4)">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_credesal_geo_country"/>
+            </column>
+            <column name="name" type="VARCHAR(75)"><constraints nullable="false"/></column>
+            <column name="iso2" type="VARCHAR(2)"/>
+            <column name="iso3" type="VARCHAR(3)"/>
+            <column name="demonym" type="VARCHAR(75)"/>
+            <column name="country_cv_id" type="INT"/>
+        </createTable>
+        <rollback><dropTable tableName="credesal_geo_country"/></rollback>
+    </changeSet>
+
+    <changeSet id="0272-2-load-arissto-countries" author="credesal">
+        <loadData file="data/0272/countries.csv" relativeToChangelogFile="true"
+                  tableName="credesal_geo_country" encoding="UTF-8" separator="," quotchar="&quot;">
+            <column header="arissto_country_id" name="arissto_country_id" type="STRING"/>
+            <column header="name" name="name" type="STRING"/>
+            <column header="iso3" name="iso3" type="STRING"/>
+            <column header="iso2" name="iso2" type="STRING"/>
+            <column header="demonym" name="demonym" type="STRING"/>
+        </loadData>
+        <rollback><delete tableName="credesal_geo_country"/></rollback>
+    </changeSet>
+
+    <changeSet id="0272-3-create-arissto-department-catalog" author="credesal">
+        <preConditions onFail="HALT">
+            <not><tableExists tableName="credesal_geo_department"/></not>
+        </preConditions>
+        <createTable tableName="credesal_geo_department">
+            <column name="arissto_department_id" type="VARCHAR(2)">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_credesal_geo_department"/>
+            </column>
+            <column name="arissto_country_id" type="VARCHAR(4)"><constraints nullable="false"/></column>
+            <column name="name" type="VARCHAR(75)"><constraints nullable="false"/></column>
+            <column name="zone_code" type="VARCHAR(3)"/>
+            <column name="state_cv_id" type="INT"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_geo_department" baseColumnNames="arissto_country_id"
+                                 referencedTableName="credesal_geo_country" referencedColumnNames="arissto_country_id"
+                                 constraintName="fk_credesal_geo_department_country" onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <rollback><dropTable tableName="credesal_geo_department"/></rollback>
+    </changeSet>
+
+    <changeSet id="0272-4-load-arissto-departments" author="credesal">
+        <loadData file="data/0272/departments.csv" relativeToChangelogFile="true"
+                  tableName="credesal_geo_department" encoding="UTF-8" separator="," quotchar="&quot;">
+            <column header="arissto_department_id" name="arissto_department_id" type="STRING"/>
+            <column header="arissto_country_id" name="arissto_country_id" type="STRING"/>
+            <column header="name" name="name" type="STRING"/>
+            <column header="zone_code" name="zone_code" type="STRING"/>
+        </loadData>
+        <rollback><delete tableName="credesal_geo_department"/></rollback>
+    </changeSet>
+
+    <changeSet id="0272-5-create-arissto-municipality-catalog" author="credesal">
+        <preConditions onFail="HALT">
+            <not><tableExists tableName="credesal_geo_municipality"/></not>
+        </preConditions>
+        <createTable tableName="credesal_geo_municipality">
+            <column name="arissto_municipality_id" type="VARCHAR(4)">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_credesal_geo_municipality"/>
+            </column>
+            <column name="arissto_department_id" type="VARCHAR(2)"><constraints nullable="false"/></column>
+            <column name="municipality_code" type="VARCHAR(2)"><constraints nullable="false"/></column>
+            <column name="name" type="VARCHAR(100)"><constraints nullable="false"/></column>
+            <column name="district" type="VARCHAR(100)"/>
+            <column name="settlement_type" type="VARCHAR(75)"/>
+            <column name="postal_code" type="VARCHAR(25)"/>
+            <column name="region_code" type="VARCHAR(4)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_geo_municipality" baseColumnNames="arissto_department_id"
+                                 referencedTableName="credesal_geo_department" referencedColumnNames="arissto_department_id"
+                                 constraintName="fk_credesal_geo_municipality_department" onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <createIndex tableName="credesal_geo_municipality" indexName="idx_credesal_geo_municipality_department">
+            <column name="arissto_department_id"/>
+        </createIndex>
+        <rollback><dropTable tableName="credesal_geo_municipality"/></rollback>
+    </changeSet>
+
+    <changeSet id="0272-6-load-arissto-municipalities" author="credesal">
+        <loadData file="data/0272/municipalities.csv" relativeToChangelogFile="true"
+                  tableName="credesal_geo_municipality" encoding="UTF-8" separator="," quotchar="&quot;">
+            <column header="arissto_municipality_id" name="arissto_municipality_id" type="STRING"/>
+            <column header="arissto_department_id" name="arissto_department_id" type="STRING"/>
+            <column header="municipality_code" name="municipality_code" type="STRING"/>
+            <column header="name" name="name" type="STRING"/>
+            <column header="district" name="district" type="STRING"/>
+            <column header="settlement_type" name="settlement_type" type="STRING"/>
+            <column header="postal_code" name="postal_code" type="STRING"/>
+            <column header="region_code" name="region_code" type="STRING"/>
+        </loadData>
+        <rollback><delete tableName="credesal_geo_municipality"/></rollback>
+    </changeSet>
+
+    <changeSet id="0272-7-create-arissto-economic-activity-catalog" author="credesal">
+        <preConditions onFail="HALT">
+            <not><tableExists tableName="credesal_economic_activity"/></not>
+        </preConditions>
+        <createTable tableName="credesal_economic_activity">
+            <column name="arissto_activity_id" type="INT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_credesal_economic_activity"/>
+            </column>
+            <column name="description" type="VARCHAR(300)"><constraints nullable="false"/></column>
+            <column name="mh_activity_code" type="VARCHAR(6)"/>
+            <column name="active" type="BOOLEAN" defaultValueBoolean="true"><constraints nullable="false"/></column>
+        </createTable>
+        <rollback><dropTable tableName="credesal_economic_activity"/></rollback>
+    </changeSet>
+
+    <changeSet id="0272-8-load-arissto-economic-activities" author="credesal">
+        <loadData file="data/0272/economic_activities.csv" relativeToChangelogFile="true"
+                  tableName="credesal_economic_activity" encoding="UTF-8" separator="," quotchar="&quot;">
+            <column header="arissto_activity_id" name="arissto_activity_id" type="NUMERIC"/>
+            <column header="description" name="description" type="STRING"/>
+        </loadData>
+        <rollback><delete tableName="credesal_economic_activity"/></rollback>
+    </changeSet>
+
+    <changeSet id="0272-8b-normalize-empty-geography-values" author="credesal">
+        <sql><![CDATA[
+            UPDATE credesal_geo_country
+            SET iso2 = NULLIF(iso2, ''), iso3 = NULLIF(iso3, ''), demonym = NULLIF(demonym, '');
+
+            UPDATE credesal_geo_department
+            SET zone_code = NULLIF(zone_code, '');
+
+            UPDATE credesal_geo_municipality
+            SET district = NULLIF(district, ''),
+                settlement_type = NULLIF(settlement_type, ''),
+                postal_code = NULLIF(postal_code, ''),
+                region_code = NULLIF(region_code, '');
+        ]]></sql>
+        <rollback>
+            <sql><![CDATA[
+                UPDATE credesal_geo_country
+                SET iso2 = COALESCE(iso2, ''), iso3 = COALESCE(iso3, ''), demonym = COALESCE(demonym, '');
+                UPDATE credesal_geo_department SET zone_code = COALESCE(zone_code, '');
+                UPDATE credesal_geo_municipality
+                SET district = COALESCE(district, ''),
+                    settlement_type = COALESCE(settlement_type, ''),
+                    postal_code = COALESCE(postal_code, ''),
+                    region_code = COALESCE(region_code, '');
+            ]]></sql>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0272-9-create-arissto-code-value-crosswalk" author="credesal">
+        <preConditions onFail="HALT">
+            <not><tableExists tableName="credesal_catalog_code_value_map"/></not>
+        </preConditions>
+        <createTable tableName="credesal_catalog_code_value_map">
+            <column name="source_system" type="VARCHAR(30)"><constraints nullable="false"/></column>
+            <column name="catalog_name" type="VARCHAR(50)"><constraints nullable="false"/></column>
+            <column name="source_key" type="VARCHAR(50)"><constraints nullable="false"/></column>
+            <column name="code_value_id" type="INT"/>
+            <column name="source_label" type="VARCHAR(300)"><constraints nullable="false"/></column>
+            <column name="order_position" type="INT"><constraints nullable="false"/></column>
+            <column name="active" type="BOOLEAN" defaultValueBoolean="true"><constraints nullable="false"/></column>
+        </createTable>
+        <addPrimaryKey tableName="credesal_catalog_code_value_map"
+                       columnNames="source_system,catalog_name,source_key"
+                       constraintName="pk_credesal_catalog_code_value_map"/>
+        <rollback><dropTable tableName="credesal_catalog_code_value_map"/></rollback>
+    </changeSet>
+
+    <changeSet id="0272-10-load-arissto-code-value-crosswalk" author="credesal">
+        <loadData file="data/0272/code_values.csv" relativeToChangelogFile="true"
+                  tableName="credesal_catalog_code_value_map" encoding="UTF-8" separator="," quotchar="&quot;">
+            <column header="source_system" name="source_system" type="STRING"/>
+            <column header="catalog_name" name="catalog_name" type="STRING"/>
+            <column header="source_key" name="source_key" type="STRING"/>
+            <column header="source_label" name="source_label" type="STRING"/>
+            <column header="order_position" name="order_position" type="NUMERIC"/>
+            <column header="active" name="active" type="BOOLEAN"/>
+        </loadData>
+        <rollback>
+            <delete tableName="credesal_catalog_code_value_map">
+                <where>source_system = 'ARISSTO'</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+    <!-- PostgreSQL IDs are allocated by Hibernate sequences, not column defaults. -->
+    <changeSet id="0272-11-ensure-fineract-code-groups-postgresql" author="credesal" dbms="postgresql">
+        <sql><![CDATA[
+            INSERT INTO m_code (id, code_name, is_system_defined)
+            SELECT nextval('m_code_id_seq'), requested.code_name, FALSE
+            FROM (VALUES
+                ('COUNTRY'),
+                ('STATE'),
+                ('MARITAL STATUS'),
+                ('PROFESSION'),
+                ('CREDESAL_EDUCATION_LEVEL'),
+                ('CREDESAL_INCOME_SOURCE')
+            ) AS requested(code_name)
+            WHERE NOT EXISTS (
+                SELECT 1 FROM m_code existing WHERE existing.code_name = requested.code_name
+            );
+        ]]></sql>
+        <rollback>
+            <sql><![CDATA[
+                DELETE FROM m_code
+                WHERE code_name IN ('CREDESAL_EDUCATION_LEVEL', 'CREDESAL_INCOME_SOURCE')
+                  AND NOT EXISTS (SELECT 1 FROM m_code_value WHERE m_code_value.code_id = m_code.id);
+            ]]></sql>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0272-12-ensure-fineract-code-groups-mariadb" author="credesal" dbms="mariadb,mysql">
+        <sql><![CDATA[
+            INSERT INTO m_code (code_name, is_system_defined)
+            SELECT requested.code_name, FALSE
+            FROM (
+                SELECT 'COUNTRY' AS code_name
+                UNION ALL SELECT 'STATE'
+                UNION ALL SELECT 'MARITAL STATUS'
+                UNION ALL SELECT 'PROFESSION'
+                UNION ALL SELECT 'CREDESAL_EDUCATION_LEVEL'
+                UNION ALL SELECT 'CREDESAL_INCOME_SOURCE'
+            ) requested
+            WHERE NOT EXISTS (
+                SELECT 1 FROM m_code existing WHERE existing.code_name = requested.code_name
+            );
+        ]]></sql>
+        <rollback>
+            <sql><![CDATA[
+                DELETE FROM m_code
+                WHERE code_name IN ('CREDESAL_EDUCATION_LEVEL', 'CREDESAL_INCOME_SOURCE')
+                  AND NOT EXISTS (SELECT 1 FROM m_code_value WHERE m_code_value.code_id = m_code.id);
+            ]]></sql>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0272-13-seed-fineract-code-values-postgresql" author="credesal" dbms="postgresql">
+        <sql><![CDATA[
+            INSERT INTO m_code_value
+                (id, code_id, code_value, code_description, order_position, code_score, is_active, is_mandatory)
+            SELECT nextval('m_code_value_id_seq'), code.id, seed.source_label,
+                   CONCAT('Imported from Arissto catalog ', seed.catalog_name, ':', seed.source_key),
+                   seed.order_position, NULL, seed.active, FALSE
+            FROM credesal_catalog_code_value_map seed
+            JOIN m_code code ON code.code_name = seed.catalog_name
+            WHERE seed.source_system = 'ARISSTO'
+              AND NOT EXISTS (
+                  SELECT 1 FROM m_code_value existing
+                  WHERE existing.code_id = code.id AND existing.code_value = seed.source_label
+              )
+            ORDER BY seed.catalog_name, seed.order_position;
+        ]]></sql>
+        <rollback>
+            <sql><![CDATA[
+                DELETE FROM m_code_value
+                WHERE code_description LIKE 'Imported from Arissto catalog %';
+            ]]></sql>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0272-14-seed-fineract-code-values-mariadb" author="credesal" dbms="mariadb,mysql">
+        <sql><![CDATA[
+            INSERT INTO m_code_value
+                (code_id, code_value, code_description, order_position, code_score, is_active, is_mandatory)
+            SELECT code.id, seed.source_label,
+                   CONCAT('Imported from Arissto catalog ', seed.catalog_name, ':', seed.source_key),
+                   seed.order_position, NULL, seed.active, FALSE
+            FROM credesal_catalog_code_value_map seed
+            JOIN m_code code ON code.code_name = seed.catalog_name
+            WHERE seed.source_system = 'ARISSTO'
+              AND NOT EXISTS (
+                  SELECT 1 FROM m_code_value existing
+                  WHERE existing.code_id = code.id AND existing.code_value = seed.source_label
+              )
+            ORDER BY seed.catalog_name, seed.order_position;
+        ]]></sql>
+        <rollback>
+            <sql><![CDATA[
+                DELETE FROM m_code_value
+                WHERE code_description LIKE 'Imported from Arissto catalog %';
+            ]]></sql>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0272-15-link-arissto-catalogs-to-fineract-code-values" author="credesal">
+        <sql><![CDATA[
+            UPDATE credesal_catalog_code_value_map
+            SET code_value_id = (
+                SELECT code_value.id
+                FROM m_code_value code_value
+                JOIN m_code code ON code.id = code_value.code_id
+                WHERE code.code_name = credesal_catalog_code_value_map.catalog_name
+                  AND code_value.code_value = credesal_catalog_code_value_map.source_label
+            )
+            WHERE source_system = 'ARISSTO';
+
+            UPDATE credesal_geo_country
+            SET country_cv_id = (
+                SELECT mapping.code_value_id
+                FROM credesal_catalog_code_value_map mapping
+                WHERE mapping.source_system = 'ARISSTO'
+                  AND mapping.catalog_name = 'COUNTRY'
+                  AND mapping.source_key = credesal_geo_country.arissto_country_id
+            );
+
+            UPDATE credesal_geo_department
+            SET state_cv_id = (
+                SELECT mapping.code_value_id
+                FROM credesal_catalog_code_value_map mapping
+                WHERE mapping.source_system = 'ARISSTO'
+                  AND mapping.catalog_name = 'STATE'
+                  AND mapping.source_key = credesal_geo_department.arissto_department_id
+            );
+        ]]></sql>
+        <rollback>
+            <sql><![CDATA[
+                UPDATE credesal_geo_department SET state_cv_id = NULL;
+                UPDATE credesal_geo_country SET country_cv_id = NULL;
+                UPDATE credesal_catalog_code_value_map SET code_value_id = NULL WHERE source_system = 'ARISSTO';
+            ]]></sql>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0272-16-constrain-arissto-code-value-links" author="credesal">
+        <preConditions onFail="HALT">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM credesal_catalog_code_value_map WHERE code_value_id IS NULL
+            </sqlCheck>
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM credesal_geo_country WHERE country_cv_id IS NULL
+            </sqlCheck>
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM credesal_geo_department WHERE state_cv_id IS NULL
+            </sqlCheck>
+        </preConditions>
+        <addNotNullConstraint tableName="credesal_catalog_code_value_map" columnName="code_value_id" columnDataType="INT"/>
+        <addForeignKeyConstraint baseTableName="credesal_catalog_code_value_map" baseColumnNames="code_value_id"
+                                 referencedTableName="m_code_value" referencedColumnNames="id"
+                                 constraintName="fk_credesal_catalog_map_code_value" onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addUniqueConstraint tableName="credesal_catalog_code_value_map"
+                             columnNames="source_system,catalog_name,code_value_id"
+                             constraintName="uq_credesal_catalog_map_code_value"/>
+
+        <addNotNullConstraint tableName="credesal_geo_country" columnName="country_cv_id" columnDataType="INT"/>
+        <addForeignKeyConstraint baseTableName="credesal_geo_country" baseColumnNames="country_cv_id"
+                                 referencedTableName="m_code_value" referencedColumnNames="id"
+                                 constraintName="fk_credesal_geo_country_code_value" onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addUniqueConstraint tableName="credesal_geo_country" columnNames="country_cv_id"
+                             constraintName="uq_credesal_geo_country_code_value"/>
+
+        <addNotNullConstraint tableName="credesal_geo_department" columnName="state_cv_id" columnDataType="INT"/>
+        <addForeignKeyConstraint baseTableName="credesal_geo_department" baseColumnNames="state_cv_id"
+                                 referencedTableName="m_code_value" referencedColumnNames="id"
+                                 constraintName="fk_credesal_geo_department_code_value" onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addUniqueConstraint tableName="credesal_geo_department" columnNames="state_cv_id"
+                             constraintName="uq_credesal_geo_department_code_value"/>
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="credesal_geo_department" constraintName="fk_credesal_geo_department_code_value"/>
+            <dropUniqueConstraint tableName="credesal_geo_department" constraintName="uq_credesal_geo_department_code_value"/>
+            <dropNotNullConstraint tableName="credesal_geo_department" columnName="state_cv_id" columnDataType="INT"/>
+            <dropForeignKeyConstraint baseTableName="credesal_geo_country" constraintName="fk_credesal_geo_country_code_value"/>
+            <dropUniqueConstraint tableName="credesal_geo_country" constraintName="uq_credesal_geo_country_code_value"/>
+            <dropNotNullConstraint tableName="credesal_geo_country" columnName="country_cv_id" columnDataType="INT"/>
+            <dropForeignKeyConstraint baseTableName="credesal_catalog_code_value_map" constraintName="fk_credesal_catalog_map_code_value"/>
+            <dropUniqueConstraint tableName="credesal_catalog_code_value_map" constraintName="uq_credesal_catalog_map_code_value"/>
+            <dropNotNullConstraint tableName="credesal_catalog_code_value_map" columnName="code_value_id" columnDataType="INT"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

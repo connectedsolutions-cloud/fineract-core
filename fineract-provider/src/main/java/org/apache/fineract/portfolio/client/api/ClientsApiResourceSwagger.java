@@ -238,6 +238,10 @@ final class ClientsApiResourceSwagger {
         public String firstname;
         @Schema(example = "test")
         public String lastname;
+        @Schema(example = "Second")
+        public String secondlastname;
+        @Schema(example = "Married")
+        public String marriedlastname;
         @Schema(example = "savings test")
         public String displayName;
         @Schema(example = "1")
@@ -311,6 +315,10 @@ final class ClientsApiResourceSwagger {
         public String externalId;
         @Schema(example = "Client_LastName")
         public String lastname;
+        @Schema(example = "Client_SecondLastName")
+        public String secondlastname;
+        @Schema(example = "Client_MarriedLastName")
+        public String marriedlastname;
         @Schema(example = "[2013, 1, 1]")
         public LocalDate dateOfBirth;
         @Schema(example = "1")

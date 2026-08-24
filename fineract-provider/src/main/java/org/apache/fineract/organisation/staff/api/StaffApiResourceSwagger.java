@@ -59,6 +59,8 @@ final class StaffApiResourceSwagger {
         public Boolean isLoanOfficer;
         @Schema(example = "17Hbb")
         public String externalId;
+        @Schema(example = "employee@example.org")
+        public String emailAddress;
 
     }
 
@@ -81,6 +83,8 @@ final class StaffApiResourceSwagger {
             public Boolean isLoanOfficer;
             @Schema(example = "17Hbb")
             public String externalId;
+            @Schema(example = "employee@example.org")
+            public String emailAddress;
         }
 
         @Schema(example = "1")

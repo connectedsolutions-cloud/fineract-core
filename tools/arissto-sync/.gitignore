@@ -1,0 +1,5 @@
+.env
+.arissto-sync/
+__pycache__/
+.pytest_cache/
+

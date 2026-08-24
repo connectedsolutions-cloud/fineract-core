@@ -42,6 +42,7 @@ public final class StaffData implements Serializable {
     private final String lastname;
     private final String displayName;
     private final String mobileNo;
+    private final String emailAddress;
     private final Long officeId; // Backward compatibility: represents primary office
     private final String officeName; // Backward compatibility: represents primary office name
     private final List<Long> officeIds; // All assigned office IDs
@@ -69,6 +70,7 @@ public final class StaffData implements Serializable {
         this.firstname = firstname;
         this.lastname = lastname;
         this.mobileNo = mobileNo;
+        this.emailAddress = null;
         this.officeId = officeId;
         this.officeIds = officeId != null ? List.of(officeId) : null;
         this.offices = null;
@@ -93,35 +95,36 @@ public final class StaffData implements Serializable {
 
     public static StaffData templateData(final StaffData staff, final Collection<OfficeData> allowedOffices) {
         return new StaffData(staff.id, staff.firstname, staff.lastname, staff.displayName, staff.officeId, staff.officeName,
-                staff.officeIds, staff.offices, staff.isLoanOfficer, staff.externalId, staff.mobileNo, allowedOffices, staff.isActive,
+                staff.officeIds, staff.offices, staff.isLoanOfficer, staff.externalId, staff.mobileNo, staff.emailAddress, allowedOffices, staff.isActive,
                 staff.joiningDate);
     }
 
     public static StaffData lookup(final Long id, final String displayName) {
-        return new StaffData(id, null, null, displayName, null, null, null, null, null, null, null, null, null, null);
+        return new StaffData(id, null, null, displayName, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     // Backward compatibility method - single office
     public static StaffData instance(final Long id, final String firstname, final String lastname, final String displayName,
             final Long officeId, final String officeName, final Boolean isLoanOfficer, final String externalId, final String mobileNo,
+            final String emailAddress,
             final boolean isActive, final LocalDate joiningDate) {
         final List<Long> officeIdsList = officeId != null ? List.of(officeId) : null;
         return new StaffData(id, firstname, lastname, displayName, officeId, officeName, officeIdsList, null, isLoanOfficer, externalId,
-                mobileNo, null, isActive, joiningDate);
+                mobileNo, emailAddress, null, isActive, joiningDate);
     }
 
     // New method with multiple offices support
     public static StaffData instance(final Long id, final String firstname, final String lastname, final String displayName,
             final Long officeId, final String officeName, final List<Long> officeIds, final Collection<OfficeData> offices,
-            final Boolean isLoanOfficer, final String externalId, final String mobileNo, final boolean isActive,
+            final Boolean isLoanOfficer, final String externalId, final String mobileNo, final String emailAddress, final boolean isActive,
             final LocalDate joiningDate) {
         return new StaffData(id, firstname, lastname, displayName, officeId, officeName, officeIds, offices, isLoanOfficer, externalId,
-                mobileNo, null, isActive, joiningDate);
+                mobileNo, emailAddress, null, isActive, joiningDate);
     }
 
     private StaffData(final Long id, final String firstname, final String lastname, final String displayName, final Long officeId,
             final String officeName, final List<Long> officeIds, final Collection<OfficeData> offices, final Boolean isLoanOfficer,
-            final String externalId, final String mobileNo, final Collection<OfficeData> allowedOffices, final Boolean isActive,
+            final String externalId, final String mobileNo, final String emailAddress, final Collection<OfficeData> allowedOffices, final Boolean isActive,
             final LocalDate joiningDate) {
         this.id = id;
         this.firstname = firstname;
@@ -134,6 +137,7 @@ public final class StaffData implements Serializable {
         this.isLoanOfficer = isLoanOfficer;
         this.externalId = externalId;
         this.mobileNo = mobileNo;
+        this.emailAddress = emailAddress;
         this.allowedOffices = allowedOffices;
         this.isActive = isActive;
         this.joiningDate = joiningDate;
@@ -145,6 +149,10 @@ public final class StaffData implements Serializable {
 
     public String getDisplayName() {
         return this.displayName;
+    }
+
+    public String getEmailAddress() {
+        return this.emailAddress;
     }
 
     public String getFirstname() {

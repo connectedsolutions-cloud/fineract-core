@@ -1,0 +1,345 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<!--
+    Reporte Seguro — monthly debt-insurance declaration (Especiales).
+    Column layout follows docs/INSURANCE_REPORT_FIELDS.md / PLANTILLA DEL REPORTE SEGURO.
+    Filters: startDate, endDate, loanProductId (multi), loanStatusId (multi), delinquencyRangeId (multi).
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0270-1-loan-product-multiselect-param" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_parameter WHERE parameter_name = 'loanProductIdMultiSelect'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="stretchy_parameter">
+            <column name="parameter_name" value="loanProductIdMultiSelect"/>
+            <column name="parameter_variable" value="loanProductId"/>
+            <column name="parameter_label" value="Product"/>
+            <column name="parameter_displayType" value="multiselect"/>
+            <column name="parameter_FormatType" value="number"/>
+            <column name="parameter_default" value="0"/>
+            <column name="special"/>
+            <column name="selectOne"/>
+            <column name="selectAll" value="Y"/>
+            <column name="parameter_sql"
+                    value="select p.id, p.name from m_product_loan p order by p.name"/>
+            <column name="parent_id"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0270-2-loan-status-multiselect-param" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_parameter WHERE parameter_name = 'loanStatusIdMultiSelect'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="stretchy_parameter">
+            <column name="parameter_name" value="loanStatusIdMultiSelect"/>
+            <column name="parameter_variable" value="loanStatusId"/>
+            <column name="parameter_label" value="Loan Status"/>
+            <column name="parameter_displayType" value="multiselect"/>
+            <column name="parameter_FormatType" value="number"/>
+            <column name="parameter_default" value="300"/>
+            <column name="special"/>
+            <column name="selectOne"/>
+            <column name="selectAll" value="Y"/>
+            <column name="parameter_sql"><![CDATA[
+select * from (
+  select 100 as id, 'Submitted and pending approval' as name
+  union all select 200, 'Approved'
+  union all select 300, 'Active'
+  union all select 303, 'Transfer in progress'
+  union all select 304, 'Transfer on hold'
+  union all select 400, 'Withdrawn by client'
+  union all select 500, 'Rejected'
+  union all select 600, 'Closed (obligations met)'
+  union all select 601, 'Closed (written off)'
+  union all select 602, 'Closed (reschedule outstanding amount)'
+  union all select 700, 'Overpaid'
+) x
+order by x.id
+]]></column>
+            <column name="parent_id"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0270-3-delinquency-range-multiselect-param" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_parameter WHERE parameter_name = 'delinquencyRangeIdMultiSelect'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="stretchy_parameter">
+            <column name="parameter_name" value="delinquencyRangeIdMultiSelect"/>
+            <column name="parameter_variable" value="delinquencyRangeId"/>
+            <column name="parameter_label" value="Delinquency Range"/>
+            <column name="parameter_displayType" value="multiselect"/>
+            <column name="parameter_FormatType" value="number"/>
+            <column name="parameter_default" value="0"/>
+            <column name="special"/>
+            <column name="selectOne"/>
+            <column name="selectAll" value="Y"/>
+            <column name="parameter_sql"
+                    value="select r.id, concat(r.classification, ' (', coalesce(r.min_age_days, 0), '-', coalesce(cast(r.max_age_days as char), ''), ')') as name from m_delinquency_range r order by r.min_age_days, r.id"/>
+            <column name="parent_id"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0270-4-reporte-seguro-report" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report WHERE report_name = 'Reporte Seguro'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="stretchy_report">
+            <column name="report_name" value="Reporte Seguro"/>
+            <column name="report_type" value="Table"/>
+            <column name="report_subtype"/>
+            <column name="report_category" value="Especiales"/>
+            <column name="report_sql" value="SELECT 1"/>
+            <column name="description"
+                    value="Declaracion mensual de seguro de deuda. Una fila por credito. Columnas segun plantilla del asegurador."/>
+            <column name="core_report" valueBoolean="false"/>
+            <column name="use_report" valueBoolean="true"/>
+            <column name="self_service_user_report" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0270-5-reporte-seguro-sql" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="1">
+                SELECT COUNT(1) FROM stretchy_report WHERE report_name = 'Reporte Seguro'
+            </sqlCheck>
+        </preConditions>
+        <update tableName="stretchy_report">
+            <column name="report_sql"><![CDATA[
+SELECT
+  CAST(l.external_id AS CHAR) AS `NO. CREDITO`,
+  NULLIF(TRIM(c.firstname), '') AS `PRIMER NOMBRE`,
+  NULLIF(TRIM(c.middlename), '') AS `SGUNDO NOMBRE`,
+  NULLIF(TRIM(c.lastname), '') AS `PRIMER APELLIDO`,
+  NULLIF(TRIM(c.secondlastname), '') AS `SEGUNDO APELLIDO`,
+  NULLIF(TRIM(c.marriedlastname), '') AS `APELLIDO CASADA`,
+  l.disbursedon_date AS `FECHA OTORGADO`,
+  ROUND(COALESCE(l.principal_disbursed_derived, 0), 2) AS `MONTO OTORGADO`,
+  ROUND(COALESCE(l.principal_outstanding_derived, 0), 2) AS `SALDO CAPITAL`,
+  ROUND(COALESCE(l.interest_outstanding_derived, 0), 2) AS `INTERESES POR PAGAR`,
+  ROUND(COALESCE(l.principal_outstanding_derived, 0) + COALESCE(l.interest_outstanding_derived, 0), 2) AS `SUMA ASEGURADA`,
+  CAST(NULL AS DECIMAL(19, 6)) AS `EXTRA PRIMA`,
+  c.date_of_birth AS `FECHA NAC`,
+  CASE
+    WHEN gender.code_value IS NULL THEN NULL
+    WHEN UPPER(TRIM(gender.code_value)) IN ('F', 'FEMALE', 'FEMENINO', 'MUJER')
+      OR UPPER(gender.code_value) LIKE '%FEM%'
+      OR UPPER(gender.code_value) LIKE '%MUJ%' THEN 'Femenino'
+    WHEN UPPER(TRIM(gender.code_value)) IN ('M', 'MALE', 'MASCULINO', 'HOMBRE')
+      OR UPPER(gender.code_value) LIKE '%MASC%'
+      OR UPPER(gender.code_value) LIKE '%HOMB%'
+      OR UPPER(TRIM(gender.code_value)) = 'MALE'
+      OR UPPER(gender.code_value) LIKE 'OPTION.MALE%' THEN 'Masculino'
+    ELSE NULL
+  END AS `SEXO`,
+  NULLIF(TRIM(dp.nacionalidad), '') AS `NACIONALIDAD`,
+  TRIM(COALESCE(
+    (
+      SELECT NULLIF(TRIM(ci.document_key), '')
+      FROM m_client_identifier ci
+      JOIN m_code_value idt ON idt.id = ci.document_type_id
+      WHERE ci.client_id = c.id
+        AND UPPER(idt.code_value) LIKE '%DUI%'
+      LIMIT 1
+    ),
+    CASE
+      WHEN UPPER(COALESCE(dp.tipo_documento_identificacion, '')) LIKE '%DUI%'
+      THEN NULLIF(TRIM(dp.numero_documento_identificacion), '')
+      ELSE NULL
+    END
+  )) AS `DUI`,
+  (
+    SELECT NULLIF(TRIM(ci.document_key), '')
+    FROM m_client_identifier ci
+    JOIN m_code_value idt ON idt.id = ci.document_type_id
+    WHERE ci.client_id = c.id
+      AND (
+        UPPER(idt.code_value) LIKE '%PASSPORT%'
+        OR UPPER(idt.code_value) LIKE '%PASAPORTE%'
+      )
+    LIMIT 1
+  ) AS `PASAPORTE`,
+  (
+    SELECT NULLIF(TRIM(ci.document_key), '')
+    FROM m_client_identifier ci
+    JOIN m_code_value idt ON idt.id = ci.document_type_id
+    WHERE ci.client_id = c.id
+      AND (
+        UPPER(idt.code_value) LIKE '%RESIDENT%'
+        OR UPPER(idt.code_value) LIKE '%CARN%'
+        OR UPPER(idt.code_value) LIKE '%RESIDENTE%'
+      )
+    LIMIT 1
+  ) AS `CARNE RESIDENTE`,
+  TRIM(COALESCE(
+    (
+      SELECT NULLIF(TRIM(ci.document_key), '')
+      FROM m_client_identifier ci
+      JOIN m_code_value idt ON idt.id = ci.document_type_id
+      WHERE ci.client_id = c.id
+        AND UPPER(idt.code_value) LIKE '%NIT%'
+      LIMIT 1
+    ),
+    CASE
+      WHEN UPPER(COALESCE(dp.tipo_documento_identificacion, '')) LIKE '%NIT%'
+      THEN NULLIF(TRIM(dp.numero_documento_identificacion), '')
+      ELSE NULL
+    END
+  )) AS `NIT (Persona Juridica)`,
+  NULLIF(TRIM(c.mobile_no), '') AS `Telefono movil`,
+  NULLIF(TRIM(dp.telefono_residencia), '') AS `Telefono fijo`,
+  NULLIF(TRIM(c.email_address), '') AS `correo electronico`,
+  NULLIF(TRIM(REPLACE(REPLACE(COALESCE(dp.direccion_domicilio, ''), CHAR(13), ' '), CHAR(10), ' ')), '') AS `Domicilio`
+FROM m_loan l
+JOIN m_client c ON c.id = l.client_id
+LEFT JOIN credesal_client_datos_personales dp ON dp.client_id = c.id
+LEFT JOIN m_code_value gender ON gender.id = c.gender_cv_id
+LEFT JOIN m_loan_delinquency_tag_history dtag
+  ON dtag.loan_id = l.id AND dtag.liftedon_date IS NULL
+WHERE l.disbursedon_date IS NOT NULL
+  AND l.disbursedon_date <= '${endDate}'
+  AND COALESCE(l.principal_outstanding_derived, 0) > 0
+  AND ('${loanProductId}' = '-1' OR FIND_IN_SET(l.product_id, '${loanProductId}'))
+  AND ('${loanStatusId}' = '-1' OR FIND_IN_SET(l.loan_status_id, '${loanStatusId}'))
+  AND ('${delinquencyRangeId}' = '-1' OR FIND_IN_SET(dtag.delinquency_range_id, '${delinquencyRangeId}'))
+ORDER BY l.disbursedon_date DESC, l.external_id
+]]></column>
+            <where>report_name = 'Reporte Seguro'</where>
+        </update>
+    </changeSet>
+
+    <changeSet id="0270-6-param-startDate" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report_parameter srp
+                JOIN stretchy_report sr ON sr.id = srp.report_id
+                WHERE sr.report_name = 'Reporte Seguro'
+                  AND srp.parameter_id = 1
+                  AND srp.report_parameter_name = 'startDate'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+            VALUES ((SELECT id FROM stretchy_report WHERE report_name = 'Reporte Seguro'), 1, 'startDate');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0270-7-param-endDate" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report_parameter srp
+                JOIN stretchy_report sr ON sr.id = srp.report_id
+                WHERE sr.report_name = 'Reporte Seguro'
+                  AND srp.parameter_id = 2
+                  AND srp.report_parameter_name = 'endDate'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+            VALUES ((SELECT id FROM stretchy_report WHERE report_name = 'Reporte Seguro'), 2, 'endDate');
+        </sql>
+    </changeSet>
+
+    <changeSet id="0270-8-param-loanProductId" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report_parameter srp
+                JOIN stretchy_report sr ON sr.id = srp.report_id
+                JOIN stretchy_parameter sp ON sp.id = srp.parameter_id
+                WHERE sr.report_name = 'Reporte Seguro'
+                  AND sp.parameter_name = 'loanProductIdMultiSelect'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+            VALUES (
+              (SELECT id FROM stretchy_report WHERE report_name = 'Reporte Seguro'),
+              (SELECT id FROM stretchy_parameter WHERE parameter_name = 'loanProductIdMultiSelect'),
+              'loanProductId'
+            );
+        </sql>
+    </changeSet>
+
+    <changeSet id="0270-9-param-loanStatusId" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report_parameter srp
+                JOIN stretchy_report sr ON sr.id = srp.report_id
+                JOIN stretchy_parameter sp ON sp.id = srp.parameter_id
+                WHERE sr.report_name = 'Reporte Seguro'
+                  AND sp.parameter_name = 'loanStatusIdMultiSelect'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+            VALUES (
+              (SELECT id FROM stretchy_report WHERE report_name = 'Reporte Seguro'),
+              (SELECT id FROM stretchy_parameter WHERE parameter_name = 'loanStatusIdMultiSelect'),
+              'loanStatusId'
+            );
+        </sql>
+    </changeSet>
+
+    <changeSet id="0270-10-param-delinquencyRangeId" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report_parameter srp
+                JOIN stretchy_report sr ON sr.id = srp.report_id
+                JOIN stretchy_parameter sp ON sp.id = srp.parameter_id
+                WHERE sr.report_name = 'Reporte Seguro'
+                  AND sp.parameter_name = 'delinquencyRangeIdMultiSelect'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+            VALUES (
+              (SELECT id FROM stretchy_report WHERE report_name = 'Reporte Seguro'),
+              (SELECT id FROM stretchy_parameter WHERE parameter_name = 'delinquencyRangeIdMultiSelect'),
+              'delinquencyRangeId'
+            );
+        </sql>
+    </changeSet>
+
+    <changeSet id="0270-11-permission" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'READ_Reporte Seguro'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="report"/>
+            <column name="code" value="READ_Reporte Seguro"/>
+            <column name="entity_name" value="Reporte Seguro"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

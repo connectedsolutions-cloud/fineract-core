@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0276-1-insert-socio-client-tag" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_client_tag
+                WHERE LOWER(name) = 'socio' AND LOWER(tag_group) = 'tipo_cliente'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO m_client_tag
+                (name, tag_group, description, is_active, created_on_utc, created_by, last_modified_by, last_modified_on_utc)
+            VALUES
+                ('socio', 'tipo_cliente', 'Cliente tipo socio, para clientes con depósitos', true,
+                 CURRENT_TIMESTAMP, 1, 1, CURRENT_TIMESTAMP)
+        </sql>
+    </changeSet>
+
+    <changeSet id="0276-2-activate-socio-client-tag" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_client_tag
+                WHERE LOWER(name) = 'socio' AND LOWER(tag_group) = 'tipo_cliente' AND is_active = true
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            UPDATE m_client_tag SET is_active = true, last_modified_by = 1, last_modified_on_utc = CURRENT_TIMESTAMP
+            WHERE id = (SELECT selected_id FROM
+                (SELECT MIN(id) AS selected_id FROM m_client_tag
+                 WHERE LOWER(name) = 'socio' AND LOWER(tag_group) = 'tipo_cliente') selected_tag)
+        </sql>
+    </changeSet>
+
+    <changeSet id="0276-3-insert-cliente-client-tag" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_client_tag
+                WHERE LOWER(name) = 'cliente' AND LOWER(tag_group) = 'tipo_cliente'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO m_client_tag
+                (name, tag_group, description, is_active, created_on_utc, created_by, last_modified_by, last_modified_on_utc)
+            VALUES
+                ('cliente', 'tipo_cliente', 'Cliente de créditos', true,
+                 CURRENT_TIMESTAMP, 1, 1, CURRENT_TIMESTAMP)
+        </sql>
+    </changeSet>
+
+    <changeSet id="0276-4-activate-cliente-client-tag" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_client_tag
+                WHERE LOWER(name) = 'cliente' AND LOWER(tag_group) = 'tipo_cliente' AND is_active = true
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            UPDATE m_client_tag SET is_active = true, last_modified_by = 1, last_modified_on_utc = CURRENT_TIMESTAMP
+            WHERE id = (SELECT selected_id FROM
+                (SELECT MIN(id) AS selected_id FROM m_client_tag
+                 WHERE LOWER(name) = 'cliente' AND LOWER(tag_group) = 'tipo_cliente') selected_tag)
+        </sql>
+    </changeSet>
+
+    <changeSet id="0276-5-insert-cliente-socio-client-tag" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_client_tag
+                WHERE LOWER(name) = 'cliente-socio' AND LOWER(tag_group) = 'tipo_cliente'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO m_client_tag
+                (name, tag_group, description, is_active, created_on_utc, created_by, last_modified_by, last_modified_on_utc)
+            VALUES
+                ('cliente-socio', 'tipo_cliente', 'Socio con relación de crédito originada', true,
+                 CURRENT_TIMESTAMP, 1, 1, CURRENT_TIMESTAMP)
+        </sql>
+    </changeSet>
+
+    <changeSet id="0276-6-activate-cliente-socio-client-tag" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM m_client_tag
+                WHERE LOWER(name) = 'cliente-socio' AND LOWER(tag_group) = 'tipo_cliente' AND is_active = true
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            UPDATE m_client_tag SET is_active = true, last_modified_by = 1, last_modified_on_utc = CURRENT_TIMESTAMP
+            WHERE id = (SELECT selected_id FROM
+                (SELECT MIN(id) AS selected_id FROM m_client_tag
+                 WHERE LOWER(name) = 'cliente-socio' AND LOWER(tag_group) = 'tipo_cliente') selected_tag)
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

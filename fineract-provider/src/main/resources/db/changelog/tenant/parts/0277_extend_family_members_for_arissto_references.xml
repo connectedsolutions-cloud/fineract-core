@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0277-1-extend-family-members" author="credesal">
+        <addColumn tableName="m_family_members">
+            <column name="external_id" type="VARCHAR(100)"/>
+            <column name="secondary_mobile_number" type="VARCHAR(50)"/>
+            <column name="address" type="VARCHAR(254)"/>
+            <column name="source_relationship" type="VARCHAR(50)"/>
+        </addColumn>
+        <addUniqueConstraint tableName="m_family_members" columnNames="external_id"
+                             constraintName="uk_m_family_members_external_id"/>
+        <rollback>
+            <dropUniqueConstraint tableName="m_family_members" constraintName="uk_m_family_members_external_id"/>
+            <dropColumn tableName="m_family_members" columnName="source_relationship"/>
+            <dropColumn tableName="m_family_members" columnName="address"/>
+            <dropColumn tableName="m_family_members" columnName="secondary_mobile_number"/>
+            <dropColumn tableName="m_family_members" columnName="external_id"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0277-2-add-reference-relationships-postgresql" author="credesal" dbms="postgresql">
+        <preConditions onFail="HALT">
+            <sqlCheck expectedResult="1">SELECT COUNT(*) FROM m_code WHERE code_name = 'RELATIONSHIP'</sqlCheck>
+        </preConditions>
+        <sql><![CDATA[
+            INSERT INTO m_code_value
+                (id, code_id, code_value, code_description, order_position, code_score, is_active, is_mandatory)
+            SELECT nextval('m_code_value_id_seq'), code.id, requested.code_value,
+                   'Required by Arissto family-reference migration', requested.order_position, NULL, TRUE, FALSE
+            FROM m_code code
+            CROSS JOIN (VALUES
+                ('Padre/Madre', 9), ('Esposo(a)/Pareja', 10), ('Primo(a)', 11), ('Tío(a)', 12),
+                ('Sobrino(a)', 13), ('Cuñado(a)', 14), ('Suegro(a)', 15),
+                ('Yerno/Nuera', 16), ('Abuelo(a)', 17), ('Nieto(a)', 18),
+                ('Sin especificar', 19)
+            ) requested(code_value, order_position)
+            WHERE code.code_name = 'RELATIONSHIP'
+              AND NOT EXISTS (
+                  SELECT 1 FROM m_code_value existing
+                  WHERE existing.code_id = code.id AND LOWER(existing.code_value) = LOWER(requested.code_value)
+              );
+        ]]></sql>
+        <rollback>
+            <sql><![CDATA[
+                DELETE FROM m_code_value value
+                USING m_code code
+                WHERE value.code_id = code.id
+                  AND code.code_name = 'RELATIONSHIP'
+                  AND value.code_description = 'Required by Arissto family-reference migration'
+                  AND NOT EXISTS (SELECT 1 FROM m_family_members member WHERE member.relationship_cv_id = value.id);
+            ]]></sql>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0277-3-add-reference-relationships-mariadb" author="credesal" dbms="mariadb,mysql">
+        <preConditions onFail="HALT">
+            <sqlCheck expectedResult="1">SELECT COUNT(*) FROM m_code WHERE code_name = 'RELATIONSHIP'</sqlCheck>
+        </preConditions>
+        <sql><![CDATA[
+            INSERT INTO m_code_value
+                (code_id, code_value, code_description, order_position, code_score, is_active, is_mandatory)
+            SELECT code.id, requested.code_value,
+                   'Required by Arissto family-reference migration', requested.order_position, NULL, TRUE, FALSE
+            FROM m_code code
+            CROSS JOIN (
+                SELECT 'Padre/Madre' AS code_value, 9 AS order_position
+                UNION ALL SELECT 'Esposo(a)/Pareja', 10
+                UNION ALL SELECT 'Primo(a)', 11
+                UNION ALL SELECT 'Tío(a)', 12
+                UNION ALL SELECT 'Sobrino(a)', 13
+                UNION ALL SELECT 'Cuñado(a)', 14
+                UNION ALL SELECT 'Suegro(a)', 15
+                UNION ALL SELECT 'Yerno/Nuera', 16
+                UNION ALL SELECT 'Abuelo(a)', 17
+                UNION ALL SELECT 'Nieto(a)', 18
+                UNION ALL SELECT 'Sin especificar', 19
+            ) requested
+            WHERE code.code_name = 'RELATIONSHIP'
+              AND NOT EXISTS (
+                  SELECT 1 FROM m_code_value existing
+                  WHERE existing.code_id = code.id AND LOWER(existing.code_value) = LOWER(requested.code_value)
+              );
+        ]]></sql>
+        <rollback>
+            <sql><![CDATA[
+                DELETE value FROM m_code_value value
+                JOIN m_code code ON code.id = value.code_id
+                WHERE code.code_name = 'RELATIONSHIP'
+                  AND value.code_description = 'Required by Arissto family-reference migration'
+                  AND NOT EXISTS (SELECT 1 FROM m_family_members member WHERE member.relationship_cv_id = value.id);
+            ]]></sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

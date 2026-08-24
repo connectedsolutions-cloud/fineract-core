@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0280-1-allow-duplicate-staff-mobile-postgresql" author="credesal" dbms="postgresql">
+        <preConditions onFail="MARK_RAN">
+            <indexExists tableName="m_staff" indexName="m_staff_mobile_no_key"/>
+        </preConditions>
+        <dropUniqueConstraint tableName="m_staff" constraintName="m_staff_mobile_no_key"/>
+        <rollback>
+            <addUniqueConstraint tableName="m_staff" columnNames="mobile_no" constraintName="m_staff_mobile_no_key"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0280-2-allow-duplicate-staff-mobile-mysql" author="credesal" dbms="mysql,mariadb">
+        <preConditions onFail="MARK_RAN">
+            <indexExists tableName="m_staff" indexName="mobile_no_UNIQUE"/>
+        </preConditions>
+        <dropUniqueConstraint tableName="m_staff" constraintName="mobile_no_UNIQUE"/>
+        <rollback>
+            <addUniqueConstraint tableName="m_staff" columnNames="mobile_no" constraintName="mobile_no_UNIQUE"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0280-3-create-arissto-staff-profile" author="credesal">
+        <createTable tableName="credesal_staff_profile">
+            <column name="staff_id" type="BIGINT"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="arissto_company_id" type="VARCHAR(3)"/>
+            <column name="arissto_person_id" type="VARCHAR(5)"/>
+            <column name="profile_branch_id" type="VARCHAR(3)"/>
+            <column name="source_firstname" type="VARCHAR(50)"/>
+            <column name="source_lastname" type="VARCHAR(50)"/>
+            <column name="job_id" type="VARCHAR(5)"/>
+            <column name="entry_date" type="DATE"/>
+            <column name="legacy_state" type="VARCHAR(2)"/>
+            <column name="address" type="TEXT"/>
+            <column name="salary" type="DECIMAL(18,2)"/>
+            <column name="legacy_user_id" type="VARCHAR(5)"/>
+            <column name="employee_status_id" type="VARCHAR(2)"/>
+            <column name="marital_status_id" type="VARCHAR(2)"/>
+            <column name="profession" type="VARCHAR(150)"/>
+            <column name="residence_place" type="VARCHAR(150)"/>
+            <column name="phone" type="VARCHAR(15)"/>
+            <column name="father_name" type="VARCHAR(50)"/>
+            <column name="mother_name" type="VARCHAR(50)"/>
+            <column name="dui" type="VARCHAR(10)"/>
+            <column name="nit" type="VARCHAR(20)"/>
+            <column name="nup" type="VARCHAR(12)"/>
+            <column name="isss" type="VARCHAR(10)"/>
+            <column name="birth_date" type="DATE"/>
+            <column name="birth_place" type="VARCHAR(150)"/>
+            <column name="nationality" type="VARCHAR(50)"/>
+            <column name="emergency_address" type="TEXT"/>
+            <column name="emergency_phone" type="VARCHAR(15)"/>
+            <column name="emergency_contact" type="VARCHAR(50)"/>
+            <column name="sex" type="VARCHAR(1)"/>
+            <column name="afp_id" type="VARCHAR(5)"/>
+            <column name="retired" type="VARCHAR(1)"/>
+            <column name="affiliation_number" type="VARCHAR(10)"/>
+            <column name="board_member" type="VARCHAR(1)"/>
+            <column name="birth_department_code" type="VARCHAR(2)"/>
+            <column name="birth_municipality_code" type="VARCHAR(4)"/>
+            <column name="taxpayer" type="VARCHAR(1)"/>
+            <column name="phone_2" type="VARCHAR(15)"/>
+            <column name="phone_1" type="VARCHAR(15)"/>
+            <column name="email" type="VARCHAR(150)"/>
+            <column name="collections_manager" type="VARCHAR(1)"/>
+            <column name="bank_account" type="VARCHAR(75)"/>
+            <column name="structure_id" type="INT"/>
+            <column name="notary" type="VARCHAR(1)"/>
+            <column name="person_type_id" type="VARCHAR(2)"/>
+            <column name="employee_type_id" type="VARCHAR(2)"/>
+            <column name="promoter" type="VARCHAR(1)"/>
+            <column name="account_executive" type="VARCHAR(1)"/>
+            <column name="internal_employee" type="VARCHAR(1)"/>
+            <column name="economic_dependents" type="TEXT"/>
+            <column name="dui_issue_place" type="VARCHAR(50)"/>
+            <column name="dui_issue_date" type="DATE"/>
+            <column name="board_retirement_date" type="DATE"/>
+            <column name="service_point_branch" type="VARCHAR(1)"/>
+            <column name="reference" type="VARCHAR(25)"/>
+            <column name="retirement_date" type="DATE"/>
+            <column name="death_date" type="DATE"/>
+            <column name="residence_department_code" type="VARCHAR(2)"/>
+            <column name="residence_municipality_code" type="VARCHAR(4)"/>
+            <column name="country_id" type="VARCHAR(4)"/>
+            <column name="birth_country_id" type="VARCHAR(4)"/>
+            <column name="domiciled" type="VARCHAR(1)"/>
+            <column name="iva" type="VARCHAR(10)"/>
+            <column name="disabled" type="VARCHAR(1)"/>
+            <column name="compensation_date" type="DATE"/>
+            <column name="legacy_username" type="VARCHAR(15)"/>
+            <column name="legacy_user_type_id" type="VARCHAR(1)"/>
+            <column name="legacy_user_status" type="VARCHAR(1)"/>
+            <column name="legacy_user_blocked" type="VARCHAR(1)"/>
+            <column name="legacy_failed_attempts" type="INT"/>
+            <column name="legacy_password_date" type="DATE"/>
+            <column name="legacy_user_phone" type="VARCHAR(15)"/>
+            <column name="legacy_user_sex" type="VARCHAR(1)"/>
+            <column name="legacy_user_dui" type="VARCHAR(20)"/>
+            <column name="legacy_user_initials" type="VARCHAR(10)"/>
+            <column name="created_at" type="DATETIME"/>
+            <column name="updated_at" type="DATETIME"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_staff_profile" baseColumnNames="staff_id"
+                                 constraintName="FK_credesal_staff_profile_staff"
+                                 referencedTableName="m_staff" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <changeSet id="0280-4-register-arissto-staff-profile" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(1) FROM x_registered_table WHERE registered_table_name = 'credesal_staff_profile'</sqlCheck>
+        </preConditions>
+        <insert tableName="x_registered_table">
+            <column name="registered_table_name" value="credesal_staff_profile"/>
+            <column name="application_table_name" value="m_staff"/>
+            <column name="category" valueNumeric="100"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0280-5-staff-profile-permissions" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(1) FROM m_permission WHERE code = 'CREATE_credesal_staff_profile'</sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission"><column name="grouping" value="datatable"/><column name="code" value="CREATE_credesal_staff_profile"/><column name="entity_name" value="credesal_staff_profile"/><column name="action_name" value="CREATE"/><column name="can_maker_checker" valueBoolean="false"/></insert>
+        <insert tableName="m_permission"><column name="grouping" value="datatable"/><column name="code" value="READ_credesal_staff_profile"/><column name="entity_name" value="credesal_staff_profile"/><column name="action_name" value="READ"/><column name="can_maker_checker" valueBoolean="false"/></insert>
+        <insert tableName="m_permission"><column name="grouping" value="datatable"/><column name="code" value="UPDATE_credesal_staff_profile"/><column name="entity_name" value="credesal_staff_profile"/><column name="action_name" value="UPDATE"/><column name="can_maker_checker" valueBoolean="false"/></insert>
+        <insert tableName="m_permission"><column name="grouping" value="datatable"/><column name="code" value="DELETE_credesal_staff_profile"/><column name="entity_name" value="credesal_staff_profile"/><column name="action_name" value="DELETE"/><column name="can_maker_checker" valueBoolean="false"/></insert>
+    </changeSet>
+
+</databaseChangeLog>

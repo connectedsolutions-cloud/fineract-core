@@ -44,6 +44,18 @@ public class ClientTest extends IntegrationTest {
         assertThat(retrieveFirst()).isPresent();
     }
 
+    @Test
+    @Order(3)
+    void createClientsWithSharedMobileNumber() {
+        String sharedMobileNumber = Utils.randomNumberGenerator(10).toString();
+
+        Long firstClientId = createWithMobileNumber("SharedPhoneClientOne", sharedMobileNumber);
+        Long secondClientId = createWithMobileNumber("SharedPhoneClientTwo", sharedMobileNumber);
+
+        assertThat(firstClientId).isGreaterThan(0);
+        assertThat(secondClientId).isGreaterThan(0).isNotEqualTo(firstClientId);
+    }
+
     // The following are not tests, but helpful utilities for other tests
 
     public Long getClientId() {
@@ -59,6 +71,11 @@ public class ClientTest extends IntegrationTest {
         return ok(fineractClient().clients.create6(
                 new PostClientsRequest().legalFormId(1L).officeId(1L).fullname("TestClient").dateFormat(Utils.DATE_FORMAT).locale("en_US")))
                 .getClientId();
+    }
+
+    private Long createWithMobileNumber(String fullname, String mobileNumber) {
+        return ok(fineractClient().clients.create6(new PostClientsRequest().legalFormId(1L).officeId(1L).fullname(fullname)
+                .mobileNo(mobileNumber).dateFormat(Utils.DATE_FORMAT).locale("en_US"))).getClientId();
     }
 
     Optional<Long> retrieveFirst() {

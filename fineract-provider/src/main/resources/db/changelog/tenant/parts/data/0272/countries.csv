@@ -1,0 +1,280 @@
+arissto_country_id,name,iso3,iso2,demonym
+0000,Mundo,,,
+0004,Afganistán,AFG,AF,Afgano/na
+0008,Albania,ALB,AL,Albanés/sa
+0010,Antártida,,,
+0012,Argelia,DZA,DZ,Argelino/na
+0016,Samoa Americana,ASM,AS,samoano/a
+0020,Andorra,AND,AD,Andorrano/na
+0024,Angola,AGO,AO,Angoleño/ña
+0028,Antigua y Barbuda,ATG,AG,Antiguano/na
+0031,Azerbaiyán,AZE,AZ,Azerbaiyano/na
+0032,Argentina,ARG,AR,Argentino/a
+0036,Australia,AUS,AU,Australiano/na
+0040,Austria,AUT,AT,Austríaco/ca
+0044,Bahamas,BHS,BS,Bahameño/ña
+0048,Bahrein,BHR,BH,Bahreiní
+0050,Bangladesh,BGD,BD,Bangladesí
+0051,Armenia,ARM,AM,Armenio/nia
+0052,Barbados,BRB,BB,Barbadense
+0056,Bélgica,BEL,BE,Belga
+0058,Bélgica-Luxemburgo,,,
+0060,Bermudas,BMU,BM,Bermudeño/ña
+0064,Bhután,BTN,BT,Butanés/sa
+0068,Bolivia,BOL,BO,Boliviano/a
+0070,Bosnia y Herzegovina,BIH,BA,Bosnio/nia
+0072,Botswana,BWA,BW,Botsuano/na
+0074,Isla Bouvet,,,
+0076,Brasil,BRA,BR,Brasileño/a
+0080,Territorio Antártico Británico,,,
+0084,Belice,BLZ,BZ,Beliceño/ña
+0086,Territorio Británico del Océano ??ndico,IOT,IO,Chaguense
+0090,Islas Salomón,SLB,SB,Salomonense
+0092,Islas Vírgenes Británicas,VGB,VG,Virgenense británico/a
+0096,Brunei Darussalam,BRN,BN,Bruneano/na
+0100,Bulgaria,BGR,BG,Búlgaro/ra
+0104,Myanmar,MMR,MM,Birmano/a
+0108,Burundi,BDI,BI,Burundés/sa
+0112,Belarús,BLR,BY,Bielorruso/sa
+0116,Camboya,KHM,KH,Camboyano/na
+0120,Camerún,CMR,CM,Camerunés/sa
+0124,Canadá,CAN,CA,Canadiense
+0132,Cabo Verde,CPV,CV,Caboverdiano/na
+0136,Islas Caimán,CYM,KY,Caimanés/sa
+0140,República Centroafricana,CAF,CF,Centroafricano/na
+0144,Sri Lanka,LKA,LK,Ceilanés/sa
+0148,Chad,TCD,TD,Chadiano/na
+0152,Chile,CHL,CL,Chileno/a
+0156,China,CHN,CN,Chino/na
+0158,"Taiwán, China",TWN,TW,Taiwanés/sa
+0162,Isla de Navidad,,,
+0166,Islas Cocos (Keeling),CCK,CC,Cocano/a
+0170,Colombia,COL,CO,Colombiano/a
+0174,Comoras,COM,KM,Comorense
+0175,Mayotte,MYT,YT,Mayotés
+0178,"Congo, Rep. del",COG,CG,Congoleño/ña
+0180,"Congo, Rep. Dem. del",COD,CD,Congoleño/ña
+0184,Islas Cook,COK,CK,Cookiano/na
+0188,Costa Rica,CRI,CR,Costarricense
+0191,Croacia,HRV,HR,Croata
+0192,Cuba,CUB,CU,Cubano/a
+0196,Chipre,CYP,CY,Chipriota
+0200,Checoslovaquia,,,
+0203,República Checa,CZE,CZ,Checo/ca
+0204,Benin,BEN,BJ,Beninés/sa
+0208,Dinamarca,DNK,DK,Danés/sa
+0212,Dominica,DMA,DM,Dominiqués
+0214,República Dominicana,DOM,DO,Dominicano/na
+0218,Ecuador,ECU,EC,Ecuatoriano/a
+0222,El Salvador,SLV,SV,Salvadoreñ@
+0226,Guinea Ecuatorial,GNQ,GQ,Ecuatoguineano/na
+0230,Etiopía (incluida Eritrea),,,
+0231,Etiopía (excluida Eritrea),ETH,ET,Etíope
+0232,Eritrea,ERI,ER,Eritreo/a
+0233,Estonia,EST,EE,Estonio/nia
+0234,Islas Feroe,FRO,FO,Feroés/a
+0238,Islas Falkland,,,
+0239,Islas Georgias del Sur y Sandwich del Sur,,,
+0242,Fiji,FJI,FJ,Fiyiano/na
+0246,Finlandia,FIN,FI,Finlandés/sa
+0248,Åland Islands,ALA,AX,alandés/sa
+0250,Francia,FRA,FR,Francés/sa
+0254,Guayana Francesa,GUF,GF,francoguayanés
+0258,Polinesia Francesa,PYF,PF,francopolinesio/a
+0260,Tierras Australes y Antárticas Francesas,,,
+0262,Djibouti,DJI,DJ,Yibutiano/na
+0266,Gabón,GAB,GA,Gabonés/sa
+0268,Georgia,GEO,GE,Georgiano/na
+0270,Gambia,GMB,GM,Gambiano/na
+0274,Gaza Strip,,,
+0275,Territorio Palestino Ocupado,PSE,PS,Palestino
+0276,Alemania,DEU,DE,Alemán/na
+0278,República Democrática Alemana,,,
+0288,Ghana,GHA,GH,Ghanés/sa
+0292,Gibraltar,GIB,GI,Gibraltareño/ña
+0296,Kiribati,KIR,KI,Kiribatiano/na
+0300,Grecia,GRC,GR,Griego/ga
+0304,Groenlandia,GRL,GL,Groenlandés
+0308,Granada,GRD,GD,Granadino/a
+0312,Guadalupe,GLP,GP,Guadalupense
+0316,Guam,GUM,GU,Guameño/ña
+0320,Guatemala,GTM,GT,Guatemalteco/a
+0324,Guinea,GIN,GN,Guineano/na
+0328,Guyana,GUY,GY,Guyanés/esa
+0332,Haití,HTI,HT,Haitiano/a
+0334,Islas Heard y McDonald,,,
+0336,Santa Sede,VAT,VA,Vaticano/na
+0340,Honduras,HND,HN,Hondureño/a
+0344,Hong Kong (China),HKG,HK,Hongkónes/sa
+0348,Hungría,HUN,HU,Húngaro/ra
+0352,Islandia,ISL,IS,Islandés/sa
+0356,India,IND,IN,Hindú
+0360,Indonesia,IDN,ID,Indonesio/sia
+0364,"Irán, Rep. Islámica del",IRN,IR,Iraní
+0368,Iraq,IRQ,IQ,Iraqí
+0372,Irlanda,IRL,IE,Irlandés/sa
+0376,Israel,ISR,IL,Israelí
+0380,Italia,ITA,IT,Italiano/na
+0384,Côte d'Ivoire,CIV,CI,Marfileño/ña
+0388,Jamaica,JAM,JM,Jamaicano/na o Jamaiquino/na
+0392,Japón,JPN,JP,Japonés/sa
+0396,Jhonston Island,,,
+0398,Kazajstán,KAZ,KZ,Kazajo/ja
+0400,Jordania,JOR,JO,Jordano/na
+0404,Kenya,KEN,KE,Keniano/na
+0408,"Corea, Rep. Dem. de",PRK,KP,Norcoreano/na
+0410,"Corea, Rep. de",KOR,KR,Surcoreano/na
+0412,Kosovo,,,
+0414,Kuwait,KWT,KW,Kuwaití
+0417,Kirguistán,KGZ,KG,Kirguís
+0418,República Democrática Popular Lao,LAO,LA,Laosiano/na
+0422,Líbano,LBN,LB,Libanés/sa
+0426,Lesotho,LSO,LS,Lesotense
+0428,Letonia,LVA,LV,Letón/na
+0430,Liberia,LBR,LR,Liberiano/na
+0434,Libia,LBY,LY,Libio/a
+0438,Liechtenstein,LIE,LI,liechtensteiniano/na
+0440,Lituania,LTU,LT,Lituano/na
+0442,Luxemburgo,LUX,LU,Luxemburgués/sa
+0446,Macao,MAC,MO,Macaense
+0450,Madagascar,MDG,MG,Malgache
+0454,Malawi,MWI,MW,Malauí
+0457,Sarawak,,,
+0458,Malasia,MYS,MY,Malasio/sia
+0459,Pen Malaysia,,,
+0461,Sabah,,,
+0462,Maldivas,MDV,MV,Maldivo/va
+0466,Malí,MLI,ML,"Maliense, Malí"
+0470,Malta,MLT,MT,Maltés/sa
+0474,Martinica,MTQ,MQ,Martiniqués
+0478,Mauritania,MRT,MR,Mauritano/na
+0480,Mauricio,MUS,MU,Mauriciano/na
+0484,México,MEX,MX,Mexicano/a
+0488,Midway Islands,,,
+0490,"Otra zona de Asia, no esp.",,,
+0492,Mónaco,MCO,MC,Monegasco/ca
+0496,Mongolia,MNG,MN,Mongol/la
+0498,República de Moldova,MDA,MD,Moldavo/va
+0499,Montenegro,MNE,ME,Montenegrino/na
+0500,Montserrat,MSR,MS,de Montserrat
+0504,Marruecos,MAR,MA,Marroquí
+0508,Mozambique,MOZ,MZ,Mozambiqueño/ña
+0512,Omán,OMN,OM,Omaní
+0516,Namibia,NAM,NA,Namibio/bia
+0520,Nauru,NRU,NR,Nauruano/na
+0524,Nepal,NPL,NP,Nepalés/sa
+0528,Países Bajos,NLD,NL,Holandés/a
+0530,Antillas Neerlandesas,,,
+0531,Curacao,,,
+0533,Aruba,ABW,AW,arubeño/ña
+0534,San Martín,,,
+0535,Bonaire,,,
+0540,Nueva Caledonia,NCL,NC,Neocaledonio/a
+0548,Vanuatu,VUT,VU,Vanuatuense
+0554,Nueva Zelandia,NZL,NZ,Neozelandés/sa
+0558,Nicaragua,NIC,NI,Nicaragüense
+0562,Níger,NER,NE,Nigerino/na
+0566,Nigeria,NGA,NG,Nigeriano /na
+0570,Niue,NIU,NU,Niuano/a
+0574,Isla Norfolk,,,
+0578,Noruega,NOR,NO,Noruego/ga
+0580,Mariana,MNP,MP,Normariano/na
+0581,Islas Ultramarinas Menores de Estados Unidos,,,
+0582,Islas del Pacífico,,,
+0583,"Micronesia, Estados Fed. de",FSM,FM,Micronesio/sia
+0584,Islas Marshall,MHL,MH,Marshalés/sa
+0585,Palau,PLW,PW,Palauano/na
+0586,Pakistán,PAK,PK,Pakistaní
+0591,Panamá,PAN,PA,Panameño/ña
+0592,Fm Panama Cz,,,
+0598,Papua Nueva Guinea,PNG,PG,Papú
+0600,Paraguay,PRY,PY,Paraguayo/a
+0604,Perú,PER,PE,Peruano/a
+0608,Filipinas,PHL,PH,Filipino/na
+0612,Pitcairn,PCN,PN,Pitcairnés/a
+0616,Polonia,POL,PL,Polaco/ca
+0620,Portugal,PRT,PT,Portugués/sa
+0624,Guinea-Bissau,,,
+0626,Timor Oriental,TLS,TL,Timorense
+0630,Puerto Rico,PRI,PR,Puertoriqueño/ña
+0634,Qatar,QAT,QA,Catarí
+0638,Reunión,REU,RE,"reunionés, sa; francorreunionés, sa"
+0642,Rumania,ROU,RO,Rumaní/na
+0643,Federación de Rusia,RUS,RU,Ruso/sa
+0646,Rwanda,RWA,RW,Ruandés/sa
+0647,Ryukyu Is,,,
+0654,Santa Elena,SHN,SH,Heleno/na
+0658,Saint Kitts-Nevis-Anguilla-Aru,,,
+0659,Saint Kitts y Nevis,KNA,KN,Cristobaleño/ña
+0660,Anguila,AIA,AI,Anguileño/ña
+0662,Santa Lucía,LCA,LC,Santalucense
+0666,San Pedro y Miquelón,SPM,PM,Sanpedrino/a
+0670,San Vicente y las Granadinas,VCT,VC,Sanvicentino/na
+0674,San Marino,SMR,SM,Sanmarinense
+0678,Santo Tomé y Príncipe,STP,ST,Santotomense
+0682,Arabia Saudita,SAU,SA,Saudí o saudita
+0686,Senegal,SEN,SN,Senegalés/sa
+0690,Seychelles,SYC,SC,Seychellense
+0694,Sierra Leona,SLE,SL,Sierrano/na
+0698,SIKKIM,,,
+0702,Singapur,SGP,SG,Singapurense
+0703,República Eslovaca,SVK,SK,Eslovaco/ca
+0704,Viet Nam,VNM,VN,Vietnamita
+0705,Eslovenia,SVN,SI,Esloveno/na
+0706,Somalia,SOM,SO,Somalí
+0710,Sudáfrica,ZAF,ZA,Sudafricano/na
+0716,Zimbabwe,ZWE,ZW,Zimbabuense
+0717,Fm Rhod Nyas,,,
+0720,"Yemen, Rep. Dem. Del",,,
+0724,España,ESP,ES,Español/la
+0728,Sudán del Sur,,,
+0729,Sudán,,,
+0732,Sahara Occidental,ESH,EH,Saharí/ana
+0736,Ex Sudán,SDN,SD,Sudanés/sa
+0740,Suriname,SUR,SR,Surinamés/esa
+0744,Svalbard and Jan Mayen Is,,,
+0748,Swazilandia,SWZ,SZ,Suazi
+0752,Suecia,SWE,SE,Sueco/ca
+0756,Suiza,CHE,CH,Suizo/za
+0760,República ??rabe Siria,SYR,SY,Sirio/ria
+0762,Tayikistán,TJK,TJ,Tayiko/ka
+0764,Tailandia,THA,TH,Tailandés/sa
+0768,Togo,TGO,TG,Togolés/sa
+0772,Tokelau,TKL,TK,Tokelauneano/na
+0776,Tonga,TON,TO,Tongano/na
+0780,Trinidad y Tobago,TTO,TT,Trinitense
+0784,Emiratos ??rabes Unidos,ARE,AE,Emiratí
+0788,Túnez,TUN,TN,Tunecino/na
+0792,Turquía,TUR,TR,Turco/ca
+0795,Turkmenistán,TKM,TM,Turcomano/na
+0796,Islas Turcas y Caicos,TCA,TC,Turcocaiqueño/a
+0798,Tuvalu,TUV,TV,Tuvaluano/na
+0800,Uganda,UGA,UG,Ugandés/sa
+0804,Ucrania,UKR,UA,Ucraniano/na
+0807,"Macedonia, ex Rep. Yugoslava de",MKD,MK,Macedonio/a
+0810,Unión Soviética,,,
+0818,"Egipto, Rep. ??rabe de",EGY,EG,Egipcio/cia
+0826,Reino Unido,GBR,GB,Británico/ca
+0834,Tanzanía,TZA,TZ,Tanzano/na
+0835,Fm Tanganyik,,,
+0836,Fm Zanz-Pemb,,,
+0837,Isla Bunker,,,
+0839,Categorías especiales,,,
+0840,Estados Unidos,USA,US,Estadounidense
+0849,Comando I del Pacífico de Estados Unidos,,,
+0850,Islas Vírgenes (EE.UU.),VIR,VI,Virgenense
+0854,Burkina Faso,BFA,BF,Burkinés
+0858,Uruguay,URY,UY,Uruguayo/a
+0860,Uzbekistán,UZB,UZ,Uzbeko/ka
+0862,Venezuela,VEN,VE,Venezolano/a
+0866,Fm Vietnam DR,,,
+0868,Fm Vietnam Rp,,,
+0872,Wake Island,,,
+0876,Islas Wallis y Futuna,WLF,WF,Walisiano/na
+0882,Samoa,WSM,WS,Samoano/na
+0887,"Yemen, Rep. del",YEM,YE,Yemení
+0890,"Yugoslavia, Rep. Fed. de (Serbia y Montenegro)",,,
+0891,"Serbia, Rep. Fed. de (Serbia y Montenegro)",,,
+0894,Zambia,ZMB,ZM,Zambiano/na
+0898,No especificados,,,
+0918,European Union,,,

@@ -52,7 +52,7 @@ public class StaffReadPlatformServiceImpl implements StaffReadPlatformService {
 
         public String schema() {
             return " s.id as id,s.office_id as officeId, o.name as officeName, s.firstname as firstname, s.lastname as lastname,"
-                    + " s.display_name as displayName, s.is_loan_officer as isLoanOfficer, s.external_id as externalId, s.mobile_no as mobileNo,"
+                    + " s.display_name as displayName, s.is_loan_officer as isLoanOfficer, s.external_id as externalId, s.mobile_no as mobileNo, s.email_address as emailAddress,"
                     + " s.is_active as isActive, s.joining_date as joiningDate from m_staff s " + " join m_office o on o.id = s.office_id";
         }
 
@@ -68,10 +68,11 @@ public class StaffReadPlatformServiceImpl implements StaffReadPlatformService {
             final String officeName = rs.getString("officeName");
             final String externalId = rs.getString("externalId");
             final String mobileNo = rs.getString("mobileNo");
+            final String emailAddress = rs.getString("emailAddress");
             final boolean isActive = rs.getBoolean("isActive");
             final LocalDate joiningDate = JdbcSupport.getLocalDate(rs, "joiningDate");
 
-            return StaffData.instance(id, firstname, lastname, displayName, officeId, officeName, isLoanOfficer, externalId, mobileNo,
+            return StaffData.instance(id, firstname, lastname, displayName, officeId, officeName, isLoanOfficer, externalId, mobileNo, emailAddress,
                     isActive, joiningDate);
         }
     }
@@ -85,7 +86,7 @@ public class StaffReadPlatformServiceImpl implements StaffReadPlatformService {
             sqlBuilder.append("s.id as id, s.office_id as officeId, ohierarchy.name as officeName,");
             sqlBuilder.append("s.firstname as firstname, s.lastname as lastname,");
             sqlBuilder.append("s.display_name as displayName, s.is_loan_officer as isLoanOfficer, s.external_id as externalId, ");
-            sqlBuilder.append("s.mobile_no as mobileNo, s.is_active as isActive, s.joining_date as joiningDate ");
+            sqlBuilder.append("s.mobile_no as mobileNo, s.email_address as emailAddress, s.is_active as isActive, s.joining_date as joiningDate ");
             sqlBuilder.append("from m_office o ");
             sqlBuilder.append("join m_office ohierarchy on o.hierarchy like concat(ohierarchy.hierarchy, '%') ");
             sqlBuilder.append("join m_staff s on s.office_id = ohierarchy.id and s.is_active=true ");
@@ -111,10 +112,11 @@ public class StaffReadPlatformServiceImpl implements StaffReadPlatformService {
             final boolean isLoanOfficer = rs.getBoolean("isLoanOfficer");
             final String externalId = rs.getString("externalId");
             final String mobileNo = rs.getString("mobileNo");
+            final String emailAddress = rs.getString("emailAddress");
             final boolean isActive = rs.getBoolean("isActive");
             final LocalDate joiningDate = JdbcSupport.getLocalDate(rs, "joiningDate");
 
-            return StaffData.instance(id, firstname, lastname, displayName, officeId, officeName, isLoanOfficer, externalId, mobileNo,
+            return StaffData.instance(id, firstname, lastname, displayName, officeId, officeName, isLoanOfficer, externalId, mobileNo, emailAddress,
                     isActive, joiningDate);
         }
     }
@@ -216,7 +218,8 @@ public class StaffReadPlatformServiceImpl implements StaffReadPlatformService {
             return StaffData.instance(staff.getId(), staff.getFirstname(), staff.getLastname(), staff.getDisplayName(),
                     staff.getOfficeId(), staff.getOfficeName(), officeIds.isEmpty() ? null : officeIds,
                     offices.isEmpty() ? null : offices, staff.getIsLoanOfficer(), staff.getExternalId(),
-                    staff.getMobileNo(), staff.getIsActive() != null ? staff.getIsActive() : false, staff.getJoiningDate());
+                    staff.getMobileNo(), staff.getEmailAddress(), staff.getIsActive() != null ? staff.getIsActive() : false,
+                    staff.getJoiningDate());
         } catch (final EmptyResultDataAccessException e) {
             throw new StaffNotFoundException(staffId, e);
         }

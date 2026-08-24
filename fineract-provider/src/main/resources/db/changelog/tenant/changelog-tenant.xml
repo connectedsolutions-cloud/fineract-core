@@ -288,4 +288,19 @@
     <include file="parts/0266_add_crd_tipo_linea_and_slu_catalogs.xml" relativeToChangelogFile="true" />
     <include file="parts/0267_add_infored_report.xml" relativeToChangelogFile="true" />
     <include file="parts/0268_add_crd_catalog_fks_to_loan_product.xml" relativeToChangelogFile="true" />
+    <include file="parts/0269_add_client_second_and_married_lastname.xml" relativeToChangelogFile="true" />
+    <include file="parts/0270_add_reporte_seguro_report.xml" relativeToChangelogFile="true" />
+    <include file="parts/0271_allow_duplicate_client_mobile_numbers.xml" relativeToChangelogFile="true" />
+    <include file="parts/0272_seed_arissto_client_catalogs.xml" relativeToChangelogFile="true" />
+    <include file="parts/0273_add_loan_tea_and_bcr_report.xml" relativeToChangelogFile="true" />
+    <include file="parts/0274_add_arissto_client_identifier_types.xml" relativeToChangelogFile="true" />
+    <include file="parts/0275_allow_duplicate_client_identifier_keys.xml" relativeToChangelogFile="true" />
+    <include file="parts/0276_ensure_client_type_tags.xml" relativeToChangelogFile="true" />
+    <include file="parts/0277_extend_family_members_for_arissto_references.xml" relativeToChangelogFile="true" />
+    <include file="parts/0278_ensure_arissto_client_gender_values.xml" relativeToChangelogFile="true" />
+    <include file="parts/0279_align_arissto_client_office_opening_dates.xml" relativeToChangelogFile="true" />
+    <include file="parts/0280_add_arissto_staff_profiles.xml" relativeToChangelogFile="true" />
+    <include file="parts/0281_add_arissto_membership_archive.xml" relativeToChangelogFile="true" />
+    <include file="parts/0282_add_credesal_aml_alerts.xml" relativeToChangelogFile="true" />
+    <include file="parts/0283_add_credesal_share_migration_support.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

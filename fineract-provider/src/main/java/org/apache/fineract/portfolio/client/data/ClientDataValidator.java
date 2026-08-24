@@ -334,6 +334,20 @@ public final class ClientDataValidator {
             baseDataValidator.reset().parameter(ClientApiConstants.fullnameParamName).value(fullnameParam)
                     .mustBeBlankWhenParameterProvided(ClientApiConstants.lastnameParamName, lastnameParamName);
         }
+
+        final String secondlastnameParam = this.fromApiJsonHelper.extractStringNamed(ClientApiConstants.secondlastnameParamName, element);
+        if (StringUtils.isNotBlank(secondlastnameParam)) {
+            final String fullnameParam = this.fromApiJsonHelper.extractStringNamed(ClientApiConstants.fullnameParamName, element);
+            baseDataValidator.reset().parameter(ClientApiConstants.fullnameParamName).value(fullnameParam)
+                    .mustBeBlankWhenParameterProvided(ClientApiConstants.secondlastnameParamName, secondlastnameParam);
+        }
+
+        final String marriedlastnameParam = this.fromApiJsonHelper.extractStringNamed(ClientApiConstants.marriedlastnameParamName, element);
+        if (StringUtils.isNotBlank(marriedlastnameParam)) {
+            final String fullnameParam = this.fromApiJsonHelper.extractStringNamed(ClientApiConstants.fullnameParamName, element);
+            baseDataValidator.reset().parameter(ClientApiConstants.fullnameParamName).value(fullnameParam)
+                    .mustBeBlankWhenParameterProvided(ClientApiConstants.marriedlastnameParamName, marriedlastnameParam);
+        }
     }
 
     private void validateRequiredIndividualNamePartsExist(final JsonElement element, final DataValidatorBuilder baseDataValidator) {
@@ -348,6 +362,14 @@ public final class ClientDataValidator {
         final String lastnameParamName = this.fromApiJsonHelper.extractStringNamed(ClientApiConstants.lastnameParamName, element);
         baseDataValidator.reset().parameter(ClientApiConstants.lastnameParamName).value(lastnameParamName).notBlank()
                 .notExceedingLengthOf(50);
+
+        final String secondlastnameParam = this.fromApiJsonHelper.extractStringNamed(ClientApiConstants.secondlastnameParamName, element);
+        baseDataValidator.reset().parameter(ClientApiConstants.secondlastnameParamName).value(secondlastnameParam).ignoreIfNull()
+                .notExceedingLengthOf(50);
+
+        final String marriedlastnameParam = this.fromApiJsonHelper.extractStringNamed(ClientApiConstants.marriedlastnameParamName, element);
+        baseDataValidator.reset().parameter(ClientApiConstants.marriedlastnameParamName).value(marriedlastnameParam).ignoreIfNull()
+                .notExceedingLengthOf(50);
     }
 
     private void fullnameCannotBeBlank(final JsonElement element, final DataValidatorBuilder baseDataValidator) {
@@ -358,7 +380,9 @@ public final class ClientDataValidator {
     private boolean isIndividualNamePartParameterPassed(final JsonElement element) {
         return this.fromApiJsonHelper.parameterExists(ClientApiConstants.firstnameParamName, element)
                 || this.fromApiJsonHelper.parameterExists(ClientApiConstants.middlenameParamName, element)
-                || this.fromApiJsonHelper.parameterExists(ClientApiConstants.lastnameParamName, element);
+                || this.fromApiJsonHelper.parameterExists(ClientApiConstants.lastnameParamName, element)
+                || this.fromApiJsonHelper.parameterExists(ClientApiConstants.secondlastnameParamName, element)
+                || this.fromApiJsonHelper.parameterExists(ClientApiConstants.marriedlastnameParamName, element);
     }
 
     private boolean isFullnameParameterPassed(final JsonElement element) {
@@ -369,8 +393,11 @@ public final class ClientDataValidator {
         final String firstname = this.fromApiJsonHelper.extractStringNamed(ClientApiConstants.firstnameParamName, element);
         final String middlename = this.fromApiJsonHelper.extractStringNamed(ClientApiConstants.middlenameParamName, element);
         final String lastname = this.fromApiJsonHelper.extractStringNamed(ClientApiConstants.lastnameParamName, element);
+        final String secondlastname = this.fromApiJsonHelper.extractStringNamed(ClientApiConstants.secondlastnameParamName, element);
+        final String marriedlastname = this.fromApiJsonHelper.extractStringNamed(ClientApiConstants.marriedlastnameParamName, element);
 
-        return StringUtils.isNotBlank(firstname) || StringUtils.isNotBlank(middlename) || StringUtils.isNotBlank(lastname);
+        return StringUtils.isNotBlank(firstname) || StringUtils.isNotBlank(middlename) || StringUtils.isNotBlank(lastname)
+                || StringUtils.isNotBlank(secondlastname) || StringUtils.isNotBlank(marriedlastname);
     }
 
     private boolean isFullnameProvided(final JsonElement element) {
@@ -461,6 +488,14 @@ public final class ClientDataValidator {
         }
 
         if (this.fromApiJsonHelper.parameterExists(ClientApiConstants.firstnameParamName, element)) {
+            atLeastOneParameterPassedForUpdate = true;
+        }
+
+        if (this.fromApiJsonHelper.parameterExists(ClientApiConstants.secondlastnameParamName, element)) {
+            atLeastOneParameterPassedForUpdate = true;
+        }
+
+        if (this.fromApiJsonHelper.parameterExists(ClientApiConstants.marriedlastnameParamName, element)) {
             atLeastOneParameterPassedForUpdate = true;
         }
 

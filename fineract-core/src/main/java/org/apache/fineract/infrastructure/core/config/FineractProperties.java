@@ -508,6 +508,7 @@ public class FineractProperties {
         private FineractTransactionProcessorItemProperties duePenaltyFeeInterestPrincipalInAdvancePrincipalPenaltyFeeInterest;
         private FineractTransactionProcessorItemProperties duePenaltyInterestPrincipalFeeInAdvancePenaltyInterestPrincipalFee;
         private FineractTransactionProcessorItemProperties advancedPaymentStrategy;
+        private FineractTransactionProcessorItemProperties credesalPenaltiesFeesInterestPrincipal;
         private boolean errorNotFoundFail;
     }
 

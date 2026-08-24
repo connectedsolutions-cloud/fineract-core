@@ -48,6 +48,8 @@ public class StaffRequest implements Serializable {
     private String externalId;
     @Schema(example = "+353851239876")
     private String mobileNo;
+    @Schema(example = "employee@example.org")
+    private String emailAddress;
     @Schema(example = "true")
     private Boolean isActive;
     @Schema(example = "01 January 2009")

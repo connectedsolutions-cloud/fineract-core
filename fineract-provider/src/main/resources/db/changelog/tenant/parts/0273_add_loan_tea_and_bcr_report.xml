@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<!--
+    Reporte BCR Ley Usura (Especiales).
+    TEA and TEA maxima are immutable loan-origination snapshots populated by
+    the loan-creation flow. This migration intentionally does not backfill or
+    calculate either value.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0273-1-add-loan-tea-snapshots" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="m_loan" columnName="tea"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="m_loan">
+            <column name="tea" type="DECIMAL(8,2)"/>
+        </addColumn>
+        <rollback>
+            <dropColumn tableName="m_loan" columnName="tea"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0273-2-add-loan-tea-maxima-snapshot" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="m_loan" columnName="tea_maxima"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="m_loan">
+            <column name="tea_maxima" type="DECIMAL(8,2)"/>
+        </addColumn>
+        <rollback>
+            <dropColumn tableName="m_loan" columnName="tea_maxima"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0273-3-add-bcr-slu-parameter" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_parameter WHERE parameter_name = 'BcrSluSelectAll'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="stretchy_parameter">
+            <column name="parameter_name" value="BcrSluSelectAll"/>
+            <column name="parameter_variable" value="slu"/>
+            <column name="parameter_label" value="Segmento"/>
+            <column name="parameter_displayType" value="select"/>
+            <column name="parameter_FormatType" value="string"/>
+            <column name="parameter_default" value="0"/>
+            <column name="special"/>
+            <column name="selectOne"/>
+            <column name="selectAll" value="Y"/>
+            <column name="parameter_sql"><![CDATA[
+SELECT DISTINCT s.slu AS id, CONCAT(s.slu, ' - ', s.descripcion) AS name
+FROM crd_slu s
+WHERE s.activo = TRUE
+ORDER BY s.slu
+]]></column>
+            <column name="parent_id"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0273-4-add-reporte-bcr" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM stretchy_report WHERE report_name = 'Reporte BCR'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="stretchy_report">
+            <column name="report_name" value="Reporte BCR"/>
+            <column name="report_type" value="Table"/>
+            <column name="report_subtype"/>
+            <column name="report_category" value="Especiales"/>
+            <column name="report_sql"><![CDATA[
+SELECT
+    CAST(l.account_no AS VARCHAR) AS "No Prestamo",
+    (
+        SELECT dr.classification
+        FROM m_loan_delinquency_tag_history dth
+        JOIN m_delinquency_range dr ON dr.id = dth.delinquency_range_id
+        WHERE dth.loan_id = l.id
+          AND dth.liftedon_date IS NULL
+        ORDER BY dth.addedon_date DESC, dth.id DESC
+        LIMIT 1
+    ) AS "Clsf",
+    c.display_name AS "Nombre",
+    ROUND(l.approved_principal, 2) AS "Monto Aprobado",
+    l.disbursedon_date AS "Fecha Otorga.",
+    l.expected_maturedon_date AS "Fecha Venci.",
+    (
+        SELECT MAX(lt.transaction_date)
+        FROM m_loan_transaction lt
+        WHERE lt.loan_id = l.id
+          AND lt.transaction_type_enum = 2
+          AND lt.is_reversed = FALSE
+          AND lt.transaction_date <= '${endDate}'
+    ) AS "Ultimo Pago",
+    ROUND(l.net_disbursal_amount, 2) AS "Monto Desemb.",
+    ROUND(l.principal_outstanding_derived, 2) AS "Saldo",
+    l.number_of_repayments AS "Plazo",
+    ROUND(l.annual_nominal_interest_rate, 2) AS "Tasa % Interes",
+    ROUND(COALESCE((
+        SELECT rs.principal_amount + rs.interest_amount
+        FROM m_loan_repayment_schedule rs
+        WHERE rs.loan_id = l.id
+        ORDER BY rs.installment
+        LIMIT 1
+    ), 0), 2) AS "Cuota K+I",
+    ROUND(COALESCE((
+        SELECT rs.principal_amount + rs.interest_amount
+             + COALESCE(rs.fee_charges_amount, 0)
+        FROM m_loan_repayment_schedule rs
+        WHERE rs.loan_id = l.id
+        ORDER BY rs.installment
+        LIMIT 1
+    ), 0), 2) AS "Cuota Total",
+    ROUND(GREATEST(COALESCE(l.approved_principal, 0) - COALESCE(l.net_disbursal_amount, 0), 0), 2)
+        AS "Cargos Desembolso",
+    ROUND(COALESCE((
+        SELECT rs.fee_charges_amount
+        FROM m_loan_repayment_schedule rs
+        WHERE rs.loan_id = l.id
+        ORDER BY rs.installment
+        LIMIT 1
+    ), 0), 2) AS "Cargos Cuota",
+    l.tea AS "TEA %",
+    l.tea_maxima AS "TEA % Maxima",
+    CASE
+        WHEN l.tea IS NULL OR l.tea_maxima IS NULL THEN NULL
+        WHEN l.tea <= l.tea_maxima THEN 'CUMPLE'
+        ELSE 'NO CUMPLE'
+    END AS "Cumplimiento"
+FROM m_loan l
+JOIN m_client c ON c.id = l.client_id
+JOIN m_office o ON o.id = c.office_id
+JOIN m_product_loan p ON p.id = l.product_id
+JOIN m_office selected_office ON selected_office.id = ${officeId}
+WHERE l.disbursedon_date IS NOT NULL
+  AND l.disbursedon_date >= '${startDate}'
+  AND l.disbursedon_date <= '${endDate}'
+  AND o.hierarchy LIKE CONCAT(selected_office.hierarchy, '%')
+  AND o.hierarchy LIKE CONCAT('${currentUserHierarchy}', '%')
+  AND ('${currencyId}' = '-1' OR l.currency_code = '${currencyId}')
+  AND (${loanProductId} = -1 OR l.product_id = ${loanProductId})
+  AND (
+      '${slu}' = '-1'
+      OR EXISTS (
+          SELECT 1
+          FROM m_product_loan_slu pls
+          JOIN crd_slu s ON s.id_slu = pls.id_slu
+          WHERE pls.product_loan_id = p.id
+            AND s.activo = TRUE
+            AND s.slu = '${slu}'
+      )
+  )
+ORDER BY l.account_no
+]]></column>
+            <column name="description"
+                    value="Informe BCR Ley Usura por credito. TEA y TEA maxima se leen de los valores guardados al originar el credito."/>
+            <column name="core_report" valueBoolean="false"/>
+            <column name="use_report" valueBoolean="true"/>
+            <column name="self_service_user_report" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0273-5-add-reporte-bcr-parameters" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1)
+                FROM stretchy_report_parameter srp
+                JOIN stretchy_report sr ON sr.id = srp.report_id
+                WHERE sr.report_name = 'Reporte BCR'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+            SELECT sr.id, params.parameter_id, params.parameter_name
+            FROM stretchy_report sr
+            CROSS JOIN (
+                SELECT 1 AS parameter_id, 'startDate' AS parameter_name
+                UNION ALL SELECT 2, 'endDate'
+                UNION ALL SELECT 5, 'officeId'
+                UNION ALL SELECT 10, 'currencyId'
+                UNION ALL SELECT 25, 'loanProductId'
+                UNION ALL SELECT id, 'slu' FROM stretchy_parameter WHERE parameter_name = 'BcrSluSelectAll'
+            ) params
+            WHERE sr.report_name = 'Reporte BCR';
+        </sql>
+    </changeSet>
+
+    <changeSet id="0273-6-add-reporte-bcr-permission" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'READ_Reporte BCR'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="report"/>
+            <column name="code" value="READ_Reporte BCR"/>
+            <column name="entity_name" value="Reporte BCR"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

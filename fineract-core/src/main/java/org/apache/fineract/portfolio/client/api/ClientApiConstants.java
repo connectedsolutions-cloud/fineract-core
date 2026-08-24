@@ -84,6 +84,8 @@ public class ClientApiConstants {
     public static final String firstnameParamName = "firstname";
     public static final String middlenameParamName = "middlename";
     public static final String lastnameParamName = "lastname";
+    public static final String secondlastnameParamName = "secondlastname";
+    public static final String marriedlastnameParamName = "marriedlastname";
     public static final String fullnameParamName = "fullname";
     public static final String displaynameParamName = "displayname";
     public static final String officeIdParamName = "officeId";
@@ -198,7 +200,8 @@ public class ClientApiConstants {
      */
     protected static final Set<String> CLIENT_RESPONSE_DATA_PARAMETERS = new HashSet<>(Arrays.asList(idParamName, accountNoParamName,
             externalIdParamName, statusParamName, activeParamName, activationDateParamName, firstnameParamName, middlenameParamName,
-            lastnameParamName, fullnameParamName, displayNameParamName, mobileNoParamName, emailAddressParamName, officeIdParamName,
+            lastnameParamName, secondlastnameParamName, marriedlastnameParamName, fullnameParamName, displayNameParamName, mobileNoParamName,
+            emailAddressParamName, officeIdParamName,
             officeNameParamName, transferToOfficeIdParamName, transferToOfficeNameParamName, hierarchyParamName, imageIdParamName,
             imagePresentParamName, staffIdParamName, staffNameParamName, gestorIdParamName, gestorNameParamName, timelineParamName, groupsParamName, tagsParamName, tagOptionsParamName, officeOptionsParamName,
             staffOptionsParamName, dateOfBirthParamName, genderParamName, clientTypeParamName, clientClassificationParamName,

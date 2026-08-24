@@ -29,10 +29,9 @@ import java.util.List;
 import org.apache.fineract.client.models.GetNotification;
 import org.apache.fineract.client.models.GetNotificationsResponse;
 import org.apache.fineract.client.models.GetOfficesResponse;
-import org.apache.fineract.client.models.PostClientsRequest;
 import org.apache.fineract.client.models.PostUsersRequest;
 import org.apache.fineract.client.models.PostUsersResponse;
-import org.apache.fineract.integrationtests.common.ClientHelper;
+import org.apache.fineract.integrationtests.common.GroupHelper;
 import org.apache.fineract.integrationtests.common.NotificationHelper;
 import org.apache.fineract.integrationtests.common.OfficeHelper;
 import org.apache.fineract.integrationtests.common.Utils;
@@ -44,7 +43,7 @@ import org.junit.jupiter.api.Test;
 public class NotificationApiTest {
 
     public static final int SUPER_USER_ID = 1;
-    public static final String CLIENT_OBJECT_TYPE = "client";
+    public static final String GROUP_OBJECT_TYPE = "group";
     public static final String CREATED_ACTION_TYPE = "created";
     private RequestSpecification requestSpec;
     private ResponseSpecification responseSpec;
@@ -90,9 +89,8 @@ public class NotificationApiTest {
     @Test
     public void testNotificationRetrievalWorksWhenOneNotificationIsAvailable() {
         // given
-        PostClientsRequest clientRequest = ClientHelper.defaultClientCreationRequest();
-        Integer clientId = ClientHelper.createClient(requestSpec, responseSpec, clientRequest);
-        Assertions.assertNotNull(clientId);
+        Integer groupId = GroupHelper.createGroup(requestSpec, responseSpec);
+        Assertions.assertNotNull(groupId);
 
         // when
         NotificationHelper.waitUntilNotificationsAreAvailable(newUserRequestSpec, newUserResponseSpec);
@@ -105,7 +103,7 @@ public class NotificationApiTest {
         Assertions.assertEquals(SUPER_USER_ID, firstNotification.getActorId());
         Assertions.assertEquals(false, firstNotification.getIsRead());
         Assertions.assertEquals(CREATED_ACTION_TYPE, firstNotification.getAction());
-        Assertions.assertEquals(clientId.longValue(), firstNotification.getObjectId());
-        Assertions.assertEquals(CLIENT_OBJECT_TYPE, firstNotification.getObjectType());
+        Assertions.assertEquals(groupId.longValue(), firstNotification.getObjectId());
+        Assertions.assertEquals(GROUP_OBJECT_TYPE, firstNotification.getObjectType());
     }
 }

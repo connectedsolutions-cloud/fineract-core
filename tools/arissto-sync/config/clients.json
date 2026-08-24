@@ -1,0 +1,170 @@
+{
+  "source": {
+    "table": "AFI_SOCIO",
+    "company_key": "ID_EMPRESA",
+    "branch_key": "ID_SUCURSAL",
+    "party_key": "ID_SOCIO",
+    "external_key": "NUMERO_AFILIACION",
+    "status_key": "ID_ESTADO_SOCIO"
+  },
+  "client_type_tag": {
+    "group": "tipo_cliente",
+    "status_map": {
+      "001": "socio",
+      "003": "cliente"
+    },
+    "combined": {
+      "base_status": "001",
+      "tag": "cliente-socio",
+      "when_exists": {
+        "table": "CRD_CARTERA",
+        "join": {
+          "ID_EMPRESA": "ID_EMPRESA",
+          "ID_SUCURSAL_SOCIO": "ID_SUCURSAL",
+          "ID_SOCIO": "ID_SOCIO"
+        }
+      }
+    }
+  },
+  "activation": {"source": "FECHA_REGISTRO", "type": "date", "disposition": "migrate", "ownership": "legacy-owned", "required": true},
+  "core": {
+    "firstname": {"source": "NOMBRE_SOCIO", "type": "text", "disposition": "migrate", "ownership": "legacy-owned", "required": true},
+    "lastname": {"source": "APELLIDO_SOCIO", "type": "text", "disposition": "migrate", "ownership": "legacy-owned", "required": true},
+    "dateOfBirth": {"source": "FECHA_NACIMIENTO", "type": "date", "disposition": "migrate", "ownership": "legacy-owned", "required": false},
+    "genderId": {"source": "SEXO", "type": "gender-code", "catalog": "Gender", "value_map": {"1": "masculino", "2": "Femenino"}, "disposition": "migrate", "ownership": "legacy-owned", "required": false},
+    "mobileNo": {"source": "TELEFONO_PERSONAL", "type": "text", "disposition": "migrate", "ownership": "legacy-owned", "required": false},
+    "emailAddress": {"source": "EMAIL", "type": "email", "disposition": "migrate", "ownership": "legacy-owned", "required": false},
+    "accountNo": {"source": "ID_SOCIO", "type": "text", "disposition": "excluded", "ownership": "new-system-owned", "required": false}
+  },
+  "identifiers": {
+    "DUI": {"source": "DUI", "type": "text", "document_type": "Id", "source_unique": false, "disposition": "migrate", "ownership": "legacy-owned"},
+    "PASSPORT": {"source": "PASAPORTE", "type": "text", "document_type": "Passport", "source_unique": true, "disposition": "migrate", "ownership": "legacy-owned"},
+    "NIT": {"source": "NIT", "type": "text", "document_type": "NIT", "source_unique": true, "disposition": "migrate", "ownership": "legacy-owned"},
+    "RESIDENCY": {"source": "CARNE_RESIDENCIA", "type": "text", "document_type": "Carné de residencia", "source_unique": true, "disposition": "migrate", "ownership": "legacy-owned"}
+  },
+  "datatables": {
+    "credesal_client_datos_personales": {
+      "lugar_nacimiento": {"source": "LUGAR_NACIMIENTO", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"},
+      "tipo_documento_identificacion": {"sources": ["DUI", "PASAPORTE", "CARNE_RESIDENCIA"], "labels": ["DUI", "PASAPORTE", "CARNE DE RESIDENCIA"], "type": "selected-document-type", "disposition": "derived", "ownership": "legacy-owned"},
+      "numero_documento_identificacion": {"sources": ["DUI", "PASAPORTE", "CARNE_RESIDENCIA"], "type": "selected-document-number", "disposition": "derived", "ownership": "legacy-owned"},
+      "fecha_vencimiento_documento": {"source": "FECHA_EXPIRACION_DUI", "dui_source": "DUI", "type": "dui-expiration", "disposition": "derived", "ownership": "legacy-owned"},
+      "nacionalidad": {"sources": ["NACIONALIDAD", "ID_PAIS"], "type": "nationality", "disposition": "derived", "ownership": "legacy-owned"},
+      "profesion_documento_identificacion": {"sources": ["PROFESION", "ID_PROFESION"], "type": "profession", "disposition": "derived", "ownership": "legacy-owned"},
+      "ocupacion_actividad_real": {"type": "text", "disposition": "excluded", "ownership": "legacy-owned"},
+      "direccion_domicilio": {"source": "DIRECCION_PARTICULAR", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"},
+      "tiempo_residir_anos": {"source": "ANIOS_RESIDENCIA", "type": "integer", "disposition": "migrate", "ownership": "legacy-owned"},
+      "tiempo_residir_meses": {"type": "integer", "disposition": "excluded", "ownership": "legacy-owned"},
+      "municipio": {"source": "CODIGO_MUNICIPIO", "type": "municipality-name", "disposition": "migrate", "ownership": "legacy-owned"},
+      "departamento": {"source": "CODIGO_DEPARTAMENTO", "type": "department-name", "disposition": "migrate", "ownership": "legacy-owned"},
+      "pais": {"source": "ID_PAIS", "type": "country-name", "disposition": "migrate", "ownership": "legacy-owned"},
+      "telefono_residencia": {"source": "TELEFONO_PERSONAL", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"},
+      "sabe_firmar": {"source": "SABE_FIRMAR", "type": "boolean", "disposition": "migrate", "ownership": "legacy-owned"},
+      "hijos": {"source": "CANT_HIJOS", "type": "integer", "disposition": "migrate", "ownership": "legacy-owned"},
+      "nivel_educativo": {"source": "ID_NIVEL_ACADEMICO", "type": "catalog-label", "catalog": "CREDESAL_EDUCATION_LEVEL", "disposition": "migrate", "ownership": "legacy-owned"},
+      "es_contribuyente_fiscal": {"source": "DECLARA_IMPUESTOS", "type": "boolean", "disposition": "excluded", "ownership": "legacy-owned"},
+      "es_ciudadano_estadounidense": {"type": "boolean", "disposition": "excluded", "ownership": "legacy-owned"},
+      "cliente_recibe_remesas": {"source": "REMESA_FAMILIAR", "type": "boolean", "disposition": "migrate", "ownership": "legacy-owned"},
+      "origen_remesas": {"source": "ID_FUENTE_ING_REMESA", "type": "catalog-label", "catalog": "CREDESAL_INCOME_SOURCE", "disposition": "migrate", "ownership": "legacy-owned"},
+      "pais_origen_remesas": {"source": "ID_PAIS_REMESA", "type": "country-name", "disposition": "migrate", "ownership": "legacy-owned"},
+      "telefono_lugar_trabajo": {"source": "TELEFONO_TRABAJO", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"},
+      "propiedad_vivienda": {"source": "ID_TENENCIA_VIVIENDA", "type": "text", "disposition": "excluded", "ownership": "legacy-owned"},
+      "nombre_conyuge": {"type": "text", "disposition": "excluded", "ownership": "legacy-owned"},
+      "estado_civil": {"source": "ID_ESTADO_CIVIL", "type": "catalog-label", "catalog": "MARITAL STATUS", "disposition": "migrate", "ownership": "legacy-owned"},
+      "conocido_por": {"source": "CONOCIDO_POR", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"},
+      "cod_actividad_economica": {"source": "CODIGO_ACTIVIDAD", "type": "text", "disposition": "excluded", "ownership": "legacy-owned"},
+      "desc_actividad_economica": {"source": "ID_ACT_ECONOMICA1", "type": "economic-activity", "disposition": "migrate", "ownership": "legacy-owned"}
+    },
+    "credesal_client_trabajo": {
+      "nombre_empresa_negocio": {"source": "NOMBRE_EMPRESA", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"},
+      "cargo": {"source": "CARGO", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"},
+      "telefono": {"source": "TELEFONO_TRABAJO", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"},
+      "fax": {"source": "FAX_TRABAJO", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"},
+      "tiempo_laborar_anos": {"source": "ANIOS_LABORANDO", "type": "integer", "disposition": "migrate", "ownership": "legacy-owned"},
+      "tiempo_laborar_meses": {"type": "integer", "disposition": "excluded", "ownership": "legacy-owned"},
+      "actividad_negocio": {"source": "ACT_PRINCIPAL", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"},
+      "principales_proveedores": {"type": "text", "disposition": "excluded", "ownership": "legacy-owned"},
+      "direccion": {"source": "DIRECCION_TRABAJO", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"},
+      "canton": {"source": "CODIGO_MUNI_TRABAJO", "type": "municipality-field", "field": "district", "disposition": "migrate", "ownership": "legacy-owned"},
+      "municipio": {"source": "CODIGO_MUNI_TRABAJO", "type": "municipality-name", "disposition": "migrate", "ownership": "legacy-owned"},
+      "departamento": {"source": "CODIGO_DEPTO_TRABAJO", "type": "department-name", "disposition": "migrate", "ownership": "legacy-owned"},
+      "pais": {"source": "ID_PAIS_TRABAJO", "type": "country-name", "disposition": "migrate", "ownership": "legacy-owned"},
+      "ingresos_mensuales": {"source": "INGRESOS", "type": "decimal", "disposition": "migrate", "ownership": "legacy-owned"},
+      "otros_ingresos": {"source": "INGRESOS_OTROS", "type": "decimal", "disposition": "migrate", "ownership": "legacy-owned"},
+      "procedencia_otros_ingresos": {"source": "OTRA_FUENTE_ING", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"}
+    },
+    "credesal_client_informacion_laboral": {
+      "actividad_laboral": {"source": "ACT_PRINCIPAL", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"},
+      "cargo": {"source": "CARGO", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"},
+      "pais": {"source": "ID_PAIS_TRABAJO", "type": "country-name", "disposition": "migrate", "ownership": "legacy-owned"},
+      "departamento": {"source": "CODIGO_DEPTO_TRABAJO", "type": "department-name", "disposition": "migrate", "ownership": "legacy-owned"},
+      "municipio": {"source": "CODIGO_MUNI_TRABAJO", "type": "municipality-name", "disposition": "migrate", "ownership": "legacy-owned"},
+      "direccion_trabajo": {"source": "DIRECCION_TRABAJO", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"},
+      "anos_laborando": {"source": "ANIOS_LABORANDO", "type": "integer", "disposition": "migrate", "ownership": "legacy-owned"},
+      "jubilado": {"source": "PENSIONADO", "type": "boolean", "disposition": "migrate", "ownership": "legacy-owned"},
+      "fecha_jubilacion": {"source": "FECHA_JUBILACION", "type": "date", "disposition": "migrate", "ownership": "legacy-owned"},
+      "fecha_ingreso": {"source": "FECHA_ING_TRAB", "type": "date", "disposition": "migrate", "ownership": "legacy-owned"},
+      "telefono": {"source": "TELEFONO_TRABAJO", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"},
+      "jefe_inmediato": {"source": "JEFE_INMEDIATO", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"},
+      "cotiza_isss": {"source": "COTIZA_ISSS", "type": "boolean", "disposition": "migrate", "ownership": "legacy-owned"},
+      "cotiza_afp": {"source": "COTIZA_AFP", "type": "boolean", "disposition": "migrate", "ownership": "legacy-owned"}
+    },
+    "credesal_client_ingresos_egresos_mensuales": {
+      "actividad_economica_1": {"source": "ID_ACT_ECONOMICA1", "type": "economic-activity", "disposition": "migrate", "ownership": "legacy-owned"},
+      "actividad_monto_1": {"source": "INGRESOS", "type": "decimal", "disposition": "migrate", "ownership": "legacy-owned"},
+      "actividad_economica_2": {"source": "ID_ACT_ECONOMICA2", "type": "economic-activity", "disposition": "migrate", "ownership": "legacy-owned"},
+      "actividad_monto_2": {"source": "INGRESOS2", "type": "decimal", "disposition": "migrate", "ownership": "legacy-owned"},
+      "actividad_economica_3": {"source": "ID_ACT_ECONOMICA3", "type": "economic-activity", "disposition": "migrate", "ownership": "legacy-owned"},
+      "actividad_monto_3": {"source": "INGRESOS3", "type": "decimal", "disposition": "migrate", "ownership": "legacy-owned"},
+      "otra_fuente_ingresos": {"source": "OTRA_FUENTE_ING", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"},
+      "otra_fuente_monto": {"source": "INGRESOS_OTROS", "type": "decimal", "disposition": "migrate", "ownership": "legacy-owned"},
+      "total_ingreso_mensual": {"source": "TOTAL_INGRESOS", "type": "decimal", "disposition": "migrate", "ownership": "legacy-owned"},
+      "egreso_mensual_gastos_vida": {"source": "MONTO_GASTO_VIDA", "type": "decimal", "disposition": "migrate", "ownership": "legacy-owned"},
+      "egreso_mensual_por_deuda": {"source": "MONTO_PAGO_DEUDA", "type": "decimal", "disposition": "migrate", "ownership": "legacy-owned"},
+      "total_egreso_mensual": {"source": "TOTAL_EGRESOS", "type": "decimal", "disposition": "migrate", "ownership": "legacy-owned"},
+      "total_deuda": {"source": "TOTAL_DEUDA", "type": "decimal", "disposition": "migrate", "ownership": "legacy-owned"},
+      "total_bienes": {"source": "TOTAL_BIENES", "type": "decimal", "disposition": "migrate", "ownership": "legacy-owned"}
+    },
+    "credesal_client_remesas": {
+      "recibe_remesa_familiar": {"source": "REMESA_FAMILIAR", "type": "boolean", "disposition": "migrate", "ownership": "legacy-owned"},
+      "persona_envia": {"source": "NOMBRE_PERSONA_REMESA", "type": "text", "disposition": "migrate", "ownership": "legacy-owned"},
+      "actividad_economica_persona_envia": {"source": "ID_FUENTE_ING_REMESA", "type": "catalog-label", "catalog": "CREDESAL_INCOME_SOURCE", "disposition": "migrate", "ownership": "legacy-owned"},
+      "pais_residencia": {"source": "ID_PAIS_REMESA", "type": "country-name", "disposition": "migrate", "ownership": "legacy-owned"},
+      "tiempo_residencia_anos": {"source": "TIEMPO_RESIDENCIA_REMESA", "type": "integer", "disposition": "excluded", "ownership": "legacy-owned"},
+      "parentesco": {"source": "ID_PARENTESCO_REMESA", "type": "text", "disposition": "excluded", "ownership": "legacy-owned"},
+      "promedio_mensual": {"source": "MONTO_REMESA", "type": "decimal", "disposition": "migrate", "ownership": "legacy-owned"}
+    },
+    "credesal_client_informacion_complementaria": {
+      "tipo_vivienda": {"source": "ID_TIPO_VIVIENDA", "type": "text", "disposition": "excluded", "ownership": "legacy-owned"},
+      "cantidad_dependientes": {"source": "CANT_DEPENDIENTES", "type": "integer", "disposition": "migrate", "ownership": "legacy-owned"}
+    },
+    "credesal_client_actividad_mensual": {
+      "promedio_aportaciones": {"source": "PROMEDIO_APORTACION", "type": "decimal", "disposition": "migrate", "ownership": "legacy-owned"},
+      "periodicidad_aportacion": {"source": "ID_PERIODICIDAD_OP_APORTACION", "type": "text", "disposition": "excluded", "ownership": "legacy-owned"},
+      "promedio_depositos": {"source": "PROMEDIO_DEPOSITO", "type": "decimal", "disposition": "migrate", "ownership": "legacy-owned"},
+      "periodicidad_deposito": {"source": "ID_PERIODICIDAD_OP_AHO_DEPOSITO", "type": "text", "disposition": "excluded", "ownership": "legacy-owned"},
+      "promedio_pago_prestamos": {"source": "PROMEDIO_CRD_PAGO", "type": "decimal", "disposition": "migrate", "ownership": "legacy-owned"},
+      "periodicidad_prestamo": {"source": "ID_PERIODICIDAD_OP_CRD_PAGO", "type": "text", "disposition": "excluded", "ownership": "legacy-owned"},
+      "promedio_retiros": {"source": "PROMEDIO_RETIRO", "type": "decimal", "disposition": "migrate", "ownership": "legacy-owned"},
+      "periodicidad_retiro": {"source": "ID_PERIODICIDAD_OP_AHO_RETIRO", "type": "text", "disposition": "excluded", "ownership": "legacy-owned"}
+    }
+  },
+  "status": {"001": "active", "003": "active"},
+  "create_defaults": {"active": true, "legalFormId": 1},
+  "office_mapping": {"001": 1, "002": 2},
+  "activation_floor_by_branch": {"001": "2022-12-10", "002": "2024-12-11"},
+  "deactivation": {"closure_reason_id": null},
+  "notes": [
+    "AFI_SOCIO.NUMERO_AFILIACION is the canonical unprefixed Fineract externalId and cross-service client mapping key; company/branch/ID_SOCIO remain the Arissto relational join.",
+    "The clients service migrates natural-person identity, KYC/profile datatables, and identifiers; loans and deposit accounts are excluded.",
+    "Home and work addresses remain plain text in the reviewed KYC datatables. The Fineract structured address module is intentionally out of scope.",
+    "Duplicate phone numbers and duplicate DUI values are valid and are preserved. Duplicate passport, NIT, and residency identifiers remain quarantined.",
+    "Malformed source emails are omitted from the Fineract core client instead of quarantining the client.",
+    "Arissto economic-activity key 0 is a missing-value sentinel and is migrated as null; other unresolved nonzero activity keys remain quarantined.",
+    "Catalog-backed text and target IDs are resolved from the target database crosswalk created by Liquibase migration 0272; target-generated IDs are never hard-coded.",
+    "Sparse datatable rows are not created when every mapped value is null.",
+    "Unverified semantics remain explicitly excluded rather than guessed: US citizenship, PEP relation details, housing type/tenure, remittance relationship/time units, periodicity labels, and calculated totals.",
+    "All imported Arissto clients are active in Fineract. AFI_SOCIO.FECHA_REGISTRO is used as the historical activation date, except when it predates the target office opening date; those records use the office opening date, the earliest value Fineract permits.",
+    "Every imported client receives exactly one tipo_cliente tag. AFI_SOCIO relationship 003 maps to cliente; relationship 001 maps to socio unless the party has an originated CRD_CARTERA credit, in which case it maps to cliente-socio.",
+    "Penalties, balances, schedules, interest, loans, deposits, and other product/calculated values are excluded."
+  ]
+}
