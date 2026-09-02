@@ -52,6 +52,7 @@ import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
 import org.apache.fineract.infrastructure.event.business.domain.deposit.FixedDepositAccountCreateBusinessEvent;
 import org.apache.fineract.infrastructure.event.business.domain.deposit.RecurringDepositAccountCreateBusinessEvent;
 import org.apache.fineract.infrastructure.event.business.service.BusinessEventNotifierService;
+import org.apache.fineract.portfolio.namingsequence.service.CredesalNamingSequenceService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.organisation.staff.domain.Staff;
 import org.apache.fineract.organisation.staff.domain.StaffRepositoryWrapper;
@@ -121,6 +122,7 @@ public class DepositApplicationProcessWritePlatformServiceJpaRepositoryImpl impl
     private final ConfigurationDomainService configurationDomainService;
     private final AccountNumberFormatRepositoryWrapper accountNumberFormatRepository;
     private final BusinessEventNotifierService businessEventNotifierService;
+    private final CredesalNamingSequenceService credesalNamingSequenceService;
 
     /*
      * Guaranteed to throw an exception no matter what the data integrity issue is.
@@ -173,8 +175,13 @@ public class DepositApplicationProcessWritePlatformServiceJpaRepositoryImpl impl
             this.fixedDepositAccountRepository.saveAndFlush(account);
 
             if (account.isAccountNumberRequiresAutoGeneration()) {
-                AccountNumberFormat accountNumberFormat = this.accountNumberFormatRepository.findByAccountType(EntityAccountType.CLIENT);
-                account.updateAccountNo(this.accountNumberGenerator.generate(account, accountNumberFormat));
+                final String numberingCode = account.savingsProduct() == null ? null : account.savingsProduct().getNumberingCode();
+                this.credesalNamingSequenceService.allocateSavingsAccountNo(account.getClient(), numberingCode, null).ifPresentOrElse(
+                        account::updateAccountNo, () -> {
+                            AccountNumberFormat accountNumberFormat = this.accountNumberFormatRepository
+                                    .findByAccountType(EntityAccountType.CLIENT);
+                            account.updateAccountNo(this.accountNumberGenerator.generate(account, accountNumberFormat));
+                        });
 
                 this.savingAccountRepository.save(account);
             }
@@ -229,9 +236,13 @@ public class DepositApplicationProcessWritePlatformServiceJpaRepositoryImpl impl
             this.recurringDepositAccountRepository.save(account);
 
             if (account.isAccountNumberRequiresAutoGeneration()) {
-                final AccountNumberFormat accountNumberFormat = this.accountNumberFormatRepository
-                        .findByAccountType(EntityAccountType.SAVINGS);
-                account.updateAccountNo(this.accountNumberGenerator.generate(account, accountNumberFormat));
+                final String numberingCode = account.savingsProduct() == null ? null : account.savingsProduct().getNumberingCode();
+                this.credesalNamingSequenceService.allocateSavingsAccountNo(account.getClient(), numberingCode, null).ifPresentOrElse(
+                        account::updateAccountNo, () -> {
+                            final AccountNumberFormat accountNumberFormat = this.accountNumberFormatRepository
+                                    .findByAccountType(EntityAccountType.SAVINGS);
+                            account.updateAccountNo(this.accountNumberGenerator.generate(account, accountNumberFormat));
+                        });
             }
 
             final Long savingsId = account.getId();

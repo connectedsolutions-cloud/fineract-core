@@ -11,6 +11,7 @@ import org.apache.fineract.portfolio.invoice.domain.InvoiceLine;
 import org.apache.fineract.portfolio.invoice.domain.InvoiceSummary;
 
 public class InvoiceData {
+
     private Long id;
     private String status;
     private Long loanTransactionId;

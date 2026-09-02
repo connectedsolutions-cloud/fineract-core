@@ -44,6 +44,7 @@ import org.apache.fineract.infrastructure.core.data.EnumOptionData;
 import org.apache.fineract.infrastructure.core.serialization.ToApiJsonSerializer;
 import org.apache.fineract.infrastructure.security.constants.TwoFactorConstants;
 import org.apache.fineract.infrastructure.security.data.AuthenticatedUserData;
+import org.apache.fineract.infrastructure.security.datascope.DataScopeService;
 import org.apache.fineract.infrastructure.security.service.SpringSecurityPlatformSecurityContext;
 import org.apache.fineract.portfolio.client.service.ClientReadPlatformService;
 import org.apache.fineract.useradministration.data.RoleData;
@@ -79,6 +80,7 @@ public class AuthenticationApiResource {
     private final ToApiJsonSerializer<AuthenticatedUserData> apiJsonSerializerService;
     private final SpringSecurityPlatformSecurityContext springSecurityPlatformSecurityContext;
     private final ClientReadPlatformService clientReadPlatformService;
+    private final DataScopeService dataScopeService;
 
     @POST
     @Consumes({ MediaType.APPLICATION_JSON })
@@ -147,7 +149,8 @@ public class AuthenticationApiResource {
                         .setAuthenticated(true)
                         .setBase64EncodedAuthenticationKey(new String(base64EncodedAuthenticationKey, StandardCharsets.UTF_8))
                         .setTwoFactorAuthenticationRequired(isTwoFactorRequired)
-                        .setClients(returnClientList ? clientReadPlatformService.retrieveUserClients(userId) : null);
+                        .setClients(returnClientList ? clientReadPlatformService.retrieveUserClients(userId) : null)
+                        .setDataScope(dataScopeService.effectiveScope(principal).name()).setDataScopeOverride(principal.getDataScope());
 
             }
 

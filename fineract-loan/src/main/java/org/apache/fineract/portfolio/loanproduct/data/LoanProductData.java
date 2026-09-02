@@ -85,6 +85,7 @@ public class LoanProductData implements Serializable {
     private final Long id;
     private final String name;
     private final String shortName;
+    private String numberingCode;
     private final String description;
     private final Long fundId;
     private final String fundName;
@@ -148,6 +149,7 @@ public class LoanProductData implements Serializable {
     private final Integer minimumDaysBetweenDisbursalAndFirstRepayment;
     private final boolean canDefineInstallmentAmount;
     private final Integer installmentAmountInMultiplesOf;
+    private boolean roundCalculatedInstallmentUp;
     private final EnumOptionData repaymentStartDateType;
     private final List<StringEnumOptionData> supportedInterestRefundTypes;
     private final StringEnumOptionData chargeOffBehaviour;
@@ -1117,6 +1119,7 @@ public class LoanProductData implements Serializable {
         this.id = productData.id;
         this.name = productData.name;
         this.shortName = productData.shortName;
+        this.numberingCode = productData.numberingCode;
         this.description = productData.description;
         this.fundId = productData.fundId;
         this.fundName = productData.fundName;
@@ -1248,6 +1251,7 @@ public class LoanProductData implements Serializable {
 
         this.canDefineInstallmentAmount = productData.canDefineInstallmentAmount;
         this.installmentAmountInMultiplesOf = productData.installmentAmountInMultiplesOf;
+        this.roundCalculatedInstallmentUp = productData.roundCalculatedInstallmentUp;
         this.preClosureInterestCalculationStrategyOptions = preCloseInterestCalculationStrategyOptions;
         this.syncExpectedWithDisbursementDate = productData.syncExpectedWithDisbursementDate;
         this.canUseForTopup = productData.canUseForTopup;
@@ -1315,6 +1319,10 @@ public class LoanProductData implements Serializable {
         return chargesLocal;
     }
 
+    public void setNumberingCode(final String numberingCode) {
+        this.numberingCode = numberingCode;
+    }
+
     public void setIdTipoLinea(final String idTipoLinea) {
         this.idTipoLinea = idTipoLinea;
     }
@@ -1325,6 +1333,10 @@ public class LoanProductData implements Serializable {
 
     public void setSlus(final Collection<CrdSluData> slus) {
         this.slus = slus;
+    }
+
+    public void setRoundCalculatedInstallmentUp(final boolean roundCalculatedInstallmentUp) {
+        this.roundCalculatedInstallmentUp = roundCalculatedInstallmentUp;
     }
 
     public void setTipoLineaOptions(final Collection<CrdTipoLineaData> tipoLineaOptions) {

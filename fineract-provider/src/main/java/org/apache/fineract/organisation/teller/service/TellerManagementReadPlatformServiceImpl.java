@@ -166,8 +166,7 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
         final CashierMapper cm = new CashierMapper();
         // Filter by staff and by app user who opened the session (opened_by_user_id).
         // Legacy rows with opened_by_user_id null are treated as belonging to any user with that staff_id.
-        final String sql = "select " + cm.schema()
-                + " where c.staff_id = ? and c.end_date is null"
+        final String sql = "select " + cm.schema() + " where c.staff_id = ? and c.end_date is null"
                 + " and (c.opened_by_user_id is null or c.opened_by_user_id = ?)";
         final Collection<CashierData> results = this.jdbcTemplate.query(sql, cm, staffId, userId); // NOSONAR
         return CollectionUtils.isEmpty(results) ? null : results.iterator().next();
@@ -351,8 +350,8 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
         final CashierTransactionMapper ctm = new CashierTransactionMapper();
 
         String sql = "SELECT * FROM (SELECT " + ctm.cashierTxnSchema() + " WHERE txn.cashier_id = ? AND txn.currency_code = ? "
-                + "AND ((txn.created_date >= c.start_date AND (c.end_date IS NULL OR txn.created_date <= c.end_date)) or txn.txn_type = 101))  cashier_txns " + " union (select "
-                + ctm.savingsTxnSchema() + " where sav_txn.is_reversed = false and c.id = ? and sav.currency_code = ? "
+                + "AND ((txn.created_date >= c.start_date AND (c.end_date IS NULL OR txn.created_date <= c.end_date)) or txn.txn_type = 101))  cashier_txns "
+                + " union (select " + ctm.savingsTxnSchema() + " where sav_txn.is_reversed = false and c.id = ? and sav.currency_code = ? "
                 + "and sav_txn.transaction_date >= c.start_date and (c.end_date IS NULL or sav_txn.transaction_date <= " + nextDay + ")"
                 + " and renum.enum_value in ('deposit','withdrawal fee', 'Pay Charge', 'withdrawal', 'Annual Fee', 'Waive Charge', 'Interest Posting', 'Overdraft Interest') "
                 + " and (sav_txn.payment_detail_id IS NULL OR payType.is_cash_payment = true) AND acnttrans.id IS NULL ) "
@@ -362,7 +361,8 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
                 + " and (loan_txn.payment_detail_id IS NULL OR payType.is_cash_payment = true) " + " AND acnttrans.id IS NULL ) "
                 + " union (select " + ctm.clientTxnSchema()
                 + " where cli_txn.is_reversed = false and c.id = ? and cli_txn.currency_code = ? " + "and cli_txn.transaction_date "
-                + " >= c.start_date and (c.end_date IS NULL or cli_txn.transaction_date <= " + nextDay + ") and renum.enum_value IN ('PAY_CHARGE', 'WAIVE_CHARGE') "
+                + " >= c.start_date and (c.end_date IS NULL or cli_txn.transaction_date <= " + nextDay
+                + ") and renum.enum_value IN ('PAY_CHARGE', 'WAIVE_CHARGE') "
                 + " and (cli_txn.payment_detail_id IS NULL OR payType.is_cash_payment = true) ) " + " order by created_date ";
 
         if (searchParameters.hasLimit()) {
@@ -610,7 +610,8 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
             sqlBuilder.append("    left join m_office o on o.id = t.office_id ");
             sqlBuilder.append("    left join m_staff s on s.id = c.staff_id ");
             sqlBuilder.append("    where txn.cashier_id = ? ");
-            sqlBuilder.append(" AND ((txn.created_date >= c.start_date AND (c.end_date IS NULL OR txn.created_date <= c.end_date)) or txn.txn_type = 101) ");
+            sqlBuilder.append(
+                    " AND ((txn.created_date >= c.start_date AND (c.end_date IS NULL OR txn.created_date <= c.end_date)) or txn.txn_type = 101) ");
             sqlBuilder.append(" and   txn.currency_code = ? ");
             sqlBuilder.append(" ) cashier_txns ");
             sqlBuilder.append("    UNION ");
@@ -645,7 +646,8 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
             sqlBuilder.append(" or acnttrans.to_savings_transaction_id = sav_txn.id) ");
             sqlBuilder.append("    where sav_txn.is_reversed = false and c.id = ? ");
             sqlBuilder.append(" and sav.currency_code = ? ");
-            sqlBuilder.append("    and sav_txn.transaction_date >= c.start_date and (c.end_date IS NULL or sav_txn.transaction_date <= c.end_date) ");
+            sqlBuilder.append(
+                    "    and sav_txn.transaction_date >= c.start_date and (c.end_date IS NULL or sav_txn.transaction_date <= c.end_date) ");
             sqlBuilder.append("    and (sav_txn.payment_detail_id IS NULL OR payType.is_cash_payment = true) ");
             sqlBuilder.append("    AND acnttrans.id IS NULL  ");
             sqlBuilder.append("    ) ");
@@ -683,7 +685,8 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
             sqlBuilder.append(" or acnttrans.to_loan_transaction_id = loan_txn.id) ");
             sqlBuilder.append("    where loan_txn.is_reversed = false and c.id = ? ");
             sqlBuilder.append(" and loan.currency_code = ? ");
-            sqlBuilder.append("    and loan_txn.transaction_date >= c.start_date and (c.end_date IS NULL or loan_txn.transaction_date <= " + nextDay + ")");
+            sqlBuilder.append("    and loan_txn.transaction_date >= c.start_date and (c.end_date IS NULL or loan_txn.transaction_date <= "
+                    + nextDay + ")");
             sqlBuilder.append("    and (loan_txn.payment_detail_id IS NULL OR payType.is_cash_payment = true) ");
             sqlBuilder.append("    AND acnttrans.id IS NULL  ");
             sqlBuilder.append("    ) ");
@@ -716,7 +719,8 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
             sqlBuilder.append(" left join m_payment_type payType on payType.id = payDetails.payment_type_id ");
             sqlBuilder.append("    where cli_txn.is_reversed = false AND c.id = ?    ");
             sqlBuilder.append(" and cli_txn.currency_code = ? ");
-            sqlBuilder.append("    and cli_txn.transaction_date >= c.start_date and (c.end_date IS NULL or cli_txn.transaction_date <= " + nextDay + ")");
+            sqlBuilder.append("    and cli_txn.transaction_date >= c.start_date and (c.end_date IS NULL or cli_txn.transaction_date <= "
+                    + nextDay + ")");
             sqlBuilder.append(" and (cli_txn.payment_detail_id IS NULL OR payType.is_cash_payment = true)  ");
             sqlBuilder.append("    ) ");
             sqlBuilder.append("    ) txns ");

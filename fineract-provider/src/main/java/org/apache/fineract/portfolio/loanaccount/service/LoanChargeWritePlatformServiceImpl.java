@@ -1023,8 +1023,11 @@ public class LoanChargeWritePlatformServiceImpl implements LoanChargeWritePlatfo
         validateAddLoanChargeExcludingAutoAppliedTypes(loan, chargeDefinition, loanCharge);
     }
 
-    /** Validates manual/API-added charges; skips overdue and delinquency-COB-only guards (caller must enforce those). */
-    private void validateAddLoanChargeExcludingAutoAppliedTypes(final Loan loan, final Charge chargeDefinition, final LoanCharge loanCharge) {
+    /**
+     * Validates manual/API-added charges; skips overdue and delinquency-COB-only guards (caller must enforce those).
+     */
+    private void validateAddLoanChargeExcludingAutoAppliedTypes(final Loan loan, final Charge chargeDefinition,
+            final LoanCharge loanCharge) {
         if (loanCharge.getDueLocalDate() != null) {
             // TODO: Review, error message seems not valid if interest recalculation is not enabled.
             boolean isCumulative = loan.getLoanRepaymentScheduleDetail().getLoanScheduleType().equals(LoanScheduleType.CUMULATIVE);
@@ -1058,13 +1061,12 @@ public class LoanChargeWritePlatformServiceImpl implements LoanChargeWritePlatfo
         final int penaltyWaitPeriod = this.configurationDomainService.retrievePenaltyWaitPeriod().intValue();
         boolean touched = false;
         for (final Charge chargeDefinition : loan.getLoanProduct().getCharges()) {
-            if (!chargeDefinition.isLoanCharge() || !chargeDefinition.isActive() || !chargeDefinition.isDelinquencyClassificationRangeCharge()) {
+            if (!chargeDefinition.isLoanCharge() || !chargeDefinition.isActive()
+                    || !chargeDefinition.isDelinquencyClassificationRangeCharge()) {
                 continue;
             }
-            final Optional<LoanCharge> existingOpt = loan.getCharges().stream()
-                    .filter(lc -> lc.isDelinquencyClassificationRangeCharge() && lc.getCharge() != null
-                            && chargeDefinition.getId().equals(lc.getCharge().getId()))
-                    .findFirst();
+            final Optional<LoanCharge> existingOpt = loan.getCharges().stream().filter(lc -> lc.isDelinquencyClassificationRangeCharge()
+                    && lc.getCharge() != null && chargeDefinition.getId().equals(lc.getCharge().getId())).findFirst();
             final BigDecimal base = this.loanChargeService.determineDelinquentPrincipalBaseForCharge(loan, chargeDefinition);
             if (base.compareTo(BigDecimal.ZERO) <= 0) {
                 if (existingOpt.isPresent() && existingOpt.get().isActive()) {

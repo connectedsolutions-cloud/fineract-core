@@ -38,11 +38,13 @@ import org.apache.fineract.infrastructure.core.data.ApiParameterError;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResultBuilder;
 import org.apache.fineract.infrastructure.core.exception.ErrorHandler;
+import org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRuleException;
 import org.apache.fineract.infrastructure.core.exception.PlatformApiDataValidationException;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.apache.fineract.infrastructure.core.service.PlatformEmailSendException;
 import org.apache.fineract.infrastructure.security.service.PlatformPasswordEncoder;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.infrastructure.security.service.UserImpersonationContext;
 import org.apache.fineract.organisation.office.domain.Office;
 import org.apache.fineract.organisation.office.domain.OfficeRepositoryWrapper;
 import org.apache.fineract.organisation.staff.domain.Staff;
@@ -98,7 +100,7 @@ public class AppUserWritePlatformServiceJpaRepositoryImpl implements AppUserWrit
             // Handle officeIds array (multi-office) or single officeId (backward compatibility)
             final Set<Office> userOffices = new HashSet<>();
             final Set<Long> userOfficeIds = new HashSet<>();
-            
+
             final String officeIdsParamName = "officeIds";
             if (command.hasParameter(officeIdsParamName)) {
                 // Multi-office support
@@ -352,6 +354,10 @@ public class AppUserWritePlatformServiceJpaRepositoryImpl implements AppUserWrit
     public CommandProcessingResult switchOffice(final Long userId, final JsonCommand command) {
         try {
             this.context.authenticatedUser();
+            if (UserImpersonationContext.isActive()) {
+                throw new GeneralPlatformDomainRuleException("error.msg.user.impersonation.office.switch.not.allowed",
+                        "Office cannot be switched while impersonating another user.");
+            }
 
             final AppUser user = this.appUserRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
 

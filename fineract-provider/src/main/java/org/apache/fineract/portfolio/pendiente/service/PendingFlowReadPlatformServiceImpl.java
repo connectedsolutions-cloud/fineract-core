@@ -77,10 +77,8 @@ public class PendingFlowReadPlatformServiceImpl implements PendingFlowReadPlatfo
         data.setCreationDate(entity.getCreationDate());
         data.setDueDate(entity.getDueDate());
         data.setStatus(entity.getStatus());
-        data.setPendingFlowBlueprintId(
-                entity.getPendingFlowBlueprint() != null ? entity.getPendingFlowBlueprint().getId() : null);
-        data.setBlueprintName(
-                entity.getPendingFlowBlueprint() != null ? entity.getPendingFlowBlueprint().getName() : null);
+        data.setPendingFlowBlueprintId(entity.getPendingFlowBlueprint() != null ? entity.getPendingFlowBlueprint().getId() : null);
+        data.setBlueprintName(entity.getPendingFlowBlueprint() != null ? entity.getPendingFlowBlueprint().getName() : null);
         data.setStepsId(entity.getStepsId());
         data.setLastCompletedStepId(entity.getLastCompletedStepId());
         if (includeSteps) {

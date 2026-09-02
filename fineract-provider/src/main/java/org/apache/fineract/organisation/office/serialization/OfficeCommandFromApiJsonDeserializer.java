@@ -58,9 +58,8 @@ public final class OfficeCommandFromApiJsonDeserializer {
     /**
      * The parameters supported for this command.
      */
-    private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(
-            Arrays.asList(NAME, PARENT_ID, OPENING_DATE, EXTERNAL_ID, MH_NIT, MH_PASSWORD_PRI, MH_FIRMA_SECRET, MH_SIGNING_API_KEY,
-                    MH_COD_ESTABLE, MH_COD_PUNTO_VENTA, LOCALE, DATE_FORMAT));
+    private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList(NAME, PARENT_ID, OPENING_DATE, EXTERNAL_ID, MH_NIT,
+            MH_PASSWORD_PRI, MH_FIRMA_SECRET, MH_SIGNING_API_KEY, MH_COD_ESTABLE, MH_COD_PUNTO_VENTA, LOCALE, DATE_FORMAT));
 
     private final FromJsonHelper fromApiJsonHelper;
 

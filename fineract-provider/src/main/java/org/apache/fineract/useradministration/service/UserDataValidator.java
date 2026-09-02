@@ -39,6 +39,7 @@ import org.apache.fineract.infrastructure.core.data.DataValidatorBuilder;
 import org.apache.fineract.infrastructure.core.exception.InvalidJsonException;
 import org.apache.fineract.infrastructure.core.exception.PlatformApiDataValidationException;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
+import org.apache.fineract.infrastructure.security.datascope.DataScope;
 import org.apache.fineract.useradministration.domain.AppUser;
 import org.apache.fineract.useradministration.domain.PasswordValidationPolicy;
 import org.apache.fineract.useradministration.domain.PasswordValidationPolicyRepository;
@@ -62,12 +63,12 @@ public final class UserDataValidator {
     /**
      * The parameters supported for this command.
      */
-    private static final Set<String> CREATE_SUPPORTED_PARAMETERS = new HashSet<>(
-            Arrays.asList(USERNAME, FIRSTNAME, LASTNAME, PASSWORD, REPEAT_PASSWORD, EMAIL, OFFICE_ID, OFFICE_IDS, NOT_SELECTED_ROLES, ROLES,
-                    SEND_PASSWORD_TO_EMAIL, STAFF_ID, PASSWORD_NEVER_EXPIRES, AppUserConstants.IS_SELF_SERVICE_USER, CLIENTS));
-    private static final Set<String> UPDATE_SUPPORTED_PARAMETERS = new HashSet<>(
-            Arrays.asList(USERNAME, FIRSTNAME, LASTNAME, PASSWORD, REPEAT_PASSWORD, EMAIL, OFFICE_ID, OFFICE_IDS, NOT_SELECTED_ROLES, ROLES,
-                    SEND_PASSWORD_TO_EMAIL, STAFF_ID, PASSWORD_NEVER_EXPIRES, AppUserConstants.IS_SELF_SERVICE_USER, CLIENTS));
+    private static final Set<String> CREATE_SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList(USERNAME, FIRSTNAME, LASTNAME, PASSWORD,
+            REPEAT_PASSWORD, EMAIL, OFFICE_ID, OFFICE_IDS, NOT_SELECTED_ROLES, ROLES, SEND_PASSWORD_TO_EMAIL, STAFF_ID,
+            PASSWORD_NEVER_EXPIRES, AppUserConstants.IS_SELF_SERVICE_USER, CLIENTS, AppUserConstants.DATA_SCOPE));
+    private static final Set<String> UPDATE_SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList(USERNAME, FIRSTNAME, LASTNAME, PASSWORD,
+            REPEAT_PASSWORD, EMAIL, OFFICE_ID, OFFICE_IDS, NOT_SELECTED_ROLES, ROLES, SEND_PASSWORD_TO_EMAIL, STAFF_ID,
+            PASSWORD_NEVER_EXPIRES, AppUserConstants.IS_SELF_SERVICE_USER, CLIENTS, AppUserConstants.DATA_SCOPE));
     private static final Set<String> CHANGE_PASSWORD_SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList(PASSWORD, REPEAT_PASSWORD));
     public static final String PASSWORD_NEVER_EXPIRE = "passwordNeverExpire";
 
@@ -172,6 +173,8 @@ public final class UserDataValidator {
 
         final String[] roles = this.fromApiJsonHelper.extractArrayNamed(ROLES, element);
         baseDataValidator.reset().parameter(ROLES).value(roles).arrayNotEmpty();
+
+        validateDataScope(element, baseDataValidator);
 
         throwExceptionIfValidationWarningsExist(dataValidationErrors);
     }
@@ -325,8 +328,21 @@ public final class UserDataValidator {
             }
         }
 
+        validateDataScope(element, baseDataValidator);
+
         throwExceptionIfValidationWarningsExist(dataValidationErrors);
         validateFieldLevelACL(json, authenticatedUser);
+    }
+
+    private void validateDataScope(final JsonElement element, final DataValidatorBuilder baseDataValidator) {
+        if (!this.fromApiJsonHelper.parameterExists(AppUserConstants.DATA_SCOPE, element)) {
+            return;
+        }
+        final String dataScope = this.fromApiJsonHelper.extractStringNamed(AppUserConstants.DATA_SCOPE, element);
+        if (StringUtils.isNotBlank(dataScope) && !DataScope.isValid(dataScope)) {
+            baseDataValidator.reset().parameter(AppUserConstants.DATA_SCOPE).value(dataScope);
+            baseDataValidator.failWithCode("is.not.one.of.enum.values", "ALL, OFFICE, ASSIGNED");
+        }
     }
 
     private void validatePassword(DataValidatorBuilder baseDataValidator, JsonElement element) {

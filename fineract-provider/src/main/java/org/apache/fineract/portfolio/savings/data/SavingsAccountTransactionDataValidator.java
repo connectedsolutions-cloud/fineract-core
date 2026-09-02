@@ -120,6 +120,69 @@ public class SavingsAccountTransactionDataValidator {
         throwExceptionIfValidationWarningsExist(dataValidationErrors);
     }
 
+    public void validateExplicitWithholdTax(final JsonCommand command) {
+        final String json = command.json();
+        if (StringUtils.isBlank(json)) {
+            throw new InvalidJsonException();
+        }
+
+        final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
+        this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json,
+                SavingsAccountConstant.EXPLICIT_WITHHOLD_TAX_REQUEST_DATA_PARAMETERS);
+
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
+        final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
+                .resource(SavingsApiConstants.SAVINGS_ACCOUNT_TRANSACTION_RESOURCE_NAME);
+        final JsonElement element = command.parsedJson();
+
+        final LocalDate transactionDate = this.fromApiJsonHelper.extractLocalDateNamed(transactionDateParamName, element);
+        baseDataValidator.reset().parameter(transactionDateParamName).value(transactionDate).notNull();
+
+        final BigDecimal taxAmount = this.fromApiJsonHelper.extractBigDecimalWithLocaleNamed(transactionAmountParamName, element);
+        baseDataValidator.reset().parameter(transactionAmountParamName).value(taxAmount).notNull().positiveAmount();
+
+        final BigDecimal grossInterestAmount = this.fromApiJsonHelper
+                .extractBigDecimalWithLocaleNamed(SavingsApiConstants.grossInterestAmountParamName, element);
+        baseDataValidator.reset().parameter(SavingsApiConstants.grossInterestAmountParamName).value(grossInterestAmount).notNull()
+                .positiveAmount();
+
+        final String transactionReference = this.fromApiJsonHelper.extractStringNamed(SavingsApiConstants.transactionReferenceParamName,
+                element);
+        baseDataValidator.reset().parameter(SavingsApiConstants.transactionReferenceParamName).value(transactionReference).notBlank()
+                .notExceedingLengthOf(128);
+
+        throwExceptionIfValidationWarningsExist(dataValidationErrors);
+    }
+
+    public void validateExplicitInterestPosting(final JsonCommand command) {
+        final String json = command.json();
+        if (StringUtils.isBlank(json)) {
+            throw new InvalidJsonException();
+        }
+
+        final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
+        this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json,
+                SavingsAccountConstant.EXPLICIT_INTEREST_POSTING_REQUEST_DATA_PARAMETERS);
+
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
+        final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
+                .resource(SavingsApiConstants.SAVINGS_ACCOUNT_TRANSACTION_RESOURCE_NAME);
+        final JsonElement element = command.parsedJson();
+
+        final LocalDate transactionDate = this.fromApiJsonHelper.extractLocalDateNamed(transactionDateParamName, element);
+        baseDataValidator.reset().parameter(transactionDateParamName).value(transactionDate).notNull();
+
+        final BigDecimal amount = this.fromApiJsonHelper.extractBigDecimalWithLocaleNamed(transactionAmountParamName, element);
+        baseDataValidator.reset().parameter(transactionAmountParamName).value(amount).notNull().positiveAmount();
+
+        final String transactionReference = this.fromApiJsonHelper.extractStringNamed(SavingsApiConstants.transactionReferenceParamName,
+                element);
+        baseDataValidator.reset().parameter(SavingsApiConstants.transactionReferenceParamName).value(transactionReference).notBlank()
+                .notExceedingLengthOf(128);
+
+        throwExceptionIfValidationWarningsExist(dataValidationErrors);
+    }
+
     public void validateActivation(final JsonCommand command) {
         final String json = command.json();
 

@@ -18,6 +18,8 @@
  */
 package org.apache.fineract.infrastructure.security.config;
 
+import static org.springframework.security.web.util.matcher.AntPathRequestMatcher.antMatcher;
+
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Objects;
@@ -53,6 +55,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationDetailsSource;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -147,6 +150,8 @@ public class AuthorizationServerConfig {
                 // .securityMatcher(new AntPathRequestMatcher("/api/**"))
                 // TODO: Make it configurable
                 .csrf(AbstractHttpConfigurer::disable).authorizeHttpRequests(auth -> {
+                    auth.requestMatchers(antMatcher(HttpMethod.POST, "/api/*/passwordreset/request")).permitAll()
+                            .requestMatchers(antMatcher(HttpMethod.POST, "/api/*/passwordreset/complete")).permitAll();
                     auth.anyRequest().authenticated();
                     if (fineractProperties.getSecurity().getTwoFactor().isEnabled()) {
                         auth.anyRequest().hasAuthority("TWOFACTOR_AUTHENTICATED");

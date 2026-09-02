@@ -19,6 +19,7 @@
 package org.apache.fineract.useradministration.starter;
 
 import org.apache.fineract.infrastructure.core.service.database.DatabaseSpecificSQLGenerator;
+import org.apache.fineract.infrastructure.security.datascope.DataScopeService;
 import org.apache.fineract.infrastructure.security.service.PlatformPasswordEncoder;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.organisation.office.domain.OfficeRepositoryWrapper;
@@ -64,9 +65,9 @@ public class UserAdministrationConfiguration {
     @ConditionalOnMissingBean(AppUserReadPlatformService.class)
     public AppUserReadPlatformService appUserReadPlatformService(PlatformSecurityContext context, JdbcTemplate jdbcTemplate,
             OfficeReadPlatformService officeReadPlatformService, RoleReadPlatformService roleReadPlatformService,
-            AppUserRepository appUserRepository, StaffReadPlatformService staffReadPlatformService) {
+            AppUserRepository appUserRepository, StaffReadPlatformService staffReadPlatformService, DataScopeService dataScopeService) {
         return new AppUserReadPlatformServiceImpl(context, jdbcTemplate, officeReadPlatformService, roleReadPlatformService,
-                appUserRepository, staffReadPlatformService);
+                appUserRepository, staffReadPlatformService, dataScopeService);
     }
 
     @Bean

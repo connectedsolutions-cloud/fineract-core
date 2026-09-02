@@ -22,8 +22,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
+import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.portfolio.pendiente.data.PendingFlowBlueprintData;
 import org.apache.fineract.portfolio.pendiente.domain.PendingFlowBlueprint;
 import org.apache.fineract.portfolio.pendiente.domain.PendingFlowBlueprintRepository;
@@ -60,8 +60,7 @@ public class PendingFlowBlueprintWritePlatformServiceImpl implements PendingFlow
     @Override
     public PendingFlowBlueprintData update(Long id, String json) {
         context.authenticatedUser();
-        PendingFlowBlueprint entity = repository.findById(id)
-                .orElseThrow(() -> new PendingFlowBlueprintNotFoundException(id));
+        PendingFlowBlueprint entity = repository.findById(id).orElseThrow(() -> new PendingFlowBlueprintNotFoundException(id));
         JsonObject object = fromJsonHelper.parse(json).getAsJsonObject();
         if (object.has("status")) {
             entity.setStatus(fromJsonHelper.extractStringNamed("status", object));

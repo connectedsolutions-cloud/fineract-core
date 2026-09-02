@@ -28,8 +28,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Input for building a pending flow and its first step. Contains mandatory responsable user id,
- * optional due date, optional name/description, and blueprint-specific reference items.
+ * Input for building a pending flow and its first step. Contains mandatory responsable user id, optional due date,
+ * optional name/description, and blueprint-specific reference items.
  */
 @Getter
 @Setter
@@ -47,8 +47,8 @@ public class PendingFlowBuildRequest {
     private Long officeId;
 
     /**
-     * Blueprint-specific reference items (e.g. sesionComiteId, entity ids). Keys are
-     * builder-specific; parsed from the request body.
+     * Blueprint-specific reference items (e.g. sesionComiteId, entity ids). Keys are builder-specific; parsed from the
+     * request body.
      */
     @Builder.Default
     private Map<String, Object> references = Collections.emptyMap();

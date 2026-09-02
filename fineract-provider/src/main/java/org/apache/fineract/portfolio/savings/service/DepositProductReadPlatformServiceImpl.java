@@ -130,7 +130,7 @@ public class DepositProductReadPlatformServiceImpl implements DepositProductRead
 
         protected DepositProductMapper() {
             final StringBuilder sqlBuilder = new StringBuilder(400);
-            sqlBuilder.append("sp.id as id, sp.name as name, sp.short_name as shortName, sp.description as description, ");
+            sqlBuilder.append("sp.id as id, sp.name as name, sp.short_name as shortName, sp.numbering_code as numberingCode, sp.description as description, ");
             sqlBuilder.append(
                     "sp.currency_code as currencyCode, sp.currency_digits as currencyDigits, sp.currency_multiplesof as inMultiplesOf, ");
             sqlBuilder.append("curr.name as currencyName, curr.internationalized_name_code as currencyNameCode, ");
@@ -206,10 +206,12 @@ public class DepositProductReadPlatformServiceImpl implements DepositProductRead
                 taxGroupData = TaxGroupData.lookup(taxGroupId, taxGroupName);
             }
 
-            return DepositProductData.instance(id, name, shortName, description, currency, nominalAnnualInterestRate,
+            final DepositProductData product = DepositProductData.instance(id, name, shortName, description, currency, nominalAnnualInterestRate,
                     compoundingInterestPeriodType, interestPostingPeriodType, interestCalculationType, interestCalculationDaysInYearType,
                     lockinPeriodFrequency, lockinPeriodFrequencyType, accountingRuleType, minBalanceForInterestCalculation, withHoldTax,
                     taxGroupData);
+            product.setNumberingCode(rs.getString("numberingCode"));
+            return product;
         }
     }
 

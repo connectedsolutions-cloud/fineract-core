@@ -30,16 +30,22 @@ public class RoleData implements Serializable {
     private final String name;
     private final String description;
     private final Boolean disabled;
+    private final String dataScope;
 
     public RolePermissionsData toRolePermissionData(final Collection<PermissionData> permissionUsageData) {
-        return new RolePermissionsData(this.id, this.name, this.description, this.disabled, permissionUsageData);
+        return new RolePermissionsData(this.id, this.name, this.description, this.disabled, this.dataScope, permissionUsageData);
     }
 
     public RoleData(final Long id, final String name, final String description, final Boolean disabled) {
+        this(id, name, description, disabled, "ALL");
+    }
+
+    public RoleData(final Long id, final String name, final String description, final Boolean disabled, final String dataScope) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.disabled = disabled;
+        this.dataScope = dataScope == null ? "ALL" : dataScope;
     }
 
     @Override
@@ -62,5 +68,9 @@ public class RoleData implements Serializable {
 
     public String getName() {
         return name;
+    }
+
+    public String getDataScope() {
+        return dataScope;
     }
 }

@@ -39,17 +39,17 @@ import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResultBuilder;
 import org.apache.fineract.infrastructure.core.exception.ErrorHandler;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
-import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
+import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.portfolio.comite.domain.SesionComite;
 import org.apache.fineract.portfolio.comite.domain.SesionComiteRepository;
 import org.apache.fineract.portfolio.comite.exception.SesionComiteNotFoundException;
 import org.apache.fineract.portfolio.loanaccount.service.LoanApplicationWritePlatformService;
-import org.springframework.stereotype.Service;
 import org.apache.fineract.useradministration.domain.AppUser;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.jpa.JpaSystemException;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
@@ -168,8 +168,7 @@ public class SesionComiteWritePlatformServiceImpl implements SesionComiteWritePl
                 this.sesionComiteRepository.saveAndFlush(session);
             }
 
-            return new CommandProcessingResultBuilder().withCommandId(command.commandId()).withEntityId(sessionId).with(changes)
-                    .build();
+            return new CommandProcessingResultBuilder().withCommandId(command.commandId()).withEntityId(sessionId).with(changes).build();
         } catch (final JpaSystemException | DataIntegrityViolationException dve) {
             handleDataIntegrityIssues(command, dve.getMostSpecificCause(), dve);
             return CommandProcessingResult.empty();
@@ -252,10 +251,10 @@ public class SesionComiteWritePlatformServiceImpl implements SesionComiteWritePl
 
             // Parse existing selections and update
             List<JsonObject> allSelections = parseSelectionJsonArray(session.getSelection());
-            
+
             // Remove existing selections from this user
             allSelections.removeIf(sel -> sel.has("appuser_id") && sel.get("appuser_id").getAsLong() == currentUserId);
-            
+
             // Add new selections from this user
             allSelections.addAll(currentUserSelections);
 
@@ -331,8 +330,8 @@ public class SesionComiteWritePlatformServiceImpl implements SesionComiteWritePl
             if (unanimouslyApprovedLoanIds == null) {
                 unanimouslyApprovedLoanIds = new ArrayList<>();
             }
-            log.debug("[COMTE-DEBUG] applySessionApprovals unanimouslyApprovedLoanIds={} count={}",
-                    unanimouslyApprovedLoanIds, unanimouslyApprovedLoanIds.size());
+            log.debug("[COMTE-DEBUG] applySessionApprovals unanimouslyApprovedLoanIds={} count={}", unanimouslyApprovedLoanIds,
+                    unanimouslyApprovedLoanIds.size());
 
             // Batch approve loans
             for (Long loanId : unanimouslyApprovedLoanIds) {
@@ -342,8 +341,8 @@ public class SesionComiteWritePlatformServiceImpl implements SesionComiteWritePl
                     String jsonCommand = String.format("{\"dateFormat\":\"yyyy-MM-dd\",\"locale\":\"en\",\"approvedOnDate\":\"%s\"}",
                             OffsetDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE));
                     com.google.gson.JsonElement parsedCommand = fromJsonHelper.parse(jsonCommand);
-                    JsonCommand approvalCommand = JsonCommand.from(jsonCommand, parsedCommand, fromJsonHelper, "LOAN", loanId, null,
-                            null, null, loanId, null, null, null, null, null, null, null, null);
+                    JsonCommand approvalCommand = JsonCommand.from(jsonCommand, parsedCommand, fromJsonHelper, "LOAN", loanId, null, null,
+                            null, loanId, null, null, null, null, null, null, null, null);
 
                     loanApplicationWritePlatformService.approveApplication(loanId, approvalCommand);
                     log.debug("[COMTE-DEBUG] applySessionApprovals loan approved loanId={}", loanId);
@@ -352,13 +351,14 @@ public class SesionComiteWritePlatformServiceImpl implements SesionComiteWritePl
                 }
             }
 
-            // Process approved loans (portfolio debits, available-at-cashier charges, disbursements payable, pre-processed flag)
+            // Process approved loans (portfolio debits, available-at-cashier charges, disbursements payable,
+            // pre-processed flag)
             log.debug("[COMTE-DEBUG] applySessionApprovals calling processComiteOtorgamientoLoansService.process sessionId={} loanIds={}",
                     sessionId, unanimouslyApprovedLoanIds);
             ProcessComiteOtorgamientoResult processResult = processComiteOtorgamientoLoansService.process(session,
                     unanimouslyApprovedLoanIds);
-            log.debug("[COMTE-DEBUG] applySessionApprovals process completed sessionId={} status={}",
-                    sessionId, processResult != null ? processResult.getStatus() : null);
+            log.debug("[COMTE-DEBUG] applySessionApprovals process completed sessionId={} status={}", sessionId,
+                    processResult != null ? processResult.getStatus() : null);
 
             // Update session with status and output from processing
             if (processResult == null) {
@@ -478,9 +478,8 @@ public class SesionComiteWritePlatformServiceImpl implements SesionComiteWritePl
      */
     private void logSesionComitePayload(String operation, SesionComite session) {
         if (log.isDebugEnabled()) {
-            log.debug("[SesionComite DB persist] operation={} id={} officeId={} status={}",
-                    operation, session.getId(), session.getOffice() != null ? session.getOffice().getId() : null,
-                    session.getStatus());
+            log.debug("[SesionComite DB persist] operation={} id={} officeId={} status={}", operation, session.getId(),
+                    session.getOffice() != null ? session.getOffice().getId() : null, session.getStatus());
             log.debug("[SesionComite DB persist] integrantes (exact value sent to DB): {}", session.getIntegrantes());
             log.debug("[SesionComite DB persist] selection (exact value sent to DB): {}", session.getSelection());
             log.debug("[SesionComite DB persist] output (exact value sent to DB): {}", session.getOutput());

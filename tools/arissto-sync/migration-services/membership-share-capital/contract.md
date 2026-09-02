@@ -107,7 +107,7 @@ The current archive service still has no permission to write native share
 tables. A later native service must use Fineract APIs and obey these rules:
 
 - a current exact `AFI_ACCION` position is eligible for a share account only
-  after client, share-product, dividend-savings-account, and accounting
+  after client, share-product, reconciled native-savings-account, and accounting
   prerequisites pass;
 - `MOV_APORTACIONES` purchases may become native purchase transactions only
   when their member, share class, certificate, paid-share quantity, amount,
@@ -189,7 +189,10 @@ reconciliation matched all 68,800 with no failure/quarantine/mismatch. Plan
 under the final constraint/permission-aware schema signature.
 
 This acceptance predates the current-party `OPR_OPERACIONES` filter. The
-contract hash has changed and the service is blocked pending a new controlled
-local plan, apply, and exact reconciliation. Production is still prohibited
+contract hash changed and therefore required a new controlled local acceptance.
+Plan `47dee8bef987401caa8dfd42b32201e6` and run
+`d058e51a5257444f8e6c1f45bbb2fb2a` reconciled all 66,374 narrowed-scope
+records; plan `156557aa4a8e4e8385aace42ad02cbfa` then classified all as
+unchanged. Production is still prohibited
 without that acceptance plus independent production inspection, planning,
 review, and exact target-fingerprint confirmation.

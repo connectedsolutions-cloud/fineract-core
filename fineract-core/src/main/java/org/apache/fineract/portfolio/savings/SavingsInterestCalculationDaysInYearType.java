@@ -24,6 +24,7 @@ import java.util.Arrays;
  *
  * People typically use either of the following settings when calculating there interest using the daily method:
  * <ul>
+ * <li>Actual,</li>
  * <li>360 and</li>
  * <li>365</li>
  * </ul>
@@ -31,6 +32,7 @@ import java.util.Arrays;
 public enum SavingsInterestCalculationDaysInYearType {
 
     INVALID(0, "savingsInterestCalculationDaysInYearType.invalid"), //
+    ACTUAL(1, "savingsInterestCalculationDaysInYearType.actual"), //
     DAYS_360(360, "savingsInterestCalculationDaysInYearType.days360"), //
     DAYS_365(365, "savingsInterestCalculationDaysInYearType.days365"); //
 
@@ -61,6 +63,8 @@ public enum SavingsInterestCalculationDaysInYearType {
         }
 
         switch (v) {
+            case 1:
+                return ACTUAL;
             case 360:
                 return DAYS_360;
             case 365:
@@ -68,5 +72,9 @@ public enum SavingsInterestCalculationDaysInYearType {
             default:
                 return INVALID;
         }
+    }
+
+    public boolean isActual() {
+        return this == ACTUAL;
     }
 }

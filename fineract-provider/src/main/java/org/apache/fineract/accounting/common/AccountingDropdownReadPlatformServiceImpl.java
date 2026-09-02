@@ -108,8 +108,7 @@ public class AccountingDropdownReadPlatformServiceImpl implements AccountingDrop
         final Map<String, List<GLAccountData>> accountOptions = new HashMap<>();
 
         if (includeAssetAccounts) {
-            List<GLAccountData> assetAccountOptions = this.accountReadPlatformService
-                    .retrieveAllEnabledGLAccounts(GLAccountType.ASSET);
+            List<GLAccountData> assetAccountOptions = this.accountReadPlatformService.retrieveAllEnabledGLAccounts(GLAccountType.ASSET);
             if (assetAccountOptions.isEmpty()) {
                 assetAccountOptions = null;
             }
@@ -117,8 +116,7 @@ public class AccountingDropdownReadPlatformServiceImpl implements AccountingDrop
         }
 
         if (includeIncomeAccounts) {
-            List<GLAccountData> incomeAccountOptions = this.accountReadPlatformService
-                    .retrieveAllEnabledGLAccounts(GLAccountType.INCOME);
+            List<GLAccountData> incomeAccountOptions = this.accountReadPlatformService.retrieveAllEnabledGLAccounts(GLAccountType.INCOME);
             if (incomeAccountOptions.isEmpty()) {
                 incomeAccountOptions = null;
             }
@@ -126,8 +124,7 @@ public class AccountingDropdownReadPlatformServiceImpl implements AccountingDrop
         }
 
         if (includeExpenseAccounts) {
-            List<GLAccountData> expenseAccountOptions = this.accountReadPlatformService
-                    .retrieveAllEnabledGLAccounts(GLAccountType.EXPENSE);
+            List<GLAccountData> expenseAccountOptions = this.accountReadPlatformService.retrieveAllEnabledGLAccounts(GLAccountType.EXPENSE);
             if (expenseAccountOptions.isEmpty()) {
                 expenseAccountOptions = null;
             }
@@ -144,8 +141,7 @@ public class AccountingDropdownReadPlatformServiceImpl implements AccountingDrop
         }
 
         if (includeEquityAccounts) {
-            List<GLAccountData> equityAccountOptions = this.accountReadPlatformService
-                    .retrieveAllEnabledGLAccounts(GLAccountType.EQUITY);
+            List<GLAccountData> equityAccountOptions = this.accountReadPlatformService.retrieveAllEnabledGLAccounts(GLAccountType.EQUITY);
             if (equityAccountOptions.isEmpty()) {
                 equityAccountOptions = null;
             }

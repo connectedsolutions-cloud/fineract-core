@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<!--
+    Durable Arissto credit-line to native Fineract loan-product identity.
+    ID_LINEA_CREDITO is the identity; ID_EMPRESA is retained as provenance for
+    this explicitly single-company migration.
+
+    Native external IDs remain authoritative for m_product_loan, m_loan and
+    m_loan_transaction. This table adds only the source and contract hashes
+    needed to review product mappings safely and idempotently.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0293-1-create-arissto-loan-product-map" author="credesal">
+        <preConditions onFail="HALT">
+            <not>
+                <tableExists tableName="credesal_loan_product_map"/>
+            </not>
+        </preConditions>
+        <createTable tableName="credesal_loan_product_map">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="PK_cr_loan_product_map"/>
+            </column>
+            <column name="source_system" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_key" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_hash" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="contract_hash" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="loan_product_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="arissto_company_id" type="VARCHAR(3)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="arissto_line_id" type="VARCHAR(5)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="mapping_status" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column defaultValueComputed="CURRENT_TIMESTAMP" name="created_at" type="DATETIME">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="DATETIME"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_loan_product_map"
+                                 baseColumnNames="loan_product_id"
+                                 constraintName="FK_cr_loan_product_map_product"
+                                 referencedTableName="m_product_loan"
+                                 referencedColumnNames="id"
+                                 onDelete="RESTRICT"
+                                 onUpdate="RESTRICT"/>
+        <addUniqueConstraint tableName="credesal_loan_product_map"
+                             columnNames="source_system,source_key"
+                             constraintName="UK_cr_loan_product_map_source"/>
+        <addUniqueConstraint tableName="credesal_loan_product_map"
+                             columnNames="arissto_line_id"
+                             constraintName="UK_cr_loan_product_map_line"/>
+        <addUniqueConstraint tableName="credesal_loan_product_map"
+                             columnNames="loan_product_id"
+                             constraintName="UK_cr_loan_product_map_target"/>
+        <createIndex tableName="credesal_loan_product_map" indexName="IX_cr_loan_product_map_status">
+            <column name="mapping_status"/>
+        </createIndex>
+        <rollback>
+            <dropTable tableName="credesal_loan_product_map"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

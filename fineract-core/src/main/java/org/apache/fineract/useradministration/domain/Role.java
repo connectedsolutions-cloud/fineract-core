@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.domain.AbstractPersistableCustom;
+import org.apache.fineract.infrastructure.security.datascope.DataScope;
 import org.apache.fineract.useradministration.data.RoleData;
 
 @Entity
@@ -49,6 +50,9 @@ public class Role extends AbstractPersistableCustom<Long> implements Serializabl
     @Column(name = "is_disabled", nullable = false)
     private Boolean disabled;
 
+    @Column(name = "data_scope", nullable = false, length = 20)
+    private String dataScope;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "m_role_permission", joinColumns = @JoinColumn(name = "role_id"), inverseJoinColumns = @JoinColumn(name = "permission_id"))
     private Set<Permission> permissions = new HashSet<>();
@@ -56,7 +60,10 @@ public class Role extends AbstractPersistableCustom<Long> implements Serializabl
     public static Role fromJson(final JsonCommand command) {
         final String name = command.stringValueOfParameterNamed("name");
         final String description = command.stringValueOfParameterNamed("description");
-        return new Role(name, description);
+        final DataScope dataScope = command.hasParameter("dataScope")
+                ? DataScope.fromRoleValue(command.stringValueOfParameterNamed("dataScope"))
+                : DataScope.ALL;
+        return new Role(name, description, dataScope);
     }
 
     protected Role() {
@@ -64,9 +71,14 @@ public class Role extends AbstractPersistableCustom<Long> implements Serializabl
     }
 
     public Role(final String name, final String description) {
+        this(name, description, DataScope.ALL);
+    }
+
+    public Role(final String name, final String description, final DataScope dataScope) {
         this.name = name.trim();
         this.description = description.trim();
         this.disabled = false;
+        this.dataScope = dataScope == null ? DataScope.ALL.name() : dataScope.name();
     }
 
     public Map<String, Object> update(final JsonCommand command) {
@@ -85,6 +97,15 @@ public class Role extends AbstractPersistableCustom<Long> implements Serializabl
             final String newValue = command.stringValueOfParameterNamed(descriptionParamName);
             actualChanges.put(descriptionParamName, newValue);
             this.description = newValue;
+        }
+
+        final String dataScopeParamName = "dataScope";
+        if (command.hasParameter(dataScopeParamName)) {
+            final String newValue = DataScope.fromRoleValue(command.stringValueOfParameterNamed(dataScopeParamName)).name();
+            if (this.dataScope == null || !this.dataScope.equals(newValue)) {
+                actualChanges.put(dataScopeParamName, newValue);
+                this.dataScope = newValue;
+            }
         }
 
         return actualChanges;
@@ -125,11 +146,15 @@ public class Role extends AbstractPersistableCustom<Long> implements Serializabl
     }
 
     public RoleData toData() {
-        return new RoleData(getId(), this.name, this.description, this.disabled);
+        return new RoleData(getId(), this.name, this.description, this.disabled, this.dataScope);
     }
 
     public String getName() {
         return this.name;
+    }
+
+    public String getDataScope() {
+        return this.dataScope;
     }
 
     public void disableRole() {

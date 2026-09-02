@@ -20,7 +20,7 @@
 <databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
-    
+
     <!-- Update "Increase COB Date by 1 day" cron expression to run 30 minutes after midnight -->
     <changeSet author="fineract" id="1">
         <update tableName="job">
@@ -28,7 +28,7 @@
             <where>name='Increase COB Date by 1 day'</where>
         </update>
     </changeSet>
-    
+
     <!-- Activate "Loan COB" job -->
     <changeSet author="fineract" id="2">
         <update tableName="job">
@@ -36,7 +36,7 @@
             <where>name='Loan COB'</where>
         </update>
     </changeSet>
-    
+
     <!-- Activate "Increase COB Date by 1 day" job -->
     <changeSet author="fineract" id="3">
         <update tableName="job">
@@ -44,7 +44,5 @@
             <where>name='Increase COB Date by 1 day'</where>
         </update>
     </changeSet>
-    
+
 </databaseChangeLog>
-
-

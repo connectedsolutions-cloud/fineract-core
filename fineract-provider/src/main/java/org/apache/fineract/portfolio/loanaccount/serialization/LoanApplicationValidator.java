@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -167,8 +168,8 @@ public final class LoanApplicationValidator {
             LoanApiConstants.fixedEmiAmountParameterName, LoanApiConstants.maxOutstandingBalanceParameterName,
             LoanProductConstants.GRACE_ON_ARREARS_AGEING_PARAMETER_NAME,
             LoanApiConstants.createStandingInstructionAtDisbursementParameterName, LoanApiConstants.isTopup, LoanApiConstants.loanIdToClose,
-            LoanApiConstants.datatables, LoanApiConstants.isEqualAmortizationParam, LoanProductConstants.RATES_PARAM_NAME,
-            LoanApiConstants.applicationId, // glim specific
+            LoanApiConstants.loanIdsToClose, LoanApiConstants.datatables, LoanApiConstants.isEqualAmortizationParam,
+            LoanProductConstants.RATES_PARAM_NAME, LoanApiConstants.applicationId, // glim specific
             LoanApiConstants.lastApplication, // glim specific
             LoanApiConstants.daysInYearTypeParameterName, LoanApiConstants.fixedPrincipalPercentagePerInstallmentParamName,
             LoanApiConstants.DISALLOW_EXPECTED_DISBURSEMENTS, LoanApiConstants.FRAUD_ATTRIBUTE_NAME,
@@ -176,8 +177,7 @@ public final class LoanApplicationValidator {
             LoanProductConstants.ENABLE_INSTALLMENT_LEVEL_DELINQUENCY, LoanProductConstants.ENABLE_DOWN_PAYMENT,
             LoanProductConstants.ENABLE_AUTO_REPAYMENT_DOWN_PAYMENT, LoanProductConstants.DISBURSED_AMOUNT_PERCENTAGE_DOWN_PAYMENT,
             LoanApiConstants.INTEREST_RECOGNITION_ON_DISBURSEMENT_DATE, LoanApiConstants.daysInYearCustomStrategyParameterName,
-            LoanApiConstants.disbursalMethodPaymentTypeIdParameterName,
-            LoanApiConstants.dimensionsParameterName,
+            LoanApiConstants.disbursalMethodPaymentTypeIdParameterName, LoanApiConstants.dimensionsParameterName,
             "recalculationRestFrequencyDate", "recalculationCompoundingFrequencyDate", "balloonRepaymentAmount",
             "allowFullTermForTranche"));
     public static final String LOANAPPLICATION_UNDO = "loanapplication.undo";
@@ -633,48 +633,18 @@ public final class LoanApplicationValidator {
                 baseDataValidator.reset().parameter(LoanApiConstants.isTopup).value(isTopup).validateForBooleanValue();
 
                 if (isTopup != null && isTopup) {
-                    final Long loanId = this.fromApiJsonHelper.extractLongNamed(LoanApiConstants.loanIdToClose, element);
-                    baseDataValidator.reset().parameter(LoanApiConstants.loanIdToClose).value(loanId).notNull().longGreaterThanZero();
-
-                    if (clientId != null) {
-                        final Long loanIdToClose = this.fromApiJsonHelper.extractLongNamed(LoanApiConstants.loanIdToClose, element);
-                        final Loan loanToClose = this.loanRepositoryWrapper.findNonClosedLoanThatBelongsToClient(loanIdToClose, clientId);
-                        if (loanToClose == null) {
-                            throw new GeneralPlatformDomainRuleException(
-                                    "error.msg.loan.loanIdToClose.no.active.loan.associated.to.client.found",
-                                    "loanIdToClose is invalid, No Active Loan associated with the given Client ID found.");
-                        }
-                        if (loanToClose.isMultiDisburmentLoan()
-                                && !loanToClose.getLoanProductRelatedDetail().isInterestRecalculationEnabled()) {
-                            throw new GeneralPlatformDomainRuleException(
-                                    "error.msg.loan.topup.on.multi.tranche.loan.without.interest.recalculation.not.supported",
-                                    "Topup on loan with multi-tranche disbursal and without interest recalculation is not supported.");
-                        }
-                        final LocalDate disbursalDateOfLoanToClose = loanToClose.getDisbursementDate();
-                        if (!DateUtils.isAfter(submittedOnDate, disbursalDateOfLoanToClose)) {
-                            throw new GeneralPlatformDomainRuleException(
-                                    "error.msg.loan.submitted.date.should.be.after.topup.loan.disbursal.date",
-                                    "Submitted date of this loan application " + submittedOnDate
-                                            + " should be after the disbursed date of loan to be closed " + disbursalDateOfLoanToClose);
-                        }
-                        if (!loanToClose.getCurrencyCode().equals(loanProduct.getCurrency().getCode())) {
-                            throw new GeneralPlatformDomainRuleException("error.msg.loan.to.be.closed.has.different.currency",
-                                    "loanIdToClose is invalid, Currency code is different.");
-                        }
-                        final LocalDate lastUserTransactionOnLoanToClose = loanToClose.getLastUserTransactionDate();
-                        if (DateUtils.isBefore(expectedDisbursementDate, lastUserTransactionOnLoanToClose)) {
-                            throw new GeneralPlatformDomainRuleException(
-                                    "error.msg.loan.disbursal.date.should.be.after.last.transaction.date.of.loan.to.be.closed",
-                                    "Disbursal date of this loan application " + expectedDisbursementDate
-                                            + " should be after last transaction date of loan to be closed "
-                                            + lastUserTransactionOnLoanToClose);
-                        }
-                        BigDecimal loanOutstanding = this.loanReadPlatformService
-                                .retrieveLoanPrePaymentTemplate(LoanTransactionType.REPAYMENT, loanIdToClose, expectedDisbursementDate)
-                                .getAmount();
-                        if (loanOutstanding.compareTo(principal) > 0) {
-                            throw new GeneralPlatformDomainRuleException("error.msg.loan.amount.less.than.outstanding.of.loan.to.be.closed",
-                                    "Topup loan amount should be greater than outstanding amount of loan to be closed.");
+                    final List<Long> loanIdsToClose = extractRefinancingLoanIds(element);
+                    baseDataValidator.reset().parameter(LoanApiConstants.loanIdsToClose).value(loanIdsToClose).listNotEmpty();
+                    if (new HashSet<>(loanIdsToClose).size() != loanIdsToClose.size()) {
+                        baseDataValidator.reset().parameter(LoanApiConstants.loanIdsToClose).value(loanIdsToClose).failWithCode("duplicate",
+                                "A predecessor loan cannot appear more than once");
+                    }
+                    if (clientId != null && !loanIdsToClose.isEmpty()) {
+                        final BigDecimal outstanding = validateRefinancingApplicationLoans(loanIdsToClose, clientId, loanProduct,
+                                submittedOnDate, expectedDisbursementDate);
+                        if (outstanding.compareTo(principal) > 0) {
+                            throw new GeneralPlatformDomainRuleException("error.msg.loan.amount.less.than.refinancing.settlement.total",
+                                    "Refinancing loan amount must be at least the combined outstanding amount of all loans to be closed.");
                         }
                     }
                 }
@@ -1368,53 +1338,23 @@ public final class LoanApplicationValidator {
                 baseDataValidator.reset().parameter(LoanApiConstants.isTopup).value(isTopup).ignoreIfNull().validateForBooleanValue();
 
                 if (isTopup != null && isTopup) {
-                    final Long loanId = this.fromApiJsonHelper.extractLongNamed(LoanApiConstants.loanIdToClose, element);
-                    baseDataValidator.reset().parameter(LoanApiConstants.loanIdToClose).value(loanId).notNull().longGreaterThanZero();
-
                     LocalDate submittedOnDate = this.fromApiJsonHelper.extractLocalDateNamed(LoanApiConstants.submittedOnDateParameterName,
                             element);
                     if (submittedOnDate == null) {
                         submittedOnDate = loan.getSubmittedOnDate();
                     }
-                    final Long loanIdToClose = command.longValueOfParameterNamed(LoanApiConstants.loanIdToClose);
-                    final Loan loanToClose = this.loanRepositoryWrapper.findNonClosedLoanThatBelongsToClient(loanIdToClose, clientId);
-                    if (loanToClose == null) {
-                        throw new GeneralPlatformDomainRuleException(
-                                "error.msg.loan.loanIdToClose.no.active.loan.associated.to.client.found",
-                                "loanIdToClose is invalid, No Active Loan associated with the given Client ID found.");
+                    final List<Long> loanIdsToClose = extractRefinancingLoanIds(element);
+                    baseDataValidator.reset().parameter(LoanApiConstants.loanIdsToClose).value(loanIdsToClose).listNotEmpty();
+                    if (new HashSet<>(loanIdsToClose).size() != loanIdsToClose.size()) {
+                        baseDataValidator.reset().parameter(LoanApiConstants.loanIdsToClose).value(loanIdsToClose).failWithCode("duplicate",
+                                "A predecessor loan cannot appear more than once");
                     }
-                    if (loanToClose.isMultiDisburmentLoan()
-                            && !loanToClose.getLoanProductRelatedDetail().isInterestRecalculationEnabled()) {
-                        throw new GeneralPlatformDomainRuleException(
-                                "error.msg.loan.topup.on.multi.tranche.loan.without.interest.recalculation.not.supported",
-                                "Topup on loan with multi-tranche disbursal and without interest recalculation is not supported.");
-                    }
-                    final LocalDate disbursalDateOfLoanToClose = loanToClose.getDisbursementDate();
-                    if (!DateUtils.isAfter(submittedOnDate, disbursalDateOfLoanToClose)) {
-                        throw new GeneralPlatformDomainRuleException(
-                                "error.msg.loan.submitted.date.should.be.after.topup.loan.disbursal.date",
-                                "Submitted date of this loan application " + submittedOnDate
-                                        + " should be after the disbursed date of loan to be closed " + disbursalDateOfLoanToClose);
-                    }
-                    if (!loanToClose.getCurrencyCode().equals(loanProduct.getCurrency().getCode())) {
-                        throw new GeneralPlatformDomainRuleException("error.msg.loan.to.be.closed.has.different.currency",
-                                "loanIdToClose is invalid, Currency code is different.");
-                    }
-                    final LocalDate lastUserTransactionOnLoanToClose = loanToClose.getLastUserTransactionDate();
-                    if (DateUtils.isBefore(expectedDisbursementDate, lastUserTransactionOnLoanToClose)) {
-                        throw new GeneralPlatformDomainRuleException(
-                                "error.msg.loan.disbursal.date.should.be.after.last.transaction.date.of.loan.to.be.closed",
-                                "Disbursal date of this loan application " + expectedDisbursementDate
-                                        + " should be after last transaction date of loan to be closed "
-                                        + lastUserTransactionOnLoanToClose);
-                    }
-                    BigDecimal loanOutstanding = this.loanReadPlatformService
-                            .retrieveLoanPrePaymentTemplate(LoanTransactionType.REPAYMENT, loanIdToClose, expectedDisbursementDate)
-                            .getAmount();
+                    final BigDecimal loanOutstanding = validateRefinancingApplicationLoans(loanIdsToClose, clientId, loanProduct,
+                            submittedOnDate, expectedDisbursementDate);
                     final BigDecimal firstDisbursalAmount = getFirstDisbursalAmount(loan);
                     if (loanOutstanding.compareTo(firstDisbursalAmount) > 0) {
-                        throw new GeneralPlatformDomainRuleException("error.msg.loan.amount.less.than.outstanding.of.loan.to.be.closed",
-                                "Topup loan amount should be greater than outstanding amount of loan to be closed.");
+                        throw new GeneralPlatformDomainRuleException("error.msg.loan.amount.less.than.refinancing.settlement.total",
+                                "Refinancing loan amount must be at least the combined outstanding amount of all loans to be closed.");
                     }
                 }
             }
@@ -1970,31 +1910,95 @@ public final class LoanApplicationValidator {
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, SUPPORTED_PARAMETERS);
     }
 
+    private List<Long> extractRefinancingLoanIds(final JsonElement element) {
+        final JsonArray array = this.fromApiJsonHelper.extractJsonArrayNamed(LoanApiConstants.loanIdsToClose, element);
+        if (array != null && !array.isEmpty()) {
+            final List<Long> ids = new ArrayList<>();
+            array.forEach(value -> ids.add(value.getAsLong()));
+            return ids;
+        }
+        final Long legacyLoanId = this.fromApiJsonHelper.extractLongNamed(LoanApiConstants.loanIdToClose, element);
+        return legacyLoanId == null ? List.of() : List.of(legacyLoanId);
+    }
+
+    private BigDecimal validateRefinancingApplicationLoans(final List<Long> loanIdsToClose, final Long clientId,
+            final LoanProduct loanProduct, final LocalDate submittedOnDate, final LocalDate expectedDisbursementDate) {
+        BigDecimal totalOutstanding = BigDecimal.ZERO;
+        for (Long loanIdToClose : loanIdsToClose) {
+            final Loan loanToClose = this.loanRepositoryWrapper.findNonClosedLoanThatBelongsToClient(loanIdToClose, clientId);
+            if (loanToClose == null) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.loanIdToClose.no.active.loan.associated.to.client.found",
+                        "Predecessor loan %s is not an active loan associated with the client", loanIdToClose);
+            }
+            if (loanToClose.isMultiDisburmentLoan() && !loanToClose.getLoanProductRelatedDetail().isInterestRecalculationEnabled()) {
+                throw new GeneralPlatformDomainRuleException(
+                        "error.msg.loan.refinancing.multi.tranche.without.interest.recalculation.not.supported",
+                        "Refinancing a multi-tranche loan without interest recalculation is not supported.");
+            }
+            final LocalDate disbursalDateOfLoanToClose = loanToClose.getDisbursementDate();
+            if (!DateUtils.isAfter(submittedOnDate, disbursalDateOfLoanToClose)) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.submitted.date.should.be.after.refinanced.loan.disbursal.date",
+                        "Submitted date %s must be after predecessor loan %s disbursement date %s", submittedOnDate, loanIdToClose,
+                        disbursalDateOfLoanToClose);
+            }
+            if (!loanToClose.getCurrencyCode().equals(loanProduct.getCurrency().getCode())) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.refinancing.currency.must.match",
+                        "Predecessor loan %s uses a different currency", loanIdToClose);
+            }
+            final LocalDate lastTransactionDate = loanToClose.getLastUserTransactionDate();
+            if (lastTransactionDate != null && DateUtils.isBefore(expectedDisbursementDate, lastTransactionDate)) {
+                throw new GeneralPlatformDomainRuleException(
+                        "error.msg.loan.disbursal.date.should.be.after.last.transaction.date.of.loan.to.be.closed",
+                        "Refinancing disbursement date %s must be after predecessor loan %s last transaction date %s",
+                        expectedDisbursementDate, loanIdToClose, lastTransactionDate);
+            }
+            totalOutstanding = totalOutstanding.add(this.loanReadPlatformService
+                    .retrieveLoanPrePaymentTemplate(LoanTransactionType.REPAYMENT, loanIdToClose, expectedDisbursementDate).getAmount());
+        }
+        return totalOutstanding;
+    }
+
     public BigDecimal validateTopupLoan(final Loan loan, final LocalDate disbursementDate) {
-        final Long loanIdToClose = loan.getTopupLoanDetails().getLoanIdToClose();
-        final Loan loanToClose = loanRepositoryWrapper.findNonClosedLoanThatBelongsToClient(loanIdToClose, loan.getClientId());
-        if (loanToClose == null) {
-            throw new GeneralPlatformDomainRuleException("error.msg.loan.to.be.closed.with.topup.is.not.active",
-                    "Loan to be closed with this topup is not active.");
+        return validateRefinancingLoans(loan, disbursementDate).values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public Map<Long, BigDecimal> validateRefinancingLoans(final Loan loan, final LocalDate disbursementDate) {
+        final Map<Long, BigDecimal> settlements = new LinkedHashMap<>();
+        for (Long loanIdToClose : loan.getTopupLoanDetails().getLoanIdsToClose()) {
+            if (loan.getId() != null && loan.getId().equals(loanIdToClose)) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.refinancing.cannot.close.itself",
+                        "A refinancing loan cannot settle itself.");
+            }
+            final Loan loanToClose = loanRepositoryWrapper.findNonClosedLoanThatBelongsToClient(loanIdToClose, loan.getClientId());
+            if (loanToClose == null) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.to.be.closed.with.refinancing.is.not.active",
+                        "Loan %s to be closed with this refinancing is not active", loanIdToClose);
+            }
+            if (!loan.getCurrencyCode().equals(loanToClose.getCurrencyCode())) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.refinancing.currency.must.match",
+                        "Loan %s uses a different currency from the refinancing loan", loanIdToClose);
+            }
+
+            final LocalDate lastUserTransactionOnLoanToClose = loanToClose.getLastUserTransactionDate();
+            if (lastUserTransactionOnLoanToClose != null && DateUtils.isBefore(disbursementDate, lastUserTransactionOnLoanToClose)) {
+                throw new GeneralPlatformDomainRuleException(
+                        "error.msg.loan.disbursal.date.should.be.after.last.transaction.date.of.loan.to.be.closed",
+                        "Disbursal date of this refinancing loan " + disbursementDate
+                                + " should be after last transaction date of loan to be closed " + lastUserTransactionOnLoanToClose);
+            }
+
+            final BigDecimal loanOutstanding = loanReadPlatformService
+                    .retrieveLoanPrePaymentTemplate(LoanTransactionType.REPAYMENT, loanIdToClose, disbursementDate).getAmount();
+            settlements.put(loanIdToClose, loanOutstanding);
         }
 
-        final LocalDate lastUserTransactionOnLoanToClose = loanToClose.getLastUserTransactionDate();
-        if (DateUtils.isBefore(loan.getDisbursementDate(), lastUserTransactionOnLoanToClose)) {
-            throw new GeneralPlatformDomainRuleException(
-                    "error.msg.loan.disbursal.date.should.be.after.last.transaction.date.of.loan.to.be.closed",
-                    "Disbursal date of this loan application " + loan.getDisbursementDate()
-                            + " should be after last transaction date of loan to be closed " + lastUserTransactionOnLoanToClose);
-        }
-
-        final BigDecimal loanOutstanding = loanReadPlatformService
-                .retrieveLoanPrePaymentTemplate(LoanTransactionType.REPAYMENT, loanIdToClose, disbursementDate).getAmount();
+        final BigDecimal totalOutstanding = settlements.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
         final BigDecimal firstDisbursalAmount = getFirstDisbursalAmount(loan);
-        if (loanOutstanding.compareTo(firstDisbursalAmount) > 0) {
-            throw new GeneralPlatformDomainRuleException("error.msg.loan.amount.less.than.outstanding.of.loan.to.be.closed",
-                    "Topup loan amount should be greater than outstanding amount of loan to be closed.");
+        if (totalOutstanding.compareTo(firstDisbursalAmount) > 0) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.amount.less.than.refinancing.settlement.total",
+                    "Refinancing loan amount must be at least the combined outstanding amount of all loans to be closed.");
         }
-
-        return loanOutstanding;
+        return settlements;
     }
 
     public void validateApproval(JsonCommand command, Long loanId) {
@@ -2089,8 +2093,8 @@ public final class LoanApplicationValidator {
                     StatusEnum.APPROVE.getValue(), EntityTables.LOAN.getForeignKeyColumnNameOnDatatable(), loan.productId());
 
             if (loan.isTopup() && loan.getClientId() != null) {
-                final BigDecimal loanOutstanding = validateTopupLoan(loan, expectedDisbursementDate);
-                final BigDecimal netDisbursalAmountAdjusted = loan.getApprovedPrincipal().subtract(loanOutstanding);
+                final BigDecimal settlementTotal = validateTopupLoan(loan, expectedDisbursementDate);
+                final BigDecimal netDisbursalAmountAdjusted = loan.getApprovedPrincipal().subtract(settlementTotal);
                 loan.adjustNetDisbursalAmount(netDisbursalAmountAdjusted);
             }
 

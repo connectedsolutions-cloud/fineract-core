@@ -74,9 +74,9 @@ import org.apache.fineract.portfolio.client.domain.ClientNonPerson;
 import org.apache.fineract.portfolio.client.domain.ClientNonPersonRepositoryWrapper;
 import org.apache.fineract.portfolio.client.domain.ClientRepositoryWrapper;
 import org.apache.fineract.portfolio.client.domain.ClientStatus;
-import org.apache.fineract.portfolio.client.domain.LegalForm;
 import org.apache.fineract.portfolio.client.domain.ClientTag;
 import org.apache.fineract.portfolio.client.domain.ClientTagRepository;
+import org.apache.fineract.portfolio.client.domain.LegalForm;
 import org.apache.fineract.portfolio.client.exception.ClientActiveForUpdateException;
 import org.apache.fineract.portfolio.client.exception.ClientHasNoStaffException;
 import org.apache.fineract.portfolio.client.exception.ClientMustBePendingToBeDeletedException;
@@ -454,7 +454,7 @@ public class ClientWritePlatformServiceJpaRepositoryImpl implements ClientWriteP
             final String clientHierarchy = clientForUpdate.getOffice().getHierarchy();
 
             this.context.validateAccessRights(clientHierarchy);
-            
+
             // Ensure tagMappings are loaded before updating tags
             clientForUpdate.getTags().size();
 

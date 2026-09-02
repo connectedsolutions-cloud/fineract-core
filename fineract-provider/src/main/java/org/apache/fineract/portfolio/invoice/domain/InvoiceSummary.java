@@ -80,4 +80,3 @@ public class InvoiceSummary extends AbstractPersistableCustom<Long> {
         this.invoice = invoice;
     }
 }
-

@@ -45,6 +45,7 @@ services:
       - FINERACT_MANAGEMENT_METRICS_TAGS_APPLICATION=${FINERACT_MANAGEMENT_METRICS_TAGS_APPLICATION:-fineract}
       - FINERACT_REMOTE_JOB_MESSAGE_HANDLER_SPRING_EVENTS_ENABLED=${FINERACT_REMOTE_JOB_MESSAGE_HANDLER_SPRING_EVENTS_ENABLED:-true}
       - FINERACT_INSECURE_HTTP_CLIENT=${FINERACT_INSECURE_HTTP_CLIENT:-true}
+      - FINERACT_WEBAPP_BASE_URL=${FINERACT_WEBAPP_BASE_URL:-http://localhost:4200}
       # Java options with debug enabled
       - JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS:--Xmx2G -Xms2G -Dlogging.config=/app/logback-override.xml -XX:TieredStopAtLevel=1 -XX:+UseContainerSupport -XX:+UseStringDeduplication -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5000}
       - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-fineract}

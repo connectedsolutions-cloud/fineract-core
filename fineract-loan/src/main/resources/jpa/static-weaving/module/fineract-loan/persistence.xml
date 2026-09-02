@@ -110,6 +110,7 @@
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanStatusChangeHistory</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanTermVariations</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanTopupDetails</class>
+        <class>org.apache.fineract.portfolio.loanaccount.domain.LoanRefinancingSettlement</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanTrancheCharge</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanTrancheDisbursementCharge</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction</class>

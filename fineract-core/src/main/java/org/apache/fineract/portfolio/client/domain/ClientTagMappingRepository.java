@@ -24,8 +24,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface ClientTagMappingRepository
-        extends JpaRepository<ClientTagMapping, Long>, JpaSpecificationExecutor<ClientTagMapping> {
+public interface ClientTagMappingRepository extends JpaRepository<ClientTagMapping, Long>, JpaSpecificationExecutor<ClientTagMapping> {
 
     @Query("SELECT ctm FROM ClientTagMapping ctm LEFT JOIN FETCH ctm.tag WHERE ctm.client.id = :clientId")
     List<ClientTagMapping> findByClientIdWithTag(@Param("clientId") Long clientId);

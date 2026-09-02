@@ -52,6 +52,11 @@ public final class ExternalServicesConstants {
     public static final String NOTIFICATION_GCM_END_POINT = "gcm_end_point";
     public static final String NOTIFICATION_FCM_END_POINT = "fcm_end_point";
 
+    public static final String RESEND_SERVICE_NAME = "RESEND";
+    public static final String RESEND_API_KEY = "apiKey";
+    public static final String RESEND_FROM_EMAIL = "fromEmail";
+    public static final String RESEND_FROM_NAME = "fromName";
+
     public enum ExternalservicePropertiesJSONinputParams {
 
         EXTERNAL_SERVICE_ID("external_service_id"), //
@@ -175,6 +180,40 @@ public final class ExternalServicesConstants {
 
         static {
             for (final S3JSONinputParams type : S3JSONinputParams.values()) {
+                values.add(type.value);
+            }
+        }
+
+        public static Set<String> getAllValues() {
+            return values;
+        }
+
+        @Override
+        public String toString() {
+            return name().toString().replaceAll("_", " ");
+        }
+
+        public String getValue() {
+            return this.value;
+        }
+    }
+
+    public enum ResendJSONinputParams {
+
+        API_KEY("apiKey"), //
+        FROM_EMAIL("fromEmail"), //
+        FROM_NAME("fromName"); //
+
+        private final String value;
+
+        ResendJSONinputParams(final String value) {
+            this.value = value;
+        }
+
+        private static final Set<String> values = new HashSet<>();
+
+        static {
+            for (final ResendJSONinputParams type : ResendJSONinputParams.values()) {
                 values.add(type.value);
             }
         }

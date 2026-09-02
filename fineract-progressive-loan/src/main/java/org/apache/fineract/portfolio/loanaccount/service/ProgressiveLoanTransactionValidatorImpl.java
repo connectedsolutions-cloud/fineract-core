@@ -122,7 +122,8 @@ public class ProgressiveLoanTransactionValidatorImpl implements ProgressiveLoanT
             }
 
             // Validate transaction date is not in the future
-            if (transactionDate != null && DateUtils.isDateInTheFutureForLoan(transactionDate, loan.getIsSimulation(), loan.getSimulatedDate())) {
+            if (transactionDate != null
+                    && DateUtils.isDateInTheFutureForLoan(transactionDate, loan.getIsSimulation(), loan.getSimulatedDate())) {
                 baseDataValidator.reset().parameter("transactionDate").failWithCode("cannot.be.in.the.future",
                         "Transaction date cannot be in the future");
             }
@@ -203,7 +204,8 @@ public class ProgressiveLoanTransactionValidatorImpl implements ProgressiveLoanT
             }
 
             // Validate transaction date is not in the future
-            if (transactionDate != null && DateUtils.isDateInTheFutureForLoan(transactionDate, loan.getIsSimulation(), loan.getSimulatedDate())) {
+            if (transactionDate != null
+                    && DateUtils.isDateInTheFutureForLoan(transactionDate, loan.getIsSimulation(), loan.getSimulatedDate())) {
                 baseDataValidator.reset().parameter("transactionDate").failWithCode("cannot.be.in.the.future",
                         "Transaction date cannot be in the future");
             }
@@ -376,7 +378,8 @@ public class ProgressiveLoanTransactionValidatorImpl implements ProgressiveLoanT
             }
 
             // Validate transaction date is not in the future
-            if (transactionDate != null && DateUtils.isDateInTheFutureForLoan(transactionDate, loan.getIsSimulation(), loan.getSimulatedDate())) {
+            if (transactionDate != null
+                    && DateUtils.isDateInTheFutureForLoan(transactionDate, loan.getIsSimulation(), loan.getSimulatedDate())) {
                 baseDataValidator.reset().parameter("transactionDate").failWithCode("cannot.be.in.the.future",
                         "Transaction date cannot be in the future");
             }
@@ -453,6 +456,11 @@ public class ProgressiveLoanTransactionValidatorImpl implements ProgressiveLoanT
     @Override
     public void validateNewRepaymentTransaction(String json) {
         loanTransactionValidator.validateNewRepaymentTransaction(json);
+    }
+
+    @Override
+    public void validateSourceExactRepaymentTransaction(String json) {
+        loanTransactionValidator.validateSourceExactRepaymentTransaction(json);
     }
 
     @Override

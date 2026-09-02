@@ -28,9 +28,13 @@ ready. The same date is used as Fineract `submittedOnDate` so the imported
 timeline satisfies `submittedOnDate <= activationDate`, including recovery of
 clients created during an interrupted run.
 Fineract also forbids client activation before the assigned office opening
-date. Seventeen branch-002 records predate its 2024-12-11 opening; those use
-2024-12-11, the earliest target-valid activation date. All other clients retain
-their exact `FECHA_REGISTRO` date.
+date. A cross-domain chronology audit established `2024-11-27` as office 2's
+earliest evidenced operating date: client/application activity begins that
+day, accounting activity begins `2024-11-28`, and disbursement begins
+`2024-11-30`. The target opening date and activation floor are therefore
+`2024-11-27`; all branch-002 clients retain their exact `FECHA_REGISTRO` date.
+The 16 early-loan clients were verified as office-002 originations, not later
+transfers from office 1. [Source evidence](../../../../../../credesal-db-space/docs/learnings/prestamos.md#cronologia-apertura-sucursal-002).
 
 Every imported client receives exactly one active `tipo_cliente` tag. Current
 Arissto relationship `003` maps to `cliente`. Relationship `001` maps to

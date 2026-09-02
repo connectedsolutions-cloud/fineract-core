@@ -38,7 +38,10 @@ public enum ChargeTimeType {
     SHARE_REDEEM(15, "chargeTimeType.sharesredeem"), // only for shares
     SAVINGS_NOACTIVITY_FEE(16, "chargeTimeType.savingsNoActivityFee"), // only for savings
     AVAILABLE_AT_CASHIER(17, "chargeTimeType.availableAtCashier"), // only for loan charges
-    /** Loan charge applied on COB when loan-level delinquency tag matches linked range; see ChargeCalculationType.PERCENT_OF_DELINQUENT_PRINCIPAL */
+    /**
+     * Loan charge applied on COB when loan-level delinquency tag matches linked range; see
+     * ChargeCalculationType.PERCENT_OF_DELINQUENT_PRINCIPAL
+     */
     DELINQUENCY_CLASSIFICATION_RANGE(18, "chargeTimeType.delinquencyClassificationRange"); // only for loan charges
 
     private final Integer value;

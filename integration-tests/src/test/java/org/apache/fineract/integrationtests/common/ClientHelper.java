@@ -35,6 +35,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -145,6 +146,27 @@ public class ClientHelper {
 
     public PageClientSearchData searchClients(PagedRequestClientTextSearch request) {
         return Calls.ok(FineractClientHelper.getFineractClient().clientSearchV2.searchByText(request));
+    }
+
+    public String searchClientsJson(Map<String, Object> requestFilters, int page, int size) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("request", requestFilters);
+        body.put("page", page);
+        body.put("size", size);
+        return Utils.performServerPost(requestSpec, responseSpec, "/fineract-provider/api/v2/clients/search?" + Utils.TENANT_IDENTIFIER,
+                GSON.toJson(body));
+    }
+
+    public String retrieveSearchOptionsJson() {
+        return retrieveSearchOptionsJson(null);
+    }
+
+    public String retrieveSearchOptionsJson(Long officeId) {
+        String url = "/fineract-provider/api/v2/clients/search/options?" + Utils.TENANT_IDENTIFIER;
+        if (officeId != null) {
+            url += "&officeId=" + officeId;
+        }
+        return Utils.performServerGet(requestSpec, responseSpec, url);
     }
 
     // TODO: Rewrite to use fineract-client instead!

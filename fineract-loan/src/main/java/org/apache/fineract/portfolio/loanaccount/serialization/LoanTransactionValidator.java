@@ -36,6 +36,10 @@ public interface LoanTransactionValidator {
 
     void validateDisbursement(JsonCommand command, boolean isAccountTransfer, Long loanId);
 
+    default void validateSourceExactTopupDisbursement(JsonCommand command, Long loanId) {
+        throw new UnsupportedOperationException("Source-exact top-up disbursement is not supported by this loan implementation");
+    }
+
     void validateUndoChargeOff(String json);
 
     void validateTransaction(String json);
@@ -43,6 +47,12 @@ public interface LoanTransactionValidator {
     void validateChargebackTransaction(String json);
 
     void validateNewRepaymentTransaction(String json);
+
+    void validateSourceExactRepaymentTransaction(String json);
+
+    default void validateSourceExactComponentReallocation(String json) {
+        throw new UnsupportedOperationException("Source-exact component reallocation is not supported by this loan implementation");
+    }
 
     void validateTransactionWithNoAmount(String json);
 

@@ -143,8 +143,7 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
             }
 
             transactionDto.put("chargeAmount", transaction.chargeAmount());
-            transactionDto.put("paymentTypeId", null); // FIXME::make it cash
-                                                       // payment
+            transactionDto.put("paymentTypeId", transaction.getPaymentTypeId());
             if (transaction.getChargesPaidBy() != null && !transaction.getChargesPaidBy().isEmpty()) {
                 final List<Map<String, Object>> chargesPaidData = new ArrayList<>();
                 transactionDto.put("chargesPaid", chargesPaidData);

@@ -91,6 +91,18 @@ public class FineractProperties {
 
     private RetryProperties retry;
 
+    private FineractWebAppProperties webapp;
+
+    @Getter
+    @Setter
+    public static class FineractWebAppProperties {
+
+        /**
+         * Public Mifos web app origin used in password-reset email links.
+         */
+        private String baseUrl;
+    }
+
     @Getter
     @Setter
     public static class FineractTenantProperties {
@@ -509,6 +521,7 @@ public class FineractProperties {
         private FineractTransactionProcessorItemProperties duePenaltyInterestPrincipalFeeInAdvancePenaltyInterestPrincipalFee;
         private FineractTransactionProcessorItemProperties advancedPaymentStrategy;
         private FineractTransactionProcessorItemProperties credesalPenaltiesFeesInterestPrincipal;
+        private FineractTransactionProcessorItemProperties credesalAccruedInterest;
         private boolean errorNotFoundFail;
     }
 

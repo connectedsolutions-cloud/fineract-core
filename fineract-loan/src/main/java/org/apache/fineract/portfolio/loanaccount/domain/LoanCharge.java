@@ -242,6 +242,15 @@ public class LoanCharge extends AbstractAuditableWithUTCDateTimeCustom<Long> {
         return ChargeTimeType.fromInt(this.chargeTime).equals(ChargeTimeType.INSTALMENT_FEE);
     }
 
+    /**
+     * Limits an opt-in recurring outstanding-principal charge to installments on or after its submission date. A null
+     * submission date deliberately preserves Fineract's existing behavior for every other installment charge.
+     */
+    public boolean isInstallmentChargeApplicable(final LocalDate installmentDueDate) {
+        return !getChargeCalculation().isPercentageOfOutstandingPrincipal() || this.submittedOnDate == null || installmentDueDate == null
+                || !installmentDueDate.isBefore(this.submittedOnDate);
+    }
+
     public boolean isOverdueInstallmentCharge() {
         return ChargeTimeType.fromInt(this.chargeTime).equals(ChargeTimeType.OVERDUE_INSTALLMENT);
     }

@@ -26,8 +26,8 @@ import org.apache.fineract.portfolio.pendiente.domain.PendingFlow;
 import org.apache.fineract.portfolio.pendiente.domain.PendingStep;
 
 /**
- * Result of building a pending flow and its first step. The write service persists the flow
- * and step and sets flow.stepsId to the first step's id.
+ * Result of building a pending flow and its first step. The write service persists the flow and step and sets
+ * flow.stepsId to the first step's id.
  */
 @Getter
 @Setter

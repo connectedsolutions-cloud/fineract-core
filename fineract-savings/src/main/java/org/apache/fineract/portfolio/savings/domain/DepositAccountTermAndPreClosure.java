@@ -298,10 +298,10 @@ public class DepositAccountTermAndPreClosure extends AbstractPersistableCustom<L
         final DepositPreClosureDetail preClosureDetail = this.preClosureDetail.copy();
         final DepositTermDetail depositTermDetail = this.depositTermDetail.copy();
         final LocalDate expectedFirstDepositOnDate = null;
-        final Boolean transferInterestToLinkedAccount = false;
+        final Boolean transferInterestToLinkedAccount = this.transferInterestToLinkedAccount;
 
-        final DepositAccountOnClosureType accountOnClosureType = null;
-        final Long transferToSavingsId = null;
+        final DepositAccountOnClosureType accountOnClosureType = DepositAccountOnClosureType.fromInt(this.onAccountClosureType);
+        final Long transferToSavingsId = this.transferToSavingsAccountId;
         return DepositAccountTermAndPreClosure.createNew(preClosureDetail, depositTermDetail, account, actualDepositAmount, maturityAmount,
                 maturityDate, depositPeriod, depositPeriodFrequency, expectedFirstDepositOnDate, accountOnClosureType,
                 transferInterestToLinkedAccount, transferToSavingsId);
@@ -309,6 +309,11 @@ public class DepositAccountTermAndPreClosure extends AbstractPersistableCustom<L
 
     public void updateExpectedFirstDepositDate(final LocalDate expectedFirstDepositOnDate) {
         this.expectedFirstDepositOnDate = expectedFirstDepositOnDate;
+    }
+
+    public void configureSourceAuthoritativePrincipalRollover() {
+        this.onAccountClosureType = DepositAccountOnClosureType.REINVEST_PRINCIPAL_ONLY.getValue();
+        this.transferInterestToLinkedAccount = true;
     }
 
     public boolean isTransferInterestToLinkedAccount() {

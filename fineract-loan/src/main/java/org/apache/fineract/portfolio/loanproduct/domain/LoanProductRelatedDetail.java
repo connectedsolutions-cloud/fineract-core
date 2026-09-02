@@ -210,6 +210,9 @@ public class LoanProductRelatedDetail {
     @Column(name = "installment_amount_in_multiples_of")
     private Integer installmentAmountInMultiplesOf;
 
+    @Column(name = "round_calculated_installment_up", nullable = false)
+    private boolean roundCalculatedInstallmentUp;
+
     public static LoanProductRelatedDetail createFrom(final CurrencyData currencyData, final BigDecimal principal,
             final BigDecimal nominalInterestRatePerPeriod, final PeriodFrequencyType interestRatePeriodFrequencyType,
             final BigDecimal nominalAnnualInterestRate, final InterestMethod interestMethod,

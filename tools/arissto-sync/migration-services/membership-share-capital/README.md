@@ -2,20 +2,20 @@
 
 ## Status
 
-- Registry status: `blocked`
+- Registry status: `available`
 - Executable: `true`
 - CLI block: `membership-share-capital`
 - Dependency: migrated Fineract clients keyed by `AFI_SOCIO.NUMERO_AFILIACION`
 - Target: `credesal_member_profile` and `credesal_arissto_membership_record`
 
-The prior lossless-archive contract completed local acceptance on 2026-08-21. Plan
-`641d8d36b1ae4df3918e1bd300cccc74` created 68,800 normalized records.
-Run `f410af8b724549f594976d54cd2c4573` succeeded for all 68,800 and
-reconciled all 68,800 exactly with no failure, quarantine, or mismatch.
-Final post-hardening plan `2a05afe0a6bc4049bd959b50a9da39dd` classified all 68,800 as
-`unchanged`. Those counts predate the current-party operation-log filter. The
-narrowed contract requires a fresh controlled local plan, apply, and exact
-reconciliation before the registry returns to `available`.
+The narrowed current-party contract completed local re-acceptance on
+2026-08-26. Plan `47dee8bef987401caa8dfd42b32201e6` applied 66,374
+in-scope records. Run `d058e51a5257444f8e6c1f45bbb2fb2a` reconciled all
+66,374 exactly with no failure, quarantine, linkage issue, or mismatch. Final
+plan `156557aa4a8e4e8385aace42ad02cbfa` classified all 66,374 as
+`unchanged`. Older out-of-scope archive rows remain preserved and are not
+deleted. This acceptance authorizes only the preservation service; native
+financial shares remain separately gated.
 
 ## What is migrated
 
@@ -61,6 +61,8 @@ Source meaning and evidence remain in
 Migration behavior is defined in [`contract.md`](contract.md).
 The ordered schema, prerequisite, native-engine, acceptance, and production
 work is maintained in [`implementation-sequence.md`](implementation-sequence.md).
+The active cross-service defect, reconciliation, retest, and handoff queue is
+maintained in [`membership-reconciliation.md`](membership-reconciliation.md).
 
 ## Destination model
 
@@ -84,17 +86,17 @@ common/preferred subscribed and paid quantities to the member profile, a
 queryable current-certificate projection, its beneficiary child records, and a
 durable source-event-to-native-transaction crosswalk. The current preservation
 service populates the new profile quantities after that migration is applied;
-certificate projection and native-event mappings remain owned by the future
+certificate projection and native-event mappings are owned by the separate
 `native-share-capital` service.
 
 ## Native Fineract shares
 
-Native share-account creation is deliberately deferred. Fineract requires a
+Native share-account creation is implemented by the separate, available
+`native-share-capital` service. Fineract requires a
 real, active savings-deposit account owned by the same client for each share
 account. This requirement remains unchanged even though individual Arissto
-dividends are not migrable. At local acceptance the target had 1,035 clients
-but only one client with a savings account. Creating dummy savings accounts,
-attaching unrelated accounts, using fixed-term deposits, or making the native
+dividends are not migrable. Creating dummy savings accounts, attaching
+unrelated accounts, using fixed-term deposits, or making the native
 relationship optional would corrupt Fineract product meaning.
 
 The savings domain is therefore a hard prerequisite, not a convenience for
@@ -115,11 +117,18 @@ Historical monthly data also contains former positions, but certificate IDs are
 reused and disappearance from the current master is not sufficient evidence for
 a native redemption.
 
-The evidence grades and proposed native commands are maintained in
-[`lifecycle.md`](lifecycle.md). In particular, the future native projection must
-use paid shares—not subscribed shares—as Fineract approved/purchased shares,
+The evidence grades and implemented native commands are maintained in
+[`lifecycle.md`](lifecycle.md). The native projection uses paid shares—not
+subscribed shares—as Fineract approved/purchased shares,
 must keep membership/client status independent from each share account, and
 must quarantine inferred closures that lack a dated financial event.
+
+The registry dependency is intentionally one-way:
+`clients → membership-share-capital → native-share-capital`. Native shares also
+depends on `savings-deposits`; membership preservation does not. Membership and
+savings may run in either order after clients, but both must reconcile before
+native shares. The complete manual order is documented in
+[`orchestration.md`](../orchestration.md#current-manual-membership-to-native-shares-flow).
 
 ## Operating workflow
 

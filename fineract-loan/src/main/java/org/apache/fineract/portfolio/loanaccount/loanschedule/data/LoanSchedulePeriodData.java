@@ -149,14 +149,15 @@ public final class LoanSchedulePeriodData {
     public static LoanSchedulePeriodData periodWithPayments(final Integer periodNumber, final LocalDate fromDate, final LocalDate dueDate,
             final LocalDate obligationsMetOnDate, final boolean complete, final BigDecimal principalOriginalDue,
             final BigDecimal principalPaid, final BigDecimal principalWrittenOff, final BigDecimal principalOutstanding,
-            final BigDecimal outstandingPrincipalBalanceOfLoan, final BigDecimal interestDue, final BigDecimal interestPaid,
-            final BigDecimal interestWaived, final BigDecimal interestWrittenOff, final BigDecimal interestOutstanding,
-            final BigDecimal feeChargesDue, final BigDecimal feeChargesPaid, final BigDecimal feeChargesWaived,
-            final BigDecimal feeChargesWrittenOff, final BigDecimal feeChargesOutstanding, final BigDecimal penaltyChargesDue,
-            final BigDecimal penaltyChargesPaid, final BigDecimal penaltyChargesWaived, final BigDecimal penaltyChargesWrittenOff,
-            final BigDecimal penaltyChargesOutstanding, final BigDecimal totalPaid, final BigDecimal totalPaidInAdvanceForPeriod,
-            final BigDecimal totalPaidLateForPeriod, final BigDecimal totalWaived, final BigDecimal totalWrittenOff,
-            final BigDecimal totalCredits, final boolean isDownPayment, final BigDecimal totalAccruedInterest) {
+            final BigDecimal outstandingPrincipalBalanceOfLoan, final BigDecimal interestDue, final BigDecimal interestOriginalDue,
+            final BigDecimal interestPaid, final BigDecimal interestWaived, final BigDecimal interestWrittenOff,
+            final BigDecimal interestOutstanding, final BigDecimal feeChargesDue, final BigDecimal feeChargesPaid,
+            final BigDecimal feeChargesWaived, final BigDecimal feeChargesWrittenOff, final BigDecimal feeChargesOutstanding,
+            final BigDecimal penaltyChargesDue, final BigDecimal penaltyChargesPaid, final BigDecimal penaltyChargesWaived,
+            final BigDecimal penaltyChargesWrittenOff, final BigDecimal penaltyChargesOutstanding, final BigDecimal totalPaid,
+            final BigDecimal totalPaidInAdvanceForPeriod, final BigDecimal totalPaidLateForPeriod, final BigDecimal totalWaived,
+            final BigDecimal totalWrittenOff, final BigDecimal totalCredits, final boolean isDownPayment,
+            final BigDecimal totalAccruedInterest) {
 
         final MathContext mc = MoneyHelper.getMathContext();
 
@@ -179,7 +180,7 @@ public final class LoanSchedulePeriodData {
                 .principalOutstanding(principalOutstanding) //
                 .principalLoanBalanceOutstanding(outstandingPrincipalBalanceOfLoan) //
                 .interestDue(interestDue) //
-                .interestOriginalDue(interestDue) //
+                .interestOriginalDue(interestOriginalDue) //
                 .interestPaid(interestPaid) //
                 .interestWaived(interestWaived) //
                 .interestWrittenOff(interestWrittenOff) //

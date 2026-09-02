@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<!--
+    Durable Arissto savings-line to native Fineract product identity.
+
+    m_savings_product has no external-id column. This crosswalk prevents
+    retries from creating duplicate products and preserves the reviewed source
+    and contract hashes without putting migration-only fields in core tables.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0290-1-create-arissto-savings-product-map" author="credesal">
+        <createTable tableName="credesal_savings_product_map">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="source_system" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_key" type="VARCHAR(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_hash" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="contract_hash" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="savings_product_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="arissto_company_id" type="VARCHAR(3)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="arissto_line_id" type="VARCHAR(5)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="deposit_type" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="mapping_status" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="DATETIME"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_savings_product_map" baseColumnNames="savings_product_id"
+                                 constraintName="FK_cr_sav_product_map_product"
+                                 referencedTableName="m_savings_product" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addUniqueConstraint tableName="credesal_savings_product_map"
+                             columnNames="source_system,source_key"
+                             constraintName="UK_cr_sav_product_map_source"/>
+        <addUniqueConstraint tableName="credesal_savings_product_map"
+                             columnNames="savings_product_id"
+                             constraintName="UK_cr_sav_product_map_target"/>
+        <createIndex tableName="credesal_savings_product_map" indexName="IX_cr_sav_product_map_status">
+            <column name="mapping_status"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

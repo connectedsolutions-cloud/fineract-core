@@ -7,10 +7,21 @@
   `0283_add_credesal_share_migration_support.xml`.
 - Phase 1 profile projection: implemented for explicit per-class subscribed and
   paid quantities.
-- Phase 1 application and local schema verification: pending normal Fineract
-  Liquibase startup.
-- Phase 0 preservation re-acceptance: pending after migration 0283 is applied.
-- Native product/account/transaction work: not started.
+- Phase 1 application and local schema verification: completed locally; all
+  migration 0283 tables, constraints, and per-class profile columns exist.
+- Phase 0 preservation re-acceptance: completed locally with 66,374 exact
+  matches and a fully unchanged second plan.
+- Native Phase 3 read-only inspection: implemented as the separate
+  `native-share-capital` service; the first live local source acceptance on
+  2026-08-26 reproduced all reviewed baseline totals exactly.
+- Native accounting decisions: approved. Local inspection after migration
+  `0295_seed_native_share_accounting.xml` resolves all five product GL roles
+  and all four payment-channel mappings; `approved_gl_mapping_ready=true`.
+- Native product/account/transaction planning and writes: implemented. Both
+  products are provisioned, the eligible savings population resolves, and
+  controlled common/preferred lifecycle and reconciliation proofs passed
+  locally on 2026-08-29. A full applicable plan is ready for a clean or
+  restored controlled tenant.
 
 ## Outcome
 
@@ -117,11 +128,26 @@ planner. They do block product creation and account application.
 - Preferred emission configuration supplies only 100 shares at 5.00, while the
   source already contains 848 paid and 2,048 subscribed shares. It is stale or
   semantically narrower than Fineract product capacity.
+- Live native inspection derives maximum current client positions of 375
+  common paid shares, 225 preferred paid shares, and 825 preferred subscribed
+  shares. These are hard lower bounds, not recommended headroom values.
 - Credesal must approve preferred `totalShares`, nominal shares, minimum client
   shares, and maximum client shares.
 - The approved maximum cannot be lower than the largest eligible current paid
   position. If unpaid subscriptions may later be fulfilled natively, the limit
   must also accommodate the relevant subscribed position.
+
+Decision approved 2026-08-27:
+
+| Product | `totalShares` | `minimumShares` | `nominalShares` | `maximumShares` |
+|---|---:|---:|---:|---:|
+| Common | 6,375 | 1 | 1 | 375 |
+| Preferred | 50,000 | 1 | 1 | 825 |
+
+Common capacity is intentionally frozen at the migrated subscribed/paid total.
+Preferred capacity retains future headroom, while its client maximum covers the
+largest current subscribed position. The sync inspector enforces these floors
+and the Fineract ordering constraints.
 
 ### 2. Native savings prerequisite
 
@@ -163,8 +189,42 @@ Arissto resolves the following evidence:
 - provision/yield: `222099940101 RENDIMIENTO ACCIONES PREFERIDAS`; and
 - cost: `7110040100 INTERESES DE TÍTULOS VALORES`.
 
-The equity candidates are clear. The remaining Fineract roles require an
-approved target GL crosswalk; names or account types must not be guessed.
+The equity product intent is clear, but the historical postings contain a
+known exception. The 2023 opening journal combined 24,875.00 common and
+2,125.00 preferred capital and credited all 27,000.00 to preferred equity.
+Later preferred purchases correctly credited `311101020002`, while 7,000.00 of
+later common purchases credited `125001010003 INGRESO DE SOCIOS`; no purchase
+journal used `311101020001`. Native migration must keep the two configured
+classes and reconcile this historical misclassification explicitly.
+
+The same journal trace proves that `222099940101` is a yield/provision
+liability, not Fineract share suspense: 1,303 system-22 credit lines total
+612.94 and none belongs to a purchase journal. The existing local target
+candidates `1142060202` (reference), `222099910101` (suspense), and `6420`
+(fees) were compatibility candidates only; Arissto purchase journals do not
+validate the first two.
+
+Decision approved 2026-08-27:
+
+- common and preferred equity map to `311101020001` and `311101020002`;
+- native approval suspense uses new liability `2220070303`;
+- the default reference fallback uses new asset `1250990901`;
+- both fallback and suspense are zero-balance control accounts;
+- detail `6423 INGRESO POR COMISIONES - NORMAL` is the mandatory inactive fee
+  mapping, no share charges are configured, and header `6420` is never mapped
+  directly to a product;
+- cash and third-party cheques use canonical `1110010199 CAJA`;
+- Atlántida and Cuscatlán use `111004020101` and `111004020102` respectively;
+- offices do not select different GL codes: `acc_gl_journal_entry.office_id`
+  is the office dimension; and
+- native Fineract share commands own these accounting entries, so a separate
+  historical GL import must exclude the same share components.
+
+Tenant migration `0295_seed_native_share_accounting.xml` provisions the three
+new detail accounts and three payment types. Product provisioning must add the
+payment-channel overrides from `config/native_share_capital.json`. Native
+apply then approve nets to debit cash/bank and credit the class equity account,
+matching Arissto while retaining Fineract's transient approval control.
 
 ### 4. Operational certificate visibility
 
@@ -535,13 +595,17 @@ The sequence is complete only when:
 
 ## Immediate next work
 
-1. Apply migration 0283 through normal local Fineract startup and inspect the
-   resulting schema.
-2. Re-accept the narrowed preservation service locally, including the expanded
-   member profile.
-3. Define and implement the native savings migration sequence, including
-   transaction, interest-posting, accrual, and accounting reconciliation.
-4. Resolve the remaining share gates: preferred product limits and target GL
-   mappings.
-5. Scaffold the separate `native-share-capital` registry/service contract as
-   `planned`, then implement inspection before any native writer.
+1. The retained default-tenant full test is complete: run
+   `d4ca31cf17ca4b6bb54752cdc1ed3a0c` applied all 45 supported positions with
+   no failures, reconciled 42 cleanly, and isolated exactly the 3 known pre-fix
+   canary journal mismatches. Second plan
+   `31c2711ea1b54edba05ea5e252e1c2aa` reports 42 unchanged.
+2. Use a restored/clean controlled tenant only when literal zero-mismatch full
+   acceptance is required. Generate a fresh target-specific plan after the
+   restore; do not reuse a plan created for another database state.
+3. Resolve the six shareholders without eligible same-client VISTA accounts
+   through the normal savings/client workflow before attempting their 12
+   quarantined share positions.
+4. Run the independent production inspect/plan/fingerprint-confirmed workflow
+   only after full local acceptance is recorded and production execution is
+   explicitly authorized.

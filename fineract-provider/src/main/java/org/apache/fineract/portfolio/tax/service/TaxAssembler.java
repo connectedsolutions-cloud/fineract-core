@@ -135,7 +135,7 @@ public class TaxAssembler {
                         dateFormat, locale);
                 final LocalDate endDate = this.fromApiJsonHelper.extractLocalDateNamed(TaxApiConstants.endDateParamName, taxComponent,
                         dateFormat, locale);
-                
+
                 TaxGroupMappings mappings = null;
                 if (isUpdate && mappingId != null) {
                     // For existing mappings, we only update the endDate

@@ -20,13 +20,13 @@ package org.apache.fineract.portfolio.loanaccount.loanschedule.domain;
 
 import java.math.MathContext;
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.List;
 import net.fortuna.ical4j.model.Recur;
+import org.apache.fineract.infrastructure.core.service.AnchoredMonthlyDateUtils;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.organisation.holiday.domain.Holiday;
 import org.apache.fineract.organisation.holiday.service.HolidayUtil;
@@ -167,10 +167,7 @@ public class DefaultScheduledDateGenerator implements ScheduledDateGenerator {
      */
     private Temporal adjustDate(final Temporal date, final Temporal seedDate, final PeriodFrequencyType frequencyType) {
         if (frequencyType.isMonthly() && seedDate.get(ChronoField.DAY_OF_MONTH) > 28 && date.get(ChronoField.DAY_OF_MONTH) >= 28) {
-            int noOfDaysInCurrentMonth = YearMonth.from(date).lengthOfMonth();
-            int seedDay = seedDate.get(ChronoField.DAY_OF_MONTH);
-            int adjustedDay = Math.min(noOfDaysInCurrentMonth, seedDay);
-            return date.with(ChronoField.DAY_OF_MONTH, adjustedDay);
+            return AnchoredMonthlyDateUtils.adjustToAnchorDay(date, seedDate);
         }
         return date;
     }

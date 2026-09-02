@@ -525,6 +525,12 @@ public final class ChargeDefinitionCommandFromApiJsonDeserializer {
                     .isOneOfTheseValues(new Object[] { ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE.getValue() });
             return;
         }
+        if (chargeCalculationType != null
+                && chargeCalculationType.equals(ChargeCalculationType.PERCENT_OF_OUTSTANDING_PRINCIPAL.getValue())) {
+            baseDataValidator.reset().parameter(CHARGE_TIME_TYPE).value(chargeTimeType)
+                    .isOneOfTheseValues(new Object[] { ChargeTimeType.INSTALMENT_FEE.getValue() });
+            return;
+        }
         if (chargeTimeType.equals(ChargeTimeType.SHAREACCOUNT_ACTIVATION.getValue())) {
             baseDataValidator.reset().parameter(CHARGE_CALCULATION_TYPE).value(chargeCalculationType)
                     .isOneOfTheseValues(ChargeCalculationType.validValuesForShareAccountActivation());

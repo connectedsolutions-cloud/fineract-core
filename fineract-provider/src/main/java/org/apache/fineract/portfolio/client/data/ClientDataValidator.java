@@ -55,8 +55,7 @@ public final class ClientDataValidator {
 
     @Autowired
     public ClientDataValidator(final FromJsonHelper fromApiJsonHelper,
-            final ConfigurationReadPlatformService configurationReadPlatformService,
-            final ClientTagRepository clientTagRepository) {
+            final ConfigurationReadPlatformService configurationReadPlatformService, final ClientTagRepository clientTagRepository) {
         this.fromApiJsonHelper = fromApiJsonHelper;
         this.configurationReadPlatformService = configurationReadPlatformService;
         this.clientTagRepository = clientTagRepository;

@@ -432,6 +432,13 @@ public class LoanProductUpdateUtil {
             actualChanges.put(LoanProductConstants.canDefineEmiAmountParamName, newValue);
             loanProduct.setCanDefineInstallmentAmount(newValue);
         }
+        if (command.isChangeInBooleanParameterNamed(LoanProductConstants.roundCalculatedInstallmentUpParamName,
+                loanProduct.getLoanProductRelatedDetail().isRoundCalculatedInstallmentUp())) {
+            final boolean newValue = command
+                    .booleanPrimitiveValueOfParameterNamed(LoanProductConstants.roundCalculatedInstallmentUpParamName);
+            actualChanges.put(LoanProductConstants.roundCalculatedInstallmentUpParamName, newValue);
+            loanProduct.getLoanProductRelatedDetail().setRoundCalculatedInstallmentUp(newValue);
+        }
 
         if (command.isChangeInIntegerParameterNamedWithNullCheck(LoanProductConstants.installmentAmountInMultiplesOfParamName,
                 loanProduct.getLoanProductRelatedDetail().getInstallmentAmountInMultiplesOf())) {

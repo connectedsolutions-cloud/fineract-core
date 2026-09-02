@@ -216,6 +216,8 @@ public class LoanAccountData {
     private Long closureLoanId;
     private String closureLoanAccountNo;
     private BigDecimal topupAmount;
+    private String refinancingOperationType;
+    private Collection<LoanRefinancingSettlementData> refinancingSettlements;
 
     private LoanProductData product;
 
@@ -485,16 +487,17 @@ public class LoanAccountData {
             final boolean canUseForTopup, final boolean isTopup, final Long closureLoanId, final String closureLoanAccountNo,
             final BigDecimal topupAmount, final boolean isEqualAmortization, final BigDecimal fixedPrincipalPercentagePerInstallment,
             final DelinquencyRangeData delinquencyRange, final boolean disallowExpectedDisbursements, final boolean fraud,
-            LocalDate lastClosedBusinessDate, final Boolean isSimulation, final LocalDate simulatedDate, final LocalDate simulationStartLastClosedBusinessDate, LocalDate overpaidOnDate, final boolean chargedOff, final boolean enableDownPayment,
-            final BigDecimal disbursedAmountPercentageForDownPayment, final boolean enableAutoRepaymentForDownPayment,
-            final boolean enableInstallmentLevelDelinquency, final EnumOptionData loanScheduleType,
-            final EnumOptionData loanScheduleProcessingType, final Integer fixedLength, final StringEnumOptionData chargeOffBehaviour,
-            final boolean isInterestRecognitionOnDisbursementDate, final StringEnumOptionData daysInYearCustomStrategy,
-            final boolean enableIncomeCapitalization, final StringEnumOptionData capitalizedIncomeCalculationType,
-            final StringEnumOptionData capitalizedIncomeStrategy, StringEnumOptionData capitalizedIncomeType,
-            final boolean enableBuyDownFee, final StringEnumOptionData buyDownFeeCalculationType,
-            final StringEnumOptionData buyDownFeeStrategy, final StringEnumOptionData buyDownFeeIncomeType,
-            final boolean merchantBuyDownFee) {
+            LocalDate lastClosedBusinessDate, final Boolean isSimulation, final LocalDate simulatedDate,
+            final LocalDate simulationStartLastClosedBusinessDate, LocalDate overpaidOnDate, final boolean chargedOff,
+            final boolean enableDownPayment, final BigDecimal disbursedAmountPercentageForDownPayment,
+            final boolean enableAutoRepaymentForDownPayment, final boolean enableInstallmentLevelDelinquency,
+            final EnumOptionData loanScheduleType, final EnumOptionData loanScheduleProcessingType, final Integer fixedLength,
+            final StringEnumOptionData chargeOffBehaviour, final boolean isInterestRecognitionOnDisbursementDate,
+            final StringEnumOptionData daysInYearCustomStrategy, final boolean enableIncomeCapitalization,
+            final StringEnumOptionData capitalizedIncomeCalculationType, final StringEnumOptionData capitalizedIncomeStrategy,
+            StringEnumOptionData capitalizedIncomeType, final boolean enableBuyDownFee,
+            final StringEnumOptionData buyDownFeeCalculationType, final StringEnumOptionData buyDownFeeStrategy,
+            final StringEnumOptionData buyDownFeeIncomeType, final boolean merchantBuyDownFee) {
 
         final CollectionData delinquent = CollectionData.template();
 
@@ -534,8 +537,10 @@ public class LoanAccountData {
                 .setClosureLoanAccountNo(closureLoanAccountNo).setTopupAmount(topupAmount).setIsEqualAmortization(isEqualAmortization)
                 .setFixedPrincipalPercentagePerInstallment(fixedPrincipalPercentagePerInstallment).setDelinquent(delinquent)
                 .setDelinquencyRange(delinquencyRange).setDisallowExpectedDisbursements(disallowExpectedDisbursements).setFraud(fraud)
-                .setLastClosedBusinessDate(lastClosedBusinessDate).setIsSimulation(isSimulation).setSimulatedDate(simulatedDate).setSimulationStartLastClosedBusinessDate(simulationStartLastClosedBusinessDate).setOverpaidOnDate(overpaidOnDate).setChargedOff(chargedOff)
-                .setEnableDownPayment(enableDownPayment).setDisbursedAmountPercentageForDownPayment(disbursedAmountPercentageForDownPayment)
+                .setLastClosedBusinessDate(lastClosedBusinessDate).setIsSimulation(isSimulation).setSimulatedDate(simulatedDate)
+                .setSimulationStartLastClosedBusinessDate(simulationStartLastClosedBusinessDate).setOverpaidOnDate(overpaidOnDate)
+                .setChargedOff(chargedOff).setEnableDownPayment(enableDownPayment)
+                .setDisbursedAmountPercentageForDownPayment(disbursedAmountPercentageForDownPayment)
                 .setEnableAutoRepaymentForDownPayment(enableAutoRepaymentForDownPayment)
                 .setEnableInstallmentLevelDelinquency(enableInstallmentLevelDelinquency).setLoanScheduleType(loanScheduleType)
                 .setLoanScheduleProcessingType(loanScheduleProcessingType).setFixedLength(fixedLength)

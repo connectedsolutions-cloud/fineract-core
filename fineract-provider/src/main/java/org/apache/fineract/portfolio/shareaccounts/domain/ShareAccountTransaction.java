@@ -64,6 +64,9 @@ public class ShareAccountTransaction extends AbstractPersistableCustom<Long> {
     @Column(name = "type_enum", nullable = true)
     private Integer type;
 
+    @Column(name = "payment_type_id", nullable = true)
+    private Long paymentTypeId;
+
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
@@ -79,9 +82,15 @@ public class ShareAccountTransaction extends AbstractPersistableCustom<Long> {
     }
 
     public ShareAccountTransaction(final LocalDate transactionDate, final Long totalShares, final BigDecimal shareValue) {
+        this(transactionDate, totalShares, shareValue, null);
+    }
+
+    public ShareAccountTransaction(final LocalDate transactionDate, final Long totalShares, final BigDecimal shareValue,
+            final Long paymentTypeId) {
         this.transactionDate = transactionDate;
         this.totalShares = totalShares;
         this.shareValue = shareValue;
+        this.paymentTypeId = paymentTypeId;
         this.status = PurchasedSharesStatusType.APPLIED.getValue();
         this.type = PurchasedSharesStatusType.PURCHASED.getValue();
         this.amount = shareValue.multiply(BigDecimal.valueOf(totalShares));
@@ -213,6 +222,10 @@ public class ShareAccountTransaction extends AbstractPersistableCustom<Long> {
 
     public Integer getTransactionType() {
         return this.type;
+    }
+
+    public Long getPaymentTypeId() {
+        return this.paymentTypeId;
     }
 
     public void updateAmountPaid(final BigDecimal amountPaid) {

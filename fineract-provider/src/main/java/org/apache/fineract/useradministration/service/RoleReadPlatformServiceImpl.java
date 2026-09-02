@@ -81,12 +81,13 @@ public class RoleReadPlatformServiceImpl implements RoleReadPlatformService {
             final String name = rs.getString("name");
             final String description = rs.getString("description");
             final Boolean disabled = rs.getBoolean("disabled");
+            final String dataScope = rs.getString("dataScope");
 
-            return new RoleData(id, name, description, disabled);
+            return new RoleData(id, name, description, disabled, dataScope);
         }
 
         public String schema() {
-            return " r.id as id, r.name as name, r.description as description, r.is_disabled as disabled from m_role r";
+            return " r.id as id, r.name as name, r.description as description, r.is_disabled as disabled, r.data_scope as dataScope from m_role r";
         }
     }
 

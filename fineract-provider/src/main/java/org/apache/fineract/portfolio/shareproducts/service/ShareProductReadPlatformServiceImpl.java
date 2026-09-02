@@ -195,7 +195,7 @@ public class ShareProductReadPlatformServiceImpl implements ShareProductReadPlat
         ShareProductRowMapper(Collection<ShareProductMarketPriceData> shareMarketCollection, Collection<ChargeData> charges) {
             this.shareMarketCollection = shareMarketCollection;
             this.charges = charges;
-            buff.append("shareproduct.id, shareproduct.name, shareproduct.short_name, ")
+            buff.append("shareproduct.id, shareproduct.name, shareproduct.short_name, shareproduct.numbering_code, ")
                     .append("shareproduct.external_id, shareproduct.description, shareproduct.start_date,")
                     .append("shareproduct.end_date, shareproduct.currency_code, shareproduct.currency_digits, ")
                     .append("shareproduct.currency_multiplesof, shareproduct.total_shares, shareproduct.issued_shares, ")
@@ -260,10 +260,12 @@ public class ShareProductReadPlatformServiceImpl implements ShareProductReadPlat
             final Integer accountingRuleId = JdbcSupport.getInteger(rs, "accountingType");
             final EnumOptionData accountingRuleType = AccountingEnumerations.accountingRuleType(accountingRuleId);
 
-            return ShareProductData.data(id, name, shortName, description, externalId, currency, totalShares, issuedShares, unitPrice,
+            final ShareProductData productData = ShareProductData.data(id, name, shortName, description, externalId, currency, totalShares, issuedShares, unitPrice,
                     capitalAmount, minimumClientShares, nominalClientShares, maximumClientShares, shareMarketCollection, charges,
                     allowDividendsForInactiveClients, lockinPeriodFrequency, lockinPeriodFrequencyType, minimumActivePeriod,
                     minimumActivePeriodType, accountingRuleType);
+            productData.setNumberingCode(rs.getString("numbering_code"));
+            return productData;
         }
 
         public String schema() {

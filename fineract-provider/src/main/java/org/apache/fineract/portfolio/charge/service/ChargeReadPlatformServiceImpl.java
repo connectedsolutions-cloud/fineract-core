@@ -42,9 +42,9 @@ import org.apache.fineract.portfolio.charge.domain.ChargeAppliesTo;
 import org.apache.fineract.portfolio.charge.domain.ChargeTimeType;
 import org.apache.fineract.portfolio.charge.exception.ChargeNotFoundException;
 import org.apache.fineract.portfolio.common.service.CommonEnumerations;
+import org.apache.fineract.portfolio.common.service.DropdownReadPlatformService;
 import org.apache.fineract.portfolio.delinquency.data.DelinquencyRangeData;
 import org.apache.fineract.portfolio.delinquency.service.DelinquencyReadPlatformService;
-import org.apache.fineract.portfolio.common.service.DropdownReadPlatformService;
 import org.apache.fineract.portfolio.paymenttype.data.PaymentTypeData;
 import org.apache.fineract.portfolio.tax.data.TaxGroupData;
 import org.apache.fineract.portfolio.tax.service.TaxReadPlatformService;
@@ -152,11 +152,10 @@ public class ChargeReadPlatformServiceImpl implements ChargeReadPlatformService 
                 .savingsChargeTimeTypeOptions(savingsChargeTimeTypeOptions)
                 .clientChargeCalculationTypeOptions(clientChargeCalculationTypeOptions)
                 .clientChargeTimeTypeOptions(clientChargeTimeTypeOptions).feeFrequencyOptions(feeFrequencyOptions)
-                .delinquencyRangeOptions(delinquencyRangeOptions)
-                .incomeOrLiabilityAccountOptions(incomeOrLiabilityAccountOptions).taxGroupOptions(taxGroupOptions)
-                .shareChargeCalculationTypeOptions(shareChargeCalculationTypeOptions).shareChargeTimeTypeOptions(shareChargeTimeTypeOptions)
-                .accountMappingForChargeConfig(accountMappingForChargeConfig).expenseAccountOptions(expenseAccountOptions)
-                .assetAccountOptions(assetAccountOptions).build();
+                .delinquencyRangeOptions(delinquencyRangeOptions).incomeOrLiabilityAccountOptions(incomeOrLiabilityAccountOptions)
+                .taxGroupOptions(taxGroupOptions).shareChargeCalculationTypeOptions(shareChargeCalculationTypeOptions)
+                .shareChargeTimeTypeOptions(shareChargeTimeTypeOptions).accountMappingForChargeConfig(accountMappingForChargeConfig)
+                .expenseAccountOptions(expenseAccountOptions).assetAccountOptions(assetAccountOptions).build();
     }
 
     private List<EnumOptionData> buildDelinquencyRangeOptions() {
@@ -422,8 +421,8 @@ public class ChargeReadPlatformServiceImpl implements ChargeReadPlatformService 
                     .freeWithdrawalChargeFrequency(freeWithdrawalChargeFrequency).restartFrequency(restartFrequency)
                     .restartFrequencyEnum(restartFrequencyEnum).isPaymentType(isPaymentType).paymentTypeOptions(paymentTypeData)
                     .minCap(minCap).maxCap(maxCap).feeFrequency(feeFrequencyType).incomeOrLiabilityAccount(glAccountData)
-                    .debitAccount(debitAccountData).creditAccount(creditAccountData).taxGroup(taxGroupData).delinquencyRangeId(delinquencyRangeId)
-                    .build();
+                    .debitAccount(debitAccountData).creditAccount(creditAccountData).taxGroup(taxGroupData)
+                    .delinquencyRangeId(delinquencyRangeId).build();
 
         }
     }

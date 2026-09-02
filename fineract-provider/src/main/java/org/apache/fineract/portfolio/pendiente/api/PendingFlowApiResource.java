@@ -63,8 +63,7 @@ public class PendingFlowApiResource {
     @Path("{id}")
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
-    public String retrieveOne(@PathParam("id") Long id, @Context UriInfo uriInfo,
-            @QueryParam("includeSteps") Boolean includeSteps) {
+    public String retrieveOne(@PathParam("id") Long id, @Context UriInfo uriInfo, @QueryParam("includeSteps") Boolean includeSteps) {
         context.authenticatedUser().validateHasPermissionTo("view_pendientes");
         boolean include = Boolean.TRUE.equals(includeSteps);
         PendingFlowData data = readService.retrieveOne(id, include);

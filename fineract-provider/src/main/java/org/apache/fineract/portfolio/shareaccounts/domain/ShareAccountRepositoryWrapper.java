@@ -18,7 +18,9 @@
  */
 package org.apache.fineract.portfolio.shareaccounts.domain;
 
+import org.apache.fineract.infrastructure.security.datascope.DataScopeService;
 import org.apache.fineract.portfolio.accounts.exceptions.ShareAccountNotFoundException;
+import org.apache.fineract.portfolio.client.domain.Client;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -26,14 +28,25 @@ import org.springframework.stereotype.Service;
 public class ShareAccountRepositoryWrapper {
 
     private final ShareAccountRepository shareAccountRepository;
+    private final DataScopeService dataScopeService;
 
     @Autowired
-    public ShareAccountRepositoryWrapper(final ShareAccountRepository shareAccountRepository) {
+    public ShareAccountRepositoryWrapper(final ShareAccountRepository shareAccountRepository, final DataScopeService dataScopeService) {
         this.shareAccountRepository = shareAccountRepository;
+        this.dataScopeService = dataScopeService;
     }
 
     public ShareAccount findOneWithNotFoundDetection(final Long accountId) {
-        return this.shareAccountRepository.findById(accountId).orElseThrow(() -> new ShareAccountNotFoundException(accountId));
+        final ShareAccount account = this.shareAccountRepository.findById(accountId)
+                .orElseThrow(() -> new ShareAccountNotFoundException(accountId));
+        final Client client = account.getClient();
+        final Long officeId = client != null && client.getOffice() != null ? client.getOffice().getId() : null;
+        final Long clientStaffId = client != null ? client.staffId() : null;
+        final Long gestorId = client != null ? client.gestorId() : null;
+        if (!this.dataScopeService.canAccessShare(officeId, clientStaffId, gestorId)) {
+            throw new ShareAccountNotFoundException(accountId);
+        }
+        return account;
     }
 
     public void save(final ShareAccount shareAccount) {

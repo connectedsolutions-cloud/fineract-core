@@ -21,12 +21,14 @@ class FineractApi:
         self.session = session or requests.Session()
 
     def request(self, method: str, path: str, payload: dict[str, Any] | None = None,
-                query: dict[str, Any] | None = None) -> Any:
+                query: dict[str, Any] | None = None, idempotency_key: str | None = None) -> Any:
         url = f"{self.config.api_url}/{path.lstrip('/')}"
         headers = {
             "Fineract-Platform-TenantId": self.config.tenant,
             "Content-Type": "application/json", "Accept": "application/json",
         }
+        if idempotency_key:
+            headers["Idempotency-Key"] = idempotency_key
         try:
             response = self.session.request(
                 method, url, params=query, json=payload, headers=headers,
@@ -172,6 +174,28 @@ class FineractApi:
 
     def get_client(self, client_id: str) -> dict[str, Any]:
         return self.request("GET", f"clients/{client_id}")
+
+    def calculate_loan_schedule(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Calculate a native schedule without creating a loan application."""
+        return self.request("POST", "loans", payload, query={"command": "calculateLoanSchedule"})
+
+    def calculate_variable_loan_schedule(
+        self, loan_id: int, payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Preview term variations on a pending application without persisting them."""
+        return self.request(
+            "POST", f"loans/{loan_id}/schedule", payload,
+            query={"command": "calculateLoanSchedule"},
+        )
+
+    def add_loan_schedule_variations(
+        self, loan_id: int, payload: dict[str, Any], idempotency_key: str,
+    ) -> dict[str, Any]:
+        """Persist previously validated term variations on a pending application."""
+        return self.request(
+            "POST", f"loans/{loan_id}/schedule", payload,
+            query={"command": "addVariations"}, idempotency_key=idempotency_key,
+        )
 
     def family_members(self, client_id: str) -> list[dict[str, Any]]:
         value = self.request("GET", f"clients/{client_id}/familymembers")

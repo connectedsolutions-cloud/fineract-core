@@ -45,8 +45,7 @@ public class PendingStepReadPlatformServiceImpl implements PendingStepReadPlatfo
     @Override
     public List<PendingStepData> retrieveByFlowId(Long pendingFlowId, Long officeId) {
         context.authenticatedUser();
-        List<PendingStep> steps = officeId != null
-                ? repository.findByPendingFlow_IdAndOffice_IdOrderById(pendingFlowId, officeId)
+        List<PendingStep> steps = officeId != null ? repository.findByPendingFlow_IdAndOffice_IdOrderById(pendingFlowId, officeId)
                 : repository.findByPendingFlowIdOrderById(pendingFlowId);
         return steps.stream().map(this::mapToData).collect(Collectors.toList());
     }
@@ -61,8 +60,7 @@ public class PendingStepReadPlatformServiceImpl implements PendingStepReadPlatfo
         context.authenticatedUser();
         List<String> statusList = statuses != null && !statuses.isEmpty() ? statuses : List.of("open", "pending");
         List<PendingStep> steps = officeId != null
-                ? repository.findByResponsableUserIdAndStatusInAndOfficeIdOrderByCreationDateDesc(userId, statusList,
-                        officeId)
+                ? repository.findByResponsableUserIdAndStatusInAndOfficeIdOrderByCreationDateDesc(userId, statusList, officeId)
                 : repository.findByResponsableUserIdAndStatusInOrderByCreationDateDesc(userId, statusList);
         return steps.stream().map(this::mapToData).collect(Collectors.toList());
     }
@@ -70,16 +68,14 @@ public class PendingStepReadPlatformServiceImpl implements PendingStepReadPlatfo
     @Override
     public List<PendingStepData> retrieveByOfficeId(Long officeId) {
         context.authenticatedUser();
-        return repository.findByOffice_IdOrderByCreationDateDesc(officeId).stream().map(this::mapToData)
-                .collect(Collectors.toList());
+        return repository.findByOffice_IdOrderByCreationDateDesc(officeId).stream().map(this::mapToData).collect(Collectors.toList());
     }
 
     @Override
     public List<PendingStepData> retrieveMyCompletedSteps(Long userId, Long officeId) {
         context.authenticatedUser();
         List<PendingStep> steps = officeId != null
-                ? repository.findByResponsableUserIdAndStatusInAndOfficeIdOrderByCompletionDateDesc(userId,
-                        COMPLETED_STATUSES, officeId)
+                ? repository.findByResponsableUserIdAndStatusInAndOfficeIdOrderByCompletionDateDesc(userId, COMPLETED_STATUSES, officeId)
                 : repository.findByResponsableUserIdAndStatusInOrderByCompletionDateDesc(userId, COMPLETED_STATUSES);
         return steps.stream().map(this::mapToData).collect(Collectors.toList());
     }
@@ -89,8 +85,8 @@ public class PendingStepReadPlatformServiceImpl implements PendingStepReadPlatfo
         context.authenticatedUser();
         List<String> statusList = statuses != null && !statuses.isEmpty() ? statuses : List.of("open", "pending");
         List<PendingStep> steps = officeId != null
-                ? repository.findByPendingFlowCreatorIdAndAssignedToOthersAndStatusInAndOfficeIdOrderByCreationDateDesc(userId,
-                        statusList, officeId)
+                ? repository.findByPendingFlowCreatorIdAndAssignedToOthersAndStatusInAndOfficeIdOrderByCreationDateDesc(userId, statusList,
+                        officeId)
                 : repository.findByPendingFlowCreatorIdAndAssignedToOthersAndStatusInOrderByCreationDateDesc(userId, statusList);
         return steps.stream().map(this::mapToData).collect(Collectors.toList());
     }
@@ -99,11 +95,9 @@ public class PendingStepReadPlatformServiceImpl implements PendingStepReadPlatfo
     public List<PendingStepData> retrieveCompletedStepsOnMyFlowsAssignedToOthers(Long userId, Long officeId) {
         context.authenticatedUser();
         List<PendingStep> steps = officeId != null
-                ? repository
-                        .findByPendingFlowCreatorIdAndAssignedToOthersAndStatusInAndOfficeIdOrderByCompletionDateDesc(userId,
-                                COMPLETED_STATUSES, officeId)
-                : repository.findByPendingFlowCreatorIdAndAssignedToOthersAndStatusInOrderByCompletionDateDesc(userId,
-                        COMPLETED_STATUSES);
+                ? repository.findByPendingFlowCreatorIdAndAssignedToOthersAndStatusInAndOfficeIdOrderByCompletionDateDesc(userId,
+                        COMPLETED_STATUSES, officeId)
+                : repository.findByPendingFlowCreatorIdAndAssignedToOthersAndStatusInOrderByCompletionDateDesc(userId, COMPLETED_STATUSES);
         return steps.stream().map(this::mapToData).collect(Collectors.toList());
     }
 
@@ -129,8 +123,7 @@ public class PendingStepReadPlatformServiceImpl implements PendingStepReadPlatfo
         data.setDueDate(entity.getDueDate());
         data.setCompletionDate(entity.getCompletionDate());
         data.setResponsableUserId(entity.getResponsableUser() != null ? entity.getResponsableUser().getId() : null);
-        data.setResponsableUserName(
-                entity.getResponsableUser() != null ? entity.getResponsableUser().getDisplayName() : null);
+        data.setResponsableUserName(entity.getResponsableUser() != null ? entity.getResponsableUser().getDisplayName() : null);
         data.setOfficeId(entity.getOffice() != null ? entity.getOffice().getId() : null);
         data.setOfficeName(entity.getOffice() != null ? entity.getOffice().getName() : null);
         data.setReferences(entity.getReferences());

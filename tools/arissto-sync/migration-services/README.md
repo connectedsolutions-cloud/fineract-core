@@ -19,6 +19,8 @@ This directory is the single front door for migration-service information:
 | Service list, lifecycle, executability, and document pointers | `registry.json` |
 | Business scope and operator workflow | `<service-id>/README.md` |
 | Detailed source-to-target mapping, readiness, quarantine, and reconciliation contract | `<service-id>/contract.md` |
+| Completed delivery gates and independent production sequence, when needed | `<service-id>/implementation-sequence.md` |
+| Multi-service dependency and daily-run orchestration design | `orchestration.md` |
 | Reusable shape for a future service | `_template.md` |
 | Arissto table meanings, source evidence, and business-domain research | `credesal-db-space/docs/` |
 | Fineract schema implementation | Versioned Liquibase changes in `credesal-sistema` |
@@ -36,8 +38,16 @@ From `tools/arissto-sync`:
 ./arissto-sync services
 ./arissto-sync services --service clients
 ./arissto-sync services --service client-pep
+./arissto-sync services --service client-family-references
 ./arissto-sync services --service employees
+./arissto-sync services --service client-staff-assignments
 ./arissto-sync services --service membership-share-capital
+./arissto-sync services --service savings-deposits
+./arissto-sync services --service native-share-capital
+./arissto-sync services --service aml-alerts
+./arissto-sync services --service loans
+./arissto-sync services --service mobile-collections
+./arissto-sync services --service accounting-journal-entries
 ```
 
 The first command lists every registered service. The second returns one
@@ -70,6 +80,12 @@ itself a scheduler: when a service exposes an `apply_after_clients` command,
 the CLI executes the documented synchronous chain and stops if the parent
 reconciliation fails. Registry loading rejects missing, self-referential, and
 cyclic dependencies.
+
+The planned generic composition model, including the first
+`clients → employees → client-staff-assignments` flow, is documented in
+[`orchestration.md`](orchestration.md). It also owns the currently required
+[manual loans-to-mobile-collections sequence](orchestration.md#current-manual-loans-to-mobile-collections-flow).
+Individual service guides continue to own their block-specific behavior.
 
 ## Status values
 

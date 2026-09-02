@@ -45,14 +45,15 @@ public class MhDteItemComponentServiceImpl implements MhDteItemComponentService 
     @Override
     @Transactional(readOnly = true)
     public List<MhDteItemComponentData> retrieveAll() {
-        return mhDteItemComponentRepository.findAllByOrderByTargetUqAscClientTypeKeyAsc().stream().map(MhDteItemComponentData::from).toList();
+        return mhDteItemComponentRepository.findAllByOrderByTargetUqAscClientTypeKeyAsc().stream().map(MhDteItemComponentData::from)
+                .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public MhDteItemComponentData retrieveOne(Long id) {
-        MhDteItemComponent e = mhDteItemComponentRepository.findById(id)
-                .orElseThrow(() -> new GeneralPlatformDomainRuleException("error.msg.mh.dte.item.component.not.found", "Mapping not found"));
+        MhDteItemComponent e = mhDteItemComponentRepository.findById(id).orElseThrow(
+                () -> new GeneralPlatformDomainRuleException("error.msg.mh.dte.item.component.not.found", "Mapping not found"));
         return MhDteItemComponentData.from(e);
     }
 
@@ -65,8 +66,8 @@ public class MhDteItemComponentServiceImpl implements MhDteItemComponentService 
         MhDteAmountType amountType = parseDteAmountType(request.getDteAmountType());
         String clientTypeKey = ruleResolver.normalizeClientTypeKey(request.getClientType());
         String targetUq = buildTargetUq(charge, loanComponent);
-        MhDteItemComponent entity = MhDteItemComponent.create(request.getName(), amountType, charge, loanComponent, trimToNull(request.getClientType()),
-                clientTypeKey, targetUq);
+        MhDteItemComponent entity = MhDteItemComponent.create(request.getName(), amountType, charge, loanComponent,
+                trimToNull(request.getClientType()), clientTypeKey, targetUq);
         applyAudit(entity, true);
         try {
             return MhDteItemComponentData.from(mhDteItemComponentRepository.saveAndFlush(entity));
@@ -80,8 +81,8 @@ public class MhDteItemComponentServiceImpl implements MhDteItemComponentService 
     @Transactional
     public MhDteItemComponentData update(Long id, MhDteItemComponentRequest request) {
         validateRequest(request);
-        MhDteItemComponent entity = mhDteItemComponentRepository.findById(id)
-                .orElseThrow(() -> new GeneralPlatformDomainRuleException("error.msg.mh.dte.item.component.not.found", "Mapping not found"));
+        MhDteItemComponent entity = mhDteItemComponentRepository.findById(id).orElseThrow(
+                () -> new GeneralPlatformDomainRuleException("error.msg.mh.dte.item.component.not.found", "Mapping not found"));
         Charge charge = resolveCharge(request.getChargeId());
         MhDteLoanComponent loanComponent = parseLoanComponent(request.getLoanComponent());
         MhDteAmountType amountType = parseDteAmountType(request.getDteAmountType());
@@ -100,16 +101,16 @@ public class MhDteItemComponentServiceImpl implements MhDteItemComponentService 
     @Override
     @Transactional
     public void delete(Long id) {
-        MhDteItemComponent entity = mhDteItemComponentRepository.findById(id)
-                .orElseThrow(() -> new GeneralPlatformDomainRuleException("error.msg.mh.dte.item.component.not.found", "Mapping not found"));
+        MhDteItemComponent entity = mhDteItemComponentRepository.findById(id).orElseThrow(
+                () -> new GeneralPlatformDomainRuleException("error.msg.mh.dte.item.component.not.found", "Mapping not found"));
         mhDteItemComponentRepository.delete(entity);
     }
 
     @Override
     @Transactional(readOnly = true)
     public MhDteItemComponentPreviewData preview(Long loanTransactionId, String clientType, boolean includeJournalEntries) {
-        LoanTransaction txn = loanTransactionRepository.findByIdWithLoanAndChargesPaid(loanTransactionId)
-                .orElseThrow(() -> new GeneralPlatformDomainRuleException("error.msg.loan.transaction.not.found", "Loan transaction not found"));
+        LoanTransaction txn = loanTransactionRepository.findByIdWithLoanAndChargesPaid(loanTransactionId).orElseThrow(
+                () -> new GeneralPlatformDomainRuleException("error.msg.loan.transaction.not.found", "Loan transaction not found"));
         if (txn.isReversed()) {
             throw new GeneralPlatformDomainRuleException("error.msg.mh.dte.item.component.reversed.transaction",
                     "Cannot preview DTE mapping for a reversed loan transaction");
@@ -121,11 +122,12 @@ public class MhDteItemComponentServiceImpl implements MhDteItemComponentService 
         List<String> warnings = new ArrayList<>();
 
         BigDecimal principal = nullToZero(txn.getPrincipalPortion(currency).getAmount());
-        addComponentLine(lines, mappings, ruleResolver.targetUqLoan(MhDteLoanComponent.PRINCIPAL), requestedClientKey, "PRINCIPAL", principal,
-                true);
+        addComponentLine(lines, mappings, ruleResolver.targetUqLoan(MhDteLoanComponent.PRINCIPAL), requestedClientKey, "PRINCIPAL",
+                principal, true);
 
         BigDecimal interest = nullToZero(txn.getInterestPortion(currency).getAmount());
-        addComponentLine(lines, mappings, ruleResolver.targetUqLoan(MhDteLoanComponent.INTEREST), requestedClientKey, "INTEREST", interest, true);
+        addComponentLine(lines, mappings, ruleResolver.targetUqLoan(MhDteLoanComponent.INTEREST), requestedClientKey, "INTEREST", interest,
+                true);
 
         BigDecimal sumFeePaid = BigDecimal.ZERO;
         BigDecimal sumPenaltyPaid = BigDecimal.ZERO;
@@ -147,7 +149,8 @@ public class MhDteItemComponentServiceImpl implements MhDteItemComponentService 
             warnings.add("Fee portion on transaction differs from sum of charge-paid allocations by " + feePortion.subtract(sumFeePaid));
         }
         if (penaltyPortion.subtract(sumPenaltyPaid).abs().compareTo(new BigDecimal("0.0001")) > 0) {
-            warnings.add("Penalty portion on transaction differs from sum of charge-paid allocations by " + penaltyPortion.subtract(sumPenaltyPaid));
+            warnings.add("Penalty portion on transaction differs from sum of charge-paid allocations by "
+                    + penaltyPortion.subtract(sumPenaltyPaid));
         }
 
         Map<String, BigDecimal> totals = new LinkedHashMap<>();
@@ -162,13 +165,13 @@ public class MhDteItemComponentServiceImpl implements MhDteItemComponentService 
                     .map(MhDteItemComponentServiceImpl::toJournalLine).toList();
         }
 
-        return MhDteItemComponentPreviewData.builder().loanTransactionId(loanTransactionId).clientTypeInput(clientType).lines(lines).totalsByDteAmountType(totals)
-                .warnings(warnings).journalEntries(journalLines).build();
+        return MhDteItemComponentPreviewData.builder().loanTransactionId(loanTransactionId).clientTypeInput(clientType).lines(lines)
+                .totalsByDteAmountType(totals).warnings(warnings).journalEntries(journalLines).build();
     }
 
     private static MhDteItemComponentJournalLineData toJournalLine(JournalEntry je) {
-        return MhDteItemComponentJournalLineData.builder().id(je.getId()).glAccountId(je.getGlAccount().getId()).amount(je.getAmount()).debit(je.isDebitEntry())
-                .entryDate(je.getTransactionDate()).description(je.getDescription()).build();
+        return MhDteItemComponentJournalLineData.builder().id(je.getId()).glAccountId(je.getGlAccount().getId()).amount(je.getAmount())
+                .debit(je.isDebitEntry()).entryDate(je.getTransactionDate()).description(je.getDescription()).build();
     }
 
     private void addComponentLine(List<MhDteItemComponentPreviewLineData> lines, List<MhDteItemComponent> mappings, String targetUq,

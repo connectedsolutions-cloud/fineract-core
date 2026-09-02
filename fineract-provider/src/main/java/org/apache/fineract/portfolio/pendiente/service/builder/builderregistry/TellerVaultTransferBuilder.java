@@ -46,11 +46,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Builder for the teller-vault-transfer blueprint. When a cashier creates a pending item for
- * manager approval, references (cashierId, responsable_user, amount, currencyCode) are stored. On
- * completion of the single step "approve_cash_transfer", posts the GL entries to transfer
- * cash to the vault (debit main vault, credit cash-at-teller) and creates a cashier
- * transaction of type SETTLE so the teller session shows the transfer and reduced cash.
+ * Builder for the teller-vault-transfer blueprint. When a cashier creates a pending item for manager approval,
+ * references (cashierId, responsable_user, amount, currencyCode) are stored. On completion of the single step
+ * "approve_cash_transfer", posts the GL entries to transfer cash to the vault (debit main vault, credit cash-at-teller)
+ * and creates a cashier transaction of type SETTLE so the teller session shows the transfer and reduced cash.
  */
 @Component
 public class TellerVaultTransferBuilder implements PendingFlowBuilder {
@@ -65,9 +64,8 @@ public class TellerVaultTransferBuilder implements PendingFlowBuilder {
     private final TellerVaultTransferAccountingHelper tellerVaultTransferAccountingHelper;
     private final OfficeRepositoryWrapper officeRepositoryWrapper;
 
-    public TellerVaultTransferBuilder(CashierRepository cashierRepository,
-            CashierTransactionRepository cashierTransactionRepository, FromJsonHelper fromJsonHelper,
-            TellerVaultTransferAccountingHelper tellerVaultTransferAccountingHelper,
+    public TellerVaultTransferBuilder(CashierRepository cashierRepository, CashierTransactionRepository cashierTransactionRepository,
+            FromJsonHelper fromJsonHelper, TellerVaultTransferAccountingHelper tellerVaultTransferAccountingHelper,
             OfficeRepositoryWrapper officeRepositoryWrapper) {
         this.cashierRepository = cashierRepository;
         this.cashierTransactionRepository = cashierTransactionRepository;
@@ -87,8 +85,7 @@ public class TellerVaultTransferBuilder implements PendingFlowBuilder {
     }
 
     @Override
-    public PendingFlowBuildResult build(PendingFlowBlueprint blueprint, PendingFlowBuildRequest request,
-            PendingFlowBuildContext context) {
+    public PendingFlowBuildResult build(PendingFlowBlueprint blueprint, PendingFlowBuildRequest request, PendingFlowBuildContext context) {
         AppUser responsable = context.getResponsableUser(request.getResponsableUserId());
         if (responsable == null) {
             throw new IllegalArgumentException("Responsable user not found: " + request.getResponsableUserId());
@@ -120,8 +117,7 @@ public class TellerVaultTransferBuilder implements PendingFlowBuilder {
             throw new IllegalArgumentException("Cashier has no teller/office and officeId was not provided");
         }
 
-        String referencesJson = buildReferencesJson(cashierId, request.getResponsableUserId(), amount.toPlainString(),
-                currencyCode);
+        String referencesJson = buildReferencesJson(cashierId, request.getResponsableUserId(), amount.toPlainString(), currencyCode);
 
         String flowName = StringUtils.isNotBlank(request.getName()) ? request.getName()
                 : blueprint.getName() + " - " + context.getAuditDate();
@@ -182,7 +178,8 @@ public class TellerVaultTransferBuilder implements PendingFlowBuilder {
         BigDecimal amount = parseAmountFromReferences(completedStep.getReferences());
         String currencyCode = parseStringFromReferences(completedStep.getReferences(), "currencyCode");
         if (cashierId == null || amount == null || amount.compareTo(BigDecimal.ZERO) <= 0 || StringUtils.isBlank(currencyCode)) {
-            log.warn("TellerVaultTransferBuilder: missing or invalid references (cashierId, amount, currencyCode), skipping vault transfer");
+            log.warn(
+                    "TellerVaultTransferBuilder: missing or invalid references (cashierId, amount, currencyCode), skipping vault transfer");
             return;
         }
         Cashier cashier = cashierRepository.findById(cashierId).orElse(null);
@@ -199,15 +196,15 @@ public class TellerVaultTransferBuilder implements PendingFlowBuilder {
         String description = "Pending flow teller-vault-transfer approval";
 
         // Create cashier transaction (SETTLE) so teller session shows the transfer and reduced cash
-        CashierTransaction cashierTxn = CashierTransaction.createBalanceTransaction(cashier,
-                CashierTxnType.SETTLE.getId(), amount, businessDate, currencyCode, description);
+        CashierTransaction cashierTxn = CashierTransaction.createBalanceTransaction(cashier, CashierTxnType.SETTLE.getId(), amount,
+                businessDate, currencyCode, description);
         cashierTransactionRepository.save(cashierTxn);
 
         // Post GL entries (debit main vault, credit cash-at-teller)
-        String transactionId = TellerVaultTransferAccountingHelper.generateTransactionId(
-                flow != null ? flow.getId() : null, completedStep.getId());
-        tellerVaultTransferAccountingHelper.postVaultTransferFromTeller(office, amount, currencyCode, businessDate,
-                transactionId, description);
+        String transactionId = TellerVaultTransferAccountingHelper.generateTransactionId(flow != null ? flow.getId() : null,
+                completedStep.getId());
+        tellerVaultTransferAccountingHelper.postVaultTransferFromTeller(office, amount, currencyCode, businessDate, transactionId,
+                description);
     }
 
     private static BigDecimal parseAmount(Object value) {

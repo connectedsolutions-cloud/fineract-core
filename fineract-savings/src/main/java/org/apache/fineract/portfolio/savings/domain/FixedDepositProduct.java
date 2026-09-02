@@ -288,6 +288,9 @@ public class FixedDepositProduct extends SavingsProduct {
         postingtoCompoundMap.put(SavingsPostingInterestPeriodType.MONTHLY, Arrays.asList(new SavingsCompoundingInterestPeriodType[] {
                 SavingsCompoundingInterestPeriodType.DAILY, SavingsCompoundingInterestPeriodType.MONTHLY }));
 
+        postingtoCompoundMap.put(SavingsPostingInterestPeriodType.MONTHLY_ON_ACTIVATION_DATE,
+                Arrays.asList(SavingsCompoundingInterestPeriodType.DAILY, SavingsCompoundingInterestPeriodType.MONTHLY_ON_ACTIVATION_DATE));
+
         postingtoCompoundMap.put(SavingsPostingInterestPeriodType.QUATERLY,
                 Arrays.asList(new SavingsCompoundingInterestPeriodType[] { SavingsCompoundingInterestPeriodType.DAILY,
                         SavingsCompoundingInterestPeriodType.MONTHLY, SavingsCompoundingInterestPeriodType.QUATERLY }));

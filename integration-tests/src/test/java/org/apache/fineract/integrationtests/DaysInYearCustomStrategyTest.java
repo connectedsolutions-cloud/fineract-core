@@ -20,11 +20,16 @@ package org.apache.fineract.integrationtests;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import org.apache.fineract.client.models.GetLoanProductsProductIdResponse;
+import org.apache.fineract.client.models.GetLoansLoanIdRepaymentPeriod;
+import org.apache.fineract.client.models.GetLoansLoanIdResponse;
 import org.apache.fineract.client.models.PostLoanProductsResponse;
+import org.apache.fineract.client.models.PostLoansResponse;
 import org.apache.fineract.client.models.PutLoanProductsProductIdRequest;
 import org.apache.fineract.integrationtests.common.ClientHelper;
 import org.apache.fineract.integrationtests.common.FineractClientHelper;
+import org.apache.fineract.integrationtests.common.Utils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import retrofit2.Call;
@@ -114,5 +119,40 @@ public class DaysInYearCustomStrategyTest extends BaseLoanIntegrationTest {
                     installment(1235.88, 104.68, 1340.56, false, "01 January 2025") //
             );
         });
+    }
+
+    @Test
+    public void testCumulativeActualUsesThePeriodStartYearThroughTheLoanLifecycle() {
+        runAt("23 December 2027", () -> {
+            PostLoanProductsResponse loanProduct = loanProductHelper.createLoanProduct(create4ICumulative().currencyCode("USD")
+                    .numberOfRepayments(3).amortizationType(0).interestRatePerPeriod(84D).daysInMonthType(DaysInMonthType.ACTUAL)
+                    .daysInYearType(DaysInYearType.ACTUAL).isInterestRecalculationEnabled(false));
+
+            PostLoansResponse application = loanTransactionHelper.applyLoan(applyCumulativeLoanRequest(clientId,
+                    loanProduct.getResourceId(), "23 December 2027", 392D, 84D, 3, request -> request.amortizationType(0)));
+            Long loanId = application.getResourceId();
+
+            assertCumulativeActualInterest(loanId);
+            loanTransactionHelper.approveLoan(loanId, approveLoanRequest(392D, "23 December 2027"));
+            assertCumulativeActualInterest(loanId);
+            disburseLoan(loanId, BigDecimal.valueOf(392), "23 December 2027");
+            assertCumulativeActualInterest(loanId);
+        });
+    }
+
+    private void assertCumulativeActualInterest(final Long loanId) {
+        GetLoansLoanIdResponse loan = loanTransactionHelper.getLoan(requestSpec, responseSpec, loanId.intValue());
+        assertRepaymentPeriod(loan, 1, LocalDate.of(2027, 12, 23), LocalDate.of(2028, 1, 23), 27.97);
+        assertRepaymentPeriod(loan, 2, LocalDate.of(2028, 1, 23), LocalDate.of(2028, 2, 23), 18.59);
+        assertRepaymentPeriod(loan, 3, LocalDate.of(2028, 2, 23), LocalDate.of(2028, 3, 23), 8.70);
+    }
+
+    private void assertRepaymentPeriod(final GetLoansLoanIdResponse loan, final int periodNumber, final LocalDate expectedFromDate,
+            final LocalDate expectedDueDate, final double expectedInterest) {
+        GetLoansLoanIdRepaymentPeriod period = loan.getRepaymentSchedule().getPeriods().stream()
+                .filter(candidate -> Integer.valueOf(periodNumber).equals(candidate.getPeriod())).findFirst().orElseThrow();
+        Assertions.assertEquals(expectedFromDate, period.getFromDate());
+        Assertions.assertEquals(expectedDueDate, period.getDueDate());
+        Assertions.assertEquals(expectedInterest, Utils.getDoubleValue(period.getInterestDue()));
     }
 }

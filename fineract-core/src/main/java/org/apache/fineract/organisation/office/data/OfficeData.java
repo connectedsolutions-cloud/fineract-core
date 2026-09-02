@@ -72,7 +72,8 @@ public class OfficeData implements Serializable {
     }
 
     public static OfficeData template(final List<OfficeData> parentLookups, final LocalDate defaultOpeningDate) {
-        return new OfficeData(null, null, null, null, defaultOpeningDate, null, null, null, null, null, null, null, null, null, parentLookups);
+        return new OfficeData(null, null, null, null, defaultOpeningDate, null, null, null, null, null, null, null, null, null,
+                parentLookups);
     }
 
     public static OfficeData appendedTemplate(final OfficeData office, final Collection<OfficeData> allowedParents) {

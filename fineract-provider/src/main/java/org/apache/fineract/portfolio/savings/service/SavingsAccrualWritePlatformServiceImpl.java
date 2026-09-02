@@ -110,17 +110,15 @@ public class SavingsAccrualWritePlatformServiceImpl implements SavingsAccrualWri
         existingReversedTransactionIds.addAll(savingsAccount.findExistingReversedTransactionIds());
 
         List<LocalDate> postedAsOnTransactionDates = savingsAccount.getManualPostingDates();
-        final SavingsPostingInterestPeriodType postingPeriodType = SavingsPostingInterestPeriodType
-                .fromInt(savingsAccount.getInterestCalculationType());
+        final SavingsPostingInterestPeriodType postingPeriodType = resolvePostingPeriodType(savingsAccount);
 
-        final SavingsCompoundingInterestPeriodType compoundingPeriodType = SavingsCompoundingInterestPeriodType
-                .fromInt(savingsAccount.getInterestPostingPeriodType());
+        final SavingsCompoundingInterestPeriodType compoundingPeriodType = resolveCompoundingPeriodType(savingsAccount);
 
         final SavingsInterestCalculationDaysInYearType daysInYearType = SavingsInterestCalculationDaysInYearType
                 .fromInt(savingsAccount.getInterestCalculationDaysInYearType());
 
-        final List<LocalDateInterval> postingPeriodIntervals = this.savingsHelper.determineInterestPostingPeriods(fromDate, tillDate,
-                postingPeriodType, financialYearBeginningMonth, postedAsOnTransactionDates);
+        final List<LocalDateInterval> postingPeriodIntervals = this.savingsHelper.determineInterestPostingPeriods(fromDate,
+                savingsAccount.getActivationDate(), tillDate, postingPeriodType, financialYearBeginningMonth, postedAsOnTransactionDates);
 
         final List<PostingPeriod> allPostingPeriods = new ArrayList<>();
         final MonetaryCurrency currency = savingsAccount.getCurrency();
@@ -142,7 +140,7 @@ public class SavingsAccrualWritePlatformServiceImpl implements SavingsAccrualWri
 
             final PostingPeriod postingPeriod = PostingPeriod.createFrom(periodInterval, periodStartingBalance,
                     savingsAccountTransactionDetailsForPostingPeriodList, currency, compoundingPeriodType, interestCalculationType,
-                    interestRateAsFraction, daysInYearType.getValue(), tillDate, interestPostTransactions, isInterestTransfer,
+                    interestRateAsFraction, daysInYearType, tillDate, interestPostTransactions, isInterestTransfer,
                     minBalanceForInterestCalculation, isSavingsInterestPostingAtCurrentPeriodEnd, isUserPosting,
                     financialYearBeginningMonth);
 
@@ -187,6 +185,14 @@ public class SavingsAccrualWritePlatformServiceImpl implements SavingsAccrualWri
         savingsAccount.setAccruedTillDate(accruedTillDate);
         savingsAccountRepository.saveAndFlush(savingsAccount);
         savingsAccountDomainService.postJournalEntries(savingsAccount, existingTransactionIds, existingReversedTransactionIds, false);
+    }
+
+    static SavingsPostingInterestPeriodType resolvePostingPeriodType(final SavingsAccount savingsAccount) {
+        return SavingsPostingInterestPeriodType.fromInt(savingsAccount.getInterestPostingPeriodType());
+    }
+
+    static SavingsCompoundingInterestPeriodType resolveCompoundingPeriodType(final SavingsAccount savingsAccount) {
+        return SavingsCompoundingInterestPeriodType.fromInt(savingsAccount.getInterestCompoundingPeriodType());
     }
 
 }

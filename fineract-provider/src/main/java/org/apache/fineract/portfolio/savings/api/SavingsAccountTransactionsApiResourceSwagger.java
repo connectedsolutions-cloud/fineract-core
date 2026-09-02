@@ -198,6 +198,10 @@ final class SavingsAccountTransactionsApiResourceSwagger {
         public String transactionDate;
         @Schema(example = "1000")
         public BigDecimal transactionAmount;
+        @Schema(example = "100.00", description = "Gross interest used by command=explicitWithholdTax")
+        public BigDecimal grossInterestAmount;
+        @Schema(example = "arissto:dpf-interest:123", description = "Stable source-event reference for explicit withholding tax")
+        public String transactionReference;
         @Schema(example = "en")
         public String locale;
         @Schema(example = "dd MMMM yyyy")
@@ -208,6 +212,8 @@ final class SavingsAccountTransactionsApiResourceSwagger {
         public String reasonForBlock;
         @Schema(example = "1")
         public Integer paymentTypeId;
+        @Schema(example = "Historical DPF ISR")
+        public String note;
     }
 
     @Schema(description = "PostSavingsAccountTransactionsResponse")

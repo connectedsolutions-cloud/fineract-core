@@ -101,6 +101,30 @@ public class LoanTransaction extends AbstractAuditableWithUTCDateTimeCustom<Long
     @Column(name = "penalty_charges_portion_derived", scale = 6, precision = 19)
     private BigDecimal penaltyChargesPortion;
 
+    @Column(name = "is_source_exact_allocation", nullable = false)
+    private boolean sourceExactAllocation;
+
+    @Column(name = "source_exact_principal_portion", scale = 6, precision = 19)
+    private BigDecimal sourceExactPrincipalPortion;
+
+    @Column(name = "source_exact_interest_portion", scale = 6, precision = 19)
+    private BigDecimal sourceExactInterestPortion;
+
+    @Column(name = "source_exact_fee_charges_portion", scale = 6, precision = 19)
+    private BigDecimal sourceExactFeeChargesPortion;
+
+    @Column(name = "source_exact_penalty_charges_portion", scale = 6, precision = 19)
+    private BigDecimal sourceExactPenaltyChargesPortion;
+
+    @Column(name = "source_exact_reallocation_system", length = 20)
+    private String sourceExactReallocationSystem;
+
+    @Column(name = "source_exact_reversal_movement_ids", length = 255)
+    private String sourceExactReversalMovementIds;
+
+    @Column(name = "source_exact_repayment_movement_id", length = 100)
+    private String sourceExactRepaymentMovementId;
+
     @Column(name = "overpayment_portion_derived", scale = 6, precision = 19)
     private BigDecimal overPaymentPortion;
 
@@ -352,6 +376,14 @@ public class LoanTransaction extends AbstractAuditableWithUTCDateTimeCustom<Long
             newTransaction.setLoanReAgeParameter(loanTransaction.getLoanReAgeParameter().getCopy(newTransaction));
         }
         newTransaction.setClassification(loanTransaction.getClassification());
+        newTransaction.sourceExactAllocation = loanTransaction.sourceExactAllocation;
+        newTransaction.sourceExactPrincipalPortion = loanTransaction.sourceExactPrincipalPortion;
+        newTransaction.sourceExactInterestPortion = loanTransaction.sourceExactInterestPortion;
+        newTransaction.sourceExactFeeChargesPortion = loanTransaction.sourceExactFeeChargesPortion;
+        newTransaction.sourceExactPenaltyChargesPortion = loanTransaction.sourceExactPenaltyChargesPortion;
+        newTransaction.sourceExactReallocationSystem = loanTransaction.sourceExactReallocationSystem;
+        newTransaction.sourceExactReversalMovementIds = loanTransaction.sourceExactReversalMovementIds;
+        newTransaction.sourceExactRepaymentMovementId = loanTransaction.sourceExactRepaymentMovementId;
         return newTransaction;
     }
 
@@ -658,6 +690,42 @@ public class LoanTransaction extends AbstractAuditableWithUTCDateTimeCustom<Long
 
     public Money getAmount(final MonetaryCurrency currency) {
         return Money.of(currency, this.amount);
+    }
+
+    public void markAsSourceExactAllocation(final SourceExactRepaymentAllocation allocation) {
+        this.sourceExactAllocation = true;
+        this.sourceExactPrincipalPortion = allocation.principal();
+        this.sourceExactInterestPortion = allocation.interest();
+        this.sourceExactFeeChargesPortion = allocation.feeCharges();
+        this.sourceExactPenaltyChargesPortion = allocation.penaltyCharges();
+    }
+
+    public void markAsSourceExactComponentReallocation(final String sourceSystem, final String reversalMovementIds,
+            final String repaymentMovementId) {
+        this.sourceExactReallocationSystem = sourceSystem;
+        this.sourceExactReversalMovementIds = reversalMovementIds;
+        this.sourceExactRepaymentMovementId = repaymentMovementId;
+    }
+
+    public boolean isSourceExactComponentReallocation() {
+        return this.sourceExactAllocation && "ARISSTO".equals(this.sourceExactReallocationSystem)
+                && this.sourceExactReversalMovementIds != null && this.sourceExactRepaymentMovementId != null;
+    }
+
+    public Money getSourceExactPrincipalPortion(final MonetaryCurrency currency) {
+        return Money.of(currency, this.sourceExactPrincipalPortion);
+    }
+
+    public Money getSourceExactInterestPortion(final MonetaryCurrency currency) {
+        return Money.of(currency, this.sourceExactInterestPortion);
+    }
+
+    public Money getSourceExactFeeChargesPortion(final MonetaryCurrency currency) {
+        return Money.of(currency, this.sourceExactFeeChargesPortion);
+    }
+
+    public Money getSourceExactPenaltyChargesPortion(final MonetaryCurrency currency) {
+        return Money.of(currency, this.sourceExactPenaltyChargesPortion);
     }
 
     public LocalDate getTransactionDate() {

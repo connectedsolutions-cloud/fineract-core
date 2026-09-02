@@ -112,6 +112,7 @@ public interface LoanProductConstants {
     BigDecimal DEFAULT_PRINCIPAL_THRESHOLD_FOR_SINGLE_DISBURSE_LOAN = BigDecimal.valueOf(0);
     // Fixed installment configuration related
     String canDefineEmiAmountParamName = "canDefineInstallmentAmount";
+    String roundCalculatedInstallmentUpParamName = "roundCalculatedInstallmentUp";
     String fixedPrincipalPercentagePerInstallmentParamName = "fixedPrincipalPercentagePerInstallment";
 
     // Loan Configurable Attributes
@@ -189,4 +190,6 @@ public interface LoanProductConstants {
     // Credesal CRD catalog tags
     String ID_TIPO_LINEA_PARAM_NAME = "idTipoLinea";
     String ID_SLUS_PARAM_NAME = "idSlus";
+
+    String NUMBERING_CODE = "numberingCode";
 }

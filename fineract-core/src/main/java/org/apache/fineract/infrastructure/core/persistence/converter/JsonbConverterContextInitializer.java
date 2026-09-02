@@ -23,9 +23,9 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 
 /**
- * Populates {@link JsonbConverterContext} with {@link DatabaseTypeResolver} at startup.
- * This allows {@link JsonbStringAttributeConverter} (instantiated by JPA without DI) to
- * detect PostgreSQL vs MySQL when converting JSONB columns.
+ * Populates {@link JsonbConverterContext} with {@link DatabaseTypeResolver} at startup. This allows
+ * {@link JsonbStringAttributeConverter} (instantiated by JPA without DI) to detect PostgreSQL vs MySQL when converting
+ * JSONB columns.
  */
 @Component
 public class JsonbConverterContextInitializer implements InitializingBean {

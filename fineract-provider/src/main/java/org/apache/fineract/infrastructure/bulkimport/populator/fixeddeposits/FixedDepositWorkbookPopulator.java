@@ -123,18 +123,21 @@ public class FixedDepositWorkbookPopulator extends AbstractWorkbookPopulator {
         DataValidationConstraint interestCompudingPeriodConstraint = validationHelper
                 .createExplicitListConstraint(new String[] { TemplatePopulateImportConstants.INTEREST_COMPOUNDING_PERIOD_DAILY,
                         TemplatePopulateImportConstants.INTEREST_COMPOUNDING_PERIOD_MONTHLY,
+                        TemplatePopulateImportConstants.INTEREST_COMPOUNDING_PERIOD_MONTHLY_ON_ACTIVATION_DATE,
                         TemplatePopulateImportConstants.INTEREST_COMPOUNDING_PERIOD_QUARTERLY,
                         TemplatePopulateImportConstants.INTEREST_COMPOUNDING_PERIOD_SEMI_ANNUALLY,
                         TemplatePopulateImportConstants.INTEREST_COMPOUNDING_PERIOD_ANNUALLY });
         DataValidationConstraint interestPostingPeriodConstraint = validationHelper
                 .createExplicitListConstraint(new String[] { TemplatePopulateImportConstants.INTEREST_POSTING_PERIOD_MONTHLY,
+                        TemplatePopulateImportConstants.INTEREST_POSTING_PERIOD_MONTHLY_ON_ACTIVATION_DATE,
                         TemplatePopulateImportConstants.INTEREST_POSTING_PERIOD_QUARTERLY,
                         TemplatePopulateImportConstants.INTEREST_POSTING_PERIOD_BIANUALLY,
                         TemplatePopulateImportConstants.INTEREST_POSTING_PERIOD_ANNUALLY });
         DataValidationConstraint interestCalculationConstraint = validationHelper.createExplicitListConstraint(new String[] {
                 TemplatePopulateImportConstants.INTEREST_CAL_DAILY_BALANCE, TemplatePopulateImportConstants.INTEREST_CAL_AVG_BALANCE });
         DataValidationConstraint interestCalculationDaysInYearConstraint = validationHelper
-                .createExplicitListConstraint(new String[] { TemplatePopulateImportConstants.INTEREST_CAL_DAYS_IN_YEAR_360,
+                .createExplicitListConstraint(new String[] { TemplatePopulateImportConstants.INTEREST_CAL_DAYS_IN_YEAR_ACTUAL,
+                        TemplatePopulateImportConstants.INTEREST_CAL_DAYS_IN_YEAR_360,
                         TemplatePopulateImportConstants.INTEREST_CAL_DAYS_IN_YEAR_365 });
         DataValidationConstraint frequency = validationHelper.createExplicitListConstraint(
                 new String[] { TemplatePopulateImportConstants.FREQUENCY_DAYS, TemplatePopulateImportConstants.FREQUENCY_WEEKS,

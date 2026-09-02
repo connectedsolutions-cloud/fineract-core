@@ -64,10 +64,9 @@ public final class ClientFamilyMemberCommandFromApiJsonDeserializer {
     public static final String LOCALE = "locale";
     public static final String DATE_FORMAT = "dateFormat";
     public static final String FAMILY_MEMBERS = "familyMembers";
-    private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(
-            Arrays.asList(ID, CLIENT_ID, FIRST_NAME, MIDDLE_NAME, LAST_NAME, QUALIFICATION, MOBILE_NUMBER, AGE, IS_DEPENDENT,
-                    SECONDARY_MOBILE_NUMBER, ADDRESS, EXTERNAL_ID, SOURCE_RELATIONSHIP, RELATIONSHIP_ID, MARITAL_STATUS_ID, GENDER_ID,
-                    DATE_OF_BIRTH, PROFESSION_ID, LOCALE, DATE_FORMAT, FAMILY_MEMBERS));
+    private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList(ID, CLIENT_ID, FIRST_NAME, MIDDLE_NAME, LAST_NAME,
+            QUALIFICATION, MOBILE_NUMBER, AGE, IS_DEPENDENT, SECONDARY_MOBILE_NUMBER, ADDRESS, EXTERNAL_ID, SOURCE_RELATIONSHIP,
+            RELATIONSHIP_ID, MARITAL_STATUS_ID, GENDER_ID, DATE_OF_BIRTH, PROFESSION_ID, LOCALE, DATE_FORMAT, FAMILY_MEMBERS));
     public static final String FAMILY_MEMBERS1 = "FamilyMembers";
     private final FromJsonHelper fromApiJsonHelper;
 

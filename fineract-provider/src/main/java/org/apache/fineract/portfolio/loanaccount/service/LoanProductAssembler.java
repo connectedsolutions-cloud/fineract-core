@@ -241,6 +241,8 @@ public class LoanProductAssembler {
         final boolean accountMovesOutOfNPAOnlyOnArrearsCompletion = command
                 .booleanPrimitiveValueOfParameterNamed(LoanProductConstants.ACCOUNT_MOVES_OUT_OF_NPA_ONLY_ON_ARREARS_COMPLETION_PARAM_NAME);
         final boolean canDefineEmiAmount = command.booleanPrimitiveValueOfParameterNamed(LoanProductConstants.canDefineEmiAmountParamName);
+        final boolean roundCalculatedInstallmentUp = command
+                .booleanPrimitiveValueOfParameterNamed(LoanProductConstants.roundCalculatedInstallmentUpParamName);
         final Integer installmentAmountInMultiplesOf = command
                 .integerValueOfParameterNamed(LoanProductConstants.installmentAmountInMultiplesOfParamName);
 
@@ -335,11 +337,11 @@ public class LoanProductAssembler {
                 ? command.jsonFragment(LoanProductConstants.DIMENSIONS)
                 : null;
 
-        final LoanProduct loanProduct = new LoanProduct(fund, loanTransactionProcessingStrategy, loanProductPaymentAllocationRules, loanProductCreditAllocationRules,
-                name, shortName, description, currency, principal, minPrincipal, maxPrincipal, interestRatePerPeriod,
-                minInterestRatePerPeriod, maxInterestRatePerPeriod, interestFrequencyType, annualInterestRate, interestMethod,
-                interestCalculationPeriodMethod, allowPartialPeriodInterestCalcualtion, repaymentEvery, repaymentFrequencyType,
-                numberOfRepayments, minNumberOfRepayments, maxNumberOfRepayments, graceOnPrincipalPayment,
+        final LoanProduct loanProduct = new LoanProduct(fund, loanTransactionProcessingStrategy, loanProductPaymentAllocationRules,
+                loanProductCreditAllocationRules, name, shortName, description, currency, principal, minPrincipal, maxPrincipal,
+                interestRatePerPeriod, minInterestRatePerPeriod, maxInterestRatePerPeriod, interestFrequencyType, annualInterestRate,
+                interestMethod, interestCalculationPeriodMethod, allowPartialPeriodInterestCalcualtion, repaymentEvery,
+                repaymentFrequencyType, numberOfRepayments, minNumberOfRepayments, maxNumberOfRepayments, graceOnPrincipalPayment,
                 recurringMoratoriumOnPrincipalPeriods, graceOnInterestPayment, graceOnInterestCharged, amortizationMethod,
                 inArrearsTolerance, productCharges, accountingRuleType, includeInBorrowerCycle, startDate, closeDate, externalId,
                 useBorrowerCycle, loanProductBorrowerCycleVariations, multiDisburseLoan, maxTrancheCount, outstandingLoanBalance,
@@ -358,6 +360,7 @@ public class LoanProductAssembler {
                 daysInYearCustomStrategy, enableIncomeCapitalization, capitalizedIncomeCalculationType, capitalizedIncomeStrategy,
                 capitalizedIncomeType, enableBuyDownFee, buyDownFeeCalculationType, buyDownFeeStrategy, buyDownFeeIncomeType,
                 merchantBuyDownFee);
+        loanProduct.getLoanProductRelatedDetail().setRoundCalculatedInstallmentUp(roundCalculatedInstallmentUp);
         if (dimensions != null) {
             loanProduct.setDimensions(dimensions);
         }

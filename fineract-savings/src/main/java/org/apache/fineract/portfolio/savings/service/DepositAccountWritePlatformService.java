@@ -33,6 +33,8 @@ public interface DepositAccountWritePlatformService {
 
     CommandProcessingResult activateRDAccount(Long savingsId, JsonCommand command);
 
+    CommandProcessingResult linkSavingsAccountForMigration(Long fixedDepositId, Long linkedSavingsId);
+
     CommandProcessingResult updateDepositAmountForRDAccount(Long savingsId, JsonCommand command);
 
     CommandProcessingResult depositToFDAccount(Long savingsId, JsonCommand command);
@@ -43,9 +45,14 @@ public interface DepositAccountWritePlatformService {
 
     CommandProcessingResult calculateInterest(Long savingsId, DepositAccountType depositAccountType);
 
+    CommandProcessingResult calculateInterest(Long savingsId, DepositAccountType depositAccountType, LocalDate calculationDate);
+
     CommandProcessingResult postInterest(Long savingsId, DepositAccountType depositAccountType);
 
     CommandProcessingResult undoFDTransaction(Long savingsId, Long transactionId, boolean allowAccountTransferModification);
+
+    CommandProcessingResult undoFDTransaction(Long savingsId, Long transactionId, boolean allowAccountTransferModification,
+            boolean sourceAuthoritativeCleanup);
 
     CommandProcessingResult undoRDTransaction(Long savingsId, Long transactionId, boolean allowAccountTransferModification);
 
@@ -85,6 +92,14 @@ public interface DepositAccountWritePlatformService {
     void applyChargeDue(Long savingsAccountChargeId, Long accountId, DepositAccountType depositAccountType);
 
     void updateMaturityDetails(Long depositAccountId, DepositAccountType depositAccountType);
+
+    void updateMaturityDetails(Long depositAccountId, DepositAccountType depositAccountType, boolean applyMaturityInstruction);
+
+    void updateMaturityDetails(Long depositAccountId, DepositAccountType depositAccountType, boolean applyMaturityInstruction,
+            boolean postMaturityInterest);
+
+    Long updateMaturityDetails(Long depositAccountId, DepositAccountType depositAccountType, boolean applyMaturityInstruction,
+            boolean postMaturityInterest, LocalDate sourceRolloverDate);
 
     SavingsAccountTransaction mandatorySavingsAccountDeposit(SavingsAccountTransactionDTO accountTransactionDTO);
 }

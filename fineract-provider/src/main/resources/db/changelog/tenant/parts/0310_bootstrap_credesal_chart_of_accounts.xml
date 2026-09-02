@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0310-bootstrap-credesal-chart-of-accounts" author="credesal" dbms="postgresql">
+        <comment>
+            Bootstrap the approved Credesal chart of accounts into a new tenant.
+            Existing accounts keep their IDs so product mappings remain valid. A
+            non-canonical tenant may converge only while it has no business data.
+        </comment>
+
+        <createTable tableName="credesal_coa_seed_0310">
+            <column name="gl_code" type="VARCHAR(45)">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="parent_gl_code" type="VARCHAR(45)"/>
+            <column name="name" type="VARCHAR(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="disabled" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="manual_journal_entries_allowed" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="account_usage" type="SMALLINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="classification_enum" type="SMALLINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="acc_level" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="acc_last_level" type="INT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <loadData file="data/0310/chart_of_accounts.csv"
+                  relativeToChangelogFile="true"
+                  encoding="UTF-8"
+                  separator=","
+                  quotchar="&quot;"
+                  tableName="credesal_coa_seed_0310">
+            <column header="gl_code" name="gl_code" type="STRING"/>
+            <column header="parent_gl_code" name="parent_gl_code" type="STRING"/>
+            <column header="name" name="name" type="STRING"/>
+            <column header="disabled" name="disabled" type="BOOLEAN"/>
+            <column header="manual_journal_entries_allowed" name="manual_journal_entries_allowed" type="BOOLEAN"/>
+            <column header="account_usage" name="account_usage" type="NUMERIC"/>
+            <column header="classification_enum" name="classification_enum" type="NUMERIC"/>
+            <column header="description" name="description" type="STRING"/>
+            <column header="acc_level" name="acc_level" type="NUMERIC"/>
+            <column header="acc_last_level" name="acc_last_level" type="NUMERIC"/>
+        </loadData>
+
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+DO $$
+DECLARE
+    expected_count CONSTANT INTEGER := 2523;
+    level_no INTEGER;
+    needs_convergence BOOLEAN;
+BEGIN
+    IF (SELECT COUNT(*) FROM credesal_coa_seed_0310) <> expected_count THEN
+        RAISE EXCEPTION 'Credesal COA snapshot must contain % rows', expected_count;
+    END IF;
+
+    -- Liquibase 4.33 loads an empty CSV field declared as STRING as an empty
+    -- string, not SQL NULL. Root accounts intentionally have no parent.
+    UPDATE credesal_coa_seed_0310
+    SET parent_gl_code = NULL
+    WHERE BTRIM(parent_gl_code) = '';
+
+    IF EXISTS (
+        SELECT 1
+        FROM credesal_coa_seed_0310 child
+        LEFT JOIN credesal_coa_seed_0310 parent
+          ON parent.gl_code = child.parent_gl_code
+        WHERE (child.acc_level = 1) <> (child.parent_gl_code IS NULL)
+           OR (child.parent_gl_code IS NOT NULL AND parent.gl_code IS NULL)
+           OR (parent.gl_code IS NOT NULL AND parent.acc_level >= child.acc_level)
+           OR (parent.gl_code IS NOT NULL AND parent.classification_enum <> child.classification_enum)
+    ) THEN
+        RAISE EXCEPTION 'Credesal COA snapshot has an invalid parent hierarchy';
+    END IF;
+
+    SELECT
+        (SELECT COUNT(*) FROM acc_gl_account) <> expected_count
+        OR EXISTS (
+            SELECT 1
+            FROM credesal_coa_seed_0310 source
+            LEFT JOIN acc_gl_account target ON target.gl_code = source.gl_code
+            LEFT JOIN acc_gl_account target_parent ON target_parent.id = target.parent_id
+            WHERE target.id IS NULL
+               OR target.name IS DISTINCT FROM source.name
+               OR target_parent.gl_code IS DISTINCT FROM source.parent_gl_code
+               OR target.disabled IS DISTINCT FROM source.disabled
+               OR target.manual_journal_entries_allowed IS DISTINCT FROM source.manual_journal_entries_allowed
+               OR target.account_usage IS DISTINCT FROM source.account_usage
+               OR target.classification_enum IS DISTINCT FROM source.classification_enum
+               OR target.tag_id IS NOT NULL
+               OR target.description IS DISTINCT FROM source.description
+               OR target.acc_level IS DISTINCT FROM source.acc_level
+               OR target.acc_last_level IS DISTINCT FROM source.acc_last_level
+        )
+        INTO needs_convergence;
+
+    IF needs_convergence AND (
+        EXISTS (SELECT 1 FROM m_client)
+        OR EXISTS (SELECT 1 FROM m_loan)
+        OR EXISTS (SELECT 1 FROM m_savings_account)
+        OR EXISTS (SELECT 1 FROM acc_gl_journal_entry)
+    ) THEN
+        RAISE EXCEPTION 'Refusing to change a non-canonical COA in a tenant that already has business data';
+    END IF;
+
+    IF needs_convergence THEN
+        UPDATE acc_gl_account target
+        SET name = source.name,
+            disabled = source.disabled,
+            manual_journal_entries_allowed = source.manual_journal_entries_allowed,
+            account_usage = source.account_usage,
+            classification_enum = source.classification_enum,
+            tag_id = NULL,
+            description = source.description,
+            acc_level = source.acc_level,
+            acc_last_level = source.acc_last_level
+        FROM credesal_coa_seed_0310 source
+        WHERE target.gl_code = source.gl_code;
+
+        FOR level_no IN 1..(SELECT MAX(acc_level) FROM credesal_coa_seed_0310) LOOP
+            INSERT INTO acc_gl_account (
+                name, parent_id, hierarchy, gl_code, disabled,
+                manual_journal_entries_allowed, account_usage,
+                classification_enum, tag_id, description, acc_level,
+                acc_last_level
+            )
+            SELECT
+                source.name,
+                parent.id,
+                CASE WHEN source.parent_gl_code IS NULL THEN '.' ELSE NULL END,
+                source.gl_code,
+                source.disabled,
+                source.manual_journal_entries_allowed,
+                source.account_usage,
+                source.classification_enum,
+                NULL,
+                source.description,
+                source.acc_level,
+                source.acc_last_level
+            FROM credesal_coa_seed_0310 source
+            LEFT JOIN acc_gl_account parent ON parent.gl_code = source.parent_gl_code
+            LEFT JOIN acc_gl_account existing ON existing.gl_code = source.gl_code
+            WHERE source.acc_level = level_no
+              AND existing.id IS NULL;
+        END LOOP;
+
+        UPDATE acc_gl_account target
+        SET parent_id = parent.id
+        FROM credesal_coa_seed_0310 source
+        LEFT JOIN acc_gl_account parent ON parent.gl_code = source.parent_gl_code
+        WHERE target.gl_code = source.gl_code
+          AND target.parent_id IS DISTINCT FROM parent.id;
+
+        UPDATE acc_gl_account target
+        SET hierarchy = '.'
+        FROM credesal_coa_seed_0310 source
+        WHERE target.gl_code = source.gl_code
+          AND source.parent_gl_code IS NULL;
+
+        FOR level_no IN 2..(SELECT MAX(acc_level) FROM credesal_coa_seed_0310) LOOP
+            UPDATE acc_gl_account target
+            SET hierarchy = CONCAT(parent.hierarchy, target.id, '.')
+            FROM credesal_coa_seed_0310 source
+            JOIN acc_gl_account parent ON parent.gl_code = source.parent_gl_code
+            WHERE target.gl_code = source.gl_code
+              AND source.acc_level = level_no;
+        END LOOP;
+    END IF;
+
+    IF (SELECT COUNT(*) FROM acc_gl_account) <> expected_count
+       OR EXISTS (
+            SELECT 1
+            FROM credesal_coa_seed_0310 source
+            LEFT JOIN acc_gl_account target ON target.gl_code = source.gl_code
+            LEFT JOIN acc_gl_account target_parent ON target_parent.id = target.parent_id
+            WHERE target.id IS NULL
+               OR target.name IS DISTINCT FROM source.name
+               OR target_parent.gl_code IS DISTINCT FROM source.parent_gl_code
+               OR target.disabled IS DISTINCT FROM source.disabled
+               OR target.manual_journal_entries_allowed IS DISTINCT FROM source.manual_journal_entries_allowed
+               OR target.account_usage IS DISTINCT FROM source.account_usage
+               OR target.classification_enum IS DISTINCT FROM source.classification_enum
+               OR target.tag_id IS NOT NULL
+               OR target.description IS DISTINCT FROM source.description
+               OR target.acc_level IS DISTINCT FROM source.acc_level
+               OR target.acc_last_level IS DISTINCT FROM source.acc_last_level
+               OR target.hierarchy IS NULL
+        )
+    THEN
+        RAISE EXCEPTION 'Credesal COA bootstrap did not reconcile exactly';
+    END IF;
+END $$;
+        ]]></sql>
+
+        <dropTable tableName="credesal_coa_seed_0310"/>
+    </changeSet>
+
+</databaseChangeLog>

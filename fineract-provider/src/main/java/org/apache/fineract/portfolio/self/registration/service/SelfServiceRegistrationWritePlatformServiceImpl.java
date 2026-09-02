@@ -265,8 +265,8 @@ public class SelfServiceRegistrationWritePlatformServiceImpl implements SelfServ
             User user = new User(selfServiceRegistration.getUsername(), selfServiceRegistration.getPassword(), authorities);
             // Create Set<Office> with the client's office and use it as both offices and currentOffice
             Set<Office> offices = new HashSet<>(Arrays.asList(client.getOffice()));
-            AppUser appUser = new AppUser(offices, client.getOffice(), user, allRoles, selfServiceRegistration.getEmail(), client.getFirstname(),
-                    client.getLastname(), null, passwordNeverExpire, isSelfServiceUser, clients, null);
+            AppUser appUser = new AppUser(offices, client.getOffice(), user, allRoles, selfServiceRegistration.getEmail(),
+                    client.getFirstname(), client.getLastname(), null, passwordNeverExpire, isSelfServiceUser, clients, null);
             this.userDomainService.create(appUser, true);
             return appUser;
 

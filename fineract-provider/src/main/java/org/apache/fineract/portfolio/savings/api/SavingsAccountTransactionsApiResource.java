@@ -193,6 +193,12 @@ public class SavingsAccountTransactionsApiResource {
         } else if (is(commandParam, "withdrawal")) {
             final CommandWrapper commandRequest = builder.savingsAccountWithdrawal(savingsId).build();
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        } else if (is(commandParam, SavingsApiConstants.COMMAND_EXPLICIT_WITHHOLD_TAX)) {
+            final CommandWrapper commandRequest = builder.savingsAccountExplicitWithholdTax(savingsId).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        } else if (is(commandParam, SavingsApiConstants.COMMAND_EXPLICIT_INTEREST_POSTING)) {
+            final CommandWrapper commandRequest = builder.savingsAccountExplicitInterestPosting(savingsId).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
         } else if (is(commandParam, "postInterestAsOn")) {
             final CommandWrapper commandRequest = builder.savingsAccountInterestPosting(savingsId).build();
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
@@ -204,7 +210,8 @@ public class SavingsAccountTransactionsApiResource {
         if (result == null) {
             //
             throw new UnrecognizedQueryParamException("command", commandParam,
-                    new Object[] { "deposit", "withdrawal", SavingsApiConstants.COMMAND_HOLD_AMOUNT });
+                    new Object[] { "deposit", "withdrawal", SavingsApiConstants.COMMAND_EXPLICIT_WITHHOLD_TAX,
+                            SavingsApiConstants.COMMAND_EXPLICIT_INTEREST_POSTING, SavingsApiConstants.COMMAND_HOLD_AMOUNT });
         }
 
         return this.toApiJsonSerializer.serialize(result);

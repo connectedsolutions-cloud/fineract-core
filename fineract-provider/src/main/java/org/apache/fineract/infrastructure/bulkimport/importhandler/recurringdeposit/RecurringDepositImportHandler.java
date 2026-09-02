@@ -129,6 +129,9 @@ public class RecurringDepositImportHandler implements ImportHandler {
                 interestCompoundingPeriodTypeId = 1L;
             } else if (interestCompoundingPeriodType.equalsIgnoreCase("Monthly")) {
                 interestCompoundingPeriodTypeId = 4L;
+            } else if (interestCompoundingPeriodType
+                    .equalsIgnoreCase(TemplatePopulateImportConstants.INTEREST_COMPOUNDING_PERIOD_MONTHLY_ON_ACTIVATION_DATE)) {
+                interestCompoundingPeriodTypeId = 9L;
             } else if (interestCompoundingPeriodType.equalsIgnoreCase("Quarterly")) {
                 interestCompoundingPeriodTypeId = 5L;
             } else if (interestCompoundingPeriodType.equalsIgnoreCase("Semi-Annual")) {
@@ -144,6 +147,9 @@ public class RecurringDepositImportHandler implements ImportHandler {
         if (interestPostingPeriodType != null) {
             if (interestPostingPeriodType.equalsIgnoreCase("Monthly")) {
                 interestPostingPeriodTypeId = 4L;
+            } else if (interestPostingPeriodType
+                    .equalsIgnoreCase(TemplatePopulateImportConstants.INTEREST_POSTING_PERIOD_MONTHLY_ON_ACTIVATION_DATE)) {
+                interestPostingPeriodTypeId = 9L;
             } else if (interestPostingPeriodType.equalsIgnoreCase("Quarterly")) {
                 interestPostingPeriodTypeId = 5L;
             } else if (interestPostingPeriodType.equalsIgnoreCase("Annually")) {
@@ -170,7 +176,9 @@ public class RecurringDepositImportHandler implements ImportHandler {
         EnumOptionData interestCalculationDaysInYearTypeEnum = null;
         Long interestCalculationDaysInYearTypeId = null;
         if (interestCalculationDaysInYearType != null) {
-            if (interestCalculationDaysInYearType.equalsIgnoreCase("360 Days")) {
+            if (interestCalculationDaysInYearType.equalsIgnoreCase(TemplatePopulateImportConstants.INTEREST_CAL_DAYS_IN_YEAR_ACTUAL)) {
+                interestCalculationDaysInYearTypeId = 1L;
+            } else if (interestCalculationDaysInYearType.equalsIgnoreCase("360 Days")) {
                 interestCalculationDaysInYearTypeId = 360L;
             } else if (interestCalculationDaysInYearType.equalsIgnoreCase("365 Days")) {
                 interestCalculationDaysInYearTypeId = 365L;

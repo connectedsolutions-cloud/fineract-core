@@ -50,6 +50,7 @@ import org.apache.fineract.organisation.office.exception.RootOfficeParentCannotB
 @Getter
 @Setter
 public class Office extends AbstractPersistableCustom<Long> implements Serializable {
+
     private static final String MH_NIT_PARAM = "mhNit";
     private static final String MH_PASSWORD_PRI_PARAM = "mhPasswordPri";
     private static final String MH_FIRMA_SECRET_PARAM = "mhFirmaSecret";

@@ -127,8 +127,8 @@ public class ClientFamilyMembersWritePlatformServiceImpl implements ClientFamily
         dateOfBirth = command.localDateValueOfParameterNamed("dateOfBirth");
 
         ClientFamilyMembers clientFamilyMembers = ClientFamilyMembers.fromJson(client, firstName, middleName, lastName, qualification,
-                mobileNumber, secondaryMobileNumber, address, externalId, sourceRelationship, age, isDependent, relationship,
-                maritalStatus, gender, dateOfBirth, profession);
+                mobileNumber, secondaryMobileNumber, address, externalId, sourceRelationship, age, isDependent, relationship, maritalStatus,
+                gender, dateOfBirth, profession);
 
         this.clientFamilyRepository.saveAndFlush(clientFamilyMembers);
 

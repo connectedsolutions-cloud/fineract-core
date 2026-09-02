@@ -26,8 +26,7 @@ import org.apache.fineract.useradministration.domain.AppUser;
 import org.apache.fineract.useradministration.domain.AppUserRepository;
 
 /**
- * Context passed to builders: current user, audit date, and repository to resolve the
- * responsable user by id.
+ * Context passed to builders: current user, audit date, and repository to resolve the responsable user by id.
  */
 @Getter
 @NoArgsConstructor

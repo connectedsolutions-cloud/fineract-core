@@ -80,8 +80,12 @@ class Settings:
     family_reference_mapping_path: Path
     pep_mapping_path: Path
     employee_mapping_path: Path
+    client_staff_assignment_mapping_path: Path
     membership_mapping_path: Path
+    native_share_mapping_path: Path
     aml_alert_mapping_path: Path
+    savings_mapping_path: Path
+    mobile_collection_mapping_path: Path
 
 
 def load_source_config(env_file: str | None = None) -> SourceConfig:
@@ -118,14 +122,30 @@ def load_settings(target: str, env_file: str | None = None) -> Settings:
     family_mapping = Path(os.getenv("ARISSTO_SYNC_FAMILY_REFERENCE_MAPPING", "config/client_family_references.json"))
     pep_mapping = Path(os.getenv("ARISSTO_SYNC_CLIENT_PEP_MAPPING", "config/client_pep.json"))
     employee_mapping = Path(os.getenv("ARISSTO_SYNC_EMPLOYEE_MAPPING", "config/employees.json"))
+    client_staff_assignment_mapping = Path(os.getenv(
+        "ARISSTO_SYNC_CLIENT_STAFF_ASSIGNMENT_MAPPING", "config/client_staff_assignments.json"
+    ))
     membership_mapping = Path(os.getenv(
         "ARISSTO_SYNC_MEMBERSHIP_MAPPING", "config/membership_share_capital.json"
     ))
+    native_share_mapping = Path(os.getenv(
+        "ARISSTO_SYNC_NATIVE_SHARE_MAPPING", "config/native_share_capital.json"
+    ))
     aml_alert_mapping = Path(os.getenv("ARISSTO_SYNC_AML_ALERT_MAPPING", "config/aml_alerts.json"))
+    savings_mapping = Path(os.getenv("ARISSTO_SYNC_SAVINGS_MAPPING", "config/savings_deposits.json"))
+    mobile_collection_mapping = Path(os.getenv(
+        "ARISSTO_SYNC_MOBILE_COLLECTION_MAPPING", "config/mobile_collections.json"
+    ))
     return Settings(source, target_config, state if state.is_absolute() else ROOT / state,
                     mapping if mapping.is_absolute() else ROOT / mapping,
                     family_mapping if family_mapping.is_absolute() else ROOT / family_mapping,
                     pep_mapping if pep_mapping.is_absolute() else ROOT / pep_mapping,
                     employee_mapping if employee_mapping.is_absolute() else ROOT / employee_mapping,
+                    client_staff_assignment_mapping if client_staff_assignment_mapping.is_absolute()
+                    else ROOT / client_staff_assignment_mapping,
                     membership_mapping if membership_mapping.is_absolute() else ROOT / membership_mapping,
-                    aml_alert_mapping if aml_alert_mapping.is_absolute() else ROOT / aml_alert_mapping)
+                    native_share_mapping if native_share_mapping.is_absolute() else ROOT / native_share_mapping,
+                    aml_alert_mapping if aml_alert_mapping.is_absolute() else ROOT / aml_alert_mapping,
+                    savings_mapping if savings_mapping.is_absolute() else ROOT / savings_mapping,
+                    mobile_collection_mapping if mobile_collection_mapping.is_absolute()
+                    else ROOT / mobile_collection_mapping)

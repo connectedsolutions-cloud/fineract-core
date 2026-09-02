@@ -44,8 +44,7 @@ public class PendingFlowBlueprintReadPlatformServiceImpl implements PendingFlowB
     @Override
     public PendingFlowBlueprintData retrieveOne(Long id) {
         context.authenticatedUser();
-        PendingFlowBlueprint entity = repository.findById(id)
-                .orElseThrow(() -> new PendingFlowBlueprintNotFoundException(id));
+        PendingFlowBlueprint entity = repository.findById(id).orElseThrow(() -> new PendingFlowBlueprintNotFoundException(id));
         return mapToData(entity);
     }
 

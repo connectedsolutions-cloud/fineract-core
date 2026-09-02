@@ -18,6 +18,7 @@
  */
 package org.apache.fineract.portfolio.savings.handler;
 
+import java.time.LocalDate;
 import org.apache.fineract.commands.annotation.CommandType;
 import org.apache.fineract.commands.handler.NewCommandSourceHandler;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
@@ -42,6 +43,11 @@ public class CalculateInterestFixedDepositAccountCommandHandler implements NewCo
     @Transactional
     @Override
     public CommandProcessingResult processCommand(final JsonCommand command) {
-        return this.depositAccountWritePlatformService.calculateInterest(command.entityId(), DepositAccountType.FIXED_DEPOSIT);
+        final LocalDate calculationDate = command.localDateValueOfParameterNamed("calculationDate");
+        if (calculationDate == null) {
+            return this.depositAccountWritePlatformService.calculateInterest(command.entityId(), DepositAccountType.FIXED_DEPOSIT);
+        }
+        return this.depositAccountWritePlatformService.calculateInterest(command.entityId(), DepositAccountType.FIXED_DEPOSIT,
+                calculationDate);
     }
 }

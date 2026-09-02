@@ -72,34 +72,39 @@ public class InlineLoanCOBBuildExecutionContextTasklet implements Tasklet {
         String businessDateString = getBusinessDateFromJobParameters(chunkContext);
         contribution.getStepExecution().getExecutionContext().put(LoanCOBConstant.BUSINESS_DATE_PARAMETER_NAME, businessDateString);
         LocalDate businessDate = LocalDate.parse(businessDateString, DateTimeFormatter.ISO_DATE);
-        
+
         List<Long> loanIds = getLoanIdsFromJobParameters(chunkContext);
         log.info("Processing {} loans in inline COB, business date from parameters: {}", loanIds.size(), businessDate);
-        
-        // Check if any loan is in simulation mode - if so, use the businessDate (current processing day) as simulated date
+
+        // Check if any loan is in simulation mode - if so, use the businessDate (current processing day) as simulated
+        // date
         // This ensures day-by-day processing uses the correct date for each day, not the final simulated date
         for (Long loanId : loanIds) {
             Loan loan = loanRepository.findById(loanId).orElse(null);
             if (loan != null) {
-                log.info("Loan [{}]: isSimulation={}, simulatedDate={}, lastClosedBusinessDate={}, accruedTill={}, periodicAccrualEnabled={}", 
-                    loanId, loan.getIsSimulation(), loan.getSimulatedDate(), loan.getLastClosedBusinessDate(), 
-                    loan.getAccruedTill(), loan.isPeriodicAccrualAccountingEnabledOnLoanProduct());
+                log.info(
+                        "Loan [{}]: isSimulation={}, simulatedDate={}, lastClosedBusinessDate={}, accruedTill={}, periodicAccrualEnabled={}",
+                        loanId, loan.getIsSimulation(), loan.getSimulatedDate(), loan.getLastClosedBusinessDate(), loan.getAccruedTill(),
+                        loan.isPeriodicAccrualAccountingEnabledOnLoanProduct());
                 if (Boolean.TRUE.equals(loan.getIsSimulation()) && loan.getSimulatedDate() != null) {
                     // CRITICAL: Use the businessDate (current processing day) as the simulated date in ThreadLocal
-                    // This ensures DateUtils.getBusinessLocalDate() returns the current day being processed, not the final simulated date
+                    // This ensures DateUtils.getBusinessLocalDate() returns the current day being processed, not the
+                    // final simulated date
                     ThreadLocalContextUtil.setLoanSimulatedDate(businessDate);
-                    log.info("Simulation loan detected: Setting ThreadLocal simulated date to CURRENT processing day [{}] (loan's final simulatedDate is [{}])", 
-                        businessDate, loan.getSimulatedDate());
+                    log.info(
+                            "Simulation loan detected: Setting ThreadLocal simulated date to CURRENT processing day [{}] (loan's final simulatedDate is [{}])",
+                            businessDate, loan.getSimulatedDate());
                     break; // Use the first simulated loan's date (assuming single loan per batch for simulation)
                 }
             }
         }
-        
-        // Set business dates - use businessDate (current processing day) for simulation, or regular business date for normal COB
+
+        // Set business dates - use businessDate (current processing day) for simulation, or regular business date for
+        // normal COB
         businessDates.put(BusinessDateType.COB_DATE, businessDate);
         businessDates.put(BusinessDateType.BUSINESS_DATE, businessDate.plusDays(1));
         ThreadLocalContextUtil.setBusinessDates(businessDates);
-        
+
         return RepeatStatus.FINISHED;
     }
 

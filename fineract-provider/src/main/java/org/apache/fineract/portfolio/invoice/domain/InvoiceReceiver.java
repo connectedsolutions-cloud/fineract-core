@@ -156,4 +156,3 @@ public class InvoiceReceiver extends AbstractPersistableCustom<Long> {
         this.nit = nit;
     }
 }
-

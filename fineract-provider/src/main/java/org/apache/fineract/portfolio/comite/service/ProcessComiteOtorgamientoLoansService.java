@@ -24,10 +24,9 @@ import org.apache.fineract.portfolio.comite.domain.SesionComite;
 public interface ProcessComiteOtorgamientoLoansService {
 
     /**
-     * Process approved loans for comite otorgamiento: for each approved loan with cash disbursal
-     * method, post loan portfolio debit, apply available-at-cashier charges, post disbursements
-     * payable credit, and mark loan as pre-processed. Returns status and output JSON for the
-     * session.
+     * Process approved loans for comite otorgamiento: for each approved loan with cash disbursal method, post loan
+     * portfolio debit, apply available-at-cashier charges, post disbursements payable credit, and mark loan as
+     * pre-processed. Returns status and output JSON for the session.
      */
     ProcessComiteOtorgamientoResult process(SesionComite session, List<Long> approvedLoanIds);
 }

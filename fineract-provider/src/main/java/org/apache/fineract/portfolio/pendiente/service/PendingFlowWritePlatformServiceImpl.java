@@ -29,8 +29,8 @@ import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
+import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.organisation.office.domain.Office;
 import org.apache.fineract.organisation.office.domain.OfficeRepositoryWrapper;
@@ -55,8 +55,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class PendingFlowWritePlatformServiceImpl implements PendingFlowWritePlatformService {
 
-    private static final Set<String> RESERVED_KEYS = Set.of("blueprintId", "responsableUserId", "dueDate", "name",
-            "description", "assignees", "officeId");
+    private static final Set<String> RESERVED_KEYS = Set.of("blueprintId", "responsableUserId", "dueDate", "name", "description",
+            "assignees", "officeId");
 
     private final PendingFlowRepository flowRepository;
     private final PendingFlowBlueprintRepository blueprintRepository;
@@ -106,8 +106,7 @@ public class PendingFlowWritePlatformServiceImpl implements PendingFlowWritePlat
                 JsonObject stepDef = stepsArray.get(i).getAsJsonObject();
                 String stepName = fromJsonHelper.extractStringNamed("name", stepDef);
                 String stepDesc = fromJsonHelper.extractStringNamed("description", stepDef);
-                String stepReferences = stepDef.has("reference_fields")
-                        ? fromJsonHelper.toJson(stepDef.get("reference_fields")) : null;
+                String stepReferences = stepDef.has("reference_fields") ? fromJsonHelper.toJson(stepDef.get("reference_fields")) : null;
 
                 Long responsableId = resolveResponsableForOrder(i, assigneesArray, currentUser.getId());
                 AppUser responsable = responsableId != null ? appUserRepository.findById(responsableId).orElse(null) : null;
@@ -197,11 +196,11 @@ public class PendingFlowWritePlatformServiceImpl implements PendingFlowWritePlat
         PendingFlowBlueprint blueprint = blueprintRepository.findById(blueprintId)
                 .orElseThrow(() -> new PendingFlowBlueprintNotFoundException(blueprintId));
 
-        PendingFlowBuildRequest buildRequest = PendingFlowBuildRequest.builder().responsableUserId(responsableUserId)
-                .dueDate(dueDate).name(name).description(description).officeId(officeId).references(references).build();
+        PendingFlowBuildRequest buildRequest = PendingFlowBuildRequest.builder().responsableUserId(responsableUserId).dueDate(dueDate)
+                .name(name).description(description).officeId(officeId).references(references).build();
 
-        PendingFlowBuildContext buildContext = new PendingFlowBuildContext(context.authenticatedUser(),
-                DateUtils.getAuditOffsetDateTime(), appUserRepository);
+        PendingFlowBuildContext buildContext = new PendingFlowBuildContext(context.authenticatedUser(), DateUtils.getAuditOffsetDateTime(),
+                appUserRepository);
 
         PendingFlowBuildResult result = builderRegistry.getBuilder(blueprint).build(blueprint, buildRequest, buildContext);
 

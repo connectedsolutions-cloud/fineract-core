@@ -41,6 +41,7 @@ public class DepositProductData {
     protected final Long id;
     protected final String name;
     protected final String shortName;
+    protected String numberingCode;
     protected final String description;
     protected final CurrencyData currency;
     protected final BigDecimal nominalAnnualInterestRate;
@@ -161,7 +162,7 @@ public class DepositProductData {
             final Collection<ChargeData> penaltyOptions, final InterestRateChartData chartTemplate,
             Collection<TaxGroupData> taxGroupOptions) {
 
-        return new DepositProductData(existingProduct.id, existingProduct.name, existingProduct.shortName, existingProduct.description,
+        return copyNumberingCode(new DepositProductData(existingProduct.id, existingProduct.name, existingProduct.shortName, existingProduct.description,
                 existingProduct.currency, existingProduct.nominalAnnualInterestRate, existingProduct.interestCompoundingPeriodType,
                 existingProduct.interestPostingPeriodType, existingProduct.interestCalculationType,
                 existingProduct.interestCalculationDaysInYearType, existingProduct.lockinPeriodFrequency,
@@ -172,7 +173,7 @@ public class DepositProductData {
                 accountingMappingOptions, existingProduct.charges, chargeOptions, penaltyOptions,
                 existingProduct.feeToIncomeAccountMappings, existingProduct.penaltyToIncomeAccountMappings,
                 existingProduct.interestRateCharts, chartTemplate, existingProduct.minBalanceForInterestCalculation,
-                existingProduct.withHoldTax, existingProduct.taxGroup, taxGroupOptions);
+                existingProduct.withHoldTax, existingProduct.taxGroup, taxGroupOptions), existingProduct);
     }
 
     public static DepositProductData withAccountingDetails(final DepositProductData existingProduct,
@@ -194,7 +195,7 @@ public class DepositProductData {
         final Collection<ChargeData> penaltyOptions = null;
         final Collection<TaxGroupData> taxGroupOptions = null;
 
-        return new DepositProductData(existingProduct.id, existingProduct.name, existingProduct.shortName, existingProduct.description,
+        return copyNumberingCode(new DepositProductData(existingProduct.id, existingProduct.name, existingProduct.shortName, existingProduct.description,
                 existingProduct.currency, existingProduct.nominalAnnualInterestRate, existingProduct.interestCompoundingPeriodType,
                 existingProduct.interestPostingPeriodType, existingProduct.interestCalculationType,
                 existingProduct.interestCalculationDaysInYearType, existingProduct.lockinPeriodFrequency,
@@ -204,7 +205,7 @@ public class DepositProductData {
                 withdrawalFeeTypeOptions, paymentTypeOptions, accountingRuleOptions, accountingMappingOptions, existingProduct.charges,
                 chargeOptions, penaltyOptions, feeToIncomeAccountMappings, penaltyToIncomeAccountMappings,
                 existingProduct.interestRateCharts, existingProduct.chartTemplate, existingProduct.minBalanceForInterestCalculation,
-                existingProduct.withHoldTax, existingProduct.taxGroup, taxGroupOptions);
+                existingProduct.withHoldTax, existingProduct.taxGroup, taxGroupOptions), existingProduct);
     }
 
     public static DepositProductData instance(final Long id, final String name, final String shortName, final String description,
@@ -297,7 +298,7 @@ public class DepositProductData {
 
     public static DepositProductData withInterestChart(final DepositProductData existingProduct,
             final Collection<InterestRateChartData> interestRateCharts) {
-        return new DepositProductData(existingProduct.id, existingProduct.name, existingProduct.shortName, existingProduct.description,
+        return copyNumberingCode(new DepositProductData(existingProduct.id, existingProduct.name, existingProduct.shortName, existingProduct.description,
                 existingProduct.currency, existingProduct.nominalAnnualInterestRate, existingProduct.interestCompoundingPeriodType,
                 existingProduct.interestPostingPeriodType, existingProduct.interestCalculationType,
                 existingProduct.interestCalculationDaysInYearType, existingProduct.lockinPeriodFrequency,
@@ -310,7 +311,7 @@ public class DepositProductData {
                 existingProduct.charges, existingProduct.chargeOptions, existingProduct.penaltyOptions,
                 existingProduct.feeToIncomeAccountMappings, existingProduct.penaltyToIncomeAccountMappings, interestRateCharts,
                 existingProduct.chartTemplate, existingProduct.minBalanceForInterestCalculation, existingProduct.withHoldTax,
-                existingProduct.taxGroup, existingProduct.taxGroupOptions);
+                existingProduct.taxGroup, existingProduct.taxGroupOptions), existingProduct);
     }
 
     protected DepositProductData(final Long id, final String name, final String shortName, final String description,
@@ -444,6 +445,21 @@ public class DepositProductData {
 
     public String getShortName() {
         return shortName;
+    }
+
+    public String getNumberingCode() {
+        return numberingCode;
+    }
+
+    public void setNumberingCode(final String numberingCode) {
+        this.numberingCode = numberingCode;
+    }
+
+    protected static <T extends DepositProductData> T copyNumberingCode(final T target, final DepositProductData source) {
+        if (target != null && source != null) {
+            target.numberingCode = source.numberingCode;
+        }
+        return target;
     }
 
     public CurrencyData getCurrency() {

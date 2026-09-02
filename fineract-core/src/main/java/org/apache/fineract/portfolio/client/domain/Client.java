@@ -228,9 +228,10 @@ public class Client extends AbstractAuditableWithUTCDateTimeCustom<Long> {
     public static Client instance(final AppUser currentUser, final ClientStatus status, final Office office, final Group clientParentGroup,
             final String accountNo, final String firstname, final String middlename, final String lastname, final String secondlastname,
             final String marriedlastname, final String fullname, final LocalDate activationDate, final LocalDate officeJoiningDate,
-            final ExternalId externalId, final String mobileNo, final String emailAddress, final Staff staff, final LocalDate submittedOnDate,
-            final Long savingsProductId, final Long savingsAccountId, final LocalDate dateOfBirth, final CodeValue gender,
-            final CodeValue clientType, final CodeValue clientClassification, final Integer legalForm, final Boolean isStaff) {
+            final ExternalId externalId, final String mobileNo, final String emailAddress, final Staff staff,
+            final LocalDate submittedOnDate, final Long savingsProductId, final Long savingsAccountId, final LocalDate dateOfBirth,
+            final CodeValue gender, final CodeValue clientType, final CodeValue clientClassification, final Integer legalForm,
+            final Boolean isStaff) {
         return new Client(currentUser, status, office, clientParentGroup, accountNo, firstname, middlename, lastname, secondlastname,
                 marriedlastname, fullname, activationDate, officeJoiningDate, externalId, mobileNo, emailAddress, staff, submittedOnDate,
                 savingsProductId, savingsAccountId, dateOfBirth, gender, clientType, clientClassification, legalForm, isStaff);
@@ -241,9 +242,10 @@ public class Client extends AbstractAuditableWithUTCDateTimeCustom<Long> {
     private Client(final AppUser currentUser, final ClientStatus status, final Office office, final Group clientParentGroup,
             final String accountNo, final String firstname, final String middlename, final String lastname, final String secondlastname,
             final String marriedlastname, final String fullname, final LocalDate activationDate, final LocalDate officeJoiningDate,
-            final ExternalId externalId, final String mobileNo, final String emailAddress, final Staff staff, final LocalDate submittedOnDate,
-            final Long savingsProductId, final Long savingsAccountId, final LocalDate dateOfBirth, final CodeValue gender,
-            final CodeValue clientType, final CodeValue clientClassification, final Integer legalForm, final Boolean isStaff) {
+            final ExternalId externalId, final String mobileNo, final String emailAddress, final Staff staff,
+            final LocalDate submittedOnDate, final Long savingsProductId, final Long savingsAccountId, final LocalDate dateOfBirth,
+            final CodeValue gender, final CodeValue clientType, final CodeValue clientClassification, final Integer legalForm,
+            final Boolean isStaff) {
 
         if (StringUtils.isBlank(accountNo)) {
             this.accountNumber = new RandomPasswordGenerator(19).generate();
@@ -796,8 +798,7 @@ public class Client extends AbstractAuditableWithUTCDateTimeCustom<Long> {
     public void addTag(final ClientTag tag) {
         if (tag != null && tag.isActive()) {
             // Check if mapping already exists
-            boolean exists = this.tagMappings.stream()
-                    .anyMatch(mapping -> mapping.getTag().getId().equals(tag.getId()));
+            boolean exists = this.tagMappings.stream().anyMatch(mapping -> mapping.getTag().getId().equals(tag.getId()));
             if (!exists) {
                 this.tagMappings.add(ClientTagMapping.instance(this, tag));
             }
@@ -812,24 +813,21 @@ public class Client extends AbstractAuditableWithUTCDateTimeCustom<Long> {
 
     public void setTags(final Set<ClientTag> tags) {
         final Set<ClientTag> tagsToSet = tags != null ? tags : new HashSet<>();
-        
+
         // Get the set of tag IDs we want to keep
-        final Set<Long> desiredTagIds = tagsToSet.stream()
-                .filter(tag -> tag != null && tag.isActive())
-                .map(ClientTag::getId)
+        final Set<Long> desiredTagIds = tagsToSet.stream().filter(tag -> tag != null && tag.isActive()).map(ClientTag::getId)
                 .collect(Collectors.toSet());
-        
+
         // Remove mappings for tags that are no longer desired
         this.tagMappings.removeIf(mapping -> {
             final Long tagId = mapping.getTag().getId();
             return !desiredTagIds.contains(tagId);
         });
-        
+
         // Add mappings for tags that don't already exist
         for (final ClientTag tag : tagsToSet) {
             if (tag != null && tag.isActive()) {
-                final boolean exists = this.tagMappings.stream()
-                        .anyMatch(mapping -> mapping.getTag().getId().equals(tag.getId()));
+                final boolean exists = this.tagMappings.stream().anyMatch(mapping -> mapping.getTag().getId().equals(tag.getId()));
                 if (!exists) {
                     this.tagMappings.add(ClientTagMapping.instance(this, tag));
                 }

@@ -401,7 +401,7 @@ public class ProgressiveLoanScheduleGenerator implements LoanScheduleGenerator {
             Money principalDisbursed, Money totalInterestChargedForFullLoanTerm, boolean isInstallmentChargeApplicable,
             boolean isFirstPeriod, LoanCharge loanCharge, Money cumulative, MathContext mc) {
         boolean isDue = loanCharge.isDueInPeriod(periodStart, periodEnd, isFirstPeriod);
-        if (loanCharge.isInstalmentFee() && isInstallmentChargeApplicable) {
+        if (loanCharge.isInstalmentFee() && isInstallmentChargeApplicable && loanCharge.isInstallmentChargeApplicable(periodEnd)) {
             cumulative = calculateInstallmentCharge(principalInterestForThisPeriod, cumulative, loanCharge, mc);
         } else if (loanCharge.isOverdueInstallmentCharge() && isDue && loanCharge.getChargeCalculation().isPercentageBased()) {
             cumulative = cumulative.plus(loanCharge.chargeAmount());

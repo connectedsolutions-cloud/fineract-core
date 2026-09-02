@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0297-seed-normal-fee-income-detail" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM acc_gl_account WHERE gl_code = '6423'
+            </sqlCheck>
+        </preConditions>
+        <comment>
+            Create the normal fee-income detail required by product accounting.
+            Products must never map directly to the 6420 header.
+        </comment>
+
+        <insert tableName="acc_gl_account">
+            <column name="name" value="INGRESO POR COMISIONES - NORMAL"/>
+            <column name="parent_id" valueComputed="(SELECT id FROM acc_gl_account WHERE gl_code = '6420')"/>
+            <column name="hierarchy" value="."/>
+            <column name="gl_code" value="6423"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="1"/>
+            <column name="classification_enum" valueNumeric="4"/>
+            <column name="description" value="Normal fee income detail; product mappings must not use header 6420."/>
+            <column name="acc_level" valueNumeric="4"/>
+            <column name="acc_last_level" valueNumeric="1"/>
+        </insert>
+        <update tableName="acc_gl_account">
+            <column name="hierarchy" valueComputed="(SELECT CONCAT(parent.hierarchy, child.id, '.') FROM acc_gl_account child JOIN acc_gl_account parent ON parent.id = child.parent_id WHERE child.gl_code = '6423')"/>
+            <where>gl_code = '6423'</where>
+        </update>
+
+        <rollback>
+            <delete tableName="acc_gl_account">
+                <where>gl_code = '6423'</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

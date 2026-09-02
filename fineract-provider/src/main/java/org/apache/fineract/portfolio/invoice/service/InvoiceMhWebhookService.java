@@ -2,6 +2,8 @@ package org.apache.fineract.portfolio.invoice.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Base64;
@@ -13,8 +15,6 @@ import org.apache.fineract.portfolio.invoice.domain.InvoiceRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import jakarta.ws.rs.WebApplicationException;
-import jakarta.ws.rs.core.Response;
 
 @Service
 @RequiredArgsConstructor
@@ -69,7 +69,8 @@ public class InvoiceMhWebhookService {
             if ("success".equalsIgnoreCase(status)) {
                 JsonNode result = root.path("result");
                 String transmissionId = firstNonBlank(result.path("transmissionId").asText(null), root.path("transmissionId").asText(null));
-                String transmissionStatus = firstNonBlank(result.path("transmissionStatus").asText(null), root.path("transmissionStatus").asText(null));
+                String transmissionStatus = firstNonBlank(result.path("transmissionStatus").asText(null),
+                        root.path("transmissionStatus").asText(null));
                 String documento = result.path("documento").asText(null);
                 JsonNode mhRecepcion = result.path("mhRecepcion");
                 String mhRecepcionJson = mhRecepcion.isMissingNode() || mhRecepcion.isNull() ? null : mhRecepcion.toString();
@@ -95,15 +96,15 @@ public class InvoiceMhWebhookService {
         JsonNode documentoPayloadIdentificacion = extractIdentificacionFromDocumento(result.path("documento").asText(null));
 
         String codigo = firstNonBlank(textAt(root, "codigoGeneracion", "codigo_generacion"),
-                textAt(result, "codigoGeneracion", "codigo_generacion"), textAt(result.path("identificacion"), "codigoGeneracion", "codigo_generacion"),
+                textAt(result, "codigoGeneracion", "codigo_generacion"),
+                textAt(result.path("identificacion"), "codigoGeneracion", "codigo_generacion"),
                 textAt(resultMhRecepcion, "codigoGeneracion", "codigo_generacion"),
                 textAt(rootMhRecepcion, "codigoGeneracion", "codigo_generacion"),
                 textAt(documentoPayloadIdentificacion, "codigoGeneracion", "codigo_generacion"));
 
-        String numero = firstNonBlank(textAt(root, "numeroControl", "numero_control"),
-                textAt(result, "numeroControl", "numero_control"), textAt(result.path("identificacion"), "numeroControl", "numero_control"),
-                textAt(resultMhRecepcion, "numeroControl", "numero_control"),
-                textAt(rootMhRecepcion, "numeroControl", "numero_control"),
+        String numero = firstNonBlank(textAt(root, "numeroControl", "numero_control"), textAt(result, "numeroControl", "numero_control"),
+                textAt(result.path("identificacion"), "numeroControl", "numero_control"),
+                textAt(resultMhRecepcion, "numeroControl", "numero_control"), textAt(rootMhRecepcion, "numeroControl", "numero_control"),
                 textAt(documentoPayloadIdentificacion, "numeroControl", "numero_control"));
 
         return new CorrelationFields(codigo, numero);

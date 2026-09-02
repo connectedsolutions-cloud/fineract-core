@@ -378,7 +378,7 @@ public class SavingsAccountHelper {
     }
 
     public PostSavingsAccountsAccountIdResponse closeSavingsAccount(final Long savingsId, PostSavingsAccountsAccountIdRequest request) {
-        return Calls.ok(FineractClientHelper.getFineractClient().savingsAccounts.handleCommands6(savingsId, request, "close"));
+        return Calls.ok(FineractClientHelper.getFineractClient().savingsAccounts.handleCommands7(savingsId, request, "close"));
     }
 
     // TODO: Rewrite to use fineract-client instead!

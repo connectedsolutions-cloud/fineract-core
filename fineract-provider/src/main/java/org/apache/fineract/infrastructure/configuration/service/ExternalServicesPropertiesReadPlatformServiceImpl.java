@@ -26,6 +26,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.infrastructure.campaigns.sms.data.MessageGatewayConfigurationData;
 import org.apache.fineract.infrastructure.configuration.data.ExternalServicesPropertiesData;
+import org.apache.fineract.infrastructure.configuration.data.ResendCredentialsData;
 import org.apache.fineract.infrastructure.configuration.data.S3CredentialsData;
 import org.apache.fineract.infrastructure.configuration.data.SMTPCredentialsData;
 import org.apache.fineract.infrastructure.configuration.exception.ExternalServiceConfigurationNotFoundException;
@@ -108,6 +109,7 @@ public class ExternalServicesPropertiesReadPlatformServiceImpl implements Extern
             secretAttributes = new ArrayList<>();
             secretAttributes.add("password");
             secretAttributes.add("server_key");
+            secretAttributes.add("apiKey");
         }
 
         @Override
@@ -115,7 +117,7 @@ public class ExternalServicesPropertiesReadPlatformServiceImpl implements Extern
             final String name = rs.getString("name");
             String value = rs.getString("value");
             // Masking the password as we should not send the password back
-            if (name != null && secretAttributes.contains(name)) {
+            if (name != null && secretAttributes.contains(name) && value != null) {
                 value = StringUtil.maskValue(value);
             }
             return new ExternalServicesPropertiesData().setName(name).setValue(value);
@@ -196,6 +198,10 @@ public class ExternalServicesPropertiesReadPlatformServiceImpl implements Extern
                 serviceNameToUse = ExternalServicesConstants.NOTIFICATION_SERVICE_NAME;
             break;
 
+            case "RESEND":
+                serviceNameToUse = ExternalServicesConstants.RESEND_SERVICE_NAME;
+            break;
+
             default:
                 throw new ExternalServiceConfigurationNotFoundException(serviceName);
         }
@@ -234,6 +240,34 @@ public class ExternalServicesPropertiesReadPlatformServiceImpl implements Extern
         final NotificationConfigurationData notificationConfigurationData = this.jdbcTemplate.query(sql, resultSetExtractor,
                 new Object[] {});
         return notificationConfigurationData;
+    }
+
+    private static final class ResendCredentialsDataExtractor implements ResultSetExtractor<ResendCredentialsData> {
+
+        @Override
+        public ResendCredentialsData extractData(final ResultSet rs) throws SQLException, DataAccessException {
+            String apiKey = null;
+            String fromEmail = null;
+            String fromName = null;
+            while (rs.next()) {
+                if (rs.getString("name").equalsIgnoreCase(ExternalServicesConstants.RESEND_API_KEY)) {
+                    apiKey = rs.getString("value");
+                } else if (rs.getString("name").equalsIgnoreCase(ExternalServicesConstants.RESEND_FROM_EMAIL)) {
+                    fromEmail = rs.getString("value");
+                } else if (rs.getString("name").equalsIgnoreCase(ExternalServicesConstants.RESEND_FROM_NAME)) {
+                    fromName = rs.getString("value");
+                }
+            }
+            return new ResendCredentialsData().setApiKey(apiKey).setFromEmail(fromEmail).setFromName(fromName);
+        }
+    }
+
+    @Override
+    public ResendCredentialsData getResendCredentials() {
+        final ResultSetExtractor<ResendCredentialsData> resultSetExtractor = new ResendCredentialsDataExtractor();
+        final String sql = "SELECT esp.name, esp.value FROM c_external_service_properties esp inner join c_external_service es on esp.external_service_id = es.id where es.name = '"
+                + ExternalServicesConstants.RESEND_SERVICE_NAME + "'";
+        return this.jdbcTemplate.query(sql, resultSetExtractor, new Object[] {});
     }
 
 }

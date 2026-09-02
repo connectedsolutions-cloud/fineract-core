@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    The reviewed Arissto DPF opening provenance values are descriptive enum
+    codes. ACCOUNT_MASTER_WITH_ADJACENT_FUNDING is longer than the original
+    VARCHAR(32) declaration, so retain the full auditable value.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0304-1-expand-arissto-dpf-opening-inference" author="credesal">
+        <modifyDataType tableName="credesal_savings_migration_cycle"
+                        columnName="opening_inference"
+                        newDataType="VARCHAR(64)"/>
+    </changeSet>
+
+</databaseChangeLog>

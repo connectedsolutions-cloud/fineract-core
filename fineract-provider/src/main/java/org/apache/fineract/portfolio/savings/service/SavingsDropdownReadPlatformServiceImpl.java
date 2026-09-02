@@ -57,6 +57,7 @@ public class SavingsDropdownReadPlatformServiceImpl implements SavingsDropdownRe
         final List<EnumOptionData> allowedOptions = Arrays.asList(
                 SavingsEnumerations.compoundingInterestPeriodType(SavingsCompoundingInterestPeriodType.DAILY),
                 SavingsEnumerations.compoundingInterestPeriodType(SavingsCompoundingInterestPeriodType.MONTHLY),
+                SavingsEnumerations.compoundingInterestPeriodType(SavingsCompoundingInterestPeriodType.MONTHLY_ON_ACTIVATION_DATE),
                 SavingsEnumerations.compoundingInterestPeriodType(SavingsCompoundingInterestPeriodType.QUATERLY),
                 SavingsEnumerations.compoundingInterestPeriodType(SavingsCompoundingInterestPeriodType.BI_ANNUAL),
                 SavingsEnumerations.compoundingInterestPeriodType(SavingsCompoundingInterestPeriodType.ANNUAL));
@@ -69,6 +70,7 @@ public class SavingsDropdownReadPlatformServiceImpl implements SavingsDropdownRe
         final List<EnumOptionData> allowedOptions = Arrays.asList(
                 SavingsEnumerations.interestPostingPeriodType(SavingsPostingInterestPeriodType.DAILY), //
                 SavingsEnumerations.interestPostingPeriodType(SavingsPostingInterestPeriodType.MONTHLY), //
+                SavingsEnumerations.interestPostingPeriodType(SavingsPostingInterestPeriodType.MONTHLY_ON_ACTIVATION_DATE), //
                 SavingsEnumerations.interestPostingPeriodType(SavingsPostingInterestPeriodType.QUATERLY), //
                 SavingsEnumerations.interestPostingPeriodType(SavingsPostingInterestPeriodType.BIANNUAL), //
                 SavingsEnumerations.interestPostingPeriodType(SavingsPostingInterestPeriodType.ANNUAL) //
@@ -89,6 +91,7 @@ public class SavingsDropdownReadPlatformServiceImpl implements SavingsDropdownRe
     @Override
     public Collection<EnumOptionData> retrieveInterestCalculationDaysInYearTypeOptions() {
         final List<EnumOptionData> allowedOptions = Arrays.asList(
+                SavingsEnumerations.interestCalculationDaysInYearType(SavingsInterestCalculationDaysInYearType.ACTUAL),
                 SavingsEnumerations.interestCalculationDaysInYearType(SavingsInterestCalculationDaysInYearType.DAYS_360),
                 SavingsEnumerations.interestCalculationDaysInYearType(SavingsInterestCalculationDaysInYearType.DAYS_365));
 

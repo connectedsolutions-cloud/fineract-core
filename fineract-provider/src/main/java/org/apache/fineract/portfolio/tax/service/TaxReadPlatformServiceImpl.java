@@ -63,13 +63,11 @@ public class TaxReadPlatformServiceImpl implements TaxReadPlatformService {
     @Override
     public TaxComponentData retrieveTaxComponentData(final Long id) {
         String sql = "select " + TAX_COMPONENT_MAPPER.getSchema() + " where tc.id=? order by tc.id, history.start_date";
-        List<TaxComponentData> list = this.jdbcTemplate.query(
-                (Connection con) -> {
-                    PreparedStatement ps = con.prepareStatement(sql, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-                    ps.setLong(1, id);
-                    return ps;
-                },
-                TAX_COMPONENT_MAPPER); // NOSONAR
+        List<TaxComponentData> list = this.jdbcTemplate.query((Connection con) -> {
+            PreparedStatement ps = con.prepareStatement(sql, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+            ps.setLong(1, id);
+            return ps;
+        }, TAX_COMPONENT_MAPPER); // NOSONAR
         return list.stream().findFirst().orElseThrow(() -> new EmptyResultDataAccessException(1));
     }
 
@@ -90,13 +88,11 @@ public class TaxReadPlatformServiceImpl implements TaxReadPlatformService {
     @Override
     public TaxGroupData retrieveTaxGroupData(final Long id) {
         String sql = "select " + TAX_GROUP_MAPPER.getSchema() + " where tg.id=? order by tg.id";
-        List<TaxGroupData> list = this.jdbcTemplate.query(
-                (Connection con) -> {
-                    PreparedStatement ps = con.prepareStatement(sql, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-                    ps.setLong(1, id);
-                    return ps;
-                },
-                TAX_GROUP_MAPPER); // NOSONAR
+        List<TaxGroupData> list = this.jdbcTemplate.query((Connection con) -> {
+            PreparedStatement ps = con.prepareStatement(sql, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+            ps.setLong(1, id);
+            return ps;
+        }, TAX_GROUP_MAPPER); // NOSONAR
         return list.stream().findFirst().orElseThrow(() -> new EmptyResultDataAccessException(1));
     }
 

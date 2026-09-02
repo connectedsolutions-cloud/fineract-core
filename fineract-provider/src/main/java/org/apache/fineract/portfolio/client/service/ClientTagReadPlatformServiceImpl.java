@@ -50,7 +50,8 @@ public class ClientTagReadPlatformServiceImpl implements ClientTagReadPlatformSe
     @Override
     public ClientTagData retrieveTag(final Long tagId) {
         final ClientTag tag = clientTagRepository.findById(tagId)
-                .orElseThrow(() -> new ResourceNotFoundException("error.msg.client.tag.not.found", "Client tag not found with id: " + tagId, new Object[] { tagId }));
+                .orElseThrow(() -> new ResourceNotFoundException("error.msg.client.tag.not.found", "Client tag not found with id: " + tagId,
+                        new Object[] { tagId }));
         return ClientTagData.from(tag);
     }
 }

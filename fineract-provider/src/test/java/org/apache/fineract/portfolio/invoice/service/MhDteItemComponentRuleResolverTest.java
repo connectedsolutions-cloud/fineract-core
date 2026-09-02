@@ -18,8 +18,8 @@ class MhDteItemComponentRuleResolverTest {
     void picksSpecificClientTypeBeforeFallback() {
         MhDteItemComponent specific = MhDteItemComponent.create("specific", MhDteAmountType.ventaExenta, null, MhDteLoanComponent.INTEREST,
                 "VIP", "VIP", "L_INTEREST");
-        MhDteItemComponent fallback = MhDteItemComponent.create("fallback", MhDteAmountType.ventaNoSuj, null, MhDteLoanComponent.INTEREST, null,
-                MhDteItemComponentRuleResolver.DEFAULT_CLIENT_TYPE_KEY, "L_INTEREST");
+        MhDteItemComponent fallback = MhDteItemComponent.create("fallback", MhDteAmountType.ventaNoSuj, null, MhDteLoanComponent.INTEREST,
+                null, MhDteItemComponentRuleResolver.DEFAULT_CLIENT_TYPE_KEY, "L_INTEREST");
 
         MhDteItemComponent matched = resolver.pickMapping(List.of(fallback, specific), "L_INTEREST", "VIP");
 
@@ -29,8 +29,8 @@ class MhDteItemComponentRuleResolverTest {
 
     @Test
     void fallsBackToDefaultClientType() {
-        MhDteItemComponent fallback = MhDteItemComponent.create("fallback", MhDteAmountType.ventaNoSuj, null, MhDteLoanComponent.PRINCIPAL, null,
-                MhDteItemComponentRuleResolver.DEFAULT_CLIENT_TYPE_KEY, "L_PRINCIPAL");
+        MhDteItemComponent fallback = MhDteItemComponent.create("fallback", MhDteAmountType.ventaNoSuj, null, MhDteLoanComponent.PRINCIPAL,
+                null, MhDteItemComponentRuleResolver.DEFAULT_CLIENT_TYPE_KEY, "L_PRINCIPAL");
 
         MhDteItemComponent matched = resolver.pickMapping(List.of(fallback), "L_PRINCIPAL", "UNKNOWN");
 
@@ -40,12 +40,11 @@ class MhDteItemComponentRuleResolverTest {
 
     @Test
     void returnsNullWhenTargetDoesNotExist() {
-        MhDteItemComponent fallback = MhDteItemComponent.create("fallback", MhDteAmountType.ventaNoSuj, null, MhDteLoanComponent.PRINCIPAL, null,
-                MhDteItemComponentRuleResolver.DEFAULT_CLIENT_TYPE_KEY, "L_PRINCIPAL");
+        MhDteItemComponent fallback = MhDteItemComponent.create("fallback", MhDteAmountType.ventaNoSuj, null, MhDteLoanComponent.PRINCIPAL,
+                null, MhDteItemComponentRuleResolver.DEFAULT_CLIENT_TYPE_KEY, "L_PRINCIPAL");
 
         MhDteItemComponent matched = resolver.pickMapping(List.of(fallback), "C_123", "VIP");
 
         assertNull(matched);
     }
 }
-

@@ -77,6 +77,9 @@ public class LoanRepaymentScheduleInstallment extends AbstractAuditableWithUTCDa
     @Column(name = "interest_amount", scale = 6, precision = 19)
     private BigDecimal interestCharged;
 
+    @Column(name = "post_due_interest_charged_derived", scale = 6, precision = 19)
+    private BigDecimal postDueInterestCharged;
+
     @Column(name = "interest_completed_derived", scale = 6, precision = 19)
     private BigDecimal interestPaid;
 
@@ -531,6 +534,10 @@ public class LoanRepaymentScheduleInstallment extends AbstractAuditableWithUTCDa
     }
 
     public void resetDerivedComponents() {
+        if (this.postDueInterestCharged != null) {
+            setInterestCharged(this.interestCharged != null ? this.interestCharged.subtract(this.postDueInterestCharged) : null);
+            this.postDueInterestCharged = null;
+        }
         this.principalCompleted = null;
         this.principalWrittenOff = null;
         this.interestPaid = null;
@@ -903,6 +910,15 @@ public class LoanRepaymentScheduleInstallment extends AbstractAuditableWithUTCDa
         checkIfRepaymentPeriodObligationsAreMet(transactionDate, transactionAmount.getCurrency());
     }
 
+    public void addPostDueInterest(final LocalDate transactionDate, final Money transactionAmount) {
+        if (this.postDueInterestCharged == null) {
+            this.postDueInterestCharged = transactionAmount.getAmount();
+        } else {
+            this.postDueInterestCharged = this.postDueInterestCharged.add(transactionAmount.getAmount());
+        }
+        addToInterest(transactionDate, transactionAmount);
+    }
+
     public void addToCreditedInterest(final BigDecimal amount) {
         if (this.creditedInterest == null) {
             setCreditedInterest(amount);
@@ -1141,6 +1157,7 @@ public class LoanRepaymentScheduleInstallment extends AbstractAuditableWithUTCDa
         setCreditedFee(installment.getCreditedFee());
         setCreditedPenalty(installment.getCreditedPenalty());
         setCreditedInterest(installment.getCreditedInterest());
+        setPostDueInterestCharged(installment.getPostDueInterestCharged());
         setCreditedPrincipal(installment.getCreditedPrincipal());
         // Compounding details
         updateLoanCompoundingDetails(installment.getLoanCompoundingDetails());

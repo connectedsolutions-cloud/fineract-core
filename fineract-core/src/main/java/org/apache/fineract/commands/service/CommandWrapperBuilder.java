@@ -854,6 +854,42 @@ public class CommandWrapperBuilder {
         return this;
     }
 
+    public CommandWrapperBuilder sourceExactLoanRepaymentTransaction(final Long loanId) {
+        this.actionName = "SOURCEEXACTREPAYMENT";
+        this.entityName = "LOAN";
+        this.entityId = null;
+        this.loanId = loanId;
+        this.href = "/loans/" + loanId + "/transactions?command=sourceExactRepayment";
+        return this;
+    }
+
+    public CommandWrapperBuilder sourceExactComponentReallocation(final Long loanId) {
+        this.actionName = "SOURCEEXACTCOMPONENTREALLOCATION";
+        this.entityName = "LOAN";
+        this.entityId = null;
+        this.loanId = loanId;
+        this.href = "/loans/" + loanId + "/transactions?command=sourceExactComponentReallocation";
+        return this;
+    }
+
+    public CommandWrapperBuilder importSourceExactActiveSchedule(final Long loanId) {
+        this.actionName = "SOURCEEXACTACTIVESCHEDULE";
+        this.entityName = "LOAN";
+        this.entityId = null;
+        this.loanId = loanId;
+        this.href = "/loans/" + loanId + "?command=sourceExactActiveSchedule";
+        return this;
+    }
+
+    public CommandWrapperBuilder sourceExactLoanGoodwillCreditTransaction(final Long loanId) {
+        this.actionName = "SOURCEEXACTGOODWILLCREDIT";
+        this.entityName = "LOAN";
+        this.entityId = null;
+        this.loanId = loanId;
+        this.href = "/loans/" + loanId + "/transactions?command=sourceExactGoodwillCredit";
+        return this;
+    }
+
     public CommandWrapperBuilder loanMerchantIssuedRefundTransaction(final Long loanId) {
         this.actionName = "MERCHANTISSUEDREFUND";
         this.entityName = "LOAN";
@@ -1193,6 +1229,24 @@ public class CommandWrapperBuilder {
         this.entityId = loanId;
         this.loanId = loanId;
         this.href = "/loans/" + loanId;
+        return this;
+    }
+
+    public CommandWrapperBuilder sourceExactTopupDisburseLoanApplication(final Long loanId) {
+        this.actionName = "SOURCEEXACTTOPUPDISBURSE";
+        this.entityName = "LOAN";
+        this.entityId = loanId;
+        this.loanId = loanId;
+        this.href = "/loans/" + loanId + "?command=sourceExactTopupDisburse";
+        return this;
+    }
+
+    public CommandWrapperBuilder sourceExactRefinancingDisburseLoanApplication(final Long loanId) {
+        this.actionName = "SOURCEEXACTREFINANCINGDISBURSE";
+        this.entityName = "LOAN";
+        this.entityId = loanId;
+        this.loanId = loanId;
+        this.href = "/loans/" + loanId + "?command=sourceExactRefinancingDisburse";
         return this;
     }
 
@@ -1620,6 +1674,24 @@ public class CommandWrapperBuilder {
         return this;
     }
 
+    public CommandWrapperBuilder savingsAccountExplicitWithholdTax(final Long accountId) {
+        this.actionName = "EXPLICITWITHHOLDTAX";
+        this.entityName = "SAVINGSACCOUNT";
+        this.savingsId = accountId;
+        this.entityId = null;
+        this.href = "/savingsaccounts/" + accountId + "/transactions?command=explicitWithholdTax";
+        return this;
+    }
+
+    public CommandWrapperBuilder savingsAccountExplicitInterestPosting(final Long accountId) {
+        this.actionName = "EXPLICITINTERESTPOSTING";
+        this.entityName = "SAVINGSACCOUNT";
+        this.savingsId = accountId;
+        this.entityId = null;
+        this.href = "/savingsaccounts/" + accountId + "/transactions?command=explicitInterestPosting";
+        return this;
+    }
+
     public CommandWrapperBuilder undoSavingsAccountTransaction(final Long accountId, final Long transactionId) {
         this.actionName = "UNDOTRANSACTION";
         this.entityName = "SAVINGSACCOUNT";
@@ -1659,6 +1731,15 @@ public class CommandWrapperBuilder {
         this.savingsId = accountId;
         this.entityId = accountId;
         this.href = "/savingsaccounts/" + accountId + "?command=calculateInterest";
+        return this;
+    }
+
+    public CommandWrapperBuilder savingsAccountMigrationInterestStart(final Long accountId) {
+        this.actionName = "MIGRATIONINTERESTSTART";
+        this.entityName = "SAVINGSACCOUNT";
+        this.savingsId = accountId;
+        this.entityId = accountId;
+        this.href = "/savingsaccounts/" + accountId + "?command=migrationInterestStart";
         return this;
     }
 
@@ -2513,6 +2594,42 @@ public class CommandWrapperBuilder {
         return this;
     }
 
+    public CommandWrapperBuilder fixedDepositAccountMaturityProcessing(final Long accountId) {
+        this.actionName = "PROCESSMATURITY";
+        this.entityName = "FIXEDDEPOSITACCOUNT";
+        this.savingsId = accountId;
+        this.entityId = accountId;
+        this.href = "/fixeddepositaccounts/" + accountId + "?command=processMaturity";
+        return this;
+    }
+
+    public CommandWrapperBuilder fixedDepositAccountInterestTransfer(final Long accountId) {
+        this.actionName = "TRANSFERINTEREST";
+        this.entityName = "FIXEDDEPOSITACCOUNT";
+        this.savingsId = accountId;
+        this.entityId = accountId;
+        this.href = "/fixeddepositaccounts/" + accountId + "?command=transferInterest";
+        return this;
+    }
+
+    public CommandWrapperBuilder fixedDepositAccountMigrationLink(final Long accountId) {
+        this.actionName = "MIGRATIONLINK";
+        this.entityName = "FIXEDDEPOSITACCOUNT";
+        this.savingsId = accountId;
+        this.entityId = accountId;
+        this.href = "/fixeddepositaccounts/" + accountId + "?command=migrationLink";
+        return this;
+    }
+
+    public CommandWrapperBuilder fixedDepositAccountMigrationInterestStart(final Long accountId) {
+        this.actionName = "MIGRATIONINTERESTSTART";
+        this.entityName = "FIXEDDEPOSITACCOUNT";
+        this.savingsId = accountId;
+        this.entityId = accountId;
+        this.href = "/fixeddepositaccounts/" + accountId + "?command=migrationInterestStart";
+        return this;
+    }
+
     public CommandWrapperBuilder fixedDepositAccountInterestPosting(final Long accountId) {
         this.actionName = "POSTINTEREST";
         this.entityName = "FIXEDDEPOSITACCOUNT";
@@ -2537,6 +2654,17 @@ public class CommandWrapperBuilder {
         this.savingsId = accountId;
         this.entityId = accountId;
         this.href = "/fixeddepositaccounts/" + accountId + "/transactions?command=withdrawal";
+        return this;
+    }
+
+    public CommandWrapperBuilder undoFixedDepositAccountTransaction(final Long accountId, final Long transactionId) {
+        this.actionName = "UNDOTRANSACTION";
+        this.entityName = "FIXEDDEPOSITACCOUNT";
+        this.savingsId = accountId;
+        this.entityId = accountId;
+        this.subentityId = transactionId;
+        this.transactionId = transactionId.toString();
+        this.href = "/fixeddepositaccounts/" + accountId + "/transactions/" + transactionId + "?command=undo";
         return this;
     }
 

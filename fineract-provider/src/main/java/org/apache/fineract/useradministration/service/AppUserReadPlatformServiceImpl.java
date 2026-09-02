@@ -21,12 +21,13 @@ package org.apache.fineract.useradministration.service;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.infrastructure.core.domain.JdbcSupport;
+import org.apache.fineract.infrastructure.security.datascope.DataScopeService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.organisation.office.data.OfficeData;
 import org.apache.fineract.organisation.office.domain.Office;
@@ -55,6 +56,7 @@ public class AppUserReadPlatformServiceImpl implements AppUserReadPlatformServic
     private final RoleReadPlatformService roleReadPlatformService;
     private final AppUserRepository appUserRepository;
     private final StaffReadPlatformService staffReadPlatformService;
+    private final DataScopeService dataScopeService;
 
     /*
      * used for caching in spring expression language.
@@ -135,13 +137,14 @@ public class AppUserReadPlatformServiceImpl implements AppUserReadPlatformServic
         // Get allowed offices for dropdown (needed for frontend to display office names)
         final Collection<OfficeData> allowedOffices = this.officeReadPlatformService.retrieveAllOfficesForDropdown();
 
-        AppUserData retUser = AppUserData.instance(user.getId(), user.getUsername(), user.getEmail(),
-                user.getCurrentOffice().getId(), user.getCurrentOffice().getName(), user.getCurrentOffice().getId(), officeIds,
-                user.getFirstname(), user.getLastname(), availableRoles, null, selectedUserRoles, linkedStaff,
-                user.getPasswordNeverExpires(), user.isSelfServiceUser());
+        AppUserData retUser = AppUserData.instance(user.getId(), user.getUsername(), user.getEmail(), user.getCurrentOffice().getId(),
+                user.getCurrentOffice().getName(), user.getCurrentOffice().getId(), officeIds, user.getFirstname(), user.getLastname(),
+                availableRoles, null, selectedUserRoles, linkedStaff, user.getPasswordNeverExpires(), user.isSelfServiceUser());
 
         // Set allowed offices for frontend
         retUser = AppUserData.template(retUser, allowedOffices);
+        retUser.setDataScope(user.getDataScope());
+        retUser.setEffectiveDataScope(this.dataScopeService.effectiveScope(user).name());
 
         if (retUser.isSelfServiceUser()) {
             Set<ClientData> clients = new HashSet<>();

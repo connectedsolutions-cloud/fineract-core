@@ -100,7 +100,7 @@ public class SavingsProductReadPlatformServiceImpl implements SavingsProductRead
 
         SavingProductMapper() {
             final StringBuilder sqlBuilder = new StringBuilder(400);
-            sqlBuilder.append("sp.id as id, sp.name as name, sp.short_name as shortName, sp.description as description, ");
+            sqlBuilder.append("sp.id as id, sp.name as name, sp.short_name as shortName, sp.numbering_code as numberingCode, sp.description as description, ");
             sqlBuilder.append(
                     "sp.currency_code as currencyCode, sp.currency_digits as currencyDigits, sp.currency_multiplesof as inMultiplesOf, ");
             sqlBuilder.append("curr.name as currencyName, curr.internationalized_name_code as currencyNameCode, ");
@@ -213,12 +213,14 @@ public class SavingsProductReadPlatformServiceImpl implements SavingsProductRead
             final Long daysToDormancy = JdbcSupport.getLong(rs, "daysToDormancy");
             final Long daysToEscheat = JdbcSupport.getLong(rs, "daysToEscheat");
 
-            return SavingsProductData.instance(id, name, shortName, description, currency, nominalAnnualInterestRate,
+            final SavingsProductData product = SavingsProductData.instance(id, name, shortName, description, currency, nominalAnnualInterestRate,
                     compoundingInterestPeriodType, interestPostingPeriodType, interestCalculationType, interestCalculationDaysInYearType,
                     minRequiredOpeningBalance, lockinPeriodFrequency, lockinPeriodFrequencyType, withdrawalFeeForTransfers,
                     accountingRuleType, allowOverdraft, overdraftLimit, minRequiredBalance, enforceMinRequiredBalance, maxAllowedLienLimit,
                     lienAllowed, minBalanceForInterestCalculation, nominalAnnualInterestRateOverdraft, minOverdraftForInterestCalculation,
                     withHoldTax, taxGroupData, isDormancyTrackingActive, daysToInactive, daysToDormancy, daysToEscheat);
+            product.setNumberingCode(rs.getString("numberingCode"));
+            return product;
         }
     }
 

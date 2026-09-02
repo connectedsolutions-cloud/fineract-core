@@ -42,7 +42,8 @@ public class LoanSimulationValidator {
      */
     public void validateSimulatedDateForwardOnly(Loan loan, LocalDate newDate) {
         if (newDate != null && loan.getSimulatedDate() != null && DateUtils.isBefore(newDate, loan.getSimulatedDate())) {
-            throw new IllegalArgumentException("Simulated date can only move forward. Current: " + loan.getSimulatedDate() + ", New: " + newDate);
+            throw new IllegalArgumentException(
+                    "Simulated date can only move forward. Current: " + loan.getSimulatedDate() + ", New: " + newDate);
         }
     }
 
@@ -57,10 +58,9 @@ public class LoanSimulationValidator {
      *             if the new date is before the disbursement date
      */
     public void validateSimulatedDateNotBeforeDisbursement(Loan loan, LocalDate newDate) {
-        if (newDate != null && loan.getActualDisbursementDate() != null
-                && DateUtils.isBefore(newDate, loan.getActualDisbursementDate())) {
-            throw new IllegalArgumentException(
-                    "Simulated date cannot be before disbursement date. Disbursement: " + loan.getActualDisbursementDate() + ", New: " + newDate);
+        if (newDate != null && loan.getActualDisbursementDate() != null && DateUtils.isBefore(newDate, loan.getActualDisbursementDate())) {
+            throw new IllegalArgumentException("Simulated date cannot be before disbursement date. Disbursement: "
+                    + loan.getActualDisbursementDate() + ", New: " + newDate);
         }
     }
 
@@ -118,7 +118,3 @@ public class LoanSimulationValidator {
         }
     }
 }
-
-
-
-

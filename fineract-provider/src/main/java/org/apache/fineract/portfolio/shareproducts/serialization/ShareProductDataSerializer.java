@@ -52,6 +52,9 @@ import org.apache.fineract.portfolio.shareproducts.constants.ShareProductApiCons
 import org.apache.fineract.portfolio.shareproducts.data.ShareProductMarketPriceData;
 import org.apache.fineract.portfolio.shareproducts.domain.ShareProduct;
 import org.apache.fineract.portfolio.shareproducts.domain.ShareProductMarketPrice;
+import org.apache.fineract.portfolio.namingsequence.CredesalNamingCodes;
+import org.apache.fineract.portfolio.namingsequence.CredesalNamingNamespace;
+import org.apache.fineract.portfolio.namingsequence.service.CredesalProductNumberingSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -59,7 +62,8 @@ import org.springframework.stereotype.Service;
 public class ShareProductDataSerializer {
 
     private static final Set<String> supportedParametersForCreate = new HashSet<>(Arrays.asList(ShareProductApiConstants.locale_paramname,
-            ShareProductApiConstants.name_paramname, ShareProductApiConstants.shortname_paramname,
+            ShareProductApiConstants.dateFormatParamName, ShareProductApiConstants.name_paramname,
+            ShareProductApiConstants.shortname_paramname, ShareProductApiConstants.numberingCodeParamName,
             ShareProductApiConstants.shortname_paramname, ShareProductApiConstants.description_paramname,
             ShareProductApiConstants.externalid_paramname, ShareProductApiConstants.totalshares_paramname,
             ShareProductApiConstants.currency_paramname, ShareProductApiConstants.digitsafterdecimal_paramname,
@@ -74,20 +78,23 @@ public class ShareProductDataSerializer {
             ShareProductApiConstants.accountingRuleParamName, AccountingConstants.SharesProductAccountingParams.INCOME_FROM_FEES.getValue(),
             AccountingConstants.SharesProductAccountingParams.SHARES_EQUITY.getValue(),
             AccountingConstants.SharesProductAccountingParams.SHARES_REFERENCE.getValue(),
-            AccountingConstants.SharesProductAccountingParams.SHARES_SUSPENSE.getValue()));
+            AccountingConstants.SharesProductAccountingParams.SHARES_SUSPENSE.getValue(),
+            AccountingConstants.SharesProductAccountingParams.PAYMENT_CHANNEL_FUND_SOURCE_MAPPING.getValue()));
     private static final Set<String> supportedParametersForDivident = new HashSet<>(Arrays.asList(ShareProductApiConstants.locale_paramname,
             ShareProductApiConstants.dateFormatParamName, ShareProductApiConstants.dividendPeriodStartDateParamName,
             ShareProductApiConstants.dividendPeriodEndDateParamName, ShareProductApiConstants.dividendAmountParamName));
     private final FromJsonHelper fromApiJsonHelper;
     private final ChargeRepositoryWrapper chargeRepository;
     private final PlatformSecurityContext platformSecurityContext;
+    private final CredesalProductNumberingSupport productNumberingSupport;
 
     @Autowired
     public ShareProductDataSerializer(final FromJsonHelper fromApiJsonHelper, final ChargeRepositoryWrapper chargeRepository,
-            final PlatformSecurityContext platformSecurityContext) {
+            final PlatformSecurityContext platformSecurityContext, final CredesalProductNumberingSupport productNumberingSupport) {
         this.fromApiJsonHelper = fromApiJsonHelper;
         this.chargeRepository = chargeRepository;
         this.platformSecurityContext = platformSecurityContext;
+        this.productNumberingSupport = productNumberingSupport;
     }
 
     public ShareProduct validateAndCreate(JsonCommand jsonCommand) {
@@ -185,6 +192,8 @@ public class ShareProductDataSerializer {
                 sharesIssued, unitPrice, shareCapitalValue, minimumClientShares, nominalClientShares, maximumClientShares, marketPriceSet,
                 charges, allowdividendsForInactiveClients, lockinPeriod, lockPeriodType, minimumActivePeriod, minimumActivePeriodType,
                 accountingRuleType);
+        product.setNumberingCode(this.productNumberingSupport.assignOnCreate(jsonCommand, CredesalNamingNamespace.SHARE_CERTIFICATE,
+                "m_share_product"));
 
         for (ShareProductMarketPrice data : marketPriceSet) {
             data.setShareProduct(product);
@@ -288,6 +297,11 @@ public class ShareProductDataSerializer {
             if (product.setShortName(shortName)) {
                 actualChanges.put(ShareProductApiConstants.shortname_paramname, shortName);
             }
+        }
+        actualChanges.putAll(this.productNumberingSupport.applyUpdate(jsonCommand, CredesalNamingNamespace.SHARE_CERTIFICATE,
+                product.getNumberingCode(), "m_share_product", product.getId()));
+        if (actualChanges.containsKey(CredesalNamingCodes.PARAM_NAME)) {
+            product.setNumberingCode((String) actualChanges.get(CredesalNamingCodes.PARAM_NAME));
         }
         if (this.fromApiJsonHelper.parameterExists(ShareProductApiConstants.description_paramname, element)) {
             String description = this.fromApiJsonHelper.extractStringNamed(ShareProductApiConstants.description_paramname, element);

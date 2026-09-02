@@ -30,8 +30,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.apache.fineract.infrastructure.core.service.SearchParameters;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
+import org.apache.fineract.infrastructure.core.service.SearchParameters;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.portfolio.comite.data.ApprovedLoansDisbursementSumData;
 import org.apache.fineract.portfolio.comite.data.LoanSelectionData;
@@ -76,33 +76,26 @@ public class SesionComiteReadPlatformServiceImpl implements SesionComiteReadPlat
         // Filter by user's office hierarchy/permissions or specific office if currentOfficeId is provided
         // Similar to getAllLoansToBeApproved in TasksService
         // If currentOfficeId is null, use the logged-in user's office ID
-        final Long officeIdToUse = currentOfficeId != null ? currentOfficeId
-                : this.context.authenticatedUser().getOffice().getId();
-        
-        final SearchParameters searchParameters = SearchParameters.builder()
-                .status("100") // SUBMITTED_AND_PENDING_APPROVAL
+        final Long officeIdToUse = currentOfficeId != null ? currentOfficeId : this.context.authenticatedUser().getOffice().getId();
+
+        final SearchParameters searchParameters = SearchParameters.builder().status("100") // SUBMITTED_AND_PENDING_APPROVAL
                 .limit(1000) // Similar to TasksService.getAllLoansToBeApproved
                 .currentOfficeId(officeIdToUse) // Filter by specific office
                 .build();
-        
+
         // retrieveAll will filter by the specified office when currentOfficeId is set
         final var loanPage = this.loanReadPlatformService.retrieveAll(searchParameters);
         final List<LoanAccountData> allPending = loanPage.getPageItems();
         // Only include loans that are ready for committee (ready_for_comite = true)
-        return allPending.stream()
-                .filter(loan -> Boolean.TRUE.equals(loan.getReadyForComite()))
-                .collect(Collectors.toList());
+        return allPending.stream().filter(loan -> Boolean.TRUE.equals(loan.getReadyForComite())).collect(Collectors.toList());
     }
 
     @Override
     public List<Long> retrieveApprovedLoanIds(Long sessionId, Long officeId) {
-        return this.sesionComiteRepository.findByIdAndOfficeId(sessionId, officeId)
-                .map(this::mapToData)
-                .map(data -> {
-                    List<Long> ids = data.getUnanimouslyApprovedLoanIds();
-                    return ids != null ? ids : new ArrayList<Long>();
-                })
-                .orElse(new ArrayList<>());
+        return this.sesionComiteRepository.findByIdAndOfficeId(sessionId, officeId).map(this::mapToData).map(data -> {
+            List<Long> ids = data.getUnanimouslyApprovedLoanIds();
+            return ids != null ? ids : new ArrayList<Long>();
+        }).orElse(new ArrayList<>());
     }
 
     @Override
@@ -157,23 +150,19 @@ public class SesionComiteReadPlatformServiceImpl implements SesionComiteReadPlat
 
         // Compute unanimously approved loan IDs (backend-only; frontend consumes via GET)
         List<LoanSelectionData> selectionList = data.getSelection();
-        data.setUnanimouslyApprovedLoanIds(
-                computeUnanimouslyApprovedLoanIds(integrantesList, selectionList));
+        data.setUnanimouslyApprovedLoanIds(computeUnanimouslyApprovedLoanIds(integrantesList, selectionList));
 
         return data;
     }
 
-    private List<Long> computeUnanimouslyApprovedLoanIds(List<Long> integrantes,
-            List<LoanSelectionData> selection) {
+    private List<Long> computeUnanimouslyApprovedLoanIds(List<Long> integrantes, List<LoanSelectionData> selection) {
         if (integrantes == null || integrantes.isEmpty() || selection == null || selection.isEmpty()) {
             return new ArrayList<>();
         }
         Map<Long, Set<Long>> loanToParticipants = new HashMap<>();
         for (LoanSelectionData s : selection) {
             if (s.getSelectedId() != null && s.getAppuserId() != null) {
-                loanToParticipants
-                        .computeIfAbsent(s.getSelectedId(), k -> new HashSet<>())
-                        .add(s.getAppuserId());
+                loanToParticipants.computeIfAbsent(s.getSelectedId(), k -> new HashSet<>()).add(s.getAppuserId());
             }
         }
         Set<Long> integrantesSet = new HashSet<>(integrantes);

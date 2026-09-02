@@ -42,8 +42,8 @@ import org.apache.fineract.infrastructure.configuration.domain.ConfigurationDoma
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.api.JsonQuery;
 import org.apache.fineract.infrastructure.core.domain.ExternalId;
-import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
+import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.service.DimensionsUtils;
 import org.apache.fineract.infrastructure.core.service.ExternalIdFactory;
 import org.apache.fineract.organisation.holiday.domain.Holiday;
@@ -101,6 +101,7 @@ import org.apache.fineract.portfolio.loanproduct.domain.LoanProductRepository;
 import org.apache.fineract.portfolio.loanproduct.exception.LoanProductNotFoundException;
 import org.apache.fineract.portfolio.loanproduct.service.LoanEnumerations;
 import org.apache.fineract.portfolio.loanproduct.service.LoanProductReadPlatformService;
+import org.apache.fineract.portfolio.namingsequence.service.CredesalNamingSequenceService;
 import org.apache.fineract.portfolio.paymenttype.domain.PaymentType;
 import org.apache.fineract.portfolio.paymenttype.domain.PaymentTypeRepositoryWrapper;
 import org.apache.fineract.portfolio.rate.domain.Rate;
@@ -143,6 +144,7 @@ public class LoanAssemblerImpl implements LoanAssembler {
     private final LoanOfficerService loanOfficerService;
     private final LoanScheduleComponent loanSchedule;
     private final LoanProductReadPlatformService loanProductReadPlatformService;
+    private final CredesalNamingSequenceService credesalNamingSequenceService;
 
     @Override
     public Loan assembleFrom(final Long accountId) {
@@ -256,7 +258,8 @@ public class LoanAssemblerImpl implements LoanAssembler {
 
         final String productDimensions = loanProductReadPlatformService.getLoanProductDimensions(productId);
         final String commandDimensions = command.parameterExists(LoanApiConstants.dimensionsParameterName)
-                ? this.fromApiJsonHelper.toJson(this.fromApiJsonHelper.extractJsonObjectNamed(LoanApiConstants.dimensionsParameterName, element))
+                ? this.fromApiJsonHelper
+                        .toJson(this.fromApiJsonHelper.extractJsonObjectNamed(LoanApiConstants.dimensionsParameterName, element))
                 : null;
         final String dimensions = DimensionsUtils.appendDimensions(productDimensions, commandDimensions);
 
@@ -297,7 +300,8 @@ public class LoanAssemblerImpl implements LoanAssembler {
         // TODO: review
         loanChargeService.recalculateAllCharges(loanApplication);
         final LocalDate dateForNetDisbursal = loanApplicationTerms.getExpectedDisbursementDate() != null
-                ? loanApplicationTerms.getExpectedDisbursementDate() : DateUtils.getBusinessLocalDate();
+                ? loanApplicationTerms.getExpectedDisbursementDate()
+                : DateUtils.getBusinessLocalDate();
         final BigDecimal totalDueAtDisbursement = loanChargeService.deriveSumTotalChargesDueAtDisbursementForNetDisbursal(loanApplication,
                 dateForNetDisbursal);
         loanApplication.setNetDisbursalAmount(loanApplication.getApprovedPrincipal().subtract(totalDueAtDisbursement));
@@ -375,7 +379,9 @@ public class LoanAssemblerImpl implements LoanAssembler {
                 }
             }
         } else { // for applications other than GLIM
-            loan.setAccountNumber(this.accountNumberGenerator.generate(loan, accountNumberFormat));
+            final String numberingCode = loan.loanProduct() == null ? null : loan.loanProduct().getNumberingCode();
+            this.credesalNamingSequenceService.allocateLoanAccountNo(loan.client(), numberingCode, null).ifPresentOrElse(
+                    loan::setAccountNumber, () -> loan.setAccountNumber(this.accountNumberGenerator.generate(loan, accountNumberFormat)));
         }
     }
 
@@ -397,10 +403,20 @@ public class LoanAssemblerImpl implements LoanAssembler {
                 loan.setIsTopup(isTopUp);
             }
             if (loan.isTopup()) {
-                final Long loanIdToClose = this.fromApiJsonHelper.extractLongNamed(LoanApiConstants.loanIdToClose, element);
-                loan.setTopupLoanDetails(new LoanTopupDetails(loan, loanIdToClose));
+                loan.setTopupLoanDetails(new LoanTopupDetails(loan, extractRefinancingLoanIds(element)));
             }
         }
+    }
+
+    private List<Long> extractRefinancingLoanIds(final JsonElement element) {
+        final JsonArray loanIds = this.fromApiJsonHelper.extractJsonArrayNamed(LoanApiConstants.loanIdsToClose, element);
+        if (loanIds != null && !loanIds.isEmpty()) {
+            final List<Long> result = new ArrayList<>();
+            loanIds.forEach(value -> result.add(value.getAsLong()));
+            return result;
+        }
+        final Long legacyLoanId = this.fromApiJsonHelper.extractLongNamed(LoanApiConstants.loanIdToClose, element);
+        return legacyLoanId == null ? List.of() : List.of(legacyLoanId);
     }
 
     @Override
@@ -664,7 +680,8 @@ public class LoanAssemblerImpl implements LoanAssembler {
         if (loan.getDisbursalMethodPaymentType() != null) {
             existingDisbursalMethodPaymentTypeId = loan.getDisbursalMethodPaymentType().getId();
         }
-        if (command.isChangeInLongParameterNamed(LoanApiConstants.disbursalMethodPaymentTypeIdParameterName, existingDisbursalMethodPaymentTypeId)) {
+        if (command.isChangeInLongParameterNamed(LoanApiConstants.disbursalMethodPaymentTypeIdParameterName,
+                existingDisbursalMethodPaymentTypeId)) {
             final Long newValue = command.longValueOfParameterNamed(LoanApiConstants.disbursalMethodPaymentTypeIdParameterName);
             changes.put(LoanApiConstants.disbursalMethodPaymentTypeIdParameterName, newValue);
             final PaymentType disbursalMethodPaymentType = findPaymentTypeByIdIfProvided(newValue);
@@ -825,21 +842,15 @@ public class LoanAssemblerImpl implements LoanAssembler {
             }
 
             if (loan.isTopup()) {
-                final Long loanIdToClose = command.longValueOfParameterNamed(LoanApiConstants.loanIdToClose);
+                final List<Long> loanIdsToClose = extractRefinancingLoanIds(command.parsedJson());
                 LoanTopupDetails existingLoanTopupDetails = loan.getTopupLoanDetails();
-                if (existingLoanTopupDetails == null || !existingLoanTopupDetails.getLoanIdToClose().equals(loanIdToClose)
+                if (existingLoanTopupDetails == null
+                        || !existingLoanTopupDetails.getLoanIdsToClose().equals(loanIdsToClose.stream().distinct().sorted().toList())
                         || changes.containsKey("submittedOnDate") || changes.containsKey("expectedDisbursementDate")
                         || changes.containsKey("principal") || changes.containsKey(LoanApiConstants.disbursementDataParameterName)) {
-                    Long existingLoanIdToClose = null;
-                    if (existingLoanTopupDetails != null) {
-                        existingLoanIdToClose = existingLoanTopupDetails.getLoanIdToClose();
-                    }
-
-                    if (!loanIdToClose.equals(existingLoanIdToClose)) {
-                        final LoanTopupDetails topupDetails = new LoanTopupDetails(loan, loanIdToClose);
-                        loan.setTopupLoanDetails(topupDetails);
-                        changes.put(LoanApiConstants.loanIdToClose, loanIdToClose);
-                    }
+                    final LoanTopupDetails topupDetails = new LoanTopupDetails(loan, loanIdsToClose);
+                    loan.setTopupLoanDetails(topupDetails);
+                    changes.put(LoanApiConstants.loanIdsToClose, loanIdsToClose);
                 }
             } else {
                 loan.setTopupLoanDetails(null);

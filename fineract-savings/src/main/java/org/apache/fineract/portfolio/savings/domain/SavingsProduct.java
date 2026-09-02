@@ -106,6 +106,9 @@ public class SavingsProduct extends AbstractPersistableCustom<Long> {
     @Column(name = "short_name", nullable = false, unique = true)
     protected String shortName;
 
+    @Column(name = "numbering_code", length = 4)
+    protected String numberingCode;
+
     @Column(name = "description", length = 500, nullable = false)
     protected String description;
 
@@ -577,13 +580,13 @@ public class SavingsProduct extends AbstractPersistableCustom<Long> {
             this.withHoldTax = newValue;
         }
 
-        if (this.withHoldTax) {
-            if (this.taxGroup == null || command.isChangeInLongParameterNamed(taxGroupIdParamName, this.taxGroup.getId())) {
-                final Long newValue = command.longValueOfParameterNamed(taxGroupIdParamName);
-                actualChanges.put(taxGroupIdParamName, newValue);
-            }
-        } else {
-            this.taxGroup = null;
+        if (command.parameterExists(taxGroupIdParamName)
+                && (this.taxGroup == null || command.isChangeInLongParameterNamed(taxGroupIdParamName, this.taxGroup.getId()))) {
+            final Long newValue = command.longValueOfParameterNamed(taxGroupIdParamName);
+            actualChanges.put(taxGroupIdParamName, newValue);
+        } else if (this.withHoldTax && this.taxGroup == null) {
+            // Preserve the existing validation path when automatic withholding is enabled without a tax group.
+            actualChanges.put(taxGroupIdParamName, null);
         }
 
         if (command.isChangeInBooleanParameterNamed(isDormancyTrackingActiveParamName, this.isDormancyTrackingActive)) {
@@ -741,6 +744,14 @@ public class SavingsProduct extends AbstractPersistableCustom<Long> {
 
     public String getShortName() {
         return this.shortName;
+    }
+
+    public String getNumberingCode() {
+        return this.numberingCode;
+    }
+
+    public void setNumberingCode(final String numberingCode) {
+        this.numberingCode = numberingCode;
     }
 
     public BigDecimal nominalAnnualInterestRateOverdraft() {

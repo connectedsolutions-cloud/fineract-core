@@ -45,4 +45,3 @@ public class SwitchUserOfficeCommandHandler implements NewCommandSourceHandler {
         return this.writePlatformService.switchOffice(userId, command);
     }
 }
-

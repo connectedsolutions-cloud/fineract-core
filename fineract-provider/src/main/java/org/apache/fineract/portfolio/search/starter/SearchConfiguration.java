@@ -19,6 +19,7 @@
 package org.apache.fineract.portfolio.search.starter;
 
 import org.apache.fineract.infrastructure.core.service.database.DatabaseSpecificSQLGenerator;
+import org.apache.fineract.infrastructure.security.datascope.DataScopeService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.organisation.office.service.OfficeReadPlatformService;
 import org.apache.fineract.portfolio.loanproduct.service.LoanProductReadPlatformService;
@@ -36,8 +37,9 @@ public class SearchConfiguration {
     @ConditionalOnMissingBean(SearchReadPlatformService.class)
     public SearchReadPlatformService searchReadPlatformService(NamedParameterJdbcTemplate namedParameterJdbcTemplate,
             PlatformSecurityContext context, LoanProductReadPlatformService loanProductReadPlatformService,
-            OfficeReadPlatformService officeReadPlatformService, DatabaseSpecificSQLGenerator sqlGenerator) {
+            OfficeReadPlatformService officeReadPlatformService, DatabaseSpecificSQLGenerator sqlGenerator,
+            DataScopeService dataScopeService) {
         return new SearchReadPlatformServiceImpl(namedParameterJdbcTemplate, context, loanProductReadPlatformService,
-                officeReadPlatformService, sqlGenerator);
+                officeReadPlatformService, sqlGenerator, dataScopeService);
     }
 }

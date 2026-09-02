@@ -36,11 +36,16 @@ import org.apache.fineract.infrastructure.core.domain.ExternalId;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.organisation.monetary.domain.MonetaryCurrency;
 import org.apache.fineract.organisation.monetary.domain.Money;
+import org.apache.fineract.organisation.monetary.domain.MoneyHelper;
 import org.apache.fineract.portfolio.charge.domain.Charge;
 import org.apache.fineract.portfolio.charge.domain.ChargeCalculationType;
 import org.apache.fineract.portfolio.charge.domain.ChargePaymentMode;
 import org.apache.fineract.portfolio.charge.domain.ChargeTimeType;
 import org.apache.fineract.portfolio.charge.exception.LoanChargeWithoutMandatoryFieldException;
+import org.apache.fineract.portfolio.delinquency.data.DelinquencyRangeData;
+import org.apache.fineract.portfolio.delinquency.service.DelinquencyReadPlatformService;
+import org.apache.fineract.portfolio.loanaccount.data.ChargeTaxResult;
+import org.apache.fineract.portfolio.loanaccount.data.CollectionData;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanCharge;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanChargePaidBy;
@@ -57,13 +62,8 @@ import org.apache.fineract.portfolio.loanaccount.domain.SingleLoanChargeRepaymen
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.MoneyHolder;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.TransactionCtx;
 import org.apache.fineract.portfolio.loanaccount.serialization.LoanChargeValidator;
-import org.apache.fineract.portfolio.loanaccount.data.ChargeTaxResult;
-import org.apache.fineract.portfolio.loanaccount.data.CollectionData;
-import org.apache.fineract.portfolio.delinquency.data.DelinquencyRangeData;
-import org.apache.fineract.portfolio.delinquency.service.DelinquencyReadPlatformService;
 import org.apache.fineract.portfolio.tax.domain.TaxGroupMappings;
 import org.apache.fineract.portfolio.tax.service.TaxUtils;
-import org.apache.fineract.organisation.monetary.domain.MoneyHelper;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -177,8 +177,8 @@ public class LoanChargeService {
     public LoanTransaction handleChargeAppliedTransaction(final Loan loan, final LoanCharge loanCharge,
             final LocalDate suppliedTransactionDate, final LoanTransaction existingLoanTransactionForGL) {
         if (loan.isProgressiveSchedule()) {
-            log.debug("[COMTE-DEBUG] handleChargeAppliedTransaction skipped (progressive schedule) loanId={} chargeId={}",
-                    loan.getId(), loanCharge != null ? loanCharge.getId() : null);
+            log.debug("[COMTE-DEBUG] handleChargeAppliedTransaction skipped (progressive schedule) loanId={} chargeId={}", loan.getId(),
+                    loanCharge != null ? loanCharge.getId() : null);
             return null;
         }
         log.debug("[COMTE-DEBUG] handleChargeAppliedTransaction loanId={} chargeId={} suppliedTransactionDate={} chargeTimeType={}",
@@ -254,8 +254,9 @@ public class LoanChargeService {
             chargeAmt = loanCharge.amountOrPercentage();
         }
         if (loanCharge.getChargeCalculation().isPercentageOfAmountReduceDisbursal()) {
-            log.debug("[REDUCE_DISBURSAL] LoanChargeService.addLoanCharge (before update) loanId={} loanChargeId={} "
-                    + "amountPercentageAppliedTo={} chargeAmt(percentage)={} totalChargeAmt={} loanPrincipal={}",
+            log.debug(
+                    "[REDUCE_DISBURSAL] LoanChargeService.addLoanCharge (before update) loanId={} loanChargeId={} "
+                            + "amountPercentageAppliedTo={} chargeAmt(percentage)={} totalChargeAmt={} loanPrincipal={}",
                     loan.getId(), loanCharge.getId(), amount, chargeAmt, totalChargeAmt,
                     loan.getPrincipal() != null ? loan.getPrincipal().getAmount() : null);
         }
@@ -263,8 +264,9 @@ public class LoanChargeService {
                 totalChargeAmt);
 
         if (loanCharge.getChargeCalculation().isPercentageOfAmountReduceDisbursal()) {
-            log.debug("[REDUCE_DISBURSAL] LoanChargeService.addLoanCharge (after update) loanId={} loanChargeId={} "
-                    + "percentage={} amountPercentageAppliedTo={} amount={} amountOutstanding={}",
+            log.debug(
+                    "[REDUCE_DISBURSAL] LoanChargeService.addLoanCharge (after update) loanId={} loanChargeId={} "
+                            + "percentage={} amountPercentageAppliedTo={} amount={} amountOutstanding={}",
                     loan.getId(), loanCharge.getId(), loanCharge.getPercentage(), loanCharge.getAmountPercentageAppliedTo(),
                     loanCharge.getAmount(), loanCharge.getAmountOutstanding());
         }
@@ -278,7 +280,8 @@ public class LoanChargeService {
         loan.setSummary(loan.updateSummaryWithTotalFeeChargesDueAtDisbursement(loan.deriveSumTotalOfChargesDueAtDisbursement()));
         final LocalDate dateForNetDisbursal = loan.getDisbursementDate() != null ? loan.getDisbursementDate()
                 : (loan.getExpectedDisbursementDate() != null ? loan.getExpectedDisbursementDate() : DateUtils.getBusinessLocalDate());
-        loan.setNetDisbursalAmount(loan.getApprovedPrincipal().subtract(deriveSumTotalChargesDueAtDisbursementForNetDisbursal(loan, dateForNetDisbursal)));
+        loan.setNetDisbursalAmount(
+                loan.getApprovedPrincipal().subtract(deriveSumTotalChargesDueAtDisbursementForNetDisbursal(loan, dateForNetDisbursal)));
 
         // Skip schedule reprocessing for reduce-disbursal charges; they only affect net disbursal, not the schedule.
         final boolean skipReprocess = loanCharge.isDueAtDisbursement()
@@ -293,8 +296,10 @@ public class LoanChargeService {
     }
 
     /**
-     * Base for {@link org.apache.fineract.portfolio.charge.domain.ChargeCalculationType#PERCENT_OF_DELINQUENT_PRINCIPAL}: delinquent
-     * principal from collection data when the loan's current delinquency tag matches the charge definition's range.
+     * Base for
+     * {@link org.apache.fineract.portfolio.charge.domain.ChargeCalculationType#PERCENT_OF_DELINQUENT_PRINCIPAL}:
+     * delinquent principal from collection data when the loan's current delinquency tag matches the charge definition's
+     * range.
      */
     public BigDecimal determineDelinquentPrincipalBaseForCharge(final Loan loan, final Charge chargeDefinition) {
         if (loan == null || loan.getId() == null || chargeDefinition == null || chargeDefinition.getDelinquencyRangeId() == null) {
@@ -333,11 +338,13 @@ public class LoanChargeService {
                 }
             }
             case PERCENT_OF_DELINQUENT_PRINCIPAL -> determineDelinquentPrincipalBaseForCharge(loan, loanCharge.getCharge());
+            case PERCENT_OF_OUTSTANDING_PRINCIPAL -> loan.getPrincipal().getAmount();
             case INVALID, FLAT -> BigDecimal.ZERO;
         };
         if (loanCharge.getChargeCalculation().isPercentageOfAmountReduceDisbursal()) {
-            log.debug("[REDUCE_DISBURSAL] LoanChargeService.calculateAmountPercentageAppliedTo loanId={} loanChargeId={} "
-                    + "chargeCalc=PERCENT_OF_AMOUNT_REDUCE_DISBURSAL hasTranche={} loanPrincipal={} result={}",
+            log.debug(
+                    "[REDUCE_DISBURSAL] LoanChargeService.calculateAmountPercentageAppliedTo loanId={} loanChargeId={} "
+                            + "chargeCalc=PERCENT_OF_AMOUNT_REDUCE_DISBURSAL hasTranche={} loanPrincipal={} result={}",
                     loan.getId(), loanCharge.getId(), loanCharge.getTrancheDisbursementCharge() != null,
                     loan.getPrincipal() != null ? loan.getPrincipal().getAmount() : null, result);
         }
@@ -346,9 +353,9 @@ public class LoanChargeService {
 
     /**
      * Returns the total to deduct from principal for net disbursal: for each due-at-disbursement charge, charge amount
-     * + tax amount (via {@link #chargeTaxCalculator} when the charge has a tax group), except for
-     * "%amount * reduce disbursal" charges, which use the charge amount without tax. Used only where netDisbursalAmount
-     * is computed; {@link Loan#deriveSumTotalOfChargesDueAtDisbursement()} remains the sum of charge amounts only.
+     * + tax amount (via {@link #chargeTaxCalculator} when the charge has a tax group), except for "%amount * reduce
+     * disbursal" charges, which use the charge amount without tax. Used only where netDisbursalAmount is computed;
+     * {@link Loan#deriveSumTotalOfChargesDueAtDisbursement()} remains the sum of charge amounts only.
      */
     public BigDecimal deriveSumTotalChargesDueAtDisbursementForNetDisbursal(final Loan loan, final LocalDate date) {
         BigDecimal total = BigDecimal.ZERO;
@@ -363,24 +370,27 @@ public class LoanChargeService {
             BigDecimal contribution;
             if (loanCharge.getChargeCalculation().isPercentageOfAmountReduceDisbursal()) {
                 contribution = amt;
-                log.debug("[COMTE-DEBUG] deriveSumTotalChargesDueAtDisbursementForNetDisbursal due-at-disp charge (reduce-disbursal, no tax) loanId={} chargeId={} amount={}",
+                log.debug(
+                        "[COMTE-DEBUG] deriveSumTotalChargesDueAtDisbursementForNetDisbursal due-at-disp charge (reduce-disbursal, no tax) loanId={} chargeId={} amount={}",
                         loan.getId(), loanCharge.getId(), amt);
             } else {
                 ChargeTaxResult result = chargeTaxCalculator(loan, loanCharge, date);
                 contribution = result.getChargeBaseAmount().add(result.getTaxAmount());
-                log.debug("[COMTE-DEBUG] deriveSumTotalChargesDueAtDisbursementForNetDisbursal due-at-disp charge loanId={} chargeId={} amount={} chargePlusTax={}",
+                log.debug(
+                        "[COMTE-DEBUG] deriveSumTotalChargesDueAtDisbursementForNetDisbursal due-at-disp charge loanId={} chargeId={} amount={} chargePlusTax={}",
                         loan.getId(), loanCharge.getId(), amt, contribution);
             }
             total = total.add(contribution);
         }
-        log.debug("[COMTE-DEBUG] deriveSumTotalChargesDueAtDisbursementForNetDisbursal loanId={} date={} total={}", loan.getId(), date, total);
+        log.debug("[COMTE-DEBUG] deriveSumTotalChargesDueAtDisbursementForNetDisbursal loanId={} date={} total={}", loan.getId(), date,
+                total);
         return total;
     }
 
     /**
-     * Computes tax for a loan charge using the formula total = chargeBaseAmount * (chargePercentAmount / 100),
-     * where chargePercentAmount is the sum of applicable tax percentages from the charge's tax group.
-     * Returns charge base amount, tax amount, formula total, and per-component tax split for journal entries.
+     * Computes tax for a loan charge using the formula total = chargeBaseAmount * (chargePercentAmount / 100), where
+     * chargePercentAmount is the sum of applicable tax percentages from the charge's tax group. Returns charge base
+     * amount, tax amount, formula total, and per-component tax split for journal entries.
      */
     public ChargeTaxResult chargeTaxCalculator(final Loan loan, final LoanCharge loanCharge, final LocalDate date) {
         final BigDecimal chargeBaseAmount = loanCharge.amount();
@@ -460,7 +470,8 @@ public class LoanChargeService {
         loan.updateSummaryWithTotalFeeChargesDueAtDisbursement(loan.deriveSumTotalOfChargesDueAtDisbursement());
         final LocalDate dateForNetDisbursal = loan.getDisbursementDate() != null ? loan.getDisbursementDate()
                 : (loan.getExpectedDisbursementDate() != null ? loan.getExpectedDisbursementDate() : DateUtils.getBusinessLocalDate());
-        loan.setNetDisbursalAmount(loan.getApprovedPrincipal().subtract(deriveSumTotalChargesDueAtDisbursementForNetDisbursal(loan, dateForNetDisbursal)));
+        loan.setNetDisbursalAmount(
+                loan.getApprovedPrincipal().subtract(deriveSumTotalChargesDueAtDisbursementForNetDisbursal(loan, dateForNetDisbursal)));
     }
 
     public BigDecimal calculatePerInstallmentChargeAmount(final Loan loan, final ChargeCalculationType calculationType,
@@ -513,6 +524,7 @@ public class LoanChargeService {
                 case PERCENT_OF_DISBURSEMENT_AMOUNT:
                 case PERCENT_OF_AMOUNT_REDUCE_DISBURSAL:
                 case PERCENT_OF_DELINQUENT_PRINCIPAL:
+                case PERCENT_OF_OUTSTANDING_PRINCIPAL:
                     loanCharge.setPercentage(newValue);
                     loanCharge.setAmountPercentageAppliedTo(amount);
                     loanChargeAmount = BigDecimal.ZERO;
@@ -569,6 +581,7 @@ public class LoanChargeService {
             case PERCENT_OF_DISBURSEMENT_AMOUNT:
             case PERCENT_OF_AMOUNT_REDUCE_DISBURSAL:
             case PERCENT_OF_DELINQUENT_PRINCIPAL:
+            case PERCENT_OF_OUTSTANDING_PRINCIPAL:
                 loanCharge.setPercentage(chargeAmount);
                 loanCharge.setAmountPercentageAppliedTo(amountPercentageAppliedTo);
                 if (loanChargeAmount.compareTo(BigDecimal.ZERO) == 0) {
@@ -578,9 +591,8 @@ public class LoanChargeService {
                 if (loanCharge.getChargeCalculation().isPercentageOfAmountReduceDisbursal()) {
                     log.debug("[REDUCE_DISBURSAL] LoanChargeService.populateDerivedFields loanId={} loanChargeId={} "
                             + "chargeAmount(percentage)={} amountPercentageAppliedTo={} loanChargeAmountRaw={} afterCap={} minCap={} maxCap={}",
-                            loanCharge.getLoan() != null ? loanCharge.getLoan().getId() : null, loanCharge.getId(),
-                            chargeAmount, amountPercentageAppliedTo, loanChargeAmount, capped,
-                            loanCharge.getMinCap(), loanCharge.getMaxCap());
+                            loanCharge.getLoan() != null ? loanCharge.getLoan().getId() : null, loanCharge.getId(), chargeAmount,
+                            amountPercentageAppliedTo, loanChargeAmount, capped, loanCharge.getMinCap(), loanCharge.getMaxCap());
                 }
                 loanCharge.setAmount(capped);
                 loanCharge.setAmountPaid(null);
@@ -628,6 +640,9 @@ public class LoanChargeService {
                 break;
                 case PERCENT_OF_DELINQUENT_PRINCIPAL:
                     amountPercentageAppliedTo = determineDelinquentPrincipalBaseForCharge(loanCharge.getLoan(), loanCharge.getCharge());
+                break;
+                case PERCENT_OF_OUTSTANDING_PRINCIPAL:
+                    amountPercentageAppliedTo = loanCharge.getLoan().getPrincipal().getAmount();
                 break;
                 default:
                 break;
@@ -766,6 +781,16 @@ public class LoanChargeService {
     }
 
     private BigDecimal calculatePerInstallmentChargeAmount(final Loan loan, final LoanCharge loanCharge) {
+        if (loanCharge.getChargeCalculation().isPercentageOfOutstandingPrincipal()) {
+            Money amount = Money.zero(loan.getCurrency());
+            for (final LoanRepaymentScheduleInstallment installment : loan.getRepaymentScheduleInstallments()) {
+                if (isInstallmentChargeApplicable(loanCharge, installment)) {
+                    amount = amount.plus(calculateInstallmentChargeAmount(loan, loanCharge.getChargeCalculation(),
+                            loanCharge.getPercentage(), installment));
+                }
+            }
+            return amount.getAmount();
+        }
         return calculatePerInstallmentChargeAmount(loan, loanCharge.getChargeCalculation(), loanCharge.getPercentage());
     }
 
@@ -810,13 +835,15 @@ public class LoanChargeService {
             totalAmount = totalAmount.plus(charge.getAmount());
         }
         loanCharge.setAmount(totalAmount.getAmount());
+        loanCharge.setAmountOutstanding(loanCharge.calculateOutstanding());
     }
 
     private List<LoanInstallmentCharge> generateInstallmentLoanCharges(final Loan loan, final LoanCharge loanCharge) {
         final List<LoanInstallmentCharge> loanChargePerInstallments = new ArrayList<>();
         if (loanCharge.isInstalmentFee()) {
             final List<LoanRepaymentScheduleInstallment> installments = loan.getRepaymentScheduleInstallments().stream()
-                    .filter(i -> !i.isDownPayment() && !i.isAdditional() && !i.isReAged()).toList();
+                    .filter(i -> !i.isDownPayment() && !i.isAdditional() && !i.isReAged())
+                    .filter(i -> isInstallmentChargeApplicable(loanCharge, i)).toList();
             for (final LoanRepaymentScheduleInstallment installment : installments) {
                 BigDecimal amount;
                 if (loanCharge.getChargeCalculation().isFlat()) {
@@ -839,7 +866,7 @@ public class LoanChargeService {
         if (loanCharge.isInstalmentFee()) {
             final List<LoanRepaymentScheduleInstallment> installments = loan.getRepaymentScheduleInstallments().stream()
                     .filter(i -> i != null && i.isNotFullyPaidOff() && i.getDueDate() != null && !i.getDueDate().isBefore(transactionDate))
-                    .toList();
+                    .filter(i -> isInstallmentChargeApplicable(loanCharge, i)).toList();
             for (final LoanRepaymentScheduleInstallment installment : installments) {
                 BigDecimal amount;
                 if (loanCharge.getChargeCalculation().isFlat()) {
@@ -903,6 +930,7 @@ public class LoanChargeService {
             totalAmount = totalAmount.plus(charge.getAmount());
         }
         loanCharge.setAmount(totalAmount.getAmount());
+        loanCharge.setAmountOutstanding(loanCharge.calculateOutstanding());
     }
 
     private BigDecimal calculateOverdueAmountPercentageAppliedTo(final Loan loan, final LoanCharge loanCharge,
@@ -959,6 +987,7 @@ public class LoanChargeService {
                 case PERCENT_OF_DISBURSEMENT_AMOUNT:
                 case PERCENT_OF_AMOUNT_REDUCE_DISBURSAL:
                 case PERCENT_OF_DELINQUENT_PRINCIPAL:
+                case PERCENT_OF_OUTSTANDING_PRINCIPAL:
                     loanCharge.setPercentage(amount);
                     loanCharge.setAmountPercentageAppliedTo(loanPrincipal);
                     if (loanChargeAmount.compareTo(BigDecimal.ZERO) == 0) {
@@ -966,10 +995,11 @@ public class LoanChargeService {
                     }
                     BigDecimal cappedAmount = loanCharge.minimumAndMaximumCap(loanChargeAmount);
                     if (loanCharge.getChargeCalculation().isPercentageOfAmountReduceDisbursal()) {
-                        log.debug("[REDUCE_DISBURSAL] LoanChargeService.update(6-arg) loanId={} loanChargeId={} "
-                                + "amount(percentage)={} loanPrincipal={} loanChargeAmountAfterPct={} cappedAmount={}",
-                                loanCharge.getLoan() != null ? loanCharge.getLoan().getId() : null, loanCharge.getId(),
-                                amount, loanPrincipal, loanChargeAmount, cappedAmount);
+                        log.debug(
+                                "[REDUCE_DISBURSAL] LoanChargeService.update(6-arg) loanId={} loanChargeId={} "
+                                        + "amount(percentage)={} loanPrincipal={} loanChargeAmountAfterPct={} cappedAmount={}",
+                                loanCharge.getLoan() != null ? loanCharge.getLoan().getId() : null, loanCharge.getId(), amount,
+                                loanPrincipal, loanChargeAmount, cappedAmount);
                     }
                     loanCharge.setAmount(cappedAmount);
                 break;
@@ -1008,6 +1038,7 @@ public class LoanChargeService {
                 case PERCENT_OF_DISBURSEMENT_AMOUNT:
                 case PERCENT_OF_AMOUNT_REDUCE_DISBURSAL:
                 case PERCENT_OF_DELINQUENT_PRINCIPAL:
+                case PERCENT_OF_OUTSTANDING_PRINCIPAL:
                     loanCharge.setPercentage(amount);
                     loanCharge.setAmountPercentageAppliedTo(loanPrincipal);
                     if (loanChargeAmount.compareTo(BigDecimal.ZERO) == 0) {
@@ -1015,10 +1046,11 @@ public class LoanChargeService {
                     }
                     BigDecimal cappedAmountWithDate = loanCharge.minimumAndMaximumCap(loanChargeAmount);
                     if (loanCharge.getChargeCalculation().isPercentageOfAmountReduceDisbursal()) {
-                        log.debug("[REDUCE_DISBURSAL] LoanChargeService.update(7-arg) loanId={} loanChargeId={} "
-                                + "amount(percentage)={} loanPrincipal={} loanChargeAmountAfterPct={} cappedAmount={}",
-                                loanCharge.getLoan() != null ? loanCharge.getLoan().getId() : null, loanCharge.getId(),
-                                amount, loanPrincipal, loanChargeAmount, cappedAmountWithDate);
+                        log.debug(
+                                "[REDUCE_DISBURSAL] LoanChargeService.update(7-arg) loanId={} loanChargeId={} "
+                                        + "amount(percentage)={} loanPrincipal={} loanChargeAmountAfterPct={} cappedAmount={}",
+                                loanCharge.getLoan() != null ? loanCharge.getLoan().getId() : null, loanCharge.getId(), amount,
+                                loanPrincipal, loanChargeAmount, cappedAmountWithDate);
                     }
                     loanCharge.setAmount(cappedAmountWithDate);
                 break;
@@ -1056,12 +1088,37 @@ public class LoanChargeService {
             case PERCENT_OF_AMOUNT_AND_INTEREST ->
                 installment.getPrincipal(loan.getCurrency()).plus(installment.getInterestCharged(loan.getCurrency()));
             case PERCENT_OF_INTEREST -> installment.getInterestCharged(loan.getCurrency());
+            case PERCENT_OF_OUTSTANDING_PRINCIPAL -> calculateOpeningOutstandingPrincipal(loan, installment);
             case PERCENT_OF_DISBURSEMENT_AMOUNT, PERCENT_OF_AMOUNT_REDUCE_DISBURSAL, PERCENT_OF_DELINQUENT_PRINCIPAL, INVALID, FLAT ->
                 Money.zero(loan.getCurrency());
 
         };
         return Money.zero(loan.getCurrency()) //
                 .plus(LoanCharge.percentageOf(percentOf.getAmount(), percentage));
+    }
+
+    Money calculateOpeningOutstandingPrincipal(final Loan loan, final LoanRepaymentScheduleInstallment targetInstallment) {
+        if (targetInstallment.isDownPayment() || targetInstallment.isAdditional() || targetInstallment.isReAged()) {
+            return Money.zero(loan.getCurrency());
+        }
+        Money openingPrincipal = loan.getPrincipal();
+        for (final LoanRepaymentScheduleInstallment installment : loan.getRepaymentScheduleInstallments()) {
+            if (installment == targetInstallment) {
+                break;
+            }
+            if (!installment.isDownPayment() && !installment.isAdditional() && !installment.isReAged()) {
+                openingPrincipal = openingPrincipal.minus(installment.getPrincipal(loan.getCurrency()));
+            }
+        }
+        return openingPrincipal;
+    }
+
+    boolean isInstallmentChargeApplicable(final LoanCharge loanCharge, final LoanRepaymentScheduleInstallment installment) {
+        if (!loanCharge.getChargeCalculation().isPercentageOfOutstandingPrincipal() || loanCharge.getSubmittedOnDate() == null
+                || installment.getDueDate() == null) {
+            return true;
+        }
+        return !installment.getDueDate().isBefore(loanCharge.getSubmittedOnDate());
     }
 
     private BigDecimal getDerivedAmountForCharge(final Loan loan, final LoanCharge loanCharge) {

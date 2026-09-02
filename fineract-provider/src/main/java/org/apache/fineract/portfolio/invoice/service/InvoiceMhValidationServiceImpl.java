@@ -44,8 +44,8 @@ public class InvoiceMhValidationServiceImpl implements InvoiceMhValidationServic
     @Transactional
     public Invoice submitMhValidationByLoanTransactionId(Long loanTransactionId) {
         Invoice invoice = invoiceRepository.findByLoanTransactionId(loanTransactionId)
-                .orElseThrow(() -> new PlatformDataIntegrityException("error.msg.invoice.not.found", "Invoice not found for loan transaction",
-                        loanTransactionId));
+                .orElseThrow(() -> new PlatformDataIntegrityException("error.msg.invoice.not.found",
+                        "Invoice not found for loan transaction", loanTransactionId));
         return submitInternal(invoice);
     }
 
@@ -53,8 +53,8 @@ public class InvoiceMhValidationServiceImpl implements InvoiceMhValidationServic
     @Transactional
     public Invoice submitMhValidationBySavingsTransactionId(Long savingsTransactionId) {
         Invoice invoice = invoiceRepository.findBySavingsTransactionId(savingsTransactionId)
-                .orElseThrow(() -> new PlatformDataIntegrityException("error.msg.invoice.not.found", "Invoice not found for savings transaction",
-                        savingsTransactionId));
+                .orElseThrow(() -> new PlatformDataIntegrityException("error.msg.invoice.not.found",
+                        "Invoice not found for savings transaction", savingsTransactionId));
         return submitInternal(invoice);
     }
 
@@ -62,8 +62,8 @@ public class InvoiceMhValidationServiceImpl implements InvoiceMhValidationServic
     @Transactional
     public Invoice submitMhValidationByClientTransactionId(Long clientTransactionId) {
         Invoice invoice = invoiceRepository.findByClientTransactionId(clientTransactionId)
-                .orElseThrow(() -> new PlatformDataIntegrityException("error.msg.invoice.not.found", "Invoice not found for client transaction",
-                        clientTransactionId));
+                .orElseThrow(() -> new PlatformDataIntegrityException("error.msg.invoice.not.found",
+                        "Invoice not found for client transaction", clientTransactionId));
         return submitInternal(invoice);
     }
 
@@ -134,7 +134,8 @@ public class InvoiceMhValidationServiceImpl implements InvoiceMhValidationServic
                     "Invoice must have issuer, receptor, resumen and at least one line", invoice.getId());
         }
         if (StringUtils.isBlank(issuer.getNit())) {
-            throw new PlatformDataIntegrityException("error.msg.mh.invoice.issuer.nit.missing", "Issuer NIT is required on the invoice", invoice.getId());
+            throw new PlatformDataIntegrityException("error.msg.mh.invoice.issuer.nit.missing", "Issuer NIT is required on the invoice",
+                    invoice.getId());
         }
         requireIssuerField(invoice, issuer.getNrc(), "nrc");
         requireIssuerField(invoice, issuer.getNombre(), "nombre");

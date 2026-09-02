@@ -3,6 +3,7 @@ package org.apache.fineract.portfolio.invoice.data;
 import java.math.BigDecimal;
 
 public class InvoiceLineRequest {
+
     private Integer numItem;
     private Integer tipoItem;
     private BigDecimal cantidad;
@@ -112,4 +113,3 @@ public class InvoiceLineRequest {
         this.noGravado = noGravado;
     }
 }
-

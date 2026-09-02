@@ -216,7 +216,7 @@
         </preConditions>
         <sql>
             INSERT INTO m_client_tag (name, tag_group, description, is_active, created_on_utc, created_by, last_modified_by, last_modified_on_utc)
-            VALUES 
+            VALUES
             ('socio', 'tipo_cliente', 'cliente tipo socio, para clientes con depositos', true, NOW(), 1, 1, NOW()),
             ('cliente', 'tipo_cliente', 'cliente de creditos', true, NOW(), 1, 1, NOW());
         </sql>

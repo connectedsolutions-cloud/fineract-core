@@ -55,13 +55,16 @@ import org.apache.fineract.infrastructure.bulkimport.service.BulkImportWorkbookS
 import org.apache.fineract.infrastructure.core.api.ApiRequestParameterHelper;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.core.data.UploadRequest;
+import org.apache.fineract.infrastructure.core.exception.UnrecognizedQueryParamException;
 import org.apache.fineract.infrastructure.core.serialization.ApiRequestJsonSerializationSettings;
 import org.apache.fineract.infrastructure.core.serialization.DefaultToApiJsonSerializer;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.infrastructure.security.service.UserImpersonationConstants;
 import org.apache.fineract.organisation.office.data.OfficeData;
 import org.apache.fineract.organisation.office.service.OfficeReadPlatformService;
 import org.apache.fineract.useradministration.data.AppUserData;
 import org.apache.fineract.useradministration.service.AppUserReadPlatformService;
+import org.apache.fineract.useradministration.service.UserImpersonationWritePlatformService;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
 import org.springframework.stereotype.Component;
@@ -75,8 +78,9 @@ public class UsersApiResource {
     /**
      * The set of parameters that are supported in response for {@link AppUserData}.
      */
-    private static final Set<String> RESPONSE_DATA_PARAMETERS = new HashSet<>(Arrays.asList("id", "officeId", "officeName", "currentOfficeId", "offices", "username",
-            "firstname", "lastname", "email", "allowedOffices", "availableRoles", "selectedRoles", "staff"));
+    private static final Set<String> RESPONSE_DATA_PARAMETERS = new HashSet<>(
+            Arrays.asList("id", "officeId", "officeName", "currentOfficeId", "offices", "username", "firstname", "lastname", "email",
+                    "allowedOffices", "availableRoles", "selectedRoles", "staff"));
 
     private static final String RESOURCE_NAME_FOR_PERMISSIONS = "USER";
 
@@ -88,6 +92,7 @@ public class UsersApiResource {
     private final PortfolioCommandSourceWritePlatformService commandsSourceWritePlatformService;
     private final BulkImportWorkbookPopulatorService bulkImportWorkbookPopulatorService;
     private final BulkImportWorkbookService bulkImportWorkbookService;
+    private final UserImpersonationWritePlatformService userImpersonationWritePlatformService;
 
     @GET
     @Operation(summary = "Retrieve list of users", description = "Example Requests:\n" + "\n" + "users\n" + "\n" + "\n"
@@ -230,6 +235,24 @@ public class UsersApiResource {
         final CommandProcessingResult result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
 
         return this.toApiJsonSerializer.serialize(result);
+    }
+
+    @POST
+    @Path("{userId}")
+    @Operation(summary = "Login as user / stop impersonation", description = "command=loginAs returns the target user's profile (without password). command=stopLoginAs closes the impersonation audit row.")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    public String impersonate(@PathParam("userId") @Parameter(description = "userId") final Long userId,
+            @QueryParam("command") @Parameter(description = "command") final String command) {
+        if (UserImpersonationConstants.COMMAND_LOGIN_AS.equalsIgnoreCase(command)) {
+            return this.toApiJsonSerializer.serialize(this.userImpersonationWritePlatformService.loginAs(userId));
+        }
+        if (UserImpersonationConstants.COMMAND_STOP_LOGIN_AS.equalsIgnoreCase(command)) {
+            this.userImpersonationWritePlatformService.stopLoginAs(userId);
+            return this.toApiJsonSerializer.serialize(CommandProcessingResult.empty());
+        }
+        throw new UnrecognizedQueryParamException("command", command, UserImpersonationConstants.COMMAND_LOGIN_AS,
+                UserImpersonationConstants.COMMAND_STOP_LOGIN_AS);
     }
 
     @DELETE

@@ -257,15 +257,17 @@ public class LoansApiResource {
             "interestRateFrequencyTypeOptions", "fundOptions", "repaymentStrategyOptions", "chargeOptions", "loanOfficerOptions",
             "loanPurposeOptions", "loanCollateralOptions", "chargeTemplate", "calendarOptions", "syncDisbursementWithMeeting",
             "loanCounter", "loanProductCounter", "notes", "accountLinkingOptions", "linkedAccount", "interestRateDifferential",
-            "isFloatingInterestRate", "interestRatesPeriods", "lastClosedBusinessDate", "isSimulation", "simulatedDate", "simulationStartLastClosedBusinessDate", LoanApiConstants.canUseForTopup,
-            LoanApiConstants.isTopup, LoanApiConstants.loanIdToClose, LoanApiConstants.topupAmount,
-            LoanApiConstants.clientActiveLoanOptions, LoanApiConstants.datatables, LoanProductConstants.RATES_PARAM_NAME,
-            LoanApiConstants.MULTIDISBURSE_DETAILS_PARAMNAME, LoanApiConstants.EMI_AMOUNT_VARIATIONS_PARAMNAME,
-            LoanApiConstants.COLLECTION_PARAMNAME, LoanApiConstants.INTEREST_RECOGNITION_ON_DISBURSEMENT_DATE,
-            LoanApiConstants.daysInYearCustomStrategyParameterName, "readyForComite"));
+            "isFloatingInterestRate", "interestRatesPeriods", "lastClosedBusinessDate", "isSimulation", "simulatedDate",
+            "simulationStartLastClosedBusinessDate", LoanApiConstants.canUseForTopup, LoanApiConstants.isTopup,
+            LoanApiConstants.loanIdToClose, LoanApiConstants.loanIdsToClose, LoanApiConstants.topupAmount,
+            "refinancingOperationType", LoanApiConstants.refinancingSettlements, LoanApiConstants.clientActiveLoanOptions,
+            LoanApiConstants.datatables, LoanProductConstants.RATES_PARAM_NAME, LoanApiConstants.MULTIDISBURSE_DETAILS_PARAMNAME,
+            LoanApiConstants.EMI_AMOUNT_VARIATIONS_PARAMNAME, LoanApiConstants.COLLECTION_PARAMNAME,
+            LoanApiConstants.INTEREST_RECOGNITION_ON_DISBURSEMENT_DATE, LoanApiConstants.daysInYearCustomStrategyParameterName,
+            "readyForComite"));
 
-    private static final Set<String> REPAYMENT_SCHEDULED_DATA_PARAMETERS = new HashSet<>(Arrays.asList("id", "clientId", "clientName",
-            "amountToBeRepaid", "status"));
+    private static final Set<String> REPAYMENT_SCHEDULED_DATA_PARAMETERS = new HashSet<>(
+            Arrays.asList("id", "clientId", "clientName", "amountToBeRepaid", "status"));
 
     private static final Set<String> LOAN_APPROVAL_DATA_PARAMETERS = new HashSet<>(Arrays.asList("approvalDate", "approvalAmount"));
     private static final Set<String> GLIM_ACCOUNTS_DATA_PARAMETERS = new HashSet<>(Arrays.asList("glimId", "groupId", "clientId",
@@ -557,8 +559,7 @@ public class LoansApiResource {
     @Path("pending-disbursements")
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
-    @Operation(summary = "List Pending Disbursements",
-            description = "Returns loans waiting for disbursal (loan_status_id = 200) whose expected disbursal date falls within the provided date range.")
+    @Operation(summary = "List Pending Disbursements", description = "Returns loans waiting for disbursal (loan_status_id = 200) whose expected disbursal date falls within the provided date range.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = LoansApiResourceSwagger.GetLoansResponse.class))) })
     public String retrievePendingDisbursements(@Context final UriInfo uriInfo,
@@ -584,8 +585,7 @@ public class LoansApiResource {
     @Path("repayment-scheduled")
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
-    @Operation(summary = "List Repayment Scheduled",
-            description = "Returns loan accounts with scheduled repayments (m_loan_repayment_schedule) whose due date falls within the provided date range.")
+    @Operation(summary = "List Repayment Scheduled", description = "Returns loan accounts with scheduled repayments (m_loan_repayment_schedule) whose due date falls within the provided date range.")
     public String retrieveRepaymentScheduled(@Context final UriInfo uriInfo,
             @QueryParam("fromDate") @Parameter(description = "fromDate (YYYY-MM-DD)", required = true) final String fromDate,
             @QueryParam("toDate") @Parameter(description = "toDate (YYYY-MM-DD)", required = true) final String toDate,
@@ -1385,6 +1385,12 @@ public class LoansApiResource {
             commandRequest = builder.approveLoanApplication(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "disburse")) {
             commandRequest = builder.disburseLoanApplication(resolvedLoanId).build();
+        } else if (CommandParameterUtil.is(commandParam, "sourceExactTopupDisburse")) {
+            commandRequest = builder.sourceExactTopupDisburseLoanApplication(resolvedLoanId).build();
+        } else if (CommandParameterUtil.is(commandParam, "sourceExactRefinancingDisburse")) {
+            commandRequest = builder.sourceExactRefinancingDisburseLoanApplication(resolvedLoanId).build();
+        } else if (CommandParameterUtil.is(commandParam, "sourceExactActiveSchedule")) {
+            commandRequest = builder.importSourceExactActiveSchedule(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "disburseToSavings")) {
             commandRequest = builder.disburseLoanToSavingsApplication(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "disburseWithoutAutoDownPayment")) {

@@ -22,7 +22,9 @@ import java.util.List;
 import org.apache.fineract.infrastructure.core.service.ExternalIdFactory;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleTransactionProcessorFactory;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.LoanRepaymentScheduleTransactionProcessor;
+import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.PostDueAccruedInterestCalculator;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.AdvancedPaymentScheduleTransactionProcessor;
+import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.CredesalPenaltiesFeesInterestPrincipalLoanRepaymentScheduleTransactionProcessor;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.CreocoreLoanRepaymentScheduleTransactionProcessor;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.DuePenFeeIntPriInAdvancePriPenFeeIntLoanRepaymentScheduleTransactionProcessor;
@@ -114,6 +116,21 @@ public class LoanAccountAutoStarter {
             final LoanBalanceService loanBalanceService) {
         return new CredesalPenaltiesFeesInterestPrincipalLoanRepaymentScheduleTransactionProcessor(externalIdFactory, loanChargeValidator,
                 loanBalanceService);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public PostDueAccruedInterestCalculator postDueAccruedInterestCalculator() {
+        return new PostDueAccruedInterestCalculator();
+    }
+
+    @Bean
+    @Conditional(CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorCondition.class)
+    public CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor credesalAccruedInterestLoanRepaymentScheduleTransactionProcessor(
+            final ExternalIdFactory externalIdFactory, final LoanChargeValidator loanChargeValidator,
+            final LoanBalanceService loanBalanceService, final PostDueAccruedInterestCalculator postDueAccruedInterestCalculator) {
+        return new CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor(externalIdFactory, loanChargeValidator,
+                loanBalanceService, postDueAccruedInterestCalculator);
     }
 
     @Bean

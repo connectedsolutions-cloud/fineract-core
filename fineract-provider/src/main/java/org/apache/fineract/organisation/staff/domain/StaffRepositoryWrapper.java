@@ -62,17 +62,19 @@ public class StaffRepositoryWrapper {
     }
 
     /**
-     * Find staff by checking if they have any office in common with the provided set of office IDs.
-     * This method checks both the primary office and the offices set (multi-office support).
+     * Find staff by checking if they have any office in common with the provided set of office IDs. This method checks
+     * both the primary office and the offices set (multi-office support).
      *
-     * @param staffId the staff ID to find
-     * @param officeIds the set of office IDs to check for overlap
+     * @param staffId
+     *            the staff ID to find
+     * @param officeIds
+     *            the set of office IDs to check for overlap
      * @return the Staff entity if found and has at least one matching office
-     * @throws StaffNotFoundException if staff not found or has no matching offices
+     * @throws StaffNotFoundException
+     *             if staff not found or has no matching offices
      */
     public Staff findByAnyOfficeWithNotFoundDetection(final Long staffId, final Set<Long> officeIds) {
-        final Staff staff = this.repository.findById(staffId)
-                .orElseThrow(() -> new StaffNotFoundException(staffId));
+        final Staff staff = this.repository.findById(staffId).orElseThrow(() -> new StaffNotFoundException(staffId));
 
         // Collect all staff office IDs (primary + offices set)
         final Set<Long> staffOfficeIds = new HashSet<>();
@@ -84,8 +86,7 @@ public class StaffRepositoryWrapper {
         }
 
         // Check for any overlap
-        final boolean hasMatchingOffice = officeIds.stream()
-                .anyMatch(staffOfficeIds::contains);
+        final boolean hasMatchingOffice = officeIds.stream().anyMatch(staffOfficeIds::contains);
 
         if (!hasMatchingOffice) {
             throw new StaffNotFoundException(staffId);

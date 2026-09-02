@@ -1,0 +1,382 @@
+{
+  "version": 1,
+  "source": {
+    "product_table": "CRD_LINEA_CREDITO",
+    "loan_table": "CRD_CARTERA",
+    "application_table": "CRD_SOLICITUD_CREDITO",
+    "schedule_table": "CRD_PLAN_PAGO",
+    "movement_table": "CRD_MOVIMIENTOS_CARTERA",
+    "charge_table": "CRD_CARGOS_CARTERA",
+    "charge_detail_table": "CRD_DETALLE_CARGOS",
+    "liquidation_header_table": "CRD_ENC_LIQUIDACION",
+    "liquidation_detail_table": "CRD_DET_LIQUIDACION",
+    "transaction_catalog_table": "TRANSACCIONES"
+  },
+  "identity": {
+    "product_key": ["ID_LINEA_CREDITO"],
+    "product_external_id": "ARISSTO:CRD-LINE:{ID_LINEA_CREDITO}",
+    "loan_key": "ID_CREDITO",
+    "loan_external_id": "ARISSTO:CRD:{ID_CREDITO}",
+    "movement_key": "ID_MOVIMIENTO_CARTERA",
+    "movement_external_id": "ARISSTO:CRD-MOV:{ID_MOVIMIENTO_CARTERA}",
+    "component_reallocation_external_id": "ARISSTO:CRD-REALLOC:{ID_MOVIMIENTO_CARTERA}",
+    "legacy_insurance_charge_external_id": "ARISSTO:CRD-INS-LEGACY:{ID_MOVIMIENTO_CARTERA}",
+    "insurance_charge_external_id": "ARISSTO:CRD-INS:{ID_RECARGO_CARTERA}:{ID_MOVIMIENTO_CARTERA}:{ID_PAGOS}",
+    "insurance_cutover_charge_external_id": "ARISSTO:CRD-INS-CUTOVER:{ID_CREDITO}",
+    "insurance_recurring_charge_external_id": "ARISSTO:CRD-INS-FUTURE:{ID_CREDITO}",
+    "cutover_adjustment_external_id": "ARISSTO:CRD-CUTOVER:{ID_CREDITO}",
+    "refinance_adjustment_external_id": "ARISSTO:CRD-REFI-CUTOVER:{OLD_ID_CREDITO}:{NEW_ID_CREDITO}",
+    "refinance_final_adjustment_external_id": "ARISSTO:CRD-REFI-FINAL:{OLD_ID_CREDITO}:{NEW_ID_CREDITO}"
+  },
+  "product_contract": {
+    "target_table": "m_product_loan",
+    "crosswalk_table": "credesal_loan_product_map",
+    "cardinality": "one-source-line-to-one-native-product",
+    "native_write_path": "loan-products-api",
+    "target_baseline": "empty-business-data",
+    "product_ownership": "loans-service-creates-native-products",
+    "resolution_policy": "external-id-create-or-validate",
+    "reuse_unowned_products": false,
+    "crosswalk_write_timing": "after-native-product-create",
+    "creation_scope": "reviewed-lines-required-by-selected-loans",
+    "accounting_type": "accrual-periodic",
+    "transaction_strategy": "credesal-accrued-interest-first-strategy",
+    "source_term_policy": "loan-level-approved-terms-override-line-defaults",
+    "portfolio_account_policy": {
+      "mode": "single-native-account-per-product",
+      "source_primary_field": "ID_CUENTA_CARGO_CAPITAL",
+      "dynamic_gl_switching": false,
+      "split_products_by_historical_account": false,
+      "reviewed_primary_gl_by_line": {
+        "00001": "1141040101",
+        "00010": "1141030101"
+      },
+      "historical_alternate_gl_for_reconciliation": {
+        "00001": ["1142040101"],
+        "00010": ["1142030101"]
+      }
+    },
+    "dimension_contract": {
+      "product_native_type_field": {
+        "target": "m_product_loan.id_tipo_linea",
+        "source": "CRD_LINEA_CREDITO.ID_TIPO_LINEA"
+      },
+      "product_dimensions": {
+        "arisstoCreditLineId": "CRD_LINEA_CREDITO.ID_LINEA_CREDITO",
+        "arisstoCreditLineTypeId": "CRD_LINEA_CREDITO.ID_TIPO_LINEA"
+      },
+      "loan_dimensions": {
+        "arisstoCreditTypeId": "CRD_CARTERA.ID_TIPO_CREDITO",
+        "arisstoSluId": "CRD_CARTERA.ID_SLU"
+      },
+      "journal_propagation": "m_loan.dimensions-to-acc_gl_journal_entry.dimensions",
+      "report_filter": "json-containment"
+    },
+    "reviewed_product_terms": {
+      "00001": {
+        "principal": "500.00",
+        "minPrincipal": "500.00",
+        "maxPrincipal": "3300.00",
+        "numberOfRepayments": 6,
+        "minNumberOfRepayments": 6,
+        "maxNumberOfRepayments": 60,
+        "interestRatePerPeriod": "5.00",
+        "minInterestRatePerPeriod": "2.50",
+        "maxInterestRatePerPeriod": "5.00"
+      },
+      "00010": {
+        "principal": "350.00",
+        "minPrincipal": "100.00",
+        "maxPrincipal": "6800.00",
+        "numberOfRepayments": 12,
+        "minNumberOfRepayments": 1,
+        "maxNumberOfRepayments": 365,
+        "interestRatePerPeriod": "7.00",
+        "minInterestRatePerPeriod": "0.00",
+        "maxInterestRatePerPeriod": "30.00"
+      }
+    },
+    "accounting_gl_codes": {
+      "fundSourceAccountId": "14",
+      "transfersInSuspenseAccountId": "1510",
+      "receivableInterestAccountId": "1520",
+      "receivableFeeAccountId": "1530",
+      "receivablePenaltyAccountId": "1540",
+      "interestOnLoanAccountId": "611001010001",
+      "incomeFromFeeAccountId": "6110010800",
+      "incomeFromPenaltyAccountId": "611001010003",
+      "incomeFromRecoveryAccountId": "6440",
+      "incomeFromChargeOffFeesAccountId": "6422",
+      "incomeFromChargeOffInterestAccountId": "6412",
+      "incomeFromChargeOffPenaltyAccountId": "6432",
+      "incomeFromGoodwillCreditInterestAccountId": "6411",
+      "incomeFromGoodwillCreditFeesAccountId": "6421",
+      "incomeFromGoodwillCreditPenaltyAccountId": "6431",
+      "writeOffAccountId": "73",
+      "goodwillCreditAccountId": "76",
+      "chargeOffExpenseAccountId": "74",
+      "chargeOffFraudExpenseAccountId": "75",
+      "overpaymentLiabilityAccountId": "2220070302"
+    },
+    "target_resources": {
+      "debt_insurance_charge": {
+        "amount": "0.06",
+        "charge_time_type": 8,
+        "calculation_type": 8,
+        "income_or_liability_gl": "222007020102"
+      },
+      "historical_debt_insurance_charge": {
+        "name": "Arissto historical debt-insurance allocation",
+        "charge_time_type": 2,
+        "calculation_type": 1,
+        "income_or_liability_gl": "222007020102"
+      },
+      "historical_penalty_charge": {
+        "name": "Arissto historical penalty allocation",
+        "charge_time_type": 2,
+        "calculation_type": 1
+      },
+      "mobile_collection_payment_type": "Cobro Móvil",
+      "mobile_collection_fund_source_gl": "222099940104"
+    }
+  },
+  "historical_schedule_exceptions": {
+    "00001": {
+      "classification": "manual-adjustment",
+      "source_loan_ids": [24, 435, 945],
+      "plan_behavior": "accept-native-schedule",
+      "blocking": false,
+      "synthesize_missing_installments": false,
+      "synthesize_adjustment_transactions": false,
+      "required_reconciliation": [
+        "source-movement-identities",
+        "source-movement-component-totals",
+        "cutover-balances",
+        "terminal-status"
+      ]
+    },
+    "00010": {
+      "classification": "manual-adjustment",
+      "source_loan_ids": [23, 90, 317, 340, 359, 1117, 1484, 1743, 1748, 2069, 2241, 2254, 2355],
+      "plan_behavior": "accept-native-schedule",
+      "blocking": false,
+      "synthesize_missing_installments": false,
+      "synthesize_adjustment_transactions": false,
+      "required_reconciliation": [
+        "source-movement-identities",
+        "source-movement-component-totals",
+        "cutover-balances",
+        "terminal-status"
+      ]
+    }
+  },
+  "historical_reference_only_schedules": {
+    "26": {
+      "classification": "closed-zero-principal-schedule-with-exact-lifecycle",
+      "plan_behavior": "accept-native-schedule",
+      "blocking": false,
+      "synthesize_missing_installments": false,
+      "synthesize_adjustment_transactions": false,
+      "required_reconciliation": [
+        "source-movement-identities",
+        "source-movement-component-totals",
+        "cutover-balances",
+        "terminal-status"
+      ]
+    },
+    "83": {
+      "classification": "incomplete-source-contractual-schedule",
+      "plan_behavior": "accept-native-schedule",
+      "blocking": false,
+      "synthesize_missing_installments": false,
+      "synthesize_adjustment_transactions": false,
+      "required_reconciliation": [
+        "source-movement-identities",
+        "source-movement-component-totals",
+        "cutover-balances",
+        "terminal-status"
+      ]
+    },
+    "381": {
+      "classification": "terminal-zero-core-charge-only-row",
+      "plan_behavior": "accept-native-schedule",
+      "blocking": false,
+      "synthesize_missing_installments": false,
+      "synthesize_adjustment_transactions": false,
+      "required_reconciliation": [
+        "source-movement-identities",
+        "source-movement-component-totals",
+        "cutover-balances",
+        "terminal-status"
+      ]
+    },
+    "1775": {
+      "classification": "terminal-zero-core-charge-only-row",
+      "plan_behavior": "accept-native-schedule",
+      "blocking": false,
+      "synthesize_missing_installments": false,
+      "synthesize_adjustment_transactions": false,
+      "required_reconciliation": [
+        "source-movement-identities",
+        "source-movement-component-totals",
+        "cutover-balances",
+        "terminal-status"
+      ]
+    },
+    "1871": {
+      "classification": "terminal-zero-core-charge-only-row",
+      "plan_behavior": "accept-native-schedule",
+      "blocking": false,
+      "synthesize_missing_installments": false,
+      "synthesize_adjustment_transactions": false,
+      "required_reconciliation": [
+        "source-movement-identities",
+        "source-movement-component-totals",
+        "cutover-balances",
+        "terminal-status"
+      ]
+    },
+    "2006": {
+      "classification": "terminal-zero-core-charge-only-row",
+      "plan_behavior": "accept-native-schedule",
+      "blocking": false,
+      "synthesize_missing_installments": false,
+      "synthesize_adjustment_transactions": false,
+      "required_reconciliation": [
+        "source-movement-identities",
+        "source-movement-component-totals",
+        "cutover-balances",
+        "terminal-status"
+      ]
+    },
+    "8": {
+      "classification": "trailing-zero-core-schedule-rows",
+      "plan_behavior": "accept-native-schedule",
+      "blocking": false,
+      "synthesize_missing_installments": false,
+      "synthesize_adjustment_transactions": false,
+      "required_reconciliation": [
+        "source-movement-identities",
+        "source-movement-component-totals",
+        "cutover-balances",
+        "terminal-status"
+      ]
+    },
+    "1739": {
+      "classification": "trailing-zero-core-schedule-rows",
+      "plan_behavior": "accept-native-schedule",
+      "blocking": false,
+      "synthesize_missing_installments": false,
+      "synthesize_adjustment_transactions": false,
+      "required_reconciliation": [
+        "source-movement-identities",
+        "source-movement-component-totals",
+        "cutover-balances",
+        "terminal-status"
+      ]
+    },
+    "1795": {
+      "classification": "trailing-zero-core-schedule-rows",
+      "plan_behavior": "accept-native-schedule",
+      "blocking": false,
+      "synthesize_missing_installments": false,
+      "synthesize_adjustment_transactions": false,
+      "required_reconciliation": [
+        "source-movement-identities",
+        "source-movement-component-totals",
+        "cutover-balances",
+        "terminal-status"
+      ]
+    },
+    "1893": {
+      "classification": "trailing-zero-core-schedule-rows",
+      "plan_behavior": "accept-native-schedule",
+      "blocking": false,
+      "synthesize_missing_installments": false,
+      "synthesize_adjustment_transactions": false,
+      "required_reconciliation": [
+        "source-movement-identities",
+        "source-movement-component-totals",
+        "cutover-balances",
+        "terminal-status"
+      ]
+    },
+    "2063": {
+      "classification": "trailing-zero-core-schedule-rows",
+      "plan_behavior": "accept-native-schedule",
+      "blocking": false,
+      "synthesize_missing_installments": false,
+      "synthesize_adjustment_transactions": false,
+      "required_reconciliation": [
+        "source-movement-identities",
+        "source-movement-component-totals",
+        "cutover-balances",
+        "terminal-status"
+      ]
+    },
+    "2111": {
+      "classification": "trailing-zero-core-schedule-rows",
+      "plan_behavior": "accept-native-schedule",
+      "blocking": false,
+      "synthesize_missing_installments": false,
+      "synthesize_adjustment_transactions": false,
+      "required_reconciliation": [
+        "source-movement-identities",
+        "source-movement-component-totals",
+        "cutover-balances",
+        "terminal-status"
+      ]
+    },
+    "2482": {
+      "classification": "trailing-zero-core-schedule-rows",
+      "plan_behavior": "accept-native-schedule",
+      "blocking": false,
+      "synthesize_missing_installments": false,
+      "synthesize_adjustment_transactions": false,
+      "required_reconciliation": [
+        "source-movement-identities",
+        "source-movement-component-totals",
+        "cutover-balances",
+        "terminal-status"
+      ]
+    }
+  },
+  "source_error_quarantines": {
+    "2120": {
+      "classification": "superseded-undisbursed-shell",
+      "plan_behavior": "quarantine-loan",
+      "replacement_loan_id": 2121,
+      "create_target_loan": false
+    }
+  },
+  "target": {
+    "currency": "USD",
+    "product_table": "m_product_loan",
+    "product_map_table": "credesal_loan_product_map",
+    "loan_table": "m_loan",
+    "transaction_table": "m_loan_transaction",
+    "account_mapping_table": "acc_product_mapping",
+    "gl_account_table": "acc_gl_account"
+  },
+  "supported_transactions": {
+    "4:00001": "repayment",
+    "4:00002": "disbursement",
+    "4:00004": "repayment-reversal",
+    "4:00013": "adjusted-repayment",
+    "4:00019": "refinance-payoff-candidate",
+    "4:00030": "disbursement-reversal",
+    "14:00011": "mobile-collection-repayment"
+  },
+  "timestamp_precedence_candidates": [
+    "FECHA_OPERACION",
+    "FECHA_VALOR",
+    "FECHA_PAGO",
+    "DT_MOVIMIENTO",
+    "DT_CREO"
+  ],
+  "movement_order": [
+    "FECHA_OPERACION",
+    "ID_MOVIMIENTO_CARTERA"
+  ],
+  "implementation_gates": []
+}

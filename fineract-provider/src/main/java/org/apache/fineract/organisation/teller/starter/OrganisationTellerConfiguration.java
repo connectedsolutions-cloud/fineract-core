@@ -63,8 +63,7 @@ public class OrganisationTellerConfiguration {
             OfficeRepositoryWrapper officeRepositoryWrapper, StaffRepository staffRepository, CashierRepository cashierRepository,
             CashierTransactionRepository cashierTxnRepository, JournalEntryRepository glJournalEntryRepository,
             FinancialActivityAccountRepositoryWrapper financialActivityAccountRepositoryWrapper,
-            CashierTransactionDataValidator cashierTransactionDataValidator,
-            CurrencyReadPlatformService currencyReadPlatformService) {
+            CashierTransactionDataValidator cashierTransactionDataValidator, CurrencyReadPlatformService currencyReadPlatformService) {
         return new TellerWritePlatformServiceJpaImpl(context, fromApiJsonDeserializer, tellerRepositoryWrapper, officeRepositoryWrapper,
                 staffRepository, cashierRepository, cashierTxnRepository, glJournalEntryRepository,
                 financialActivityAccountRepositoryWrapper, cashierTransactionDataValidator, currencyReadPlatformService);

@@ -62,8 +62,8 @@
             FROM m_staff
             WHERE office_id IS NOT NULL
             AND NOT EXISTS (
-                SELECT 1 FROM m_staff_office 
-                WHERE m_staff_office.staff_id = m_staff.id 
+                SELECT 1 FROM m_staff_office
+                WHERE m_staff_office.staff_id = m_staff.id
                 AND m_staff_office.office_id = m_staff.office_id
             );
         </sql>
@@ -82,15 +82,15 @@
             -- Drop NOT NULL constraint on office_id (actual column name in schema)
             -- PostgreSQL allows DROP NOT NULL even if constraint doesn't exist - it just does nothing
             ALTER TABLE m_staff ALTER COLUMN office_id DROP NOT NULL;
-            
+
             -- Also try to drop NOT NULL on primary_office_id if column exists (error message shows this name)
             -- Using DO block to handle case where column doesn't exist gracefully
             DO $$
             BEGIN
                 IF EXISTS (
-                    SELECT 1 FROM information_schema.columns 
+                    SELECT 1 FROM information_schema.columns
                     WHERE table_schema = current_schema()
-                    AND table_name = 'm_staff' 
+                    AND table_name = 'm_staff'
                     AND column_name = 'primary_office_id'
                 ) THEN
                     ALTER TABLE m_staff ALTER COLUMN primary_office_id DROP NOT NULL;
@@ -102,7 +102,7 @@
             END $$;
         ]]></sql>
     </changeSet>
-    
+
     <!-- Force drop NOT NULL using raw SQL for MySQL/MariaDB -->
     <changeSet id="4" author="fineract">
         <validCheckSum>9:46bc04511f5bbc7fd2cc600b535c415f</validCheckSum>
@@ -116,7 +116,7 @@
             ALTER TABLE m_staff MODIFY COLUMN office_id BIGINT NULL;
         </sql>
     </changeSet>
-    
+
     <!-- Also handle primary_office_id for MySQL if it exists -->
     <changeSet id="5" author="fineract">
         <validCheckSum>9:e69dc970792698ff6c50009994f701df</validCheckSum>
@@ -130,7 +130,7 @@
             ALTER TABLE m_staff MODIFY COLUMN primary_office_id BIGINT NULL;
         </sql>
     </changeSet>
-    
+
     <!-- Use standard dropNotNullConstraint as fallback (without preconditions checking nullability) -->
     <!-- This will work if the column exists and has NOT NULL constraint -->
     <!-- Note: This changeset will attempt to run but PostgreSQL should already be handled by changeset 3 -->
@@ -142,7 +142,7 @@
         </preConditions>
         <dropNotNullConstraint tableName="m_staff" columnName="office_id" columnDataType="BIGINT"/>
     </changeSet>
-    
+
     <!-- Also handle primary_office_id with standard dropNotNullConstraint -->
     <changeSet id="7" author="fineract">
         <preConditions onFail="MARK_RAN">

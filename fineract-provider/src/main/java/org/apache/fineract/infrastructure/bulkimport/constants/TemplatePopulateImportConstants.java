@@ -81,12 +81,14 @@ public final class TemplatePopulateImportConstants {
     // InterestCompoundingPeriod
     public static final String INTEREST_COMPOUNDING_PERIOD_DAILY = "Daily";
     public static final String INTEREST_COMPOUNDING_PERIOD_MONTHLY = "Monthly";
+    public static final String INTEREST_COMPOUNDING_PERIOD_MONTHLY_ON_ACTIVATION_DATE = "Monthly on activation date";
     public static final String INTEREST_COMPOUNDING_PERIOD_QUARTERLY = "Quarterly";
     public static final String INTEREST_COMPOUNDING_PERIOD_SEMI_ANNUALLY = "Semi-Annual";
     public static final String INTEREST_COMPOUNDING_PERIOD_ANNUALLY = "Annually";
 
     // InterestPostingPeriod
     public static final String INTEREST_POSTING_PERIOD_MONTHLY = "Monthly";
+    public static final String INTEREST_POSTING_PERIOD_MONTHLY_ON_ACTIVATION_DATE = "Monthly on activation date";
     public static final String INTEREST_POSTING_PERIOD_QUARTERLY = "Quarterly";
     public static final String INTEREST_POSTING_PERIOD_BIANUALLY = "BiAnnual";
     public static final String INTEREST_POSTING_PERIOD_ANNUALLY = "Annually";
@@ -96,6 +98,7 @@ public final class TemplatePopulateImportConstants {
     public static final String INTEREST_CAL_AVG_BALANCE = "Average Daily Balance";
 
     // InterestCalculation Day in Year
+    public static final String INTEREST_CAL_DAYS_IN_YEAR_ACTUAL = "Actual";
     public static final String INTEREST_CAL_DAYS_IN_YEAR_360 = "360 Days";
     public static final String INTEREST_CAL_DAYS_IN_YEAR_365 = "365 Days";
 

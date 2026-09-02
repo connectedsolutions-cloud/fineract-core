@@ -533,7 +533,8 @@ public class LoanScheduleAssembler {
                     .extractBooleanNamed(LoanApiConstants.INTEREST_RECOGNITION_ON_DISBURSEMENT_DATE, element);
         }
 
-        return LoanApplicationTerms.assembleFrom(applicationCurrency.toData(), loanTermFrequency, loanTermPeriodFrequencyType,
+        final LoanApplicationTerms loanApplicationTerms = LoanApplicationTerms.assembleFrom(applicationCurrency.toData(), loanTermFrequency,
+                loanTermPeriodFrequencyType,
                 numberOfRepayments, repaymentEvery, repaymentPeriodFrequencyType, nthDay, weekDayType, amortizationMethod, interestMethod,
                 interestRatePerPeriod, interestRatePeriodFrequencyType, annualNominalInterestRate, interestCalculationPeriodMethod,
                 allowPartialPeriodInterestCalcualtion, principalMoney, expectedDisbursementDate, repaymentsStartingFromDate,
@@ -562,6 +563,10 @@ public class LoanScheduleAssembler {
                 loanProduct.getLoanProductRelatedDetail().getBuyDownFeeStrategy(),
                 loanProduct.getLoanProductRelatedDetail().getBuyDownFeeIncomeType(),
                 loanProduct.getLoanProductRelatedDetail().isMerchantBuyDownFee());
+        loanApplicationTerms
+                .setRoundCalculatedInstallmentUp(loanProduct.getLoanProductRelatedDetail().isRoundCalculatedInstallmentUp());
+        loanApplicationTerms.setRoundInterestHalfCentDown(loanProduct.usesCredesalInterestRounding());
+        return loanApplicationTerms;
     }
 
     private CalendarInstance createCalendarForSameAsRepayment(final Integer repaymentEvery,

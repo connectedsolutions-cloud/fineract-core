@@ -56,6 +56,7 @@ import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -116,6 +117,8 @@ import org.apache.fineract.portfolio.savings.exception.SavingsAccountCreditsBloc
 import org.apache.fineract.portfolio.savings.exception.SavingsAccountDebitsBlockedException;
 import org.apache.fineract.portfolio.savings.exception.SavingsAccountTransactionNotFoundException;
 import org.apache.fineract.portfolio.savings.exception.SavingsActivityPriorToClientTransferException;
+import org.apache.fineract.portfolio.savings.exception.SavingsExplicitInterestPostingException;
+import org.apache.fineract.portfolio.savings.exception.SavingsExplicitWithholdTaxException;
 import org.apache.fineract.portfolio.savings.exception.SavingsOfficerAssignmentDateException;
 import org.apache.fineract.portfolio.savings.exception.SavingsOfficerUnassignmentDateException;
 import org.apache.fineract.portfolio.savings.exception.SavingsTransferTransactionsCannotBeUndoneException;
@@ -570,7 +573,9 @@ public class SavingsAccount extends AbstractAuditableWithUTCDateTimeCustom<Long>
                     recalucateDailyBalanceDetails = true;
                 } else {
                     boolean correctionRequired = false;
-                    if (postingTransaction.isInterestPostingAndNotReversed()) {
+                    if (postingTransaction.isReferencedManualInterestPosting()) {
+                        correctionRequired = false;
+                    } else if (postingTransaction.isInterestPostingAndNotReversed()) {
                         correctionRequired = postingTransaction.hasNotAmount(interestEarnedToBePostedForPeriod);
                     } else {
                         correctionRequired = postingTransaction.hasNotAmount(interestEarnedToBePostedForPeriod.negated());
@@ -729,6 +734,89 @@ public class SavingsAccount extends AbstractAuditableWithUTCDateTimeCustom<Long>
         return isTaxAdded;
     }
 
+    public SavingsAccountTransaction createExplicitWithholdTaxTransaction(final BigDecimal grossInterestAmount,
+            final BigDecimal expectedTaxAmount, final LocalDate date, final String refNo, final boolean backdatedTxnsAllowedTill) {
+        if (!this.depositAccountType().isSavingsDeposit()) {
+            throw new SavingsExplicitWithholdTaxException("linked.account.must.be.ordinary.savings", getId());
+        }
+        if (this.taxGroup == null) {
+            throw new SavingsExplicitWithholdTaxException("tax.group.missing", getId());
+        }
+
+        final Map<TaxComponent, BigDecimal> taxSplit = TaxUtils.splitTax(grossInterestAmount, date, this.taxGroup.getTaxGroupMappings(),
+                grossInterestAmount.scale());
+        BigDecimal calculatedTaxAmount = TaxUtils.totalTaxAmount(taxSplit);
+        if (calculatedTaxAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new SavingsExplicitWithholdTaxException("calculated.amount.not.positive", getId(), grossInterestAmount);
+        }
+        if (calculatedTaxAmount.compareTo(expectedTaxAmount) != 0) {
+            final int currencyScale = currency.getDigitsAfterDecimal();
+            final BigDecimal sourceRoundingDifference = expectedTaxAmount.setScale(currencyScale, RoundingMode.HALF_UP)
+                    .subtract(calculatedTaxAmount.setScale(currencyScale, RoundingMode.HALF_UP));
+            final BigDecimal smallestCurrencyUnit = BigDecimal.ONE.movePointLeft(currencyScale);
+            if (sourceRoundingDifference.abs().compareTo(smallestCurrencyUnit) > 0 || taxSplit.isEmpty()) {
+                throw new SavingsExplicitWithholdTaxException("amount.mismatch", getId(), expectedTaxAmount, calculatedTaxAmount);
+            }
+            final TaxComponent adjustmentComponent = taxSplit.keySet().stream().min((left, right) -> left.getId().compareTo(right.getId()))
+                    .orElseThrow();
+            final BigDecimal adjustedComponentAmount = taxSplit.get(adjustmentComponent).add(sourceRoundingDifference);
+            if (adjustedComponentAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new SavingsExplicitWithholdTaxException("amount.mismatch", getId(), expectedTaxAmount, calculatedTaxAmount);
+            }
+            taxSplit.put(adjustmentComponent, adjustedComponentAmount);
+            calculatedTaxAmount = expectedTaxAmount;
+        }
+
+        final SavingsAccountTransaction transaction = SavingsAccountTransaction.withHoldTax(this, office(), date,
+                Money.of(currency, calculatedTaxAmount), taxSplit, refNo);
+        if (backdatedTxnsAllowedTill) {
+            addTransactionToExisting(transaction);
+        } else {
+            addTransaction(transaction);
+        }
+        return transaction;
+    }
+
+    public SavingsAccountTransaction createExplicitInterestPostingTransaction(final BigDecimal amount, final LocalDate date,
+            final String refNo, final boolean backdatedTxnsAllowedTill) {
+        if (!this.depositAccountType().isSavingsDeposit() && !this.depositAccountType().isFixedDeposit()) {
+            throw new SavingsExplicitInterestPostingException("account.must.be.savings.or.fixed.deposit", getId());
+        }
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new SavingsExplicitInterestPostingException("amount.must.be.positive", getId(), amount);
+        }
+        if (StringUtils.isBlank(refNo)) {
+            throw new SavingsExplicitInterestPostingException("reference.required", getId());
+        }
+
+        // A chronological migration replay uses the ordinary deposit API for
+        // customer movements. Fineract may calculate an unreferenced posting
+        // for this historical period before the source-authoritative posting
+        // command arrives. Replace that calculated row instead of retaining
+        // both amounts. Referenced manual postings remain immutable and are
+        // handled by the command service's reference-idempotency check.
+        final List<SavingsAccountTransaction> accountTransactions = backdatedTxnsAllowedTill
+                ? getSavingsAccountTransactionsWithPivotConfig()
+                : getTransactions();
+        for (final SavingsAccountTransaction existing : accountTransactions) {
+            if (existing.isInterestPostingAndNotReversed() && existing.occursOn(date) && !existing.isReversalTransaction()) {
+                if (existing.isReferencedManualInterestPosting()) {
+                    throw new SavingsExplicitInterestPostingException("date.already.has.referenced.posting", getId(), date);
+                }
+                existing.reverse();
+            }
+        }
+
+        final SavingsAccountTransaction transaction = SavingsAccountTransaction.interestPosting(this, office(), date,
+                Money.of(currency, amount), true, refNo);
+        if (backdatedTxnsAllowedTill) {
+            addTransactionToExisting(transaction);
+        } else {
+            addTransaction(transaction);
+        }
+        return transaction;
+    }
+
     protected boolean updateWithHoldTransaction(final BigDecimal amount, final SavingsAccountTransaction withholdTransaction) {
         boolean isTaxAdded = false;
         if (this.taxGroup != null && amount.compareTo(BigDecimal.ZERO) > 0) {
@@ -847,12 +935,15 @@ public class SavingsAccount extends AbstractAuditableWithUTCDateTimeCustom<Long>
             } else {
                 postedAsOnDates = getManualPostingDates();
             }
+            if (isSavingsInterestPostingAtCurrentPeriodEnd && !postedAsOnDates.isEmpty()) {
+                postedAsOnDates = postedAsOnDates.stream().map(postingDate -> postingDate.plusDays(1)).collect(Collectors.toList());
+            }
             if (postInterestOnDate != null) {
                 postedAsOnDates.add(postInterestOnDate);
             }
             final List<LocalDateInterval> postingPeriodIntervals = this.savingsHelper.determineInterestPostingPeriods(
-                    getStartInterestCalculationDate(), upToInterestCalculationDate, postingPeriodType, financialYearBeginningMonth,
-                    postedAsOnDates);
+                    getStartInterestCalculationDate(), getActivationDate(), upToInterestCalculationDate, postingPeriodType,
+                    financialYearBeginningMonth, postedAsOnDates);
 
             Money periodStartingBalance;
             if (this.startInterestCalculationDate != null && !this.getStartInterestCalculationDate().equals(this.getActivationDate())) {
@@ -901,9 +992,9 @@ public class SavingsAccount extends AbstractAuditableWithUTCDateTimeCustom<Long>
 
                 postingPeriod = PostingPeriod.createFrom(periodInterval, periodStartingBalance,
                         savingsAccountTransactionDetailsForPostingPeriod, this.currency, compoundingPeriodType, interestCalculationType,
-                        interestRateAsFraction, daysInYearType.getValue(), upToInterestCalculationDate, interestPostTransactions,
-                        isInterestTransfer, minBalanceForInterestCalculation, isSavingsInterestPostingAtCurrentPeriodEnd,
-                        overdraftInterestRateAsFraction, minOverdraftForInterestCalculation, isUserPosting, financialYearBeginningMonth);
+                        interestRateAsFraction, daysInYearType, upToInterestCalculationDate, interestPostTransactions, isInterestTransfer,
+                        minBalanceForInterestCalculation, isSavingsInterestPostingAtCurrentPeriodEnd, overdraftInterestRateAsFraction,
+                        minOverdraftForInterestCalculation, isUserPosting, financialYearBeginningMonth);
 
                 periodStartingBalance = postingPeriod.closingBalance();
 
@@ -3291,6 +3382,9 @@ public class SavingsAccount extends AbstractAuditableWithUTCDateTimeCustom<Long>
         postingtoCompoundMap.put(SavingsPostingInterestPeriodType.MONTHLY,
                 Arrays.asList(SavingsCompoundingInterestPeriodType.DAILY, SavingsCompoundingInterestPeriodType.MONTHLY));
 
+        postingtoCompoundMap.put(SavingsPostingInterestPeriodType.MONTHLY_ON_ACTIVATION_DATE,
+                Arrays.asList(SavingsCompoundingInterestPeriodType.DAILY, SavingsCompoundingInterestPeriodType.MONTHLY_ON_ACTIVATION_DATE));
+
         postingtoCompoundMap.put(SavingsPostingInterestPeriodType.QUATERLY, Arrays.asList(SavingsCompoundingInterestPeriodType.DAILY,
                 SavingsCompoundingInterestPeriodType.MONTHLY, SavingsCompoundingInterestPeriodType.QUATERLY));
 
@@ -3462,7 +3556,7 @@ public class SavingsAccount extends AbstractAuditableWithUTCDateTimeCustom<Long>
         if (withholdTransaction == null && this.withHoldTax()) {
             boolean isWithholdTaxAdded = createWithHoldTransaction(totalInterestPosted, interestPostingUpToDate, backdatedTxnsAllowedTill);
             recalucateDailyBalance = recalucateDailyBalance || isWithholdTaxAdded;
-        } else {
+        } else if (withholdTransaction != null) {
             boolean isWithholdTaxAdded = updateWithHoldTransaction(totalInterestPosted, withholdTransaction);
             recalucateDailyBalance = recalucateDailyBalance || isWithholdTaxAdded;
         }

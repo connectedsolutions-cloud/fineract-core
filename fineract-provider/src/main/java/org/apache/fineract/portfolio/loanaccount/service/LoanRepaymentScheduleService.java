@@ -166,6 +166,8 @@ public class LoanRepaymentScheduleService {
 
             final BigDecimal interestExpectedDue = installment.getInterestCharged() != null ? installment.getInterestCharged()
                     : BigDecimal.ZERO;
+            final BigDecimal interestOriginalDue = interestExpectedDue
+                    .subtract(installment.getPostDueInterestCharged() != null ? installment.getPostDueInterestCharged() : BigDecimal.ZERO);
             totalInterestCharged = totalInterestCharged.plus(interestExpectedDue);
             final BigDecimal interestPaid = installment.getInterestPaid() != null ? installment.getInterestPaid() : BigDecimal.ZERO;
             final BigDecimal interestWaived = installment.getInterestWaived() != null ? installment.getInterestWaived() : BigDecimal.ZERO;
@@ -246,7 +248,7 @@ public class LoanRepaymentScheduleService {
 
             periodData = LoanSchedulePeriodData.periodWithPayments(period, fromDate, dueDate, obligationsMetOnDate, complete, principalDue,
                     principalPaid, principalWrittenOff, principalOutstanding, outstandingPrincipalBalanceOfLoan, interestExpectedDue,
-                    interestPaid, interestWaived, interestWrittenOff, interestOutstanding, feeChargesExpectedDue, feeChargesPaid,
+                    interestOriginalDue, interestPaid, interestWaived, interestWrittenOff, interestOutstanding, feeChargesExpectedDue, feeChargesPaid,
                     feeChargesWaived, feeChargesWrittenOff, feeChargesOutstanding, penaltyChargesExpectedDue, penaltyChargesPaid,
                     penaltyChargesWaived, penaltyChargesWrittenOff, penaltyChargesOutstanding, totalPaidForPeriod,
                     totalPaidInAdvanceForPeriod, totalPaidLateForPeriod, totalWaivedForPeriod, totalWrittenOffForPeriod, credits,

@@ -36,3 +36,4 @@ gradleExp/
 
 .windsurf/
 logs/fineract.log
+.tenant-baselines/

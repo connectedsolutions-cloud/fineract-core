@@ -76,6 +76,10 @@ public class AccrualBasedAccountingProcessorForLoan implements AccountingProcess
                 createJournalEntriesForAccruals(loanDTO, loanTransactionDTO, office);
             }
 
+            else if (loanTransactionDTO.isSourceExactComponentReallocation()) {
+                createJournalEntriesForSourceExactComponentReallocation(loanDTO, loanTransactionDTO, office);
+            }
+
             /*
              * Handle repayments, loan refunds, repayments at disbursement (except charge adjustment)
              */
@@ -156,6 +160,28 @@ public class AccrualBasedAccountingProcessorForLoan implements AccountingProcess
             if (transactionType.isBuyDownFeeAmortizationAdjustment()) {
                 createJournalEntriesForBuyDownFeeAmortizationAdjustment(loanDTO, loanTransactionDTO, office);
             }
+        }
+    }
+
+    private void createJournalEntriesForSourceExactComponentReallocation(final LoanDTO loanDTO, final LoanTransactionDTO transaction,
+            final Office office) {
+        final BigDecimal amount = transaction.getPrincipal();
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0 || transaction.getInterest() == null
+                || amount.add(transaction.getInterest()).compareTo(BigDecimal.ZERO) != 0) {
+            throw new IllegalStateException("Invalid persisted source-exact component reallocation");
+        }
+        final GLAccountBalanceHolder balances = new GLAccountBalanceHolder();
+        populateCreditDebitMaps(loanDTO.getLoanProductId(), amount, transaction.getPaymentTypeId(),
+                AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), AccrualAccountsForLoan.INTEREST_RECEIVABLE.getValue(), balances);
+        for (final Map.Entry<Long, BigDecimal> entry : balances.getCreditBalances().entrySet()) {
+            this.helper.createCreditJournalEntryForLoan(office, loanDTO.getCurrencyCode(), loanDTO.getLoanId(),
+                    transaction.getTransactionId(), transaction.getTransactionDate(), entry.getValue(),
+                    balances.getGlAccountMap().get(entry.getKey()), loanDTO.getDimensions());
+        }
+        for (final Map.Entry<Long, BigDecimal> entry : balances.getDebitBalances().entrySet()) {
+            this.helper.createDebitJournalEntryForLoan(office, loanDTO.getCurrencyCode(), loanDTO.getLoanId(),
+                    transaction.getTransactionId(), transaction.getTransactionDate(), entry.getValue(),
+                    balances.getGlAccountMap().get(entry.getKey()), loanDTO.getDimensions());
         }
     }
 
@@ -1728,9 +1754,9 @@ public class AccrualBasedAccountingProcessorForLoan implements AccountingProcess
             } else {
                 totalDebitAmount = totalDebitAmount.add(feesAmount);
                 if (isIncomeFromFee) {
-                    this.helper.createCreditJournalEntryForLoanCharges(office, currencyCode, AccrualAccountsForLoan.INCOME_FROM_FEES.getValue(),
-                            loanProductId, loanId, transactionId, transactionDate, feesAmount, loanTransactionDTO.getFeePayments(),
-                            loanDTO.getDimensions());
+                    this.helper.createCreditJournalEntryForLoanCharges(office, currencyCode,
+                            AccrualAccountsForLoan.INCOME_FROM_FEES.getValue(), loanProductId, loanId, transactionId, transactionDate,
+                            feesAmount, loanTransactionDTO.getFeePayments(), loanDTO.getDimensions());
                 } else {
                     final GLAccount account = this.helper.getLinkedGLAccountForLoanProduct(loanProductId,
                             AccrualAccountsForLoan.FEES_RECEIVABLE.getValue(), paymentTypeId);
@@ -1826,7 +1852,8 @@ public class AccrualBasedAccountingProcessorForLoan implements AccountingProcess
 
                 } else {
                     this.helper.createDebitJournalEntryForLoan(office, currencyCode, AccrualAccountsForLoan.FUND_SOURCE.getValue(),
-                            loanProductId, paymentTypeId, loanId, transactionId, transactionDate, totalDebitAmount, loanDTO.getDimensions());
+                            loanProductId, paymentTypeId, loanId, transactionId, transactionDate, totalDebitAmount,
+                            loanDTO.getDimensions());
                 }
             }
         }

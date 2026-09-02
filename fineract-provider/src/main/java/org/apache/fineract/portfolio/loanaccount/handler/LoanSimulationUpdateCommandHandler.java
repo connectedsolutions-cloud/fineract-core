@@ -40,7 +40,3 @@ public class LoanSimulationUpdateCommandHandler implements NewCommandSourceHandl
         return this.writePlatformService.updateLoanSimulation(command);
     }
 }
-
-
-
-

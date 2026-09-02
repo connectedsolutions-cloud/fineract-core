@@ -151,7 +151,7 @@
   "status": {"001": "active", "003": "active"},
   "create_defaults": {"active": true, "legalFormId": 1},
   "office_mapping": {"001": 1, "002": 2},
-  "activation_floor_by_branch": {"001": "2022-12-10", "002": "2024-12-11"},
+  "activation_floor_by_branch": {"001": "2022-12-10", "002": "2024-11-27"},
   "deactivation": {"closure_reason_id": null},
   "notes": [
     "AFI_SOCIO.NUMERO_AFILIACION is the canonical unprefixed Fineract externalId and cross-service client mapping key; company/branch/ID_SOCIO remain the Arissto relational join.",

@@ -145,6 +145,9 @@ public class FixedDepositImportHandler implements ImportHandler {
                     .equalsIgnoreCase(TemplatePopulateImportConstants.INTEREST_COMPOUNDING_PERIOD_MONTHLY)) {
                 interestCompoundingPeriodTypeId = 4L;
             } else if (interestCompoundingPeriodType
+                    .equalsIgnoreCase(TemplatePopulateImportConstants.INTEREST_COMPOUNDING_PERIOD_MONTHLY_ON_ACTIVATION_DATE)) {
+                interestCompoundingPeriodTypeId = 9L;
+            } else if (interestCompoundingPeriodType
                     .equalsIgnoreCase(TemplatePopulateImportConstants.INTEREST_COMPOUNDING_PERIOD_QUARTERLY)) {
                 interestCompoundingPeriodTypeId = 5L;
             } else if (interestCompoundingPeriodType
@@ -163,6 +166,9 @@ public class FixedDepositImportHandler implements ImportHandler {
         if (interestPostingPeriodType != null) {
             if (interestPostingPeriodType.equalsIgnoreCase(TemplatePopulateImportConstants.INTEREST_POSTING_PERIOD_MONTHLY)) {
                 interestPostingPeriodTypeId = 4L;
+            } else if (interestPostingPeriodType
+                    .equalsIgnoreCase(TemplatePopulateImportConstants.INTEREST_POSTING_PERIOD_MONTHLY_ON_ACTIVATION_DATE)) {
+                interestPostingPeriodTypeId = 9L;
             } else if (interestPostingPeriodType.equalsIgnoreCase(TemplatePopulateImportConstants.INTEREST_POSTING_PERIOD_QUARTERLY)) {
                 interestPostingPeriodTypeId = 5L;
             } else if (interestPostingPeriodType.equalsIgnoreCase(TemplatePopulateImportConstants.INTEREST_COMPOUNDING_PERIOD_ANNUALLY)) {
@@ -188,7 +194,9 @@ public class FixedDepositImportHandler implements ImportHandler {
         Long interestCalculationDaysInYearTypeId = null;
         EnumOptionData interestCalculationDaysInYearTypeEnum = null;
         if (interestCalculationDaysInYearType != null) {
-            if (interestCalculationDaysInYearType.equalsIgnoreCase(TemplatePopulateImportConstants.INTEREST_CAL_DAYS_IN_YEAR_360)) {
+            if (interestCalculationDaysInYearType.equalsIgnoreCase(TemplatePopulateImportConstants.INTEREST_CAL_DAYS_IN_YEAR_ACTUAL)) {
+                interestCalculationDaysInYearTypeId = 1L;
+            } else if (interestCalculationDaysInYearType.equalsIgnoreCase(TemplatePopulateImportConstants.INTEREST_CAL_DAYS_IN_YEAR_360)) {
                 interestCalculationDaysInYearTypeId = 360L;
             } else if (interestCalculationDaysInYearType.equalsIgnoreCase(TemplatePopulateImportConstants.INTEREST_CAL_DAYS_IN_YEAR_365)) {
                 interestCalculationDaysInYearTypeId = 365L;

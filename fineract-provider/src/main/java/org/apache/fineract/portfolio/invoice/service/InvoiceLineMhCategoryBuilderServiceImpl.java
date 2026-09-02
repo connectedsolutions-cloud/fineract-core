@@ -44,7 +44,8 @@ public class InvoiceLineMhCategoryBuilderServiceImpl implements InvoiceLineMhCat
             return List.of(defaultLine("LOAN_REVERSED", BigDecimal.ZERO));
         }
         String clientType = txn.getLoan() != null && txn.getLoan().getClient() != null && txn.getLoan().getClient().clientType() != null
-                ? txn.getLoan().getClient().clientType().getLabel() : null;
+                ? txn.getLoan().getClient().clientType().getLabel()
+                : null;
         String clientKey = ruleResolver.normalizeClientTypeKey(clientType);
         List<MhDteItemComponent> mappings = mhDteItemComponentRepository.findAllByOrderByTargetUqAscClientTypeKeyAsc();
 
@@ -62,8 +63,8 @@ public class InvoiceLineMhCategoryBuilderServiceImpl implements InvoiceLineMhCat
         }
 
         BigDecimal totalAmount = nullToZero(txn.getAmount(txn.getLoan().getCurrency()).getAmount()).abs();
-        log.debug("MH_DTE_BUILD_LINE_LOAN_SLICES loanTransactionId={} clientKey={} componentCount={} totalAmount={}", loanTransactionId, clientKey,
-                slices.size(), totalAmount);
+        log.debug("MH_DTE_BUILD_LINE_LOAN_SLICES loanTransactionId={} clientKey={} componentCount={} totalAmount={}", loanTransactionId,
+                clientKey, slices.size(), totalAmount);
         return List.of(buildSingleLine(slices, mappings, clientKey, "LOAN_TRANSACTION", loanTransactionId, totalAmount));
     }
 
@@ -77,7 +78,8 @@ public class InvoiceLineMhCategoryBuilderServiceImpl implements InvoiceLineMhCat
             log.warn("MH_DTE_BUILD_LINE_CLIENT_REVERSED clientTransactionId={} usingZeroLine=true", clientTransactionId);
             return List.of(defaultLine("CLIENT_REVERSED", BigDecimal.ZERO));
         }
-        String clientType = txn.getClient() != null && txn.getClient().clientType() != null ? txn.getClient().clientType().getLabel() : null;
+        String clientType = txn.getClient() != null && txn.getClient().clientType() != null ? txn.getClient().clientType().getLabel()
+                : null;
         String clientKey = ruleResolver.normalizeClientTypeKey(clientType);
         List<MhDteItemComponent> mappings = mhDteItemComponentRepository.findAllByOrderByTargetUqAscClientTypeKeyAsc();
 
@@ -89,8 +91,8 @@ public class InvoiceLineMhCategoryBuilderServiceImpl implements InvoiceLineMhCat
         }
 
         BigDecimal totalAmount = nullToZero((BigDecimal) txn.toMapData().getOrDefault("amount", BigDecimal.ZERO)).abs();
-        log.debug("MH_DTE_BUILD_LINE_CLIENT_SLICES clientTransactionId={} clientKey={} componentCount={} totalAmount={}", clientTransactionId,
-                clientKey, slices.size(), totalAmount);
+        log.debug("MH_DTE_BUILD_LINE_CLIENT_SLICES clientTransactionId={} clientKey={} componentCount={} totalAmount={}",
+                clientTransactionId, clientKey, slices.size(), totalAmount);
         return List.of(buildSingleLine(slices, mappings, clientKey, "CLIENT_TRANSACTION", clientTransactionId, totalAmount));
     }
 
@@ -183,4 +185,3 @@ public class InvoiceLineMhCategoryBuilderServiceImpl implements InvoiceLineMhCat
         private final BigDecimal amount;
     }
 }
-

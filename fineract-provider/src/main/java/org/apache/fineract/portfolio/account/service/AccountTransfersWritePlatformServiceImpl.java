@@ -60,6 +60,7 @@ import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType;
 import org.apache.fineract.portfolio.loanaccount.exception.InvalidPaidInAdvanceAmountException;
 import org.apache.fineract.portfolio.loanaccount.service.LoanAssembler;
 import org.apache.fineract.portfolio.loanaccount.service.LoanReadPlatformService;
+import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor;
 import org.apache.fineract.portfolio.paymentdetail.domain.PaymentDetail;
 import org.apache.fineract.portfolio.savings.SavingsTransactionBooleanValues;
 import org.apache.fineract.portfolio.savings.domain.GSIMRepositoy;
@@ -231,9 +232,51 @@ public class AccountTransfersWritePlatformServiceImpl implements AccountTransfer
                     fineractProperties.getQuery().getInClauseParameterSizeLimit());
             partitions.forEach(partition -> accountTransfers.addAll(this.accountTransferRepository.findByFromLoanTransactions(partition)));
         }
+        if (accountTypeId.isSavingsAccount()) {
+            List<List<Long>> partitions = Lists.partition(fromTransactionIds.stream().toList(),
+                    fineractProperties.getQuery().getInClauseParameterSizeLimit());
+            partitions
+                    .forEach(partition -> accountTransfers.addAll(this.accountTransferRepository.findByFromSavingsTransactions(partition)));
+        }
         if (!accountTransfers.isEmpty()) {
             undoTransactions(accountTransfers);
         }
+    }
+
+    @Override
+    @Transactional
+    public boolean reverseUniqueSavingsTransferAndInterestPosting(final Long savingsAccountId, final Long interestTransactionId,
+            final LocalDate transactionDate, final BigDecimal amount, final boolean sourceAuthoritativeCleanup) {
+        final List<AccountTransferTransaction> accountTransfers = this.accountTransferRepository
+                .findActiveByFromSavingsAccountDateAndAmount(savingsAccountId, transactionDate, amount);
+        if (accountTransfers.isEmpty()) {
+            // Fixed-deposit interest can be posted without a transfer (for
+            // example, scheduler-generated catch-up interest). The fixed-
+            // deposit undo command still needs to reverse that native posting
+            // and its journals even though there is no transfer to unwind.
+            this.savingsAccountWritePlatformService.undoTransaction(savingsAccountId, interestTransactionId, true,
+                    sourceAuthoritativeCleanup);
+            return true;
+        }
+        if (accountTransfers.size() > 1) {
+            return false;
+        }
+        undoTransactions(accountTransfers);
+        this.savingsAccountWritePlatformService.undoTransaction(savingsAccountId, interestTransactionId, true);
+        return true;
+    }
+
+    @Override
+    @Transactional
+    public boolean reverseUniqueSavingsTransfer(final Long savingsAccountId, final Long transactionId) {
+        final List<AccountTransferTransaction> accountTransfers = this.accountTransferRepository
+                .findByFromSavingsTransactions(List.of(transactionId));
+        if (accountTransfers.size() != 1
+                || !accountTransfers.get(0).accountTransferDetails().fromSavingsAccount().getId().equals(savingsAccountId)) {
+            return false;
+        }
+        undoTransactions(accountTransfers);
+        return true;
     }
 
     @Override
@@ -479,11 +522,26 @@ public class AccountTransfersWritePlatformServiceImpl implements AccountTransfer
                 accountTransferDTO.getNoteText(), externalIdForDisbursement, true);
         final String chargeRefundChargeType = null;
 
-        ExternalId externalIdForRepayment = externalIdFactory.create();
-
-        LoanTransaction repayTransaction = this.loanAccountDomainService.makeRepayment(LoanTransactionType.REPAYMENT, toLoanAccount,
-                accountTransferDTO.getTransactionDate(), accountTransferDTO.getTransactionAmount(), accountTransferDTO.getPaymentDetail(),
-                null, externalIdForRepayment, false, chargeRefundChargeType, isAccountTransfer, null, false, true);
+        ExternalId externalIdForRepayment = accountTransferDTO.getToLoanTransactionExternalId().isEmpty()
+                ? externalIdFactory.create()
+                : accountTransferDTO.getToLoanTransactionExternalId();
+        LoanTransaction repayTransaction;
+        if (accountTransferDTO.getSourceExactRepaymentAllocation() == null) {
+            repayTransaction = this.loanAccountDomainService.makeRepayment(LoanTransactionType.REPAYMENT, toLoanAccount,
+                    accountTransferDTO.getTransactionDate(), accountTransferDTO.getTransactionAmount(),
+                    accountTransferDTO.getPaymentDetail(), null, externalIdForRepayment, false, chargeRefundChargeType, isAccountTransfer,
+                    null, false, true);
+        } else {
+            if (!CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor.STRATEGY_CODE
+                    .equals(toLoanAccount.transactionProcessingStrategy())) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.topup.strategy.not.supported",
+                        "Source-exact top-up repayment is only supported by the Credesal accrued-interest transaction strategy");
+            }
+            repayTransaction = this.loanAccountDomainService.makeSourceExactTransaction(LoanTransactionType.REPAYMENT, toLoanAccount,
+                    accountTransferDTO.getTransactionDate(), accountTransferDTO.getTransactionAmount(),
+                    accountTransferDTO.getPaymentDetail(), null, externalIdForRepayment,
+                    accountTransferDTO.getSourceExactRepaymentAllocation(), null, false, true, true);
+        }
 
         AccountTransferDetails accountTransferDetails = this.accountTransferAssembler.assembleLoanToLoanTransfer(accountTransferDTO,
                 fromLoanAccount, toLoanAccount, disburseTransaction, repayTransaction);

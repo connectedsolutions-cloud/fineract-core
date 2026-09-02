@@ -36,9 +36,8 @@ import org.springframework.core.Ordered;
 import org.springframework.stereotype.Component;
 
 /**
- * Fallback builder that supports any blueprint. Creates the first step with passthrough
- * references (copy of blueprint reference_fields). Responsable user and due date come from
- * the request.
+ * Fallback builder that supports any blueprint. Creates the first step with passthrough references (copy of blueprint
+ * reference_fields). Responsable user and due date come from the request.
  */
 @Component
 public class DefaultPendingFlowBuilder implements PendingFlowBuilder {
@@ -62,8 +61,7 @@ public class DefaultPendingFlowBuilder implements PendingFlowBuilder {
     }
 
     @Override
-    public PendingFlowBuildResult build(PendingFlowBlueprint blueprint, PendingFlowBuildRequest request,
-            PendingFlowBuildContext context) {
+    public PendingFlowBuildResult build(PendingFlowBlueprint blueprint, PendingFlowBuildRequest request, PendingFlowBuildContext context) {
         AppUser responsable = context.getResponsableUser(request.getResponsableUserId());
         if (responsable == null) {
             throw new IllegalArgumentException("Responsable user not found: " + request.getResponsableUserId());

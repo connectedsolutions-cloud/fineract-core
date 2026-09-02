@@ -21,6 +21,8 @@ package org.apache.fineract.portfolio.savings.domain;
 import java.time.LocalDate;
 import java.util.List;
 import org.apache.fineract.infrastructure.core.domain.ExternalId;
+import org.apache.fineract.infrastructure.security.datascope.DataScopeService;
+import org.apache.fineract.portfolio.client.domain.Client;
 import org.apache.fineract.portfolio.savings.DepositAccountType;
 import org.apache.fineract.portfolio.savings.data.SavingsAccrualData;
 import org.apache.fineract.portfolio.savings.exception.SavingsAccountNotFoundException;
@@ -49,13 +51,16 @@ public class SavingsAccountRepositoryWrapper {
     private final SavingsAccountRepository repository;
     private final SavingsAccountTransactionRepository savingsAccountTransactionRepository;
     private final JdbcTemplate jdbcTemplate;
+    private final DataScopeService dataScopeService;
 
     @Autowired
     public SavingsAccountRepositoryWrapper(final SavingsAccountRepository repository,
-            final SavingsAccountTransactionRepository savingsAccountTransactionRepository, final JdbcTemplate jdbcTemplate) {
+            final SavingsAccountTransactionRepository savingsAccountTransactionRepository, final JdbcTemplate jdbcTemplate,
+            final DataScopeService dataScopeService) {
         this.repository = repository;
         this.savingsAccountTransactionRepository = savingsAccountTransactionRepository;
         this.jdbcTemplate = jdbcTemplate;
+        this.dataScopeService = dataScopeService;
     }
 
     @Transactional(readOnly = true)
@@ -63,6 +68,7 @@ public class SavingsAccountRepositoryWrapper {
         final SavingsAccount account = this.repository.findById(savingsId)
                 .orElseThrow(() -> new SavingsAccountNotFoundException(savingsId));
         account.loadLazyCollections();
+        assertCanAccess(account);
         return account;
     }
 
@@ -76,8 +82,19 @@ public class SavingsAccountRepositoryWrapper {
             if (account == null) {
                 throw new SavingsAccountNotFoundException(savingsId);
             }
+            assertCanAccess(account);
         }
 
+        return account;
+    }
+
+    @Transactional
+    public SavingsAccount findOneLockedWithNotFoundDetection(final Long savingsId) {
+        final SavingsAccount account = this.repository.findOneLocked(savingsId);
+        if (account == null) {
+            throw new SavingsAccountNotFoundException(savingsId);
+        }
+        assertCanAccess(account);
         return account;
     }
 
@@ -88,7 +105,22 @@ public class SavingsAccountRepositoryWrapper {
             throw new SavingsAccountNotFoundException(savingsId);
         }
         account.loadLazyCollections();
+        assertCanAccess(account);
         return account;
+    }
+
+    private void assertCanAccess(final SavingsAccount account) {
+        final Client client = account.getClient();
+        Long officeId = client != null && client.getOffice() != null ? client.getOffice().getId() : null;
+        if (officeId == null && account.group() != null && account.group().getOffice() != null) {
+            officeId = account.group().getOffice().getId();
+        }
+        final Long fieldOfficerId = account.getSavingsOfficer() != null ? account.getSavingsOfficer().getId() : null;
+        final Long clientStaffId = client != null ? client.staffId() : null;
+        final Long gestorId = client != null ? client.gestorId() : null;
+        if (!this.dataScopeService.canAccessSavings(officeId, fieldOfficerId, clientStaffId, gestorId)) {
+            throw new SavingsAccountNotFoundException(account.getId());
+        }
     }
 
     @Transactional(readOnly = true)

@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "depends_on": ["clients", "employees", "savings-deposits", "loans"],
+  "source": {
+    "route_table": "MCD_RUTA",
+    "assignment_table": "MCD_ASIGNACION_RUTA",
+    "account_table": "cuenta",
+    "batch_table": "MCD_MST_COBRODIARIO",
+    "item_table": "MCD_MOV_COBRODIARIO",
+    "movement_table": "MCD_MOVIMIENTOS"
+  },
+  "target": {
+    "route_table": "credesal_mobile_collection_route",
+    "assignment_table": "credesal_mobile_collection_assignment",
+    "account_table": "credesal_mobile_collection_account_assignment",
+    "batch_table": "credesal_mobile_collection_batch",
+    "item_table": "credesal_mobile_collection_item",
+    "office_mapping": {"001": 1, "002": 2}
+  },
+  "identity": {
+    "staff_external_id": "{company}:{person}",
+    "loan_external_id": "ARISSTO:CRD:{credit_id}",
+    "repayment_external_id": "ARISSTO:CRD-MOV:{movement_id}",
+    "savings_external_id": "arissto:savings:{company}:{branch}:{account}"
+  },
+  "write_policy": {
+    "extension_tables": "controlled-parameterized-sql-only",
+    "native_financial_tables": "forbidden",
+    "delete": "forbidden"
+  }
+}

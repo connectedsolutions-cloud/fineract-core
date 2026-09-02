@@ -42,6 +42,8 @@ public class UndoTransactionFixedDepositAccountCommandHandler implements NewComm
     @Override
     public CommandProcessingResult processCommand(final JsonCommand command) {
         final Long transactionId = Long.valueOf(command.getTransactionId());
-        return this.depositAccountWritePlatformService.undoFDTransaction(command.entityId(), transactionId, false);
+        final boolean sourceAuthoritativeCleanup = command.booleanPrimitiveValueOfParameterNamed("sourceAuthoritativeCleanup");
+        return this.depositAccountWritePlatformService.undoFDTransaction(command.entityId(), transactionId, false,
+                sourceAuthoritativeCleanup);
     }
 }

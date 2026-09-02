@@ -58,6 +58,9 @@ public class LoanTransactionDTO {
     @Setter
     private boolean isLoanToLoanTransfer;
 
+    @Setter
+    private boolean sourceExactComponentReallocation;
+
     private final String chargeRefundChargeType;
     private final LoanChargeData loanChargeData;
 

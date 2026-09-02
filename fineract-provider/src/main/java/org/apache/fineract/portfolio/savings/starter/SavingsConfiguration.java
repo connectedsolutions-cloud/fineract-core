@@ -130,12 +130,15 @@ import org.apache.fineract.portfolio.savings.service.SavingsAccountWritePlatform
 import org.apache.fineract.portfolio.savings.service.SavingsAccountWritePlatformServiceJpaRepositoryImpl;
 import org.apache.fineract.portfolio.savings.service.SavingsApplicationProcessWritePlatformService;
 import org.apache.fineract.portfolio.savings.service.SavingsApplicationProcessWritePlatformServiceJpaRepositoryImpl;
+import org.apache.fineract.portfolio.namingsequence.service.CredesalNamingSequenceService;
 import org.apache.fineract.portfolio.savings.service.SavingsDropdownReadPlatformService;
 import org.apache.fineract.portfolio.savings.service.SavingsDropdownReadPlatformServiceImpl;
 import org.apache.fineract.portfolio.savings.service.SavingsProductReadPlatformService;
 import org.apache.fineract.portfolio.savings.service.SavingsProductReadPlatformServiceImpl;
 import org.apache.fineract.portfolio.savings.service.SavingsProductWritePlatformService;
 import org.apache.fineract.portfolio.savings.service.SavingsProductWritePlatformServiceJpaRepositoryImpl;
+import org.apache.fineract.portfolio.namingsequence.service.CredesalProductNumberingSupport;
+import org.apache.fineract.portfolio.namingsequence.service.CredesalNamingSequenceService;
 import org.apache.fineract.portfolio.savings.service.SavingsSchedularInterestPoster;
 import org.apache.fineract.portfolio.savings.service.SavingsSchedularInterestPosterTask;
 import org.apache.fineract.portfolio.savings.service.search.SavingsAccountTransactionSearchService;
@@ -221,6 +224,7 @@ public class SavingsConfiguration {
             SavingsAccountRepositoryWrapper savingAccountRepositoryWrapper,
             SavingsAccountTransactionRepository savingsAccountTransactionRepository, DepositAccountAssembler depositAccountAssembler,
             DepositAccountTransactionDataValidator depositAccountTransactionDataValidator,
+            DepositAccountDataValidator depositAccountDataValidator,
             SavingsAccountChargeDataValidator savingsAccountChargeDataValidator,
             PaymentDetailWritePlatformService paymentDetailWritePlatformService,
             ApplicationCurrencyRepositoryWrapper applicationCurrencyRepositoryWrapper,
@@ -228,6 +232,7 @@ public class SavingsConfiguration {
             NoteRepository noteRepository, AccountTransfersReadPlatformService accountTransfersReadPlatformService,
             ChargeRepositoryWrapper chargeRepository, SavingsAccountChargeRepositoryWrapper savingsAccountChargeRepository,
             AccountAssociationsReadPlatformService accountAssociationsReadPlatformService,
+            AccountAssociationsRepository accountAssociationsRepository,
             AccountTransfersWritePlatformService accountTransfersWritePlatformService,
             DepositAccountReadPlatformService depositAccountReadPlatformService, CalendarInstanceRepository calendarInstanceRepository,
             ConfigurationDomainService configurationDomainService, HolidayRepositoryWrapper holidayRepository,
@@ -237,9 +242,11 @@ public class SavingsConfiguration {
     ) {
         return new DepositAccountWritePlatformServiceJpaRepositoryImpl(context, savingAccountRepositoryWrapper,
                 savingsAccountTransactionRepository, depositAccountAssembler, depositAccountTransactionDataValidator,
-                savingsAccountChargeDataValidator, paymentDetailWritePlatformService, applicationCurrencyRepositoryWrapper,
+                depositAccountDataValidator, savingsAccountChargeDataValidator, paymentDetailWritePlatformService,
+                applicationCurrencyRepositoryWrapper,
                 journalEntryWritePlatformService, depositAccountDomainService, noteRepository, accountTransfersReadPlatformService,
                 chargeRepository, savingsAccountChargeRepository, accountAssociationsReadPlatformService,
+                accountAssociationsRepository,
                 accountTransfersWritePlatformService, depositAccountReadPlatformService, calendarInstanceRepository,
                 configurationDomainService, holidayRepository, workingDaysRepository, depositAccountOnHoldTransactionRepository);
     }
@@ -256,13 +263,13 @@ public class SavingsConfiguration {
             SavingsAccountChargeAssembler savingsAccountChargeAssembler, AccountAssociationsRepository accountAssociationsRepository,
             FromJsonHelper fromJsonHelper, CalendarInstanceRepository calendarInstanceRepository,
             ConfigurationDomainService configurationDomainService, AccountNumberFormatRepositoryWrapper accountNumberFormatRepository,
-            BusinessEventNotifierService businessEventNotifierService) {
+            BusinessEventNotifierService businessEventNotifierService, CredesalNamingSequenceService credesalNamingSequenceService) {
         return new DepositApplicationProcessWritePlatformServiceJpaRepositoryImpl(context, savingAccountRepository,
                 fixedDepositAccountRepository, recurringDepositAccountRepository, depositAccountAssembler, depositAccountDataValidator,
                 accountNumberGenerator, clientRepository, groupRepository, savingsProductRepository, noteRepository, staffRepository,
                 savingsAccountApplicationTransitionApiJsonValidator, savingsAccountChargeAssembler, accountAssociationsRepository,
                 fromJsonHelper, calendarInstanceRepository, configurationDomainService, accountNumberFormatRepository,
-                businessEventNotifierService);
+                businessEventNotifierService, credesalNamingSequenceService);
     }
 
     @Bean
@@ -283,9 +290,11 @@ public class SavingsConfiguration {
     public FixedDepositProductWritePlatformService fixedDepositProductWritePlatformService(PlatformSecurityContext context,
             FixedDepositProductRepository fixedDepositProductRepository, DepositProductDataValidator fromApiJsonDataValidator,
             DepositProductAssembler depositProductAssembler,
-            ProductToGLAccountMappingWritePlatformService accountMappingWritePlatformService, InterestRateChartAssembler chartAssembler) {
+            ProductToGLAccountMappingWritePlatformService accountMappingWritePlatformService, InterestRateChartAssembler chartAssembler,
+            CredesalProductNumberingSupport productNumberingSupport) {
         return new FixedDepositProductWritePlatformServiceJpaRepositoryImpl(context, fixedDepositProductRepository,
-                fromApiJsonDataValidator, depositProductAssembler, accountMappingWritePlatformService, chartAssembler);
+                fromApiJsonDataValidator, depositProductAssembler, accountMappingWritePlatformService, chartAssembler,
+                productNumberingSupport);
     }
 
     @Bean
@@ -307,9 +316,11 @@ public class SavingsConfiguration {
     public RecurringDepositProductWritePlatformService recurringDepositProductWritePlatformService(PlatformSecurityContext context,
             RecurringDepositProductRepository recurringDepositProductRepository, DepositProductDataValidator fromApiJsonDataValidator,
             DepositProductAssembler depositProductAssembler,
-            ProductToGLAccountMappingWritePlatformService accountMappingWritePlatformService, InterestRateChartAssembler chartAssembler) {
+            ProductToGLAccountMappingWritePlatformService accountMappingWritePlatformService, InterestRateChartAssembler chartAssembler,
+            CredesalProductNumberingSupport productNumberingSupport) {
         return new RecurringDepositProductWritePlatformServiceJpaRepositoryImpl(context, recurringDepositProductRepository,
-                fromApiJsonDataValidator, depositProductAssembler, accountMappingWritePlatformService, chartAssembler);
+                fromApiJsonDataValidator, depositProductAssembler, accountMappingWritePlatformService, chartAssembler,
+                productNumberingSupport);
     }
 
     @Bean
@@ -338,9 +349,10 @@ public class SavingsConfiguration {
     @ConditionalOnMissingBean(SavingsAccountReadPlatformService.class)
     public SavingsAccountReadPlatformService savingsAccountReadPlatformService(PlatformSecurityContext context, JdbcTemplate jdbcTemplate,
             SavingsAccountAssembler savingAccountAssembler, PaginationHelper paginationHelper, DatabaseSpecificSQLGenerator sqlGenerator,
-            SavingsAccountRepositoryWrapper savingsAccountRepositoryWrapper, ColumnValidator columnValidator) {
+            SavingsAccountRepositoryWrapper savingsAccountRepositoryWrapper, ColumnValidator columnValidator,
+            org.apache.fineract.infrastructure.security.datascope.DataScopeService dataScopeService) {
         return new SavingsAccountReadPlatformServiceImpl(context, jdbcTemplate, savingAccountAssembler, paginationHelper, columnValidator,
-                sqlGenerator, savingsAccountRepositoryWrapper);
+                sqlGenerator, savingsAccountRepositoryWrapper, dataScopeService);
     }
 
     @Bean
@@ -396,13 +408,14 @@ public class SavingsConfiguration {
             SavingsAccountDomainService savingsAccountDomainService, SavingsAccountWritePlatformService savingsAccountWritePlatformService,
             AccountNumberFormatRepositoryWrapper accountNumberFormatRepository, BusinessEventNotifierService businessEventNotifierService,
             EntityDatatableChecksWritePlatformService entityDatatableChecksWritePlatformService, GSIMRepositoy gsimRepository,
-            GroupRepositoryWrapper groupRepositoryWrapper, GroupSavingsIndividualMonitoringWritePlatformService gsimWritePlatformService) {
+            GroupRepositoryWrapper groupRepositoryWrapper, GroupSavingsIndividualMonitoringWritePlatformService gsimWritePlatformService,
+            CredesalNamingSequenceService credesalNamingSequenceService) {
         return new SavingsApplicationProcessWritePlatformServiceJpaRepositoryImpl(context, savingAccountRepository, savingAccountAssembler,
                 savingsAccountDataValidator, accountNumberGenerator, clientRepository, groupRepository, savingsProductRepository,
                 noteRepository, staffRepository, savingsAccountApplicationTransitionApiJsonValidator, savingsAccountChargeAssembler,
                 commandProcessingService, savingsAccountDomainService, savingsAccountWritePlatformService, accountNumberFormatRepository,
                 businessEventNotifierService, entityDatatableChecksWritePlatformService, gsimRepository, groupRepositoryWrapper,
-                gsimWritePlatformService);
+                gsimWritePlatformService, credesalNamingSequenceService);
     }
 
     @Bean
@@ -424,9 +437,9 @@ public class SavingsConfiguration {
             SavingsProductRepository savingProductRepository, SavingsProductDataValidator fromApiJsonDataValidator,
             SavingsProductAssembler savingsProductAssembler,
             ProductToGLAccountMappingWritePlatformService accountMappingWritePlatformService,
-            FineractEntityAccessUtil fineractEntityAccessUtil) {
+            FineractEntityAccessUtil fineractEntityAccessUtil, CredesalProductNumberingSupport productNumberingSupport) {
         return new SavingsProductWritePlatformServiceJpaRepositoryImpl(context, savingProductRepository, fromApiJsonDataValidator,
-                savingsProductAssembler, accountMappingWritePlatformService, fineractEntityAccessUtil);
+                savingsProductAssembler, accountMappingWritePlatformService, fineractEntityAccessUtil, productNumberingSupport);
     }
 
     @Bean

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0315-1-create-credesal-naming-sequence" author="credesal">
+        <createTable tableName="credesal_naming_sequence">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="namespace" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="prefix" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_ordinal" type="INT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="credesal_naming_sequence"
+                             columnNames="namespace, prefix"
+                             constraintName="uk_credesal_naming_sequence_ns_prefix"/>
+    </changeSet>
+
+    <changeSet id="0315-2-create-credesal-naming-reservation" author="credesal">
+        <createTable tableName="credesal_naming_reservation">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="namespace" type="VARCHAR(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reservation_key" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="allocated_value" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="credesal_naming_reservation"
+                             columnNames="namespace, reservation_key"
+                             constraintName="uk_credesal_naming_reservation_ns_key"/>
+    </changeSet>
+
+    <changeSet id="0315-3-add-loan-product-numbering-code" author="credesal">
+        <addColumn tableName="m_product_loan">
+            <column name="numbering_code" type="VARCHAR(4)"/>
+        </addColumn>
+        <addUniqueConstraint tableName="m_product_loan"
+                             columnNames="numbering_code"
+                             constraintName="uk_product_loan_numbering_code"/>
+    </changeSet>
+
+    <changeSet id="0315-4-add-savings-product-numbering-code" author="credesal">
+        <addColumn tableName="m_savings_product">
+            <column name="numbering_code" type="VARCHAR(4)"/>
+        </addColumn>
+        <addUniqueConstraint tableName="m_savings_product"
+                             columnNames="numbering_code"
+                             constraintName="uk_savings_product_numbering_code"/>
+    </changeSet>
+
+    <changeSet id="0315-5-add-share-product-numbering-code" author="credesal">
+        <addColumn tableName="m_share_product">
+            <column name="numbering_code" type="VARCHAR(4)"/>
+        </addColumn>
+        <addUniqueConstraint tableName="m_share_product"
+                             columnNames="numbering_code"
+                             constraintName="uk_share_product_numbering_code"/>
+    </changeSet>
+
+</databaseChangeLog>

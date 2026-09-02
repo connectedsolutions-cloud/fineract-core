@@ -38,9 +38,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Creates session-level GL entries for "available at cashier" flow after comite otorgamiento:
- * vaultReceptionFromBank (tx-1): Fund source (credit) / Vault (debit);
- * cashierCashReception (tx-2): Vault (credit) / Cash-at-teller (debit);
+ * Creates session-level GL entries for "available at cashier" flow after comite otorgamiento: vaultReceptionFromBank
+ * (tx-1): Fund source (credit) / Vault (debit); cashierCashReception (tx-2): Vault (credit) / Cash-at-teller (debit);
  * disbursementPayableClearing (tx-3): Cash-at-teller (credit) / Disbursement payable (debit, one per loan).
  *
  * Each transaction can be triggered separately or all at once via createAvailableAtCashierEntries.
@@ -62,15 +61,12 @@ public class AvailableAtCashierAccountingHelper {
         if (loans == null || loans.isEmpty()) {
             return BigDecimal.ZERO;
         }
-        return loans.stream()
-                .map(Loan::getNetDisbursalAmount)
-                .filter(a -> a != null)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return loans.stream().map(Loan::getNetDisbursalAmount).filter(a -> a != null).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /**
-     * Creates all three journal entries (vaultReceptionFromBank, cashierCashReception, disbursementPayableClearing)
-     * for the comite session. Skips if processedLoans is empty or total disbursement is zero.
+     * Creates all three journal entries (vaultReceptionFromBank, cashierCashReception, disbursementPayableClearing) for
+     * the comite session. Skips if processedLoans is empty or total disbursement is zero.
      */
     @Transactional
     public void createAvailableAtCashierEntries(SesionComite session, List<Loan> processedLoans, LocalDate businessDate) {
@@ -90,13 +86,12 @@ public class AvailableAtCashierAccountingHelper {
         }
         String txnId = COMTE_TXN_PREFIX + session.getId() + "-vaultReceptionFromBank";
 
-        persistSessionLevelEntry(ctx.office(), ctx.currencyCode(), ctx.fundSourceAccount(), txnId, businessDate,
-                JournalEntryType.CREDIT, ctx.total(), ctx.firstLoanId());
-        persistSessionLevelEntry(ctx.office(), ctx.currencyCode(), ctx.vaultAccount(), txnId, businessDate,
-                JournalEntryType.DEBIT, ctx.total(), ctx.firstLoanId());
+        persistSessionLevelEntry(ctx.office(), ctx.currencyCode(), ctx.fundSourceAccount(), txnId, businessDate, JournalEntryType.CREDIT,
+                ctx.total(), ctx.firstLoanId());
+        persistSessionLevelEntry(ctx.office(), ctx.currencyCode(), ctx.vaultAccount(), txnId, businessDate, JournalEntryType.DEBIT,
+                ctx.total(), ctx.firstLoanId());
 
-        log.debug("AvailableAtCashier vaultReceptionFromBank: created entries for session {} total={}",
-                session.getId(), ctx.total());
+        log.debug("AvailableAtCashier vaultReceptionFromBank: created entries for session {} total={}", session.getId(), ctx.total());
     }
 
     /**
@@ -110,13 +105,12 @@ public class AvailableAtCashierAccountingHelper {
         }
         String txnId = COMTE_TXN_PREFIX + session.getId() + "-cashierCashReception";
 
-        persistSessionLevelEntry(ctx.office(), ctx.currencyCode(), ctx.vaultAccount(), txnId, businessDate,
-                JournalEntryType.CREDIT, ctx.total(), ctx.firstLoanId());
-        persistSessionLevelEntry(ctx.office(), ctx.currencyCode(), ctx.cashAtTellerAccount(), txnId, businessDate,
-                JournalEntryType.DEBIT, ctx.total(), ctx.firstLoanId());
+        persistSessionLevelEntry(ctx.office(), ctx.currencyCode(), ctx.vaultAccount(), txnId, businessDate, JournalEntryType.CREDIT,
+                ctx.total(), ctx.firstLoanId());
+        persistSessionLevelEntry(ctx.office(), ctx.currencyCode(), ctx.cashAtTellerAccount(), txnId, businessDate, JournalEntryType.DEBIT,
+                ctx.total(), ctx.firstLoanId());
 
-        log.debug("AvailableAtCashier cashierCashReception: created entries for session {} total={}",
-                session.getId(), ctx.total());
+        log.debug("AvailableAtCashier cashierCashReception: created entries for session {} total={}", session.getId(), ctx.total());
     }
 
     /**
@@ -130,23 +124,23 @@ public class AvailableAtCashierAccountingHelper {
         }
         String txnId = COMTE_TXN_PREFIX + session.getId() + "-disbursementPayableClearing";
 
-        persistSessionLevelEntry(ctx.office(), ctx.currencyCode(), ctx.cashAtTellerAccount(), txnId, businessDate,
-                JournalEntryType.CREDIT, ctx.total(), ctx.firstLoanId());
+        persistSessionLevelEntry(ctx.office(), ctx.currencyCode(), ctx.cashAtTellerAccount(), txnId, businessDate, JournalEntryType.CREDIT,
+                ctx.total(), ctx.firstLoanId());
         for (Loan loan : processedLoans) {
             BigDecimal amount = loan.getNetDisbursalAmount();
             if (amount != null && amount.compareTo(BigDecimal.ZERO) > 0) {
-                persistLoanLevelDebitEntry(ctx.office(), ctx.currencyCode(), ctx.disbursementsPayableAccount(),
-                        txnId, businessDate, amount, loan.getId(), loan.getDimensions());
+                persistLoanLevelDebitEntry(ctx.office(), ctx.currencyCode(), ctx.disbursementsPayableAccount(), txnId, businessDate, amount,
+                        loan.getId(), loan.getDimensions());
             }
         }
 
-        log.debug("AvailableAtCashier disbursementPayableClearing: created entries for session {} total={} loans={}",
-                session.getId(), ctx.total(), processedLoans.size());
+        log.debug("AvailableAtCashier disbursementPayableClearing: created entries for session {} total={} loans={}", session.getId(),
+                ctx.total(), processedLoans.size());
     }
 
     /**
-     * Builds the context (GL accounts, totals, etc.) for the at-cashier operations.
-     * Returns null if processedLoans is empty or total disbursement is zero.
+     * Builds the context (GL accounts, totals, etc.) for the at-cashier operations. Returns null if processedLoans is
+     * empty or total disbursement is zero.
      */
     private AtCashierContext buildContext(SesionComite session, List<Loan> processedLoans) {
         if (processedLoans == null || processedLoans.isEmpty()) {
@@ -165,43 +159,37 @@ public class AvailableAtCashierAccountingHelper {
         String currencyCode = firstLoan.getCurrencyCode();
         Long firstLoanId = firstLoan.getId();
         Long loanProductId = firstLoan.getLoanProduct() != null ? firstLoan.getLoanProduct().getId() : null;
-        Long paymentTypeId = firstLoan.getDisbursalMethodPaymentType() != null
-                ? firstLoan.getDisbursalMethodPaymentType().getId()
-                : null;
+        Long paymentTypeId = firstLoan.getDisbursalMethodPaymentType() != null ? firstLoan.getDisbursalMethodPaymentType().getId() : null;
 
         GLAccount fundSourceAccount = accountingProcessorHelper.getLinkedGLAccountForLoanProduct(loanProductId,
                 CashAccountsForLoan.FUND_SOURCE.getValue(), paymentTypeId);
         GLAccount vaultAccount = financialActivityAccountRepository
-                .findByFinancialActivityTypeWithNotFoundDetection(FinancialActivity.CASH_AT_MAINVAULT.getValue())
-                .getGlAccount();
+                .findByFinancialActivityTypeWithNotFoundDetection(FinancialActivity.CASH_AT_MAINVAULT.getValue()).getGlAccount();
         GLAccount cashAtTellerAccount = financialActivityAccountRepository
-                .findByFinancialActivityTypeWithNotFoundDetection(FinancialActivity.CASH_AT_TELLER.getValue())
-                .getGlAccount();
+                .findByFinancialActivityTypeWithNotFoundDetection(FinancialActivity.CASH_AT_TELLER.getValue()).getGlAccount();
         GLAccount disbursementsPayableAccount = financialActivityAccountRepository
-                .findByFinancialActivityTypeWithNotFoundDetection(FinancialActivity.DISBURSEMENTS_PAYABLE.getValue())
-                .getGlAccount();
+                .findByFinancialActivityTypeWithNotFoundDetection(FinancialActivity.DISBURSEMENTS_PAYABLE.getValue()).getGlAccount();
 
-        return new AtCashierContext(office, currencyCode, total, firstLoanId, fundSourceAccount, vaultAccount,
-                cashAtTellerAccount, disbursementsPayableAccount);
+        return new AtCashierContext(office, currencyCode, total, firstLoanId, fundSourceAccount, vaultAccount, cashAtTellerAccount,
+                disbursementsPayableAccount);
     }
 
-    private record AtCashierContext(Office office, String currencyCode, BigDecimal total, Long firstLoanId,
-            GLAccount fundSourceAccount, GLAccount vaultAccount, GLAccount cashAtTellerAccount,
-            GLAccount disbursementsPayableAccount) {}
+    private record AtCashierContext(Office office, String currencyCode, BigDecimal total, Long firstLoanId, GLAccount fundSourceAccount,
+            GLAccount vaultAccount, GLAccount cashAtTellerAccount, GLAccount disbursementsPayableAccount) {
+    }
 
     private void persistSessionLevelEntry(Office office, String currencyCode, GLAccount account, String transactionId,
             LocalDate transactionDate, JournalEntryType type, BigDecimal amount, Long entityLoanId) {
-        JournalEntry entry = JournalEntry.createNew(office, null, account, currencyCode, transactionId, false,
-                transactionDate, type, amount, null, PortfolioProductType.LOAN.getValue(), entityLoanId, null,
-                null, null, null, null, null);
+        JournalEntry entry = JournalEntry.createNew(office, null, account, currencyCode, transactionId, false, transactionDate, type,
+                amount, null, PortfolioProductType.LOAN.getValue(), entityLoanId, null, null, null, null, null, null);
         accountingProcessorHelper.persistJournalEntry(entry);
     }
 
     private void persistLoanLevelDebitEntry(Office office, String currencyCode, GLAccount account, String transactionId,
             LocalDate transactionDate, BigDecimal amount, Long loanId, String dimensions) {
-        JournalEntry entry = JournalEntry.createNew(office, null, account, currencyCode, transactionId, false,
-                transactionDate, JournalEntryType.DEBIT, amount, null, PortfolioProductType.LOAN.getValue(), loanId,
-                null, null, null, null, null, dimensions);
+        JournalEntry entry = JournalEntry.createNew(office, null, account, currencyCode, transactionId, false, transactionDate,
+                JournalEntryType.DEBIT, amount, null, PortfolioProductType.LOAN.getValue(), loanId, null, null, null, null, null,
+                dimensions);
         accountingProcessorHelper.persistJournalEntry(entry);
     }
 }

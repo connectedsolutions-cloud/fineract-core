@@ -338,24 +338,25 @@ public class TaxValidator {
                     // Range 2: [start2, end2] or [start2, ∞) if end2 is null
                     // They DON'T overlap if one completely ends before the other starts
                     // Adjacent ranges (one ends exactly when the other starts) are considered non-overlapping
-                    
+
                     LocalDate start1 = groupMappingsOne.startDate();
                     LocalDate end1 = groupMappingsOne.endDate();
                     LocalDate start2 = groupMappings.startDate();
                     LocalDate end2 = groupMappings.endDate();
-                    
-                    // Skip validation if either mapping has a null start date (shouldn't happen in final state, but be defensive)
+
+                    // Skip validation if either mapping has a null start date (shouldn't happen in final state, but be
+                    // defensive)
                     if (start1 == null || start2 == null) {
                         continue;
                     }
-                    
+
                     // Two ranges DON'T overlap if one ends strictly before the other starts
                     // This covers all cases:
                     // - Both have end dates: end1 < start2 OR end2 < start1
                     // - One has no end date: the other must end before it starts
                     // - Both have no end date: they always overlap (both extend to infinity)
                     boolean noOverlap = false;
-                    
+
                     if (end1 == null && end2 == null) {
                         // Both have no end date - they both extend to infinity, so they overlap
                         noOverlap = false;
@@ -371,21 +372,21 @@ public class TaxValidator {
                         // Both have end dates
                         // They don't overlap if one ends before or exactly when the other starts
                         // Adjacent ranges (end1 = start2 or end2 = start1) are considered non-overlapping
-                        noOverlap = DateUtils.isBefore(end1, start2) || DateUtils.isBefore(end2, start1)
-                                || DateUtils.isEqual(end1, start2) || DateUtils.isEqual(end2, start1);
+                        noOverlap = DateUtils.isBefore(end1, start2) || DateUtils.isBefore(end2, start1) || DateUtils.isEqual(end1, start2)
+                                || DateUtils.isEqual(end2, start1);
                     }
-                    
+
                     // They overlap if they don't NOT overlap
                     if (!noOverlap) {
                         // Provide more context: which tax component and date ranges are overlapping
-                        Long componentId = groupMappingsOne.getTaxComponent() != null 
-                                ? groupMappingsOne.getTaxComponent().getId() 
-                                : null;
+                        Long componentId = groupMappingsOne.getTaxComponent() != null ? groupMappingsOne.getTaxComponent().getId() : null;
                         String range1 = start1 + " to " + (end1 != null ? end1 : "∞");
                         String range2 = start2 + " to " + (end2 != null ? end2 : "∞");
-                        baseDataValidator.reset()
-                                .parameter(COMPONENT)
-                                .value(componentId != null ? "Tax Component " + componentId + ": Range 1 [" + range1 + "] overlaps with Range 2 [" + range2 + "]" : "Overlapping ranges")
+                        baseDataValidator.reset().parameter(COMPONENT)
+                                .value(componentId != null
+                                        ? "Tax Component " + componentId + ": Range 1 [" + range1 + "] overlaps with Range 2 [" + range2
+                                                + "]"
+                                        : "Overlapping ranges")
                                 .failWithCode(DATES_ARE_OVERLAPPING);
                     }
                 }

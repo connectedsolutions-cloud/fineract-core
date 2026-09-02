@@ -47,6 +47,7 @@ import org.apache.fineract.portfolio.loanproduct.service.LoanProductReadPlatform
 import org.apache.fineract.portfolio.loanproduct.service.LoanProductReadPlatformServiceImpl;
 import org.apache.fineract.portfolio.loanproduct.service.LoanProductWritePlatformService;
 import org.apache.fineract.portfolio.loanproduct.service.LoanProductWritePlatformServiceJpaRepositoryImpl;
+import org.apache.fineract.portfolio.namingsequence.service.CredesalProductNumberingSupport;
 import org.apache.fineract.portfolio.rate.domain.RateRepositoryWrapper;
 import org.apache.fineract.portfolio.rate.service.RateReadService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -86,11 +87,12 @@ public class LoanProductConfiguration {
             LoanRepaymentScheduleTransactionProcessorFactory loanRepaymentScheduleTransactionProcessorFactory,
             AdvancedPaymentAllocationsJsonParser advancedPaymentJsonParser, CreditAllocationsJsonParser creditAllocationsJsonParser,
             LoanProductAssembler loanProductAssembler, LoanProductUpdateUtil loanProductUpdateUtil,
-            CrdTipoLineaRepository crdTipoLineaRepository, CrdSluRepository crdSluRepository) {
+            CrdTipoLineaRepository crdTipoLineaRepository, CrdSluRepository crdSluRepository,
+            CredesalProductNumberingSupport productNumberingSupport) {
         return new LoanProductWritePlatformServiceJpaRepositoryImpl(context, fromApiJsonDeserializer, loanProductRepository, aprCalculator,
                 fundRepository, chargeRepository, rateRepository, accountMappingWritePlatformService, fineractEntityAccessUtil,
                 floatingRateRepository, loanRepositoryWrapper, businessEventNotifierService, delinquencyBucketRepository,
                 loanRepaymentScheduleTransactionProcessorFactory, advancedPaymentJsonParser, creditAllocationsJsonParser,
-                loanProductAssembler, loanProductUpdateUtil, crdTipoLineaRepository, crdSluRepository);
+                loanProductAssembler, loanProductUpdateUtil, crdTipoLineaRepository, crdSluRepository, productNumberingSupport);
     }
 }

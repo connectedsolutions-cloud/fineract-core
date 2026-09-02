@@ -17,10 +17,10 @@ import org.apache.fineract.portfolio.invoice.data.InvoiceCreateRequest;
 import org.apache.fineract.portfolio.invoice.data.InvoiceLineRequest;
 import org.apache.fineract.portfolio.invoice.data.InvoiceMetadataUpdateRequest;
 import org.apache.fineract.portfolio.invoice.domain.Invoice;
-import org.apache.fineract.portfolio.invoice.domain.MhCompanyConfig;
-import org.apache.fineract.portfolio.invoice.domain.MhCompanyConfigRepository;
 import org.apache.fineract.portfolio.invoice.domain.InvoiceRepository;
 import org.apache.fineract.portfolio.invoice.domain.InvoiceStatus;
+import org.apache.fineract.portfolio.invoice.domain.MhCompanyConfig;
+import org.apache.fineract.portfolio.invoice.domain.MhCompanyConfigRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -196,4 +196,3 @@ class InvoiceServiceImplTest {
         return config;
     }
 }
-

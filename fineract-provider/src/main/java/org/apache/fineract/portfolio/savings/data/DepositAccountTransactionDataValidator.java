@@ -24,6 +24,7 @@ import static org.apache.fineract.portfolio.savings.DepositsApiConstants.checkNu
 import static org.apache.fineract.portfolio.savings.DepositsApiConstants.closedOnDateParamName;
 import static org.apache.fineract.portfolio.savings.DepositsApiConstants.onAccountClosureIdParamName;
 import static org.apache.fineract.portfolio.savings.DepositsApiConstants.paymentTypeIdParamName;
+import static org.apache.fineract.portfolio.savings.DepositsApiConstants.postMaturityInterestParamName;
 import static org.apache.fineract.portfolio.savings.DepositsApiConstants.receiptNumberParamName;
 import static org.apache.fineract.portfolio.savings.DepositsApiConstants.routingCodeParamName;
 import static org.apache.fineract.portfolio.savings.DepositsApiConstants.toSavingsAccountIdParamName;
@@ -77,7 +78,8 @@ public class DepositAccountTransactionDataValidator {
             Arrays.asList(DepositsApiConstants.localeParamName, DepositsApiConstants.dateFormatParamName, closedOnDateParamName,
                     DepositsApiConstants.noteParamName, onAccountClosureIdParamName, paymentTypeIdParamName,
                     transactionAccountNumberParamName, checkNumberParamName, routingCodeParamName, receiptNumberParamName,
-                    bankNumberParamName, DepositsApiConstants.transferDescriptionParamName, toSavingsAccountIdParamName));
+                    bankNumberParamName, DepositsApiConstants.transferDescriptionParamName, toSavingsAccountIdParamName,
+                    postMaturityInterestParamName));
 
     private static final Set<String> DEPOSIT_ACCOUNT_PRE_MATURE_CALCULATION_REQUEST_DATA_PARAMETERS = new HashSet<>(
             Arrays.asList(DepositsApiConstants.localeParamName, DepositsApiConstants.dateFormatParamName, closedOnDateParamName));

@@ -50,9 +50,10 @@ public class SingleLoanChargeRepaymentScheduleProcessingWrapper {
             if (addedPeriod != null) {
                 addedPeriod.updateObligationsMet(currency, disbursementDate);
             }
-            accruals = loanCharge.getLoanChargePaidBySet().stream().filter(e -> !e.getLoanTransaction().isReversed()
-                    && (e.getLoanTransaction().isAccrual() || e.getLoanTransaction().isAccrualAdjustment()
-                            || e.getLoanTransaction().getTypeOf().isChargePayment())).toList();
+            accruals = loanCharge.getLoanChargePaidBySet().stream()
+                    .filter(e -> !e.getLoanTransaction().isReversed() && (e.getLoanTransaction().isAccrual()
+                            || e.getLoanTransaction().isAccrualAdjustment() || e.getLoanTransaction().getTypeOf().isChargePayment()))
+                    .toList();
         }
         LocalDate startDate = disbursementDate;
         int firstNormalInstallmentNumber = LoanRepaymentScheduleProcessingWrapper.fetchFirstNormalInstallmentNumber(installments);
@@ -88,9 +89,9 @@ public class SingleLoanChargeRepaymentScheduleProcessingWrapper {
                 BigDecimal amount = null;
                 for (LoanChargePaidBy accrual : accruals) {
                     accrual.setInstallmentNumber(installmentNumber);
-                    amount = (accrual.getLoanTransaction().isAccrual()
-                            || accrual.getLoanTransaction().getTypeOf().isChargePayment()) ? MathUtil.add(amount, accrual.getAmount())
-                                    : MathUtil.subtract(amount, accrual.getAmount());
+                    amount = (accrual.getLoanTransaction().isAccrual() || accrual.getLoanTransaction().getTypeOf().isChargePayment())
+                            ? MathUtil.add(amount, accrual.getAmount())
+                            : MathUtil.subtract(amount, accrual.getAmount());
                 }
                 Money accruedAmount = Money.of(currency, MathUtil.negativeToZero(amount));
                 boolean isFee = loanCharge.isFeeCharge();
@@ -113,7 +114,8 @@ public class SingleLoanChargeRepaymentScheduleProcessingWrapper {
         if (loanCharge.isFeeCharge() && loanCharge.isDueAtDisbursement()) {
             return zero;
         }
-        if (loanCharge.isInstalmentFee() && isInstallmentChargeApplicable) {
+        if (loanCharge.isInstalmentFee() && isInstallmentChargeApplicable
+                && loanCharge.isInstallmentChargeApplicable(period.getDueDate())) {
             return Money.of(currency, getInstallmentFee(currency, period, loanCharge));
         }
         if (!loanCharge.isDueInPeriod(periodStart, periodEnd, isFirstPeriod)) {
@@ -153,7 +155,7 @@ public class SingleLoanChargeRepaymentScheduleProcessingWrapper {
         if (!predicate.test(loanCharge)) {
             return zero;
         }
-        if (loanCharge.isInstalmentFee() && isInstallmentChargeApplicable) {
+        if (loanCharge.isInstalmentFee() && isInstallmentChargeApplicable && loanCharge.isInstallmentChargeApplicable(periodEnd)) {
             LoanInstallmentCharge installmentCharge = loanCharge.getInstallmentLoanCharge(periodEnd);
             return installmentCharge == null ? zero : installmentCharge.getAmountWaived(currency);
         }
@@ -170,7 +172,7 @@ public class SingleLoanChargeRepaymentScheduleProcessingWrapper {
         if (!predicate.test(loanCharge)) {
             return zero;
         }
-        if (loanCharge.isInstalmentFee() && isInstallmentChargeApplicable) {
+        if (loanCharge.isInstalmentFee() && isInstallmentChargeApplicable && loanCharge.isInstallmentChargeApplicable(periodEnd)) {
             LoanInstallmentCharge installmentCharge = loanCharge.getInstallmentLoanCharge(periodEnd);
             return installmentCharge == null ? zero : installmentCharge.getAmountWrittenOff(currency);
         }
@@ -191,6 +193,10 @@ public class SingleLoanChargeRepaymentScheduleProcessingWrapper {
     @NotNull
     private BigDecimal getBaseAmount(MonetaryCurrency currency, LoanRepaymentScheduleInstallment period, LoanCharge loanCharge,
             BigDecimal amount) {
+        if (loanCharge.getChargeCalculation().isPercentageOfOutstandingPrincipal()) {
+            return MathUtil.add(amount,
+                    LoanRepaymentScheduleProcessingWrapper.calculateOpeningOutstandingPrincipal(currency, period, loanCharge));
+        }
         BigDecimal baseAmount = getBaseAmount(loanCharge, period.getPrincipal(currency).getAmount(),
                 period.getInterestCharged(currency).getAmount());
         return MathUtil.add(amount, baseAmount);

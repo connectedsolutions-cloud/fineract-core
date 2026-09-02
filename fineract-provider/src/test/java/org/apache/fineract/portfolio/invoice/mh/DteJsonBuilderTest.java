@@ -15,8 +15,8 @@ class DteJsonBuilderTest {
     @Test
     void buildReceptorDefaultsTipoDocumentoToDuiCode() {
         DteJsonBuilder builder = new DteJsonBuilder();
-        Invoice invoice = Invoice.draft(1L, null, null, 3, "00", "03", "DTE-03-00010001-000000000000001",
-                UUID.randomUUID().toString(), 1, 1, LocalDate.now(), LocalTime.NOON, "USD");
+        Invoice invoice = Invoice.draft(1L, null, null, 3, "00", "03", "DTE-03-00010001-000000000000001", UUID.randomUUID().toString(), 1,
+                1, LocalDate.now(), LocalTime.NOON, "USD");
 
         InvoiceReceiver receiver = InvoiceReceiver.empty();
         receiver.setNombre("Cliente Demo");

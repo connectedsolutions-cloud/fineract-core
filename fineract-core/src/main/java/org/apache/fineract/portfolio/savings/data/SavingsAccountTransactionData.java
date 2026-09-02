@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.Getter;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.domain.LocalDateInterval;
 import org.apache.fineract.infrastructure.core.jersey.serializer.legacy.JsonLocalDateArrayFormat;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
@@ -197,6 +198,22 @@ public class SavingsAccountTransactionData implements Serializable {
         data.transactionDate = date;
         data.cumulativeBalance = cumulativeBalance;
         data.balanceEndDate = balanceEndDate;
+        return data;
+    }
+
+    public static SavingsAccountTransactionData createForInterestPosting(final Long id,
+            final SavingsAccountTransactionEnumData transactionType, final PaymentDetailData paymentDetailData, final Long savingsId,
+            final String savingsAccountNo, final LocalDate date, final CurrencyData currency, final BigDecimal amount,
+            final BigDecimal outstandingChargeAmount, final BigDecimal runningBalance, final boolean reversed,
+            final LocalDate submittedOnDate, final boolean interestedPostedAsOn, final BigDecimal cumulativeBalance,
+            final LocalDate balanceEndDate, final boolean isManualTransaction, final String refNo) {
+        SavingsAccountTransactionData data = new SavingsAccountTransactionData(id, transactionType, paymentDetailData, savingsId,
+                savingsAccountNo, date, currency, amount, outstandingChargeAmount, runningBalance, reversed, null, null, submittedOnDate,
+                interestedPostedAsOn, null, null, null, null, isManualTransaction, false, null, null, false);
+        data.transactionDate = date;
+        data.cumulativeBalance = cumulativeBalance;
+        data.balanceEndDate = balanceEndDate;
+        data.refNo = refNo;
         return data;
     }
 
@@ -682,6 +699,14 @@ public class SavingsAccountTransactionData implements Serializable {
 
     public boolean isManualTransaction() {
         return isManualTransaction;
+    }
+
+    public boolean isReferencedManualInterestPosting() {
+        return isInterestPostingAndNotReversed() && this.isManualTransaction && StringUtils.isNotBlank(this.refNo);
+    }
+
+    public boolean isReferencedWithHoldTax() {
+        return isWithHoldTaxAndNotReversed() && StringUtils.isNotBlank(this.refNo);
     }
 
     public boolean isIsManualTransaction() {

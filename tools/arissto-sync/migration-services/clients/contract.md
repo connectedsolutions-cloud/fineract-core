@@ -447,10 +447,16 @@ The same source date is written to `submittedOnDate`; although
 `FECHA_SOLICITUD_INGRESO` is complete, four source rows place it after
 `FECHA_REGISTRO`, which violates Fineract's required timeline ordering.
 Fineract additionally prohibits activation before the assigned office's
-opening date. Branch 002 has 17 records dated 2024-11-27 through 2024-12-10,
-before target office 2 opened on 2024-12-11. Those 17 use the office opening
-date as the earliest representable activation/submission date; the other 1,012
-clients retain `FECHA_REGISTRO` exactly.
+opening date. A 2026-09-01 source audit found office-002 client/application
+activity beginning `2024-11-27`, accounting activity beginning `2024-11-28`,
+and 17 loan disbursements before `2024-12-11`. For the 16 newly registered
+clients implicated by loan chronology, `CRD_CARTERA.ID_SUCURSAL`,
+`ID_SUCURSAL_SOCIO`, `ID_SUCURSAL_ACTIVA`, and the current/active
+`AFI_SOCIO` branch all equal `002`; they are not later transfers from office 1.
+Loan `869` is the separate cross-office control and retains party branch `001`.
+The reviewed office-2 opening/activation floor is therefore `2024-11-27`, the
+earliest independently evidenced operating date, and every branch-002 client
+retains `FECHA_REGISTRO` exactly. [Source evidence](../../../../../../credesal-db-space/docs/learnings/prestamos.md#cronologia-apertura-sucursal-002).
 
 The completed full local run reconciled all 1,029 clients across active status,
 activation/submission dates, core profile fields, identifiers, and KYC

@@ -22,13 +22,16 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.infrastructure.core.service.PagedRequest;
 import org.apache.fineract.portfolio.client.service.search.domain.ClientSearchData;
+import org.apache.fineract.portfolio.client.service.search.domain.ClientSearchOptionsData;
 import org.apache.fineract.portfolio.client.service.search.domain.ClientTextSearch;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
@@ -49,5 +52,15 @@ public class ClientSearchV2ApiResource implements ClientSearchV2Api {
     @Operation(summary = "Search Clients by text")
     public Page<ClientSearchData> searchByText(@Parameter PagedRequest<ClientTextSearch> request) {
         return delegate.searchByText(request);
+    }
+
+    @Override
+    @GET
+    @Path("search/options")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Retrieve client search filter options")
+    public ClientSearchOptionsData retrieveSearchOptions(@QueryParam("officeId") final Long officeId) {
+        return delegate.retrieveSearchOptions(officeId);
     }
 }

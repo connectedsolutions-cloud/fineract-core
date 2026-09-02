@@ -196,6 +196,6 @@ public class JournalEntryHelper {
     public static GetJournalEntriesTransactionIdResponse retrieveJournalEntryByTransactionId(final String transactionId) {
         return Calls.ok(FineractClientHelper.getFineractClient().journalEntries.retrieveAll1(//
                 null, null, null, null, null, null, null, transactionId, null, //
-                null, null, null, null, null, null, null, null, null, true));
+                null, null, null, null, null, null, null, null, null, true, null));
     }
 }

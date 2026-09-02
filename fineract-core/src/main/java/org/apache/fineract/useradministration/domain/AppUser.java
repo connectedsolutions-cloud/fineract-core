@@ -45,6 +45,7 @@ import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.data.EnumOptionData;
 import org.apache.fineract.infrastructure.core.domain.AbstractPersistableCustom;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
+import org.apache.fineract.infrastructure.security.datascope.DataScope;
 import org.apache.fineract.infrastructure.security.domain.PlatformUser;
 import org.apache.fineract.infrastructure.security.exception.NoAuthorizationException;
 import org.apache.fineract.infrastructure.security.service.PlatformPasswordEncoder;
@@ -125,6 +126,9 @@ public class AppUser extends AbstractPersistableCustom<Long> implements Platform
     @Column(name = "cannot_change_password", nullable = true)
     private Boolean cannotChangePassword;
 
+    @Column(name = "data_scope", nullable = true, length = 20)
+    private String dataScope;
+
     public static AppUser fromJson(final Set<Office> userOffices, final Staff linkedStaff, final Set<Role> allRoles,
             final Collection<Client> clients, final JsonCommand command) {
 
@@ -166,8 +170,12 @@ public class AppUser extends AbstractPersistableCustom<Long> implements Platform
             currentOffice = userOffices.iterator().next();
         }
 
-        return new AppUser(userOffices, currentOffice, user, allRoles, email, firstname, lastname, linkedStaff, passwordNeverExpire, isSelfServiceUser,
-                clients, cannotChangePassword);
+        final AppUser appUser = new AppUser(userOffices, currentOffice, user, allRoles, email, firstname, lastname, linkedStaff,
+                passwordNeverExpire, isSelfServiceUser, clients, cannotChangePassword);
+        if (command.hasParameter(AppUserConstants.DATA_SCOPE)) {
+            appUser.setDataScope(optionalDataScope(command.stringValueOfParameterNamed(AppUserConstants.DATA_SCOPE)));
+        }
+        return appUser;
     }
 
     protected AppUser() {
@@ -177,9 +185,9 @@ public class AppUser extends AbstractPersistableCustom<Long> implements Platform
         this.offices = new HashSet<>();
     }
 
-    public AppUser(final Set<Office> offices, final Office currentOffice, final User user, final Set<Role> roles, final String email, final String firstname,
-            final String lastname, final Staff staff, final boolean passwordNeverExpire, final boolean isSelfServiceUser,
-            final Collection<Client> clients, final Boolean cannotChangePassword) {
+    public AppUser(final Set<Office> offices, final Office currentOffice, final User user, final Set<Role> roles, final String email,
+            final String firstname, final String lastname, final Staff staff, final boolean passwordNeverExpire,
+            final boolean isSelfServiceUser, final Collection<Client> clients, final Boolean cannotChangePassword) {
         if (offices != null) {
             this.offices = new HashSet<>(offices);
         } else {
@@ -230,6 +238,10 @@ public class AppUser extends AbstractPersistableCustom<Long> implements Platform
                 updatePassword(passwordEncodedValue);
             }
         }
+    }
+
+    public boolean canPasswordBeChanged() {
+        return !Boolean.TRUE.equals(this.cannotChangePassword);
     }
 
     public void updatePassword(final String encodePassword) {
@@ -293,7 +305,7 @@ public class AppUser extends AbstractPersistableCustom<Long> implements Platform
 
         // unencoded password provided
         updatePassword(command, platformPasswordEncoder, actualChanges);
-        
+
         // Handle officeIds array (multiple offices)
         final String officeIdsParamName = "officeIds";
         if (command.hasParameter(officeIdsParamName)) {
@@ -310,7 +322,7 @@ public class AppUser extends AbstractPersistableCustom<Long> implements Platform
                 actualChanges.put(officeIdsParamName, newOfficeIdsStr);
             }
         }
-        
+
         // Handle currentOfficeId (office switching)
         final String currentOfficeIdParamName = "currentOfficeId";
         if (command.hasParameter(currentOfficeIdParamName)) {
@@ -319,7 +331,7 @@ public class AppUser extends AbstractPersistableCustom<Long> implements Platform
                 actualChanges.put(currentOfficeIdParamName, newCurrentOfficeId);
             }
         }
-        
+
         // Backward compatibility: handle single officeId
         final String officeIdParamName = "officeId";
         if (command.hasParameter(officeIdParamName) && !command.hasParameter(officeIdsParamName)) {
@@ -407,6 +419,14 @@ public class AppUser extends AbstractPersistableCustom<Long> implements Platform
             actualChanges.put(AppUserConstants.CLIENTS, new ArrayList<>());
             if (this.appUserClientMappings != null) {
                 this.appUserClientMappings.clear();
+            }
+        }
+
+        if (command.hasParameter(AppUserConstants.DATA_SCOPE)) {
+            final String newValue = optionalDataScope(command.stringValueOfParameterNamed(AppUserConstants.DATA_SCOPE));
+            if (this.dataScope == null ? newValue != null : !this.dataScope.equals(newValue)) {
+                actualChanges.put(AppUserConstants.DATA_SCOPE, newValue);
+                this.dataScope = newValue;
             }
         }
 
@@ -754,6 +774,21 @@ public class AppUser extends AbstractPersistableCustom<Long> implements Platform
             staffId = this.staff.getId();
         }
         return staffId;
+    }
+
+    public String getDataScope() {
+        return this.dataScope;
+    }
+
+    public void setDataScope(final String dataScope) {
+        this.dataScope = dataScope;
+    }
+
+    private static String optionalDataScope(final String value) {
+        if (StringUtils.isBlank(value)) {
+            return null;
+        }
+        return DataScope.fromUserOverride(value).name();
     }
 
     public String getStaffDisplayName() {

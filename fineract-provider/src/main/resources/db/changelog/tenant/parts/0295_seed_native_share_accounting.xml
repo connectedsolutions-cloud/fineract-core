@@ -1,0 +1,404 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<!--
+    Native share-accounting controls.
+
+    Cash is consolidated across offices because Fineract journal office_id is
+    the office dimension. Bank accounts remain distinct payment channels. The
+    reference fallback and purchase-approval suspense are control accounts
+    whose reconciled balance must be zero.
+
+    Empty tenants (sandbox) do not have Credesal's imported chart of accounts.
+    0295-0 seeds the header ancestors required by 0295-1. Tenants that already
+    have 111001, 125099, and 22200703 (production default) skip 0295-0.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0295-0-seed-native-share-gl-parent-accounts" author="credesal">
+        <!-- MARK_RAN: Credesal production COA already has these headers. Fresh tenants do not. -->
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM acc_gl_account WHERE gl_code IN ('111001', '125099', '22200703')</sqlCheck>
+        </preConditions>
+        <comment>
+            Seed the header GL ancestors used as parents by native share-accounting
+            control accounts. Required on empty tenants such as sandbox.
+        </comment>
+
+        <insert tableName="acc_gl_account">
+            <column name="name" value="ACTIVOS"/>
+            <column name="hierarchy" value="."/>
+            <column name="gl_code" value="1"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="2"/>
+            <column name="classification_enum" valueNumeric="1"/>
+            <column name="description" value="ACTIVOS"/>
+            <column name="acc_level" valueNumeric="1"/>
+            <column name="acc_last_level" valueNumeric="0"/>
+        </insert>
+        <insert tableName="acc_gl_account">
+            <column name="name" value="ACTIVOS DE INTERMEDIACIÓN"/>
+            <column name="parent_id" valueComputed="(SELECT id FROM acc_gl_account WHERE gl_code = '1')"/>
+            <column name="gl_code" value="11"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="2"/>
+            <column name="classification_enum" valueNumeric="1"/>
+            <column name="description" value="ACTIVOS DE INTERMEDIACIÓN"/>
+            <column name="acc_level" valueNumeric="2"/>
+            <column name="acc_last_level" valueNumeric="0"/>
+        </insert>
+        <update tableName="acc_gl_account">
+            <column name="hierarchy" valueComputed="(SELECT CONCAT(parent.hierarchy, child.id, '.') FROM acc_gl_account child JOIN acc_gl_account parent ON parent.id = child.parent_id WHERE child.gl_code = '11')"/>
+            <where>gl_code = '11'</where>
+        </update>
+        <insert tableName="acc_gl_account">
+            <column name="name" value="FONDOS DISPONIBLES"/>
+            <column name="parent_id" valueComputed="(SELECT id FROM acc_gl_account WHERE gl_code = '11')"/>
+            <column name="gl_code" value="111"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="2"/>
+            <column name="classification_enum" valueNumeric="1"/>
+            <column name="description" value="FONDOS DISPONIBLES"/>
+            <column name="acc_level" valueNumeric="3"/>
+            <column name="acc_last_level" valueNumeric="0"/>
+        </insert>
+        <update tableName="acc_gl_account">
+            <column name="hierarchy" valueComputed="(SELECT CONCAT(parent.hierarchy, child.id, '.') FROM acc_gl_account child JOIN acc_gl_account parent ON parent.id = child.parent_id WHERE child.gl_code = '111')"/>
+            <where>gl_code = '111'</where>
+        </update>
+        <insert tableName="acc_gl_account">
+            <column name="name" value="FONDOS DISPONIBLES"/>
+            <column name="parent_id" valueComputed="(SELECT id FROM acc_gl_account WHERE gl_code = '111')"/>
+            <column name="gl_code" value="1110"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="2"/>
+            <column name="classification_enum" valueNumeric="1"/>
+            <column name="description" value="FONDOS DISPONIBLES"/>
+            <column name="acc_level" valueNumeric="4"/>
+            <column name="acc_last_level" valueNumeric="0"/>
+        </insert>
+        <update tableName="acc_gl_account">
+            <column name="hierarchy" valueComputed="(SELECT CONCAT(parent.hierarchy, child.id, '.') FROM acc_gl_account child JOIN acc_gl_account parent ON parent.id = child.parent_id WHERE child.gl_code = '1110')"/>
+            <where>gl_code = '1110'</where>
+        </update>
+        <insert tableName="acc_gl_account">
+            <column name="name" value="CAJA"/>
+            <column name="parent_id" valueComputed="(SELECT id FROM acc_gl_account WHERE gl_code = '1110')"/>
+            <column name="gl_code" value="111001"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="2"/>
+            <column name="classification_enum" valueNumeric="1"/>
+            <column name="description" value="CAJA"/>
+            <column name="acc_level" valueNumeric="5"/>
+            <column name="acc_last_level" valueNumeric="0"/>
+        </insert>
+        <update tableName="acc_gl_account">
+            <column name="hierarchy" valueComputed="(SELECT CONCAT(parent.hierarchy, child.id, '.') FROM acc_gl_account child JOIN acc_gl_account parent ON parent.id = child.parent_id WHERE child.gl_code = '111001')"/>
+            <where>gl_code = '111001'</where>
+        </update>
+
+        <insert tableName="acc_gl_account">
+            <column name="name" value="OTROS ACTIVOS"/>
+            <column name="parent_id" valueComputed="(SELECT id FROM acc_gl_account WHERE gl_code = '1')"/>
+            <column name="gl_code" value="12"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="2"/>
+            <column name="classification_enum" valueNumeric="1"/>
+            <column name="description" value="OTROS ACTIVOS"/>
+            <column name="acc_level" valueNumeric="2"/>
+            <column name="acc_last_level" valueNumeric="0"/>
+        </insert>
+        <update tableName="acc_gl_account">
+            <column name="hierarchy" valueComputed="(SELECT CONCAT(parent.hierarchy, child.id, '.') FROM acc_gl_account child JOIN acc_gl_account parent ON parent.id = child.parent_id WHERE child.gl_code = '12')"/>
+            <where>gl_code = '12'</where>
+        </update>
+        <insert tableName="acc_gl_account">
+            <column name="name" value="CUENTAS POR COBRAR"/>
+            <column name="parent_id" valueComputed="(SELECT id FROM acc_gl_account WHERE gl_code = '12')"/>
+            <column name="gl_code" value="125"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="2"/>
+            <column name="classification_enum" valueNumeric="1"/>
+            <column name="description" value="CUENTAS POR COBRAR"/>
+            <column name="acc_level" valueNumeric="3"/>
+            <column name="acc_last_level" valueNumeric="0"/>
+        </insert>
+        <update tableName="acc_gl_account">
+            <column name="hierarchy" valueComputed="(SELECT CONCAT(parent.hierarchy, child.id, '.') FROM acc_gl_account child JOIN acc_gl_account parent ON parent.id = child.parent_id WHERE child.gl_code = '125')"/>
+            <where>gl_code = '125'</where>
+        </update>
+        <insert tableName="acc_gl_account">
+            <column name="name" value="CUENTAS POR COBRAR"/>
+            <column name="parent_id" valueComputed="(SELECT id FROM acc_gl_account WHERE gl_code = '125')"/>
+            <column name="gl_code" value="1250"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="2"/>
+            <column name="classification_enum" valueNumeric="1"/>
+            <column name="description" value="CUENTAS POR COBRAR"/>
+            <column name="acc_level" valueNumeric="4"/>
+            <column name="acc_last_level" valueNumeric="0"/>
+        </insert>
+        <update tableName="acc_gl_account">
+            <column name="hierarchy" valueComputed="(SELECT CONCAT(parent.hierarchy, child.id, '.') FROM acc_gl_account child JOIN acc_gl_account parent ON parent.id = child.parent_id WHERE child.gl_code = '1250')"/>
+            <where>gl_code = '1250'</where>
+        </update>
+        <insert tableName="acc_gl_account">
+            <column name="name" value="OTRAS"/>
+            <column name="parent_id" valueComputed="(SELECT id FROM acc_gl_account WHERE gl_code = '1250')"/>
+            <column name="gl_code" value="125099"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="2"/>
+            <column name="classification_enum" valueNumeric="1"/>
+            <column name="description" value="OTRAS"/>
+            <column name="acc_level" valueNumeric="5"/>
+            <column name="acc_last_level" valueNumeric="0"/>
+        </insert>
+        <update tableName="acc_gl_account">
+            <column name="hierarchy" valueComputed="(SELECT CONCAT(parent.hierarchy, child.id, '.') FROM acc_gl_account child JOIN acc_gl_account parent ON parent.id = child.parent_id WHERE child.gl_code = '125099')"/>
+            <where>gl_code = '125099'</where>
+        </update>
+
+        <insert tableName="acc_gl_account">
+            <column name="name" value="PASIVOS"/>
+            <column name="hierarchy" value="."/>
+            <column name="gl_code" value="2"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="2"/>
+            <column name="classification_enum" valueNumeric="2"/>
+            <column name="description" value="PASIVOS"/>
+            <column name="acc_level" valueNumeric="1"/>
+            <column name="acc_last_level" valueNumeric="0"/>
+        </insert>
+        <insert tableName="acc_gl_account">
+            <column name="name" value="OTROS PASIVOS"/>
+            <column name="parent_id" valueComputed="(SELECT id FROM acc_gl_account WHERE gl_code = '2')"/>
+            <column name="gl_code" value="22"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="2"/>
+            <column name="classification_enum" valueNumeric="2"/>
+            <column name="description" value="OTROS PASIVOS"/>
+            <column name="acc_level" valueNumeric="2"/>
+            <column name="acc_last_level" valueNumeric="0"/>
+        </insert>
+        <update tableName="acc_gl_account">
+            <column name="hierarchy" valueComputed="(SELECT CONCAT(parent.hierarchy, child.id, '.') FROM acc_gl_account child JOIN acc_gl_account parent ON parent.id = child.parent_id WHERE child.gl_code = '22')"/>
+            <where>gl_code = '22'</where>
+        </update>
+        <insert tableName="acc_gl_account">
+            <column name="name" value="CUENTAS POR PAGAR"/>
+            <column name="parent_id" valueComputed="(SELECT id FROM acc_gl_account WHERE gl_code = '22')"/>
+            <column name="gl_code" value="222"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="2"/>
+            <column name="classification_enum" valueNumeric="2"/>
+            <column name="description" value="CUENTAS POR PAGAR"/>
+            <column name="acc_level" valueNumeric="3"/>
+            <column name="acc_last_level" valueNumeric="0"/>
+        </insert>
+        <update tableName="acc_gl_account">
+            <column name="hierarchy" valueComputed="(SELECT CONCAT(parent.hierarchy, child.id, '.') FROM acc_gl_account child JOIN acc_gl_account parent ON parent.id = child.parent_id WHERE child.gl_code = '222')"/>
+            <where>gl_code = '222'</where>
+        </update>
+        <insert tableName="acc_gl_account">
+            <column name="name" value="CUENTAS POR PAGAR"/>
+            <column name="parent_id" valueComputed="(SELECT id FROM acc_gl_account WHERE gl_code = '222')"/>
+            <column name="gl_code" value="2220"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="2"/>
+            <column name="classification_enum" valueNumeric="2"/>
+            <column name="description" value="CUENTAS POR PAGAR"/>
+            <column name="acc_level" valueNumeric="4"/>
+            <column name="acc_last_level" valueNumeric="0"/>
+        </insert>
+        <update tableName="acc_gl_account">
+            <column name="hierarchy" valueComputed="(SELECT CONCAT(parent.hierarchy, child.id, '.') FROM acc_gl_account child JOIN acc_gl_account parent ON parent.id = child.parent_id WHERE child.gl_code = '2220')"/>
+            <where>gl_code = '2220'</where>
+        </update>
+        <insert tableName="acc_gl_account">
+            <column name="name" value="PASIVOS TRANSITORIOS"/>
+            <column name="parent_id" valueComputed="(SELECT id FROM acc_gl_account WHERE gl_code = '2220')"/>
+            <column name="gl_code" value="222007"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="2"/>
+            <column name="classification_enum" valueNumeric="2"/>
+            <column name="description" value="PASIVOS TRANSITORIOS"/>
+            <column name="acc_level" valueNumeric="5"/>
+            <column name="acc_last_level" valueNumeric="0"/>
+        </insert>
+        <update tableName="acc_gl_account">
+            <column name="hierarchy" valueComputed="(SELECT CONCAT(parent.hierarchy, child.id, '.') FROM acc_gl_account child JOIN acc_gl_account parent ON parent.id = child.parent_id WHERE child.gl_code = '222007')"/>
+            <where>gl_code = '222007'</where>
+        </update>
+        <insert tableName="acc_gl_account">
+            <column name="name" value="INGRESOS PENDIENTES DE LIQUIDAR"/>
+            <column name="parent_id" valueComputed="(SELECT id FROM acc_gl_account WHERE gl_code = '222007')"/>
+            <column name="gl_code" value="22200703"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="2"/>
+            <column name="classification_enum" valueNumeric="2"/>
+            <column name="description" value="INGRESOS PENDIENTES DE LIQUIDAR"/>
+            <column name="acc_level" valueNumeric="6"/>
+            <column name="acc_last_level" valueNumeric="0"/>
+        </insert>
+        <update tableName="acc_gl_account">
+            <column name="hierarchy" valueComputed="(SELECT CONCAT(parent.hierarchy, child.id, '.') FROM acc_gl_account child JOIN acc_gl_account parent ON parent.id = child.parent_id WHERE child.gl_code = '22200703')"/>
+            <where>gl_code = '22200703'</where>
+        </update>
+
+        <rollback>
+            <delete tableName="acc_gl_account">
+                <where>gl_code IN ('111001', '125099', '22200703')</where>
+            </delete>
+            <delete tableName="acc_gl_account">
+                <where>gl_code IN ('1110', '1250', '222007')</where>
+            </delete>
+            <delete tableName="acc_gl_account">
+                <where>gl_code IN ('111', '125', '2220')</where>
+            </delete>
+            <delete tableName="acc_gl_account">
+                <where>gl_code IN ('11', '12', '222')</where>
+            </delete>
+            <delete tableName="acc_gl_account">
+                <where>gl_code IN ('22')</where>
+            </delete>
+            <delete tableName="acc_gl_account">
+                <where>gl_code IN ('1', '2')</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0295-1-seed-native-share-gl-controls" author="credesal">
+        <preConditions onFail="HALT">
+            <sqlCheck expectedResult="1">SELECT COUNT(*) FROM acc_gl_account WHERE gl_code = '111001' AND classification_enum = 1</sqlCheck>
+            <sqlCheck expectedResult="1">SELECT COUNT(*) FROM acc_gl_account WHERE gl_code = '125099' AND classification_enum = 1</sqlCheck>
+            <sqlCheck expectedResult="1">SELECT COUNT(*) FROM acc_gl_account WHERE gl_code = '22200703' AND classification_enum = 2</sqlCheck>
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM acc_gl_account WHERE gl_code IN ('1110010199', '1250990901', '2220070303')</sqlCheck>
+        </preConditions>
+
+        <insert tableName="acc_gl_account">
+            <column name="name" value="CAJA"/>
+            <column name="parent_id" valueComputed="(SELECT id FROM acc_gl_account WHERE gl_code = '111001')"/>
+            <column name="gl_code" value="1110010199"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="1"/>
+            <column name="classification_enum" valueNumeric="1"/>
+            <column name="description" value="Canonical cash account; office is carried by journal-entry office_id."/>
+            <column name="acc_level" valueNumeric="6"/>
+            <column name="acc_last_level" valueNumeric="1"/>
+        </insert>
+        <update tableName="acc_gl_account">
+            <column name="hierarchy" valueComputed="(SELECT CONCAT(parent.hierarchy, child.id, '.') FROM acc_gl_account child JOIN acc_gl_account parent ON parent.id = child.parent_id WHERE child.gl_code = '1110010199')"/>
+            <where>gl_code = '1110010199'</where>
+        </update>
+
+        <insert tableName="acc_gl_account">
+            <column name="name" value="COBROS DE ACCIONES POR IDENTIFICAR"/>
+            <column name="parent_id" valueComputed="(SELECT id FROM acc_gl_account WHERE gl_code = '125099')"/>
+            <column name="gl_code" value="1250990901"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="1"/>
+            <column name="classification_enum" valueNumeric="1"/>
+            <column name="description" value="Fallback share-reference asset for missing payment-channel mappings; expected balance is zero."/>
+            <column name="acc_level" valueNumeric="6"/>
+            <column name="acc_last_level" valueNumeric="1"/>
+        </insert>
+        <update tableName="acc_gl_account">
+            <column name="hierarchy" valueComputed="(SELECT CONCAT(parent.hierarchy, child.id, '.') FROM acc_gl_account child JOIN acc_gl_account parent ON parent.id = child.parent_id WHERE child.gl_code = '1250990901')"/>
+            <where>gl_code = '1250990901'</where>
+        </update>
+
+        <insert tableName="acc_gl_account">
+            <column name="name" value="APORTES DE CAPITAL PENDIENTES DE APROBAR"/>
+            <column name="parent_id" valueComputed="(SELECT id FROM acc_gl_account WHERE gl_code = '22200703')"/>
+            <column name="gl_code" value="2220070303"/>
+            <column name="disabled" valueBoolean="false"/>
+            <column name="manual_journal_entries_allowed" valueBoolean="true"/>
+            <column name="account_usage" valueNumeric="1"/>
+            <column name="classification_enum" valueNumeric="2"/>
+            <column name="description" value="Temporary native share-purchase approval suspense; expected balance is zero."/>
+            <column name="acc_level" valueNumeric="7"/>
+            <column name="acc_last_level" valueNumeric="1"/>
+        </insert>
+        <update tableName="acc_gl_account">
+            <column name="hierarchy" valueComputed="(SELECT CONCAT(parent.hierarchy, child.id, '.') FROM acc_gl_account child JOIN acc_gl_account parent ON parent.id = child.parent_id WHERE child.gl_code = '2220070303')"/>
+            <where>gl_code = '2220070303'</where>
+        </update>
+
+        <rollback>
+            <delete tableName="acc_gl_account">
+                <where>gl_code IN ('1110010199', '1250990901', '2220070303')</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0295-2-seed-native-share-payment-types" author="credesal">
+        <preConditions onFail="HALT">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM m_payment_type WHERE code_name IN ('CREDESAL_CHEQUE_AJENO', 'CREDESAL_BANCO_ATLANTIDA', 'CREDESAL_BANCO_CUSCATLAN')</sqlCheck>
+        </preConditions>
+        <insert tableName="m_payment_type">
+            <column name="value" value="Cheque ajeno"/>
+            <column name="description" value="Third-party cheque received by Credesal"/>
+            <column name="is_cash_payment" valueBoolean="false"/>
+            <column name="order_position" valueNumeric="20"/>
+            <column name="code_name" value="CREDESAL_CHEQUE_AJENO"/>
+            <column name="is_system_defined" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_payment_type">
+            <column name="value" value="Banco Atlántida"/>
+            <column name="description" value="Payment received in Credesal Banco Atlántida account"/>
+            <column name="is_cash_payment" valueBoolean="false"/>
+            <column name="order_position" valueNumeric="21"/>
+            <column name="code_name" value="CREDESAL_BANCO_ATLANTIDA"/>
+            <column name="is_system_defined" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_payment_type">
+            <column name="value" value="Banco Cuscatlán"/>
+            <column name="description" value="Payment received in Credesal Banco Cuscatlán account"/>
+            <column name="is_cash_payment" valueBoolean="false"/>
+            <column name="order_position" valueNumeric="22"/>
+            <column name="code_name" value="CREDESAL_BANCO_CUSCATLAN"/>
+            <column name="is_system_defined" valueBoolean="false"/>
+        </insert>
+        <rollback>
+            <delete tableName="m_payment_type">
+                <where>code_name IN ('CREDESAL_CHEQUE_AJENO', 'CREDESAL_BANCO_ATLANTIDA', 'CREDESAL_BANCO_CUSCATLAN')</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

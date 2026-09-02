@@ -62,6 +62,9 @@ import org.apache.fineract.organisation.workingdays.domain.WorkingDaysRepository
 import org.apache.fineract.portfolio.account.PortfolioAccountType;
 import org.apache.fineract.portfolio.account.data.AccountTransferDTO;
 import org.apache.fineract.portfolio.account.data.PortfolioAccountData;
+import org.apache.fineract.portfolio.account.domain.AccountAssociationType;
+import org.apache.fineract.portfolio.account.domain.AccountAssociations;
+import org.apache.fineract.portfolio.account.domain.AccountAssociationsRepository;
 import org.apache.fineract.portfolio.account.domain.AccountTransferType;
 import org.apache.fineract.portfolio.account.service.AccountAssociationsReadPlatformService;
 import org.apache.fineract.portfolio.account.service.AccountTransfersReadPlatformService;
@@ -89,6 +92,7 @@ import org.apache.fineract.portfolio.savings.DepositsApiConstants;
 import org.apache.fineract.portfolio.savings.SavingsAccountTransactionType;
 import org.apache.fineract.portfolio.savings.SavingsApiConstants;
 import org.apache.fineract.portfolio.savings.data.DepositAccountTransactionDataValidator;
+import org.apache.fineract.portfolio.savings.data.DepositAccountDataValidator;
 import org.apache.fineract.portfolio.savings.data.SavingsAccountChargeDataValidator;
 import org.apache.fineract.portfolio.savings.data.SavingsAccountTransactionDTO;
 import org.apache.fineract.portfolio.savings.domain.DepositAccountAssembler;
@@ -121,6 +125,7 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
     private final SavingsAccountTransactionRepository savingsAccountTransactionRepository;
     private final DepositAccountAssembler depositAccountAssembler;
     private final DepositAccountTransactionDataValidator depositAccountTransactionDataValidator;
+    private final DepositAccountDataValidator depositAccountDataValidator;
     private final SavingsAccountChargeDataValidator savingsAccountChargeDataValidator;
     private final PaymentDetailWritePlatformService paymentDetailWritePlatformService;
     private final ApplicationCurrencyRepositoryWrapper applicationCurrencyRepositoryWrapper;
@@ -131,6 +136,7 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
     private final ChargeRepositoryWrapper chargeRepository;
     private final SavingsAccountChargeRepositoryWrapper savingsAccountChargeRepository;
     private final AccountAssociationsReadPlatformService accountAssociationsReadPlatformService;
+    private final AccountAssociationsRepository accountAssociationsRepository;
     private final AccountTransfersWritePlatformService accountTransfersWritePlatformService;
     private final DepositAccountReadPlatformService depositAccountReadPlatformService;
     private final CalendarInstanceRepository calendarInstanceRepository;
@@ -223,6 +229,29 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
                 .withSavingsId(savingsId) //
                 .with(changes) //
                 .build();
+    }
+
+    @Transactional
+    @Override
+    public CommandProcessingResult linkSavingsAccountForMigration(final Long fixedDepositId, final Long linkedSavingsId) {
+        final FixedDepositAccount fixedDeposit = (FixedDepositAccount) this.depositAccountAssembler.assembleFrom(fixedDepositId,
+                DepositAccountType.FIXED_DEPOSIT);
+        final SavingsAccount linkedSavings = this.savingAccountRepositoryWrapper.findOneWithNotFoundDetection(linkedSavingsId);
+        this.depositAccountDataValidator.validatelinkedSavingsAccount(linkedSavings, fixedDeposit);
+
+        AccountAssociations association = this.accountAssociationsRepository.findBySavingsIdAndType(fixedDepositId,
+                AccountAssociationType.LINKED_ACCOUNT_ASSOCIATION.getValue());
+        if (association == null) {
+            association = AccountAssociations.associateSavingsAccount(fixedDeposit, linkedSavings,
+                    AccountAssociationType.LINKED_ACCOUNT_ASSOCIATION.getValue(), true);
+            this.accountAssociationsRepository.save(association);
+        } else if (association.linkedSavingsAccount() == null
+                || !association.linkedSavingsAccount().getId().equals(linkedSavingsId)) {
+            throw new IllegalStateException("Fixed deposit already has a different linked savings account");
+        }
+        fixedDeposit.configureInterestTransferToLinkedAccount();
+        this.savingAccountRepositoryWrapper.save(fixedDeposit);
+        return new CommandProcessingResultBuilder().withEntityId(fixedDepositId).withSavingsId(fixedDepositId).build();
     }
 
     private Money getActivationCharge(final FixedDepositAccount account) {
@@ -476,6 +505,12 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
     @Transactional
     @Override
     public CommandProcessingResult calculateInterest(final Long savingsId, final DepositAccountType depositAccountType) {
+        return calculateInterest(savingsId, depositAccountType, DateUtils.getBusinessLocalDate());
+    }
+
+    @Override
+    public CommandProcessingResult calculateInterest(final Long savingsId, final DepositAccountType depositAccountType,
+            final LocalDate calculationDate) {
 
         final boolean isSavingsInterestPostingAtCurrentPeriodEnd = this.configurationDomainService
                 .isSavingsInterestPostingAtCurrentPeriodEnd();
@@ -484,12 +519,11 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
         final SavingsAccount account = this.depositAccountAssembler.assembleFrom(savingsId, depositAccountType);
         checkClientOrGroupActive(account);
 
-        final LocalDate today = DateUtils.getBusinessLocalDate();
         final boolean postReversals = false;
         final MathContext mc = new MathContext(15, MoneyHelper.getRoundingMode());
         boolean isInterestTransfer = false;
         LocalDate postInterestOnDate = null;
-        account.calculateInterestUsing(mc, today, isInterestTransfer, isSavingsInterestPostingAtCurrentPeriodEnd,
+        account.calculateInterestUsing(mc, calculationDate, isInterestTransfer, isSavingsInterestPostingAtCurrentPeriodEnd,
                 financialYearBeginningMonth, postInterestOnDate, false, postReversals);
 
         this.savingAccountRepositoryWrapper.save(account);
@@ -542,10 +576,36 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
     }
 
     @Override
-    public CommandProcessingResult undoFDTransaction(final Long savingsId, @SuppressWarnings("unused") final Long transactionId,
+    public CommandProcessingResult undoFDTransaction(final Long savingsId, final Long transactionId,
             @SuppressWarnings("unused") final boolean allowAccountTransferModification) {
+        return undoFDTransaction(savingsId, transactionId, allowAccountTransferModification, false);
+    }
 
-        throw new DepositAccountTransactionNotAllowedException(savingsId, "undo", DepositAccountType.FIXED_DEPOSIT);
+    @Override
+    public CommandProcessingResult undoFDTransaction(final Long savingsId, final Long transactionId,
+            @SuppressWarnings("unused") final boolean allowAccountTransferModification, final boolean sourceAuthoritativeCleanup) {
+        context.authenticatedUser();
+        final SavingsAccountTransaction transaction = this.savingsAccountTransactionRepository
+                .findOneByIdAndSavingsAccountId(transactionId, savingsId);
+        if (transaction == null) {
+            throw new SavingsAccountTransactionNotFoundException(savingsId, transactionId);
+        }
+        if (sourceAuthoritativeCleanup && transaction.isWithdrawal()) {
+            final boolean reversed = this.accountTransfersWritePlatformService.reverseUniqueSavingsTransfer(savingsId, transactionId);
+            if (!reversed) {
+                throw new DepositAccountTransactionNotAllowedException(savingsId, "undo", DepositAccountType.FIXED_DEPOSIT);
+            }
+            return new CommandProcessingResultBuilder().withEntityId(transactionId).withSavingsId(savingsId).build();
+        }
+        if (!transaction.isInterestPostingAndNotReversed()) {
+            throw new DepositAccountTransactionNotAllowedException(savingsId, "undo", DepositAccountType.FIXED_DEPOSIT);
+        }
+        final boolean reversed = this.accountTransfersWritePlatformService.reverseUniqueSavingsTransferAndInterestPosting(savingsId,
+                transactionId, transaction.getTransactionDate(), transaction.getAmount(), sourceAuthoritativeCleanup);
+        if (!reversed) {
+            throw new DepositAccountTransactionNotAllowedException(savingsId, "undo", DepositAccountType.FIXED_DEPOSIT);
+        }
+        return new CommandProcessingResultBuilder().withEntityId(transactionId).withSavingsId(savingsId).build();
     }
 
     @Override
@@ -1318,6 +1378,24 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
     @Transactional
     @Override
     public void updateMaturityDetails(Long depositAccountId, DepositAccountType depositAccountType) {
+        updateMaturityDetails(depositAccountId, depositAccountType, true);
+    }
+
+    @Override
+    public void updateMaturityDetails(Long depositAccountId, DepositAccountType depositAccountType,
+            final boolean applyMaturityInstruction) {
+        updateMaturityDetails(depositAccountId, depositAccountType, applyMaturityInstruction, true);
+    }
+
+    @Override
+    public void updateMaturityDetails(Long depositAccountId, DepositAccountType depositAccountType,
+            final boolean applyMaturityInstruction, final boolean postMaturityInterest) {
+        updateMaturityDetails(depositAccountId, depositAccountType, applyMaturityInstruction, postMaturityInterest, null);
+    }
+
+    @Override
+    public Long updateMaturityDetails(Long depositAccountId, DepositAccountType depositAccountType,
+            final boolean applyMaturityInstruction, final boolean postMaturityInterest, final LocalDate sourceRolloverDate) {
         final boolean isSavingsInterestPostingAtCurrentPeriodEnd = this.configurationDomainService
                 .isSavingsInterestPostingAtCurrentPeriodEnd();
         final Integer financialYearBeginningMonth = this.configurationDomainService.retrieveFinancialYearBeginningMonth();
@@ -1327,30 +1405,46 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
         final Set<Long> existingReversedTransactionIds = new HashSet<>();
         updateExistingTransactionsDetails(account, existingTransactionIds, existingReversedTransactionIds);
 
+        Long reinvestedDepositId = null;
         if (depositAccountType.isFixedDeposit()) {
-            ((FixedDepositAccount) account).updateMaturityStatus(isSavingsInterestPostingAtCurrentPeriodEnd, financialYearBeginningMonth);
+            final AccountAssociations linkedAccountAssociation = this.accountAssociationsRepository.findBySavingsIdAndType(
+                    depositAccountId, AccountAssociationType.LINKED_ACCOUNT_ASSOCIATION.getValue());
             FixedDepositAccount fdAccount = ((FixedDepositAccount) account);
+            if (applyMaturityInstruction && !postMaturityInterest) {
+                fdAccount.configureSourceAuthoritativePrincipalRollover();
+            }
+            if (!fdAccount.isMatured()) {
+                fdAccount.updateMaturityStatus(isSavingsInterestPostingAtCurrentPeriodEnd, financialYearBeginningMonth,
+                        postMaturityInterest);
+            }
             // handle maturity instructions
 
-            if (fdAccount.isMatured() && (fdAccount.isReinvestOnClosure() || fdAccount.isTransferToSavingsOnClosure())) {
+            if (applyMaturityInstruction && fdAccount.isMatured()
+                    && (fdAccount.isReinvestOnClosure() || fdAccount.isTransferToSavingsOnClosure())) {
                 DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
                 Map<String, Object> changes = new HashMap<>();
                 final AppUser user = context.authenticatedUser();
                 Long toSavingsId = fdAccount.getTransferToSavingsAccountId();
-                this.depositAccountDomainService.handleFDAccountMaturityClosure(fdAccount, null, user, fmt, fdAccount.maturityDate(),
-                        fdAccount.getOnAccountClosureId(), toSavingsId, "Apply maturity instructions", changes);
+                final LocalDate rolloverDate = sourceRolloverDate == null ? fdAccount.maturityDate() : sourceRolloverDate;
+                this.depositAccountDomainService.handleFDAccountMaturityClosure(fdAccount, null, user, fmt, rolloverDate,
+                        fdAccount.getOnAccountClosureId(), toSavingsId, "Apply maturity instructions", changes, postMaturityInterest);
 
                 if (changes.get("reinvestedDepositId") != null) {
-                    Long reinvestedDepositId = (Long) changes.get("reinvestedDepositId");
+                    reinvestedDepositId = (Long) changes.get("reinvestedDepositId");
                     Money amountForDeposit = account.activateWithBalance();
                     final FixedDepositAccount reinvestAccount = (FixedDepositAccount) this.depositAccountAssembler
                             .assembleFrom(reinvestedDepositId, DepositAccountType.FIXED_DEPOSIT);
+                    if (linkedAccountAssociation != null) {
+                        this.accountAssociationsRepository.save(AccountAssociations.associateSavingsAccount(reinvestAccount,
+                                linkedAccountAssociation.linkedSavingsAccount(),
+                                AccountAssociationType.LINKED_ACCOUNT_ASSOCIATION.getValue(), true));
+                    }
                     Money activationChargeAmount = getActivationCharge(reinvestAccount);
                     if (activationChargeAmount.isGreaterThanZero()) {
                         payActivationCharge(reinvestAccount);
                         amountForDeposit = amountForDeposit.plus(activationChargeAmount);
                     }
-                    this.depositAccountDomainService.handleFDDeposit(reinvestAccount, fmt, fdAccount.maturityDate(),
+                    this.depositAccountDomainService.handleFDDeposit(reinvestAccount, fmt, rolloverDate,
                             amountForDeposit.getAmount(), null);
                 }
             }
@@ -1360,6 +1454,7 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
         }
         this.savingAccountRepositoryWrapper.saveAndFlush(account);
         postJournalEntries(account, existingTransactionIds, existingReversedTransactionIds);
+        return reinvestedDepositId;
     }
 
     private void updateExistingTransactionsDetails(SavingsAccount account, Set<Long> existingTransactionIds,

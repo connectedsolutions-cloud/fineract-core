@@ -1,0 +1,159 @@
+{
+  "version": 2,
+  "source": {
+    "product_table": "AHO_LINEA_AHORRO",
+    "account_table": "AHO_CUENTA_AHORRO",
+    "owner_table": "AHO_PROPIETARIOS",
+    "movement_table": "AHO_MOVIMIENTOS",
+    "history_table": "AHO_HISTORICO_PLAZOS",
+    "daily_table": "AHO_HISTORICO_DIARIO",
+    "daily_close_table": "CIERRE_DIARIO",
+    "provision_table": "FNC_PROVISIONES",
+    "party_table": "AFI_SOCIO",
+    "transaction_catalog_table": "TRANSACCIONES",
+    "gl_account_table": "CNT_CATALOGO_CUENTAS",
+    "account_keys": ["ID_EMPRESA", "ID_SUCURSAL", "ID_CUENTA_AHORRO"],
+    "owner_keys": ["ID_EMPRESA", "ID_SUCURSAL", "ID_CUENTA_AHORRO", "ID_PROPIETARIO"],
+    "movement_keys": ["ID_AHO_MOVIMIENTO"],
+    "history_keys": ["ID_EMPRESA", "ID_SUCURSAL", "ID_CUENTA_AHORRO", "ID_HISTORICO"],
+    "product_keys": ["ID_EMPRESA", "ID_LINEA_AHORRO"]
+  },
+  "account_types": {
+    "001": {"name": "VISTA", "target": "savings", "disposition": "migrate"},
+    "002": {"name": "PROGRAMADO", "target": "recurring-deposit", "disposition": "inspect-only"},
+    "003": {"name": "PLAZO", "target": "fixed-deposit", "disposition": "migrate"}
+  },
+  "account_states": {
+    "0": "CLOSED",
+    "1": "ACTIVE",
+    "2": "INACTIVE_BLOCKED",
+    "3": "SUBMITTED_UNFUNDED",
+    "4": "MATURED"
+  },
+  "movement_roles": {
+    "APERTURA DE DPF": {"role": "FIXED_DEPOSIT_FUNDING", "direction": "1"},
+    "CANCELACIÓN DE DPF": {"role": "FIXED_DEPOSIT_CANCELLATION", "direction": "2"},
+    "DEPOSITO DE AHORRO": {"role": "DEPOSIT", "direction": "1"},
+    "RETIRO DE AHORRO": {"role": "WITHDRAWAL", "direction": "2"},
+    "CAP. INT. PLAZO FIJO": {"role": "FIXED_DEPOSIT_INTEREST_TRANSFER", "direction": "1"},
+    "CAPITALIZACION INTERES": {"role": "SAVINGS_INTEREST_POSTING", "direction": "1"},
+    "RETENCIÓN DE RENTA-ISR (10%)": {"role": "WITHHOLDING_TAX", "direction": "2"},
+    "NOTA DE ABONO (REVERSION)": {"role": "CREDIT_REVERSAL", "direction": "1"},
+    "NOTA DE CARGO (REVERSION)": {"role": "DEBIT_REVERSAL", "direction": "2"}
+  },
+  "history_roles": {
+    "1": "POSTED_INTEREST",
+    "2": "CATCH_UP_ACCRUAL_EVIDENCE"
+  },
+  "ownership": {
+    "authoritative_source": "AHO_PROPIETARIOS",
+    "native_primary_rule": "account_master_socio_match",
+    "preserve_all_source_owners": true
+  },
+  "cutoff": {
+    "selected_exact_field": "INTERESES_PROVISIONADOS",
+    "selected_accounting_field": "INTERESES_PROVISIONADOS",
+    "exact_field_candidates": ["INT_PROV", "SALDO_INT_PROV", "INTERESES_PROVISIONADOS"],
+    "accounting_field_candidates": ["INT_PROV_CNT", "SALDO_INT_PROV_CNT", "INT_PROVISIONADO", "INTERESES_PROVISIONADOS"],
+    "date_field": "FECHA_OPERACION",
+    "completed_close_value": "1",
+    "precision_policy": "source_operational_amount_plus_native_recalculation",
+    "selection_required": true
+  },
+  "interest_basis": {
+    "source_convention": "actual_calendar_year",
+    "target_api_parameter": "interestCalculationDaysInYearType",
+    "target_enum_value": 1,
+    "target_enum_code": "savingsInterestCalculationDaysInYearType.actual",
+    "target_product_column": "interest_calculation_days_in_year_type_enum",
+    "target_account_column": "interest_calculation_days_in_year_type_enum",
+    "require_product_account_match": true
+  },
+  "interest_schedule": {
+    "source_period_code": "06",
+    "source_period_name": "MENSUAL(DIA APERTURA)",
+    "anchor_source_column": "FECHA_APERTURA",
+    "target_posting_enum_value": 9,
+    "target_posting_enum_code": "savingsPostingInterestPeriodType.monthlyOnActivationDate",
+    "target_compounding_enum_value": 9,
+    "target_compounding_enum_code": "savingsCompoundingInterestPeriodType.monthlyOnActivationDate",
+    "short_month_rule": "last_day_then_restore_anchor",
+    "require_product_account_match": true
+  },
+  "historical_interest_posting": {
+    "source_role": "SAVINGS_INTEREST_POSTING",
+    "target_transaction_type_enum": 3,
+    "target_transaction_type_code": "savingsAccountTransactionType.interestPosting",
+    "target_api_command": "explicitInterestPosting",
+    "target_permission": "EXPLICITINTERESTPOSTING_SAVINGSACCOUNT",
+    "idempotency_reference_field": "transactionReference",
+    "future_interest_policy": "native_actual_actual_calculator"
+  },
+  "historical_isr": {
+    "decision_field": "APLICA_RENTA",
+    "taxed_value": "1",
+    "gross_field": "MONTO_INTERES",
+    "tax_field": "MONTO_RENTA",
+    "tax_movement_field": "ID_MOV_AHO_RENTA",
+    "rate_percent": 10,
+    "target_transaction_type_enum": 18,
+    "target_transaction_type_code": "savingsAccountTransactionType.withholdTax",
+    "target_api_command": "explicitWithholdTax",
+    "target_permission": "EXPLICITWITHHOLDTAX_SAVINGSACCOUNT",
+    "posting_account": "linked_vista",
+    "tax_group_required": true,
+    "automatic_withholding_enabled": false,
+    "idempotency_reference_field": "transactionReference",
+    "future_eligibility_policy": "separate_business_rule_required"
+  },
+  "fixed_deposit_cycles": {
+    "source_account_type": "003",
+    "renewal_boundary_history_type": "2",
+    "posted_interest_history_type": "1",
+    "initial_opening_precedence": [
+      "nonreversed_opening_movement",
+      "first_renewal_minus_term_days",
+      "account_master_opening"
+    ],
+    "cycle_end_semantics": "exclusive",
+    "allowed_next_cycle_gap_days": [0, 1],
+    "historical_maturity_instruction_id": 400,
+    "historical_maturity_instruction": "reinvest_principal_only",
+    "current_native_account_pointer": "credesal_savings_migration_account.savings_account_id"
+  },
+  "target": {
+    "client_table": "m_client",
+    "savings_product_table": "m_savings_product",
+    "product_map_table": "credesal_savings_product_map",
+    "savings_account_table": "m_savings_account",
+    "savings_transaction_table": "m_savings_account_transaction",
+    "migration_account_table": "credesal_savings_migration_account",
+    "migration_owner_table": "credesal_savings_migration_owner",
+    "migration_cycle_table": "credesal_savings_migration_cycle",
+    "event_map_table": "credesal_savings_native_event_map",
+    "currency": "USD",
+    "batch_size": 250
+  },
+  "write_policy": {
+    "native_financial_tables": "api-domain-only",
+    "extension_tables": "controlled-sql",
+    "sequential_by_account": true,
+    "chronological_within_account": true,
+    "account_atomic_quarantine": true
+  },
+  "gl_roles": {
+    "savingsControlAccountId": "ID_CUENTA",
+    "interestOnSavingsAccountId": "ID_CUENTA_CAPIT",
+    "interestPayableAccountId": "ID_CUENTA_PROVI",
+    "taxComponentCreditAccountId": "ID_CUENTA_RENTA"
+  },
+  "target_shared_gl": {
+    "savingsReferenceAccountId": {"gl_code": "1110040202", "classification_enum": 1},
+    "transfersInSuspenseAccountId": {"gl_code": "213005", "classification_enum": 2},
+    "incomeFromFeeAccountId": {"gl_code": "6420", "classification_enum": 4},
+    "incomeFromPenaltyAccountId": {"gl_code": "6430", "classification_enum": 4},
+    "feesReceivableAccountId": {"gl_code": "1530", "classification_enum": 1},
+    "penaltiesReceivableAccountId": {"gl_code": "1540", "classification_enum": 1}
+  },
+  "blockers": []
+}

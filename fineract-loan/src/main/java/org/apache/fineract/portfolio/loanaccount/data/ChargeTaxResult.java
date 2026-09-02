@@ -27,8 +27,7 @@ import org.apache.fineract.portfolio.tax.domain.TaxComponent;
 
 /**
  * Result of {@link org.apache.fineract.portfolio.loanaccount.service.LoanChargeService#chargeTaxCalculator
- * chargeTaxCalculator}: charge base amount, tax amount, formula total, and per-component tax split for
- * journal entries.
+ * chargeTaxCalculator}: charge base amount, tax amount, formula total, and per-component tax split for journal entries.
  */
 @Getter
 @NoArgsConstructor

@@ -72,8 +72,8 @@
             FROM m_appuser
             WHERE office_id IS NOT NULL
             AND NOT EXISTS (
-                SELECT 1 FROM m_appuser_office 
-                WHERE m_appuser_office.appuser_id = m_appuser.id 
+                SELECT 1 FROM m_appuser_office
+                WHERE m_appuser_office.appuser_id = m_appuser.id
                 AND m_appuser_office.office_id = m_appuser.office_id
             );
         </sql>
@@ -104,4 +104,3 @@
     </changeSet>
 
 </databaseChangeLog>
-

@@ -90,9 +90,8 @@ public class ClientFamilyMembersReadPlatformServiceImpl implements ClientFamilyM
             final Long professionId = JdbcSupport.getLong(rs, "professionId");
 
             return ClientFamilyMembersData.builder().id(id).clientId(clientId).firstName(firstName).middleName(middleName)
-                    .lastName(lastName).qualification(qualification).mobileNumber(mobileNumber)
-                    .secondaryMobileNumber(secondaryMobileNumber).address(address).externalId(externalId)
-                    .sourceRelationship(sourceRelationship).age(age).isDependent(isDependent)
+                    .lastName(lastName).qualification(qualification).mobileNumber(mobileNumber).secondaryMobileNumber(secondaryMobileNumber)
+                    .address(address).externalId(externalId).sourceRelationship(sourceRelationship).age(age).isDependent(isDependent)
                     .relationship(relationship).relationshipId(relationshipId).maritalStatus(maritalStatus).maritalStatusId(maritalStatusId)
                     .gender(gender).genderId(genderId).dateOfBirth(dateOfBirth).profession(profession).professionId(professionId).build();
         }

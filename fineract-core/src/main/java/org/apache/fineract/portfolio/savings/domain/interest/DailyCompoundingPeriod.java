@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.fineract.infrastructure.core.domain.LocalDateInterval;
 import org.apache.fineract.portfolio.savings.SavingsCompoundingInterestPeriodType;
+import org.apache.fineract.portfolio.savings.SavingsInterestCalculationDaysInYearType;
 import org.apache.fineract.portfolio.savings.SavingsInterestCalculationType;
 
 public final class DailyCompoundingPeriod implements CompoundingPeriod {
@@ -76,8 +77,9 @@ public final class DailyCompoundingPeriod implements CompoundingPeriod {
     @Override
     public BigDecimal calculateInterest(final SavingsCompoundingInterestPeriodType compoundingInterestPeriodType,
             final SavingsInterestCalculationType interestCalculationType, final BigDecimal interestFromPreviousPostingPeriod,
-            final BigDecimal interestRateAsFraction, final long daysInYear, final BigDecimal minBalanceForInterestCalculation,
-            final BigDecimal overdraftInterestRateAsFraction, final BigDecimal minOverdraftForInterestCalculation) {
+            final BigDecimal interestRateAsFraction, final SavingsInterestCalculationDaysInYearType daysInYearType,
+            final BigDecimal minBalanceForInterestCalculation, final BigDecimal overdraftInterestRateAsFraction,
+            final BigDecimal minOverdraftForInterestCalculation) {
         BigDecimal interestEarned = BigDecimal.ZERO;
 
         // for daily compounding - each interest calculated from previous daily
@@ -85,7 +87,7 @@ public final class DailyCompoundingPeriod implements CompoundingPeriod {
         BigDecimal interestToCompound = interestFromPreviousPostingPeriod;
         for (final EndOfDayBalance balance : this.endOfDayBalances) {
             final BigDecimal interestOnBalanceUnrounded = balance.calculateInterestOnBalanceAndInterest(interestToCompound,
-                    interestRateAsFraction, daysInYear, minBalanceForInterestCalculation, overdraftInterestRateAsFraction,
+                    interestRateAsFraction, daysInYearType, minBalanceForInterestCalculation, overdraftInterestRateAsFraction,
                     minOverdraftForInterestCalculation);
             interestToCompound = interestToCompound.add(interestOnBalanceUnrounded, MathContext.DECIMAL64).setScale(9);
             interestEarned = interestEarned.add(interestOnBalanceUnrounded);

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0289-1-create-arissto-client-staff-assignments" author="credesal">
+        <createTable tableName="credesal_client_staff_assignment">
+            <column name="client_id" type="BIGINT"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="arissto_company_id" type="VARCHAR(3)"/>
+            <column name="arissto_promoter_person_id" type="VARCHAR(5)"/>
+            <column name="arissto_account_executive_person_id" type="VARCHAR(5)"/>
+            <column name="arissto_collections_manager_person_id" type="VARCHAR(5)"/>
+            <column name="promoter_staff_id" type="BIGINT"/>
+            <column name="account_executive_staff_id" type="BIGINT"/>
+            <column name="collections_manager_staff_id" type="BIGINT"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_client_staff_assignment" baseColumnNames="client_id"
+                                 constraintName="FK_credesal_client_staff_assignment_client"
+                                 referencedTableName="m_client" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_client_staff_assignment" baseColumnNames="promoter_staff_id"
+                                 constraintName="FK_credesal_client_staff_assignment_promoter"
+                                 referencedTableName="m_staff" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_client_staff_assignment" baseColumnNames="account_executive_staff_id"
+                                 constraintName="FK_credesal_client_staff_assignment_executive"
+                                 referencedTableName="m_staff" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_client_staff_assignment" baseColumnNames="collections_manager_staff_id"
+                                 constraintName="FK_credesal_client_staff_assignment_collections"
+                                 referencedTableName="m_staff" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <changeSet id="0289-2-register-arissto-client-staff-assignments" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(1) FROM x_registered_table WHERE registered_table_name = 'credesal_client_staff_assignment'</sqlCheck>
+        </preConditions>
+        <insert tableName="x_registered_table">
+            <column name="registered_table_name" value="credesal_client_staff_assignment"/>
+            <column name="application_table_name" value="m_client"/>
+            <column name="entity_subtype" value="Person"/>
+            <column name="category" valueNumeric="100"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0289-3-client-staff-assignment-permissions" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(1) FROM m_permission WHERE code = 'CREATE_credesal_client_staff_assignment'</sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission"><column name="grouping" value="datatable"/><column name="code" value="CREATE_credesal_client_staff_assignment"/><column name="entity_name" value="credesal_client_staff_assignment"/><column name="action_name" value="CREATE"/><column name="can_maker_checker" valueBoolean="false"/></insert>
+        <insert tableName="m_permission"><column name="grouping" value="datatable"/><column name="code" value="READ_credesal_client_staff_assignment"/><column name="entity_name" value="credesal_client_staff_assignment"/><column name="action_name" value="READ"/><column name="can_maker_checker" valueBoolean="false"/></insert>
+        <insert tableName="m_permission"><column name="grouping" value="datatable"/><column name="code" value="UPDATE_credesal_client_staff_assignment"/><column name="entity_name" value="credesal_client_staff_assignment"/><column name="action_name" value="UPDATE"/><column name="can_maker_checker" valueBoolean="false"/></insert>
+        <insert tableName="m_permission"><column name="grouping" value="datatable"/><column name="code" value="DELETE_credesal_client_staff_assignment"/><column name="entity_name" value="credesal_client_staff_assignment"/><column name="action_name" value="DELETE"/><column name="can_maker_checker" valueBoolean="false"/></insert>
+    </changeSet>
+
+    <changeSet id="0289-4-add-client-staff-assignment-audit-columns" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <tableExists tableName="credesal_client_staff_assignment"/>
+                <not><columnExists tableName="credesal_client_staff_assignment" columnName="created_at"/></not>
+            </and>
+        </preConditions>
+        <addColumn tableName="credesal_client_staff_assignment">
+            <column name="created_at" type="DATETIME"/>
+            <column name="updated_at" type="DATETIME"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import org.apache.fineract.infrastructure.core.domain.LocalDateInterval;
+import org.apache.fineract.infrastructure.core.service.AnchoredMonthlyDateUtils;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.organisation.monetary.domain.MonetaryCurrency;
 import org.apache.fineract.organisation.monetary.domain.Money;
@@ -48,8 +49,9 @@ public final class SavingsHelper {
     private static final CompoundInterestHelper COMPOUND_INTEREST_HELPER = new CompoundInterestHelper();
 
     public List<LocalDateInterval> determineInterestPostingPeriods(final LocalDate startInterestCalculationLocalDate,
-            final LocalDate interestPostingUpToDate, final SavingsPostingInterestPeriodType postingPeriodType,
-            final Integer financialYearBeginningMonth, List<LocalDate> postInterestAsOn) {
+            final LocalDate interestScheduleAnchorDate, final LocalDate interestPostingUpToDate,
+            final SavingsPostingInterestPeriodType postingPeriodType, final Integer financialYearBeginningMonth,
+            List<LocalDate> postInterestAsOn) {
 
         final List<LocalDateInterval> postingPeriods = new ArrayList<>();
         LocalDate periodStartDate = startInterestCalculationLocalDate;
@@ -58,7 +60,7 @@ public final class SavingsHelper {
 
         while (!DateUtils.isAfter(periodStartDate, interestPostingUpToDate) && !DateUtils.isAfter(periodEndDate, interestPostingUpToDate)) {
             final LocalDate interestPostingLocalDate = determineInterestPostingPeriodEndDateFrom(periodStartDate, postingPeriodType,
-                    interestPostingUpToDate, financialYearBeginningMonth);
+                    interestScheduleAnchorDate, interestPostingUpToDate, financialYearBeginningMonth);
 
             periodEndDate = interestPostingLocalDate.minusDays(1);
 
@@ -87,8 +89,8 @@ public final class SavingsHelper {
     }
 
     private LocalDate determineInterestPostingPeriodEndDateFrom(final LocalDate periodStartDate,
-            final SavingsPostingInterestPeriodType interestPostingPeriodType, final LocalDate interestPostingUpToDate,
-            Integer financialYearBeginningMonth) {
+            final SavingsPostingInterestPeriodType interestPostingPeriodType, final LocalDate interestScheduleAnchorDate,
+            final LocalDate interestPostingUpToDate, Integer financialYearBeginningMonth) {
 
         LocalDate periodEndDate = interestPostingUpToDate;
         final Integer monthOfYear = periodStartDate.getMonthValue();
@@ -125,6 +127,8 @@ public final class SavingsHelper {
                 // produce period end date on last day of current month
                 periodEndDate = periodStartDate.with(TemporalAdjusters.lastDayOfMonth());
             break;
+            case MONTHLY_ON_ACTIVATION_DATE:
+                return AnchoredMonthlyDateUtils.nextDateAfter(interestScheduleAnchorDate, periodStartDate);
             case QUATERLY:
                 for (LocalDate quarterlyDate : quarterlyDates) {
                     if (DateUtils.isAfter(quarterlyDate, periodStartDate)) {

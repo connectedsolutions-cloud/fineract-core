@@ -37,15 +37,15 @@ public interface LoanJournalEntryPoster {
     void postJournalEntriesForLoanTransaction(LoanTransaction loanTransaction, boolean isAccountTransfer, boolean isLoanToLoanTransfer);
 
     /**
-     * Same as {@link #postJournalEntriesForLoanTransaction(LoanTransaction, boolean, boolean)} but journal entries
-     * are linked to {@code overrideLoanTransactionIdForGL} instead of the given transaction's id (e.g. to group
-     * postings under a single loan transaction). When null, behaves like the 3-arg overload.
+     * Same as {@link #postJournalEntriesForLoanTransaction(LoanTransaction, boolean, boolean)} but journal entries are
+     * linked to {@code overrideLoanTransactionIdForGL} instead of the given transaction's id (e.g. to group postings
+     * under a single loan transaction). When null, behaves like the 3-arg overload.
      *
      * @param overrideLoanTransactionIdForGL
      *            when non-null, journal entries use this as loan_transaction_id
      */
-    void postJournalEntriesForLoanTransaction(LoanTransaction loanTransaction, boolean isAccountTransfer,
-            boolean isLoanToLoanTransfer, Long overrideLoanTransactionIdForGL);
+    void postJournalEntriesForLoanTransaction(LoanTransaction loanTransaction, boolean isAccountTransfer, boolean isLoanToLoanTransfer,
+            Long overrideLoanTransactionIdForGL);
 
     /**
      * Create journal entries immediately for an external owner transfer

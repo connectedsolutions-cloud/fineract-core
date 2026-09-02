@@ -1,0 +1,63 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements. See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership. The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.fineract.useradministration.api;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import java.util.Map;
+import lombok.RequiredArgsConstructor;
+import org.apache.fineract.infrastructure.core.serialization.DefaultToApiJsonSerializer;
+import org.apache.fineract.useradministration.service.PasswordResetWritePlatformService;
+import org.springframework.stereotype.Component;
+
+@Path("/v1/passwordreset")
+@Component
+@Tag(name = "Password Reset", description = "Unauthenticated password reset for staff users via email magic link.")
+@RequiredArgsConstructor
+public class PasswordResetApiResource {
+
+    private final PasswordResetWritePlatformService passwordResetWritePlatformService;
+    private final DefaultToApiJsonSerializer<Map<String, String>> toApiJsonSerializer;
+
+    @POST
+    @Path("request")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Request a password reset email")
+    public String request(final String apiRequestBodyAsJson, @Context final HttpServletRequest request) {
+        return this.toApiJsonSerializer
+                .serialize(this.passwordResetWritePlatformService.requestPasswordReset(apiRequestBodyAsJson, request.getRemoteAddr()));
+    }
+
+    @POST
+    @Path("complete")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Complete a password reset with a magic-link token")
+    public String complete(final String apiRequestBodyAsJson) {
+        return this.toApiJsonSerializer.serialize(this.passwordResetWritePlatformService.completePasswordReset(apiRequestBodyAsJson));
+    }
+}

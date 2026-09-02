@@ -35,6 +35,8 @@ import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.service.Page;
 import org.apache.fineract.infrastructure.core.service.PaginationHelper;
 import org.apache.fineract.infrastructure.core.service.database.DatabaseSpecificSQLGenerator;
+import org.apache.fineract.infrastructure.security.datascope.DataScopeClause;
+import org.apache.fineract.infrastructure.security.datascope.DataScopeService;
 import org.apache.fineract.organisation.monetary.data.CurrencyData;
 import org.apache.fineract.portfolio.accountdetails.data.ShareAccountSummaryData;
 import org.apache.fineract.portfolio.accounts.constants.ShareAccountApiConstants;
@@ -81,6 +83,7 @@ public class ShareAccountReadPlatformServiceImpl implements ShareAccountReadPlat
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private final PaginationHelper shareAccountDataPaginationHelper;
     private final DatabaseSpecificSQLGenerator sqlGenerator;
+    private final DataScopeService dataScopeService;
 
     @Override
     public ShareAccountData retrieveTemplate(Long clientId, Long productId) {
@@ -133,7 +136,17 @@ public class ShareAccountReadPlatformServiceImpl implements ShareAccountReadPlat
 
         ShareAccountMapper mapper = new ShareAccountMapper(charges, purchasedShares);
         String query = "select " + mapper.schema() + "where sa.id=?";
-        ShareAccountData data = (ShareAccountData) this.jdbcTemplate.queryForObject(query, mapper, id); // NOSONAR
+        final DataScopeClause scopeClause = this.dataScopeService.forShare("c");
+        final List<Object> params = new ArrayList<>();
+        params.add(id);
+        query = query + scopeClause.sql();
+        params.addAll(scopeClause.params());
+        ShareAccountData data;
+        try {
+            data = (ShareAccountData) this.jdbcTemplate.queryForObject(query, mapper, params.toArray()); // NOSONAR
+        } catch (final EmptyResultDataAccessException e) {
+            throw new ShareAccountNotFoundException(id);
+        }
         String serviceName = "share" + ProductsApiConstants.READPLATFORM_NAME;
         ShareProductReadPlatformService service = (ShareProductReadPlatformService) this.applicationContext.getBean(serviceName);
         final ShareProductData productData = (ShareProductData) service.retrieveOne(data.getProductId(), false);
@@ -172,6 +185,8 @@ public class ShareAccountReadPlatformServiceImpl implements ShareAccountReadPlat
         sqlBuilder.append("select " + sqlGenerator.calcFoundRows() + " ");
         sqlBuilder.append(mapper.schema());
         sqlBuilder.append(" where sa.status_enum = ? ");
+        final DataScopeClause scopeClause = this.dataScopeService.forShare("c");
+        sqlBuilder.append(scopeClause.sql());
         if (limit != null) {
             sqlBuilder.append(" limit ").append(limit);
         }
@@ -179,8 +194,10 @@ public class ShareAccountReadPlatformServiceImpl implements ShareAccountReadPlat
             sqlBuilder.append(" offset ").append(offSet);
         }
 
-        Object[] whereClauseItemsitems = new Object[] { ShareAccountStatusType.ACTIVE.getValue() };
-        return this.shareAccountDataPaginationHelper.fetchPage(this.jdbcTemplate, sqlBuilder.toString(), whereClauseItemsitems, mapper);
+        final List<Object> params = new ArrayList<>();
+        params.add(ShareAccountStatusType.ACTIVE.getValue());
+        params.addAll(scopeClause.params());
+        return this.shareAccountDataPaginationHelper.fetchPage(this.jdbcTemplate, sqlBuilder.toString(), params.toArray(), mapper);
     }
 
     @Override

@@ -148,6 +148,10 @@ public class FixedDepositAccount extends SavingsAccount {
         }
     }
 
+    public void configureInterestTransferToLinkedAccount() {
+        this.accountTermAndPreClosure.configureSourceAuthoritativePrincipalRollover();
+    }
+
     @Override
     protected BigDecimal getEffectiveInterestRateAsFraction(final MathContext mc, final LocalDate interestPostingUpToDate) {
         boolean isPreMatureClosure = false;
@@ -238,6 +242,11 @@ public class FixedDepositAccount extends SavingsAccount {
     }
 
     public void updateMaturityStatus(final boolean isSavingsInterestPostingAtCurrentPeriodEnd, final Integer financialYearBeginningMonth) {
+        updateMaturityStatus(isSavingsInterestPostingAtCurrentPeriodEnd, financialYearBeginningMonth, true);
+    }
+
+    public void updateMaturityStatus(final boolean isSavingsInterestPostingAtCurrentPeriodEnd, final Integer financialYearBeginningMonth,
+            final boolean postMaturityInterest) {
         final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
                 .resource(FIXED_DEPOSIT_ACCOUNT_RESOURCE_NAME + SavingsApiConstants.updateMaturityDetailsAction);
@@ -253,7 +262,9 @@ public class FixedDepositAccount extends SavingsAccount {
         if (!DateUtils.isDateInTheFuture(maturityDate())) {
             // update account status
             this.status = SavingsAccountStatusType.MATURED.getValue();
-            postMaturityInterest(isSavingsInterestPostingAtCurrentPeriodEnd, financialYearBeginningMonth);
+            if (postMaturityInterest) {
+                postMaturityInterest(isSavingsInterestPostingAtCurrentPeriodEnd, financialYearBeginningMonth);
+            }
         }
     }
 
@@ -296,8 +307,8 @@ public class FixedDepositAccount extends SavingsAccount {
         List<LocalDate> postedAsOnTransactionDates = getManualPostingDates();
 
         final List<LocalDateInterval> postingPeriodIntervals = this.savingsHelper.determineInterestPostingPeriods(
-                accountSubmittedOrActivationDate(), maturityDate, postingPeriodType, financialYearBeginningMonth,
-                postedAsOnTransactionDates);
+                accountSubmittedOrActivationDate(), accountSubmittedOrActivationDate(), maturityDate, postingPeriodType,
+                financialYearBeginningMonth, postedAsOnTransactionDates);
 
         final List<PostingPeriod> allPostingPeriods = new ArrayList<>();
 
@@ -317,7 +328,7 @@ public class FixedDepositAccount extends SavingsAccount {
             }
             final PostingPeriod postingPeriod = PostingPeriod.createFrom(periodInterval, periodStartingBalance,
                     savingsAccountTransactionDetailsForPostingPeriodList, this.currency, compoundingPeriodType, interestCalculationType,
-                    interestRateAsFraction, daysInYearType.getValue(), maturityDate, interestPostTransactions, isInterestTransfer,
+                    interestRateAsFraction, daysInYearType, maturityDate, interestPostTransactions, isInterestTransfer,
                     minBalanceForInterestCalculation, isSavingsInterestPostingAtCurrentPeriodEnd, isUserPosting,
                     financialYearBeginningMonth);
 
@@ -794,6 +805,10 @@ public class FixedDepositAccount extends SavingsAccount {
         return this.accountTermAndPreClosure.getTransferToSavingsAccountId();
     }
 
+    public void configureSourceAuthoritativePrincipalRollover() {
+        this.accountTermAndPreClosure.configureSourceAuthoritativePrincipalRollover();
+    }
+
     public FixedDepositAccount reInvest(BigDecimal depositAmount) {
 
         final DepositAccountTermAndPreClosure newAccountTermAndPreClosure = this.accountTermAndPreClosure.copy(depositAmount);
@@ -809,15 +824,25 @@ public class FixedDepositAccount extends SavingsAccount {
         final SavingsInterestCalculationDaysInYearType daysInYearType = SavingsInterestCalculationDaysInYearType
                 .fromInt(this.interestCalculationDaysInYearType);
         final BigDecimal minRequiredOpeningBalance = null;
-        final BigDecimal interestRate = BigDecimal.ZERO;
+        // Preserve a negotiated account-level rate across renewal. Falling
+        // back to zero silently changes the financial contract whenever the
+        // product chart is absent or differs from the account override.
+        final BigDecimal interestRate = this.nominalAnnualInterestRate;
         final Set<SavingsAccountCharge> savingsAccountCharges = null;
         final SavingsPeriodFrequencyType lockinPeriodFrequencyType = SavingsPeriodFrequencyType.fromInt(this.lockinPeriodFrequencyType);
         final Integer lockinPeriodFrequency = this.lockinPeriodFrequency;
         final boolean withdrawalFeeApplicableForTransfer = false;
         final String accountNumber = null;
         final boolean withHoldTax = this.withHoldTax;
+        // A reinvestment is a new native account/term. Reusing the closed
+        // account's external ID makes the two lifecycle records
+        // indistinguishable to integrations and can collide where external
+        // IDs are constrained. The caller durably links the generated target
+        // account to the preceding migration cycle.
+        final ExternalId reinvestedExternalId = ExternalId.generate();
         final FixedDepositAccount reInvestedAccount = FixedDepositAccount.createNewApplicationForSubmittal(client, group, product,
-                savingsOfficer, accountNumber, externalId, accountType, getClosedOnDate(), closedBy, interestRate, compoundingPeriodType,
+                savingsOfficer, accountNumber, reinvestedExternalId, accountType, getClosedOnDate(), closedBy, interestRate,
+                compoundingPeriodType,
                 postingPeriodType, interestCalculationType, daysInYearType, minRequiredOpeningBalance, lockinPeriodFrequency,
                 lockinPeriodFrequencyType, withdrawalFeeApplicableForTransfer, savingsAccountCharges, newAccountTermAndPreClosure, newChart,
                 withHoldTax);

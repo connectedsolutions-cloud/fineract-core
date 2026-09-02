@@ -26,13 +26,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.accounting.accountingOperations.AvailableAtCashierAccountingHelper;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
+import org.apache.fineract.organisation.office.domain.Office;
+import org.apache.fineract.organisation.office.domain.OfficeRepositoryWrapper;
 import org.apache.fineract.portfolio.comite.domain.SesionComite;
 import org.apache.fineract.portfolio.comite.domain.SesionComiteRepository;
 import org.apache.fineract.portfolio.comite.service.SesionComiteReadPlatformService;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.service.LoanAssembler;
-import org.apache.fineract.organisation.office.domain.Office;
-import org.apache.fineract.organisation.office.domain.OfficeRepositoryWrapper;
 import org.apache.fineract.portfolio.pendiente.domain.PendingFlow;
 import org.apache.fineract.portfolio.pendiente.domain.PendingFlowBlueprint;
 import org.apache.fineract.portfolio.pendiente.domain.PendingStep;
@@ -46,8 +46,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Builder for the transferencia_efectivo-comite_otrgamiento blueprint. Loads SesionComite by
- * sesionComiteId from the request and builds the first step's references JSON.
+ * Builder for the transferencia_efectivo-comite_otrgamiento blueprint. Loads SesionComite by sesionComiteId from the
+ * request and builds the first step's references JSON.
  */
 @Component
 public class TransferenciaEfectivoComiteBuilder implements PendingFlowBuilder {
@@ -57,7 +57,8 @@ public class TransferenciaEfectivoComiteBuilder implements PendingFlowBuilder {
     private static final String STEP_NAME_VAULT_RECEPTION = "transferencia_cheque_boveda";
     private static final String STEP_NAME_RECEPCION_CAJA_CIERRE = "recepcion_caja_cierre_cuentas_por_cobrar";
 
-    private record AtCashierStepContext(SesionComite session, List<Loan> processedLoans, LocalDate businessDate) {}
+    private record AtCashierStepContext(SesionComite session, List<Loan> processedLoans, LocalDate businessDate) {
+    }
 
     private final SesionComiteRepository sesionComiteRepository;
     private final FromJsonHelper fromJsonHelper;
@@ -66,11 +67,9 @@ public class TransferenciaEfectivoComiteBuilder implements PendingFlowBuilder {
     private final LoanAssembler loanAssembler;
     private final OfficeRepositoryWrapper officeRepositoryWrapper;
 
-    public TransferenciaEfectivoComiteBuilder(SesionComiteRepository sesionComiteRepository,
-            FromJsonHelper fromJsonHelper,
+    public TransferenciaEfectivoComiteBuilder(SesionComiteRepository sesionComiteRepository, FromJsonHelper fromJsonHelper,
             AvailableAtCashierAccountingHelper availableAtCashierAccountingHelper,
-            SesionComiteReadPlatformService sesionComiteReadPlatformService,
-            LoanAssembler loanAssembler,
+            SesionComiteReadPlatformService sesionComiteReadPlatformService, LoanAssembler loanAssembler,
             OfficeRepositoryWrapper officeRepositoryWrapper) {
         this.sesionComiteRepository = sesionComiteRepository;
         this.fromJsonHelper = fromJsonHelper;
@@ -91,8 +90,7 @@ public class TransferenciaEfectivoComiteBuilder implements PendingFlowBuilder {
     }
 
     @Override
-    public PendingFlowBuildResult build(PendingFlowBlueprint blueprint, PendingFlowBuildRequest request,
-            PendingFlowBuildContext context) {
+    public PendingFlowBuildResult build(PendingFlowBlueprint blueprint, PendingFlowBuildRequest request, PendingFlowBuildContext context) {
         AppUser responsable = context.getResponsableUser(request.getResponsableUserId());
         if (responsable == null) {
             throw new IllegalArgumentException("Responsable user not found: " + request.getResponsableUserId());
@@ -103,8 +101,8 @@ public class TransferenciaEfectivoComiteBuilder implements PendingFlowBuilder {
             throw new IllegalArgumentException("sesionComiteId is required and must be positive");
         }
 
-        SesionComite sesionComite = sesionComiteRepository.findById(sesionComiteId).orElseThrow(
-                () -> new IllegalArgumentException("SesionComite not found: " + sesionComiteId));
+        SesionComite sesionComite = sesionComiteRepository.findById(sesionComiteId)
+                .orElseThrow(() -> new IllegalArgumentException("SesionComite not found: " + sesionComiteId));
 
         String referencesJson = buildReferencesJson(sesionComite);
 
@@ -182,13 +180,14 @@ public class TransferenciaEfectivoComiteBuilder implements PendingFlowBuilder {
     }
 
     /**
-     * Resolves session, processed loans, and business date from the completed step's references.
-     * Returns null if references are invalid, session not found, or office missing (logs as needed).
+     * Resolves session, processed loans, and business date from the completed step's references. Returns null if
+     * references are invalid, session not found, or office missing (logs as needed).
      */
     private AtCashierStepContext resolveAtCashierStepContext(PendingStep completedStep) {
         Long sessionId = parseSessionIdFromReferences(completedStep.getReferences());
         if (sessionId == null || sessionId <= 0) {
-            log.debug("TransferenciaEfectivoComiteBuilder: missing or invalid m_sesiones_comite.id in step references, skipping at-cashier accounting");
+            log.debug(
+                    "TransferenciaEfectivoComiteBuilder: missing or invalid m_sesiones_comite.id in step references, skipping at-cashier accounting");
             return null;
         }
         SesionComite session = sesionComiteRepository.findById(sessionId).orElse(null);
@@ -218,8 +217,8 @@ public class TransferenciaEfectivoComiteBuilder implements PendingFlowBuilder {
     }
 
     /**
-     * Parses the comite-session id from step references JSON (shape: {"m_sesiones_comite":{"id":...}}).
-     * Returns null if references are null/blank or the path is missing/invalid.
+     * Parses the comite-session id from step references JSON (shape: {"m_sesiones_comite":{"id":...}}). Returns null if
+     * references are null/blank or the path is missing/invalid.
      */
     private Long parseSessionIdFromReferences(String references) {
         if (StringUtils.isBlank(references)) {

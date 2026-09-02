@@ -387,7 +387,19 @@ public class FixedDepositAccountsApiResource {
             final CommandWrapper commandRequest = builder.fixedDepositAccountActivation(accountId).build();
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
         } else if (is(commandParam, "calculateInterest")) {
-            final CommandWrapper commandRequest = builder.withNoJsonBody().fixedDepositAccountInterestCalculation(accountId).build();
+            final CommandWrapper commandRequest = builder.fixedDepositAccountInterestCalculation(accountId).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        } else if (is(commandParam, "processMaturity")) {
+            final CommandWrapper commandRequest = builder.fixedDepositAccountMaturityProcessing(accountId).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        } else if (is(commandParam, "transferInterest")) {
+            final CommandWrapper commandRequest = builder.withNoJsonBody().fixedDepositAccountInterestTransfer(accountId).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        } else if (is(commandParam, "migrationLink")) {
+            final CommandWrapper commandRequest = builder.fixedDepositAccountMigrationLink(accountId).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        } else if (is(commandParam, "migrationInterestStart")) {
+            final CommandWrapper commandRequest = builder.fixedDepositAccountMigrationInterestStart(accountId).build();
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
         } else if (is(commandParam, "postInterest")) {
             final CommandWrapper commandRequest = builder.fixedDepositAccountInterestPosting(accountId).build();
@@ -411,7 +423,8 @@ public class FixedDepositAccountsApiResource {
         if (result == null) {
             throw new UnrecognizedQueryParamException("command", commandParam,
                     new Object[] { "reject", "withdrawnByApplicant", "approve", "undoapproval", "activate", "calculateInterest",
-                            "postInterest", "close", "prematureClose", "calculatePrematureAmount" });
+                            "processMaturity", "transferInterest", "postInterest", "close", "prematureClose",
+                            "calculatePrematureAmount" });
         }
 
         return this.toApiJsonSerializer.serialize(result);

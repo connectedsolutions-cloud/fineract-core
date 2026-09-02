@@ -40,6 +40,8 @@ public interface LoanWritePlatformService {
 
     CommandProcessingResult disburseLoan(Long loanId, JsonCommand command, Boolean isAccountTransfer, Boolean isWithoutAutoPayment);
 
+    CommandProcessingResult disburseSourceExactTopupLoan(Long loanId, JsonCommand command);
+
     Map<String, Object> bulkLoanDisbursal(JsonCommand command, CollectionSheetBulkDisbursalCommand bulkDisbursalCommand,
             Boolean isAccountTransfer);
 
@@ -47,6 +49,14 @@ public interface LoanWritePlatformService {
 
     CommandProcessingResult makeLoanRepayment(LoanTransactionType repaymentTransactionType, Long loanId, JsonCommand command,
             boolean isRecoveryRepayment);
+
+    CommandProcessingResult makeSourceExactLoanRepayment(Long loanId, JsonCommand command);
+
+    CommandProcessingResult makeSourceExactComponentReallocation(Long loanId, JsonCommand command);
+
+    CommandProcessingResult importSourceExactActiveSchedule(Long loanId, JsonCommand command);
+
+    CommandProcessingResult makeSourceExactLoanGoodwillCredit(Long loanId, JsonCommand command);
 
     @Transactional
     CommandProcessingResult makeLoanRepaymentWithChargeRefundChargeType(LoanTransactionType repaymentTransactionType, Long loanId,

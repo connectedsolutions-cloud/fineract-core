@@ -25,6 +25,7 @@ import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.configuration.exception.ExternalServiceConfigurationNotFoundException;
 import org.apache.fineract.infrastructure.configuration.service.ExternalServicesConstants.NotificationJSONinputParams;
+import org.apache.fineract.infrastructure.configuration.service.ExternalServicesConstants.ResendJSONinputParams;
 import org.apache.fineract.infrastructure.configuration.service.ExternalServicesConstants.S3JSONinputParams;
 import org.apache.fineract.infrastructure.configuration.service.ExternalServicesConstants.SMSJSONinputParams;
 import org.apache.fineract.infrastructure.configuration.service.ExternalServicesConstants.SMTPJSONinputParams;
@@ -40,6 +41,7 @@ public class ExternalServicesPropertiesCommandFromApiJsonDeserializer {
     private static final Set<String> SMTP_SUPPORTED_PARAMETERS = SMTPJSONinputParams.getAllValues();
     private static final Set<String> SMS_SUPPORTED_PARAMETERS = SMSJSONinputParams.getAllValues();
     private static final Set<String> NOTIFICATION_SUPPORTED_PARAMETERS = NotificationJSONinputParams.getAllValues();
+    private static final Set<String> RESEND_SUPPORTED_PARAMETERS = ResendJSONinputParams.getAllValues();
     private final FromJsonHelper fromApiJsonHelper;
 
     @Autowired
@@ -60,6 +62,7 @@ public class ExternalServicesPropertiesCommandFromApiJsonDeserializer {
             case "SMTP" -> this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, SMTP_SUPPORTED_PARAMETERS);
             case "SMS" -> this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, SMS_SUPPORTED_PARAMETERS);
             case "NOTIFICATION" -> this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, NOTIFICATION_SUPPORTED_PARAMETERS);
+            case "RESEND" -> this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, RESEND_SUPPORTED_PARAMETERS);
             default -> throw new ExternalServiceConfigurationNotFoundException(externalServiceName);
         }
 

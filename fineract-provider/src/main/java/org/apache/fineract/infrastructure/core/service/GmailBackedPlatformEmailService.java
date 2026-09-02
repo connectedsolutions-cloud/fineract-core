@@ -18,7 +18,7 @@
  */
 package org.apache.fineract.infrastructure.core.service;
 
-import java.util.Properties;
+import org.apache.fineract.infrastructure.configuration.data.ResendCredentialsData;
 import org.apache.fineract.infrastructure.configuration.data.SMTPCredentialsData;
 import org.apache.fineract.infrastructure.configuration.service.ExternalServicesPropertiesReadPlatformService;
 import org.apache.fineract.infrastructure.core.domain.EmailDetail;
@@ -31,10 +31,15 @@ import org.springframework.stereotype.Service;
 public class GmailBackedPlatformEmailService implements PlatformEmailService {
 
     private final ExternalServicesPropertiesReadPlatformService externalServicesReadPlatformService;
+    private final SmtpMailSenderFactory smtpMailSenderFactory;
+    private final ResendEmailClient resendEmailClient;
 
     @Autowired
-    public GmailBackedPlatformEmailService(final ExternalServicesPropertiesReadPlatformService externalServicesReadPlatformService) {
+    public GmailBackedPlatformEmailService(final ExternalServicesPropertiesReadPlatformService externalServicesReadPlatformService,
+            final SmtpMailSenderFactory smtpMailSenderFactory, final ResendEmailClient resendEmailClient) {
         this.externalServicesReadPlatformService = externalServicesReadPlatformService;
+        this.smtpMailSenderFactory = smtpMailSenderFactory;
+        this.resendEmailClient = resendEmailClient;
     }
 
     @Override
@@ -54,36 +59,18 @@ public class GmailBackedPlatformEmailService implements PlatformEmailService {
 
     @Override
     public void sendDefinedEmail(EmailDetail emailDetails) {
+        final ResendCredentialsData resendCredentials = this.externalServicesReadPlatformService.getResendCredentials();
+        if (resendCredentials != null && resendCredentials.isConfigured()) {
+            this.resendEmailClient.send(resendCredentials, emailDetails.getAddress(), emailDetails.getSubject(), emailDetails.getBody());
+            return;
+        }
+
         final SMTPCredentialsData smtpCredentialsData = this.externalServicesReadPlatformService.getSMTPCredentials();
-
-        final String authuser = smtpCredentialsData.getUsername();
-        final String authpwd = smtpCredentialsData.getPassword();
-
-        final JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
-        mailSender.setHost(smtpCredentialsData.getHost()); // smtp.gmail.com
-        mailSender.setPort(Integer.parseInt(smtpCredentialsData.getPort())); // 587
-
-        // Important: Enable less secure app access for the gmail account used in the following authentication
-
-        mailSender.setUsername(authuser); // use valid gmail address
-        mailSender.setPassword(authpwd); // use password of the above gmail account
-
-        Properties props = mailSender.getJavaMailProperties();
-        props.put("mail.transport.protocol", "smtp");
-        props.put("mail.smtp.auth", "true");
-        props.put("mail.debug", "true");
-
-        // these are the added lines
-        props.put("mail.smtp.starttls.enable", "true");
-        // props.put("mail.smtp.ssl.enable", "true");
-
-        props.put("mail.smtp.socketFactory.port", Integer.parseInt(smtpCredentialsData.getPort()));
-        props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");// NOSONAR
-        props.put("mail.smtp.socketFactory.fallback", "true");
+        final JavaMailSenderImpl mailSender = this.smtpMailSenderFactory.create(smtpCredentialsData);
 
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(smtpCredentialsData.getFromEmail()); // same email address used for the authentication
+            message.setFrom(smtpCredentialsData.getFromEmail());
             message.setTo(emailDetails.getAddress());
             message.setSubject(emailDetails.getSubject());
             message.setText(emailDetails.getBody());

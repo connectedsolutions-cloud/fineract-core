@@ -70,6 +70,8 @@ public interface ShareAccountApiConstants {
 
     String savingsaccountid_paramname = "savingsAccountId";
 
+    String paymenttypeid_paramname = "paymentTypeId";
+
     String lockinperiod_paramname = "lockinPeriodFrequency";
 
     String lockperiodfrequencytype_paramname = "lockinPeriodFrequencyType";
@@ -103,8 +105,8 @@ public interface ShareAccountApiConstants {
     Set<String> supportedParameters = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(locale_paramname, dateformat_paramname,
             id_paramname, clientid_paramname, productid_paramname, submitteddate_paramname, approveddate_paramname, externalid_paramname,
             currency_paramname, digitsafterdecimal_paramname, inmultiplesof_paramname, requestedshares_paramname,
-            savingsaccountid_paramname, lockinperiod_paramname, lockperiodfrequencytype_paramname, minimumactiveperiod_paramname,
-            minimumactiveperiodfrequencytype_paramname, allowdividendcalculationforinactiveclients_paramname, charges_paramname,
-            applicationdate_param, purchaseddate_paramname, numberofshares_paramname, purchasedprice_paramname)));
+            savingsaccountid_paramname, paymenttypeid_paramname, lockinperiod_paramname, lockperiodfrequencytype_paramname,
+            minimumactiveperiod_paramname, minimumactiveperiodfrequencytype_paramname, allowdividendcalculationforinactiveclients_paramname,
+            charges_paramname, applicationdate_param, purchaseddate_paramname, numberofshares_paramname, purchasedprice_paramname)));
 
 }

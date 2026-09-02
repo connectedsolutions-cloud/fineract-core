@@ -56,6 +56,10 @@ public class ExternalServicesReadPlatformServiceImpl implements ExternalServices
                 serviceNameToUse = ExternalServicesConstants.NOTIFICATION_SERVICE_NAME;
             break;
 
+            case "RESEND":
+                serviceNameToUse = ExternalServicesConstants.RESEND_SERVICE_NAME;
+            break;
+
             default:
                 throw new ExternalServiceConfigurationNotFoundException(serviceName);
         }

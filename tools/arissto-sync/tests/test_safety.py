@@ -49,6 +49,24 @@ class SafetyTests(unittest.TestCase):
         self.assertEqual(session.request.call_count, 2)
         self.assertTrue(all(call.kwargs["verify"] is True for call in session.request.call_args_list))
 
+    def test_fineract_api_passes_explicit_idempotency_key(self):
+        response = Mock(content=b"{}")
+        response.json.return_value = {}
+        session = Mock()
+        session.request.return_value = response
+        config = SimpleNamespace(
+            api_url="https://fineract.example.test/api/v1", api_user="user", api_password="secret",
+            tenant="default", tls_verify=True,
+        )
+
+        FineractApi(config, session=session).request(
+            "POST", "savingsaccounts/3/transactions", {},
+            {"command": "explicitWithholdTax"}, "arissto-event-key",
+        )
+
+        headers = session.request.call_args.kwargs["headers"]
+        self.assertEqual(headers["Idempotency-Key"], "arissto-event-key")
+
     def test_fresh_identifier_create_skips_lookup_and_normalizes_status(self):
         api = FineractApi(SimpleNamespace())
         with patch.object(api, "request") as request:
@@ -98,6 +116,17 @@ class SafetyTests(unittest.TestCase):
     def test_clients_direct_sql_is_denied(self):
         with self.assertRaises(PermissionError):
             SqlWritePolicy.assert_allowed("clients", "upsert_profile")
+
+    def test_loans_direct_sql_is_limited_to_product_crosswalk(self):
+        SqlWritePolicy.assert_allowed("loans", "upsert_loan_product_crosswalk")
+        with self.assertRaises(PermissionError):
+            SqlWritePolicy.assert_allowed("loans", "create_native_loan")
+
+    def test_mobile_collection_sql_is_limited_to_metadata_upsert(self):
+        SqlWritePolicy.assert_allowed("mobile-collections", "upsert_mobile_collection_metadata")
+        for operation in ("create_repayment", "create_journal", "delete_mobile_collection"):
+            with self.assertRaises(PermissionError):
+                SqlWritePolicy.assert_allowed("mobile-collections", operation)
 
     def test_direct_sql_entity_transaction_rolls_back(self):
         connection = Mock()

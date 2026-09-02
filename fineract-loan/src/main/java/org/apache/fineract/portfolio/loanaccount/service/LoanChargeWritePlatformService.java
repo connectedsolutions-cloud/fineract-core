@@ -45,6 +45,9 @@ public interface LoanChargeWritePlatformService {
 
     void applyOverdueChargesForLoan(Long loanId, Collection<OverdueLoanScheduleData> overdueLoanScheduleDataList);
 
-    /** COB: sync loan charges with charge time {@code DELINQUENCY_CLASSIFICATION_RANGE} to current delinquency tag and delinquent principal. */
+    /**
+     * COB: sync loan charges with charge time {@code DELINQUENCY_CLASSIFICATION_RANGE} to current delinquency tag and
+     * delinquent principal.
+     */
     void applyDelinquencyRangeChargesForLoan(Long loanId);
 }

@@ -13,4 +13,3 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
     Optional<Invoice> findByCodigoGeneracionAndNumeroControl(String codigoGeneracion, String numeroControl);
 }
-

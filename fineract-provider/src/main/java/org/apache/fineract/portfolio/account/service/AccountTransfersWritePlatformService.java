@@ -18,6 +18,8 @@
  */
 package org.apache.fineract.portfolio.account.service;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Collection;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
@@ -38,6 +40,11 @@ public interface AccountTransfersWritePlatformService {
     CommandProcessingResult refundByTransfer(JsonCommand command);
 
     void reverseTransfersWithFromAccountTransactions(Collection<Long> fromTransactionIds, PortfolioAccountType accountTypeId);
+
+    boolean reverseUniqueSavingsTransferAndInterestPosting(Long savingsAccountId, Long interestTransactionId,
+            LocalDate transactionDate, BigDecimal amount, boolean sourceAuthoritativeCleanup);
+
+    boolean reverseUniqueSavingsTransfer(Long savingsAccountId, Long transactionId);
 
     AccountTransferDetails repayLoanWithTopup(AccountTransferDTO accountTransferDTO);
 }

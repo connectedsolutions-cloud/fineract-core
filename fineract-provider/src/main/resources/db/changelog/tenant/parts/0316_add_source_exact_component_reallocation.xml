@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0316-1-add-source-exact-component-reallocation-provenance" author="credesal">
+        <addColumn tableName="m_loan_transaction">
+            <column name="source_exact_reallocation_system" type="VARCHAR(20)"/>
+            <column name="source_exact_reversal_movement_ids" type="VARCHAR(255)"/>
+            <column name="source_exact_repayment_movement_id" type="VARCHAR(100)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0316-2-add-source-exact-component-reallocation-permission" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'SOURCEEXACTCOMPONENTREALLOCATION_LOAN'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="transaction_loan"/>
+            <column name="code" value="SOURCEEXACTCOMPONENTREALLOCATION_LOAN"/>
+            <column name="entity_name" value="LOAN"/>
+            <column name="action_name" value="SOURCEEXACTCOMPONENTREALLOCATION"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

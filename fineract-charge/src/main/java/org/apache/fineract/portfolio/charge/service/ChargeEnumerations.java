@@ -181,6 +181,10 @@ public final class ChargeEnumerations {
                 optionData = new EnumOptionData(ChargeCalculationType.PERCENT_OF_DELINQUENT_PRINCIPAL.getValue().longValue(),
                         ChargeCalculationType.PERCENT_OF_DELINQUENT_PRINCIPAL.getCode(), "% Delinquent principal (range)");
             break;
+            case PERCENT_OF_OUTSTANDING_PRINCIPAL:
+                optionData = new EnumOptionData(ChargeCalculationType.PERCENT_OF_OUTSTANDING_PRINCIPAL.getValue().longValue(),
+                        ChargeCalculationType.PERCENT_OF_OUTSTANDING_PRINCIPAL.getCode(), "% Opening outstanding principal");
+            break;
             default:
                 optionData = new EnumOptionData(ChargeCalculationType.INVALID.getValue().longValue(),
                         ChargeCalculationType.INVALID.getCode(), "Invalid");

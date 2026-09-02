@@ -40,9 +40,10 @@ public class AddPeriodicAccrualEntriesBusinessStep implements LoanCOBBusinessSte
     public Loan execute(Loan loan) {
         LocalDate businessDate = DateUtils.getBusinessLocalDate();
         LocalDate simulatedDate = ThreadLocalContextUtil.getLoanSimulatedDate();
-        log.info("Processing period accrual for loan [{}]: businessDate={}, simulatedDate={}, isSimulation={}, simulatedDate={}, lastClosedBusinessDate={}, accruedTill={}", 
-            loan.getId(), businessDate, simulatedDate, loan.getIsSimulation(), loan.getSimulatedDate(), 
-            loan.getLastClosedBusinessDate(), loan.getAccruedTill());
+        log.info(
+                "Processing period accrual for loan [{}]: businessDate={}, simulatedDate={}, isSimulation={}, simulatedDate={}, lastClosedBusinessDate={}, accruedTill={}",
+                loan.getId(), businessDate, simulatedDate, loan.getIsSimulation(), loan.getSimulatedDate(),
+                loan.getLastClosedBusinessDate(), loan.getAccruedTill());
         try {
             loanAccrualsProcessingService.addPeriodicAccruals(businessDate, loan);
         } catch (MultiException e) {

@@ -128,7 +128,7 @@ public class BaseSavingsIntegrationTest extends IntegrationTest {
     }
 
     protected PostSavingsProductsResponse createProduct(PostSavingsProductsRequest productsRequest) {
-        return ok(fineractClient().savingsProducts.create13(productsRequest));
+        return ok(fineractClient().savingsProducts.create18(productsRequest));
     }
 
     protected PostSavingsAccountsRequest applySavingsRequest(Long clientId, Long productId, String submittedDate) {
@@ -143,13 +143,13 @@ public class BaseSavingsIntegrationTest extends IntegrationTest {
     protected PostSavingsAccountsAccountIdResponse approveSavingsAccount(Long savingsId, String date) {
         PostSavingsAccountsAccountIdRequest request = new PostSavingsAccountsAccountIdRequest().dateFormat(DATETIME_PATTERN).locale("en")
                 .approvedOnDate(date);
-        return ok(fineractClient().savingsAccounts.handleCommands6(savingsId, request, "approve"));
+        return ok(fineractClient().savingsAccounts.handleCommands7(savingsId, request, "approve"));
     }
 
     protected PostSavingsAccountsAccountIdResponse activateSavingsAccount(Long savingsId, String date) {
         PostSavingsAccountsAccountIdRequest request = new PostSavingsAccountsAccountIdRequest().dateFormat(DATETIME_PATTERN).locale("en")
                 .activatedOnDate(date);
-        return ok(fineractClient().savingsAccounts.handleCommands6(savingsId, request, "activate"));
+        return ok(fineractClient().savingsAccounts.handleCommands7(savingsId, request, "activate"));
     }
 
     protected PostSavingsAccountTransactionsResponse deposit(Long savingsId, String date, BigDecimal amount) {
@@ -162,11 +162,11 @@ public class BaseSavingsIntegrationTest extends IntegrationTest {
     }
 
     protected SavingsAccountData getSavingsAccount(Long savingsId) {
-        return ok(fineractClient().savingsAccounts.retrieveOne25(savingsId, false, null, "transactions"));
+        return ok(fineractClient().savingsAccounts.retrieveOne29(savingsId, false, null, "transactions"));
     }
 
     protected List<SavingsAccountTransactionData> getTransactions(Long savingsId) {
-        return ok(fineractClient().savingsAccounts.retrieveOne25(savingsId, false, null, "transactions")).getTransactions();
+        return ok(fineractClient().savingsAccounts.retrieveOne29(savingsId, false, null, "transactions")).getTransactions();
     }
 
     protected void verifyNoTransactions(Long savingsId) {
@@ -174,7 +174,7 @@ public class BaseSavingsIntegrationTest extends IntegrationTest {
     }
 
     protected void verifyTransactions(Long savingsId, Transaction... transactions) {
-        SavingsAccountData savingsDetails = ok(fineractClient().savingsAccounts.retrieveOne25(savingsId, false, null, "transactions"));
+        SavingsAccountData savingsDetails = ok(fineractClient().savingsAccounts.retrieveOne29(savingsId, false, null, "transactions"));
         if (transactions == null || transactions.length == 0) {
             Assertions.assertTrue(savingsDetails.getTransactions().isEmpty(), "No transaction is expected on savings account " + savingsId);
         } else {

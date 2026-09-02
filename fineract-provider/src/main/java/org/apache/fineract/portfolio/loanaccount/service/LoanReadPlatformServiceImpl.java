@@ -58,6 +58,8 @@ import org.apache.fineract.infrastructure.core.service.Page;
 import org.apache.fineract.infrastructure.core.service.PaginationHelper;
 import org.apache.fineract.infrastructure.core.service.SearchParameters;
 import org.apache.fineract.infrastructure.core.service.database.DatabaseSpecificSQLGenerator;
+import org.apache.fineract.infrastructure.security.datascope.DataScopeClause;
+import org.apache.fineract.infrastructure.security.datascope.DataScopeService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.infrastructure.security.utils.ColumnValidator;
 import org.apache.fineract.organisation.monetary.data.CurrencyData;
@@ -102,6 +104,7 @@ import org.apache.fineract.portfolio.loanaccount.data.LoanApplicationTimelineDat
 import org.apache.fineract.portfolio.loanaccount.data.LoanApprovalData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanChargePaidByData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanInterestRecalculationData;
+import org.apache.fineract.portfolio.loanaccount.data.LoanRefinancingSettlementData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanRepaymentScheduleInstallmentData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanStatusEnumData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanSummaryData;
@@ -111,8 +114,8 @@ import org.apache.fineract.portfolio.loanaccount.data.LoanTransactionRelationDat
 import org.apache.fineract.portfolio.loanaccount.data.OutstandingAmountsDTO;
 import org.apache.fineract.portfolio.loanaccount.data.PaidInAdvanceData;
 import org.apache.fineract.portfolio.loanaccount.data.RepaymentScheduleRelatedLoanData;
-import org.apache.fineract.portfolio.loanaccount.data.ScheduleGeneratorDTO;
 import org.apache.fineract.portfolio.loanaccount.data.RepaymentScheduledItemData;
+import org.apache.fineract.portfolio.loanaccount.data.ScheduleGeneratorDTO;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanBuyDownFeeBalance;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanBuyDownFeeCalculationType;
@@ -201,24 +204,43 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
     private final InterestRefundServiceDelegate interestRefundServiceDelegate;
     private final LoanMaximumAmountCalculator loanMaximumAmountCalculator;
     private final LoanRepaymentScheduleService loanRepaymentScheduleService;
+    private final DataScopeService dataScopeService;
 
     @Override
     public LoanAccountData retrieveOne(final Long loanId) {
 
         try {
-            final String hierarchy = getHierarchyString();
-            final String hierarchySearchString = hierarchy + "%";
-
             final LoanMapper rm = new LoanMapper(sqlGenerator, delinquencyReadPlatformService);
 
             final StringBuilder sqlBuilder = new StringBuilder();
             sqlBuilder.append("select ");
             sqlBuilder.append(rm.loanSchema());
-            sqlBuilder.append(" join m_office o on (o.id = c.office_id or o.id = g.office_id) ");
-            sqlBuilder.append(" left join m_office transferToOffice on transferToOffice.id = c.transfer_to_office_id ");
-            sqlBuilder.append(" where l.id=? and ( o.hierarchy like ? or transferToOffice.hierarchy like ?)");
+            sqlBuilder.append(" where l.id=? ");
+            final DataScopeClause scopeClause = this.dataScopeService.forLoan("l", "c", "g");
+            final List<Object> params = new ArrayList<>();
+            params.add(loanId);
+            scopeClause.appendTo(sqlBuilder, params);
 
-            return this.jdbcTemplate.queryForObject(sqlBuilder.toString(), rm, loanId, hierarchySearchString, hierarchySearchString);
+            final LoanAccountData loan = this.jdbcTemplate.queryForObject(sqlBuilder.toString(), rm, params.toArray());
+            if (loan != null && loan.isTopup()) {
+                final List<LoanRefinancingSettlementData> settlements = this.jdbcTemplate
+                        .query("select topup.operation_type, settlement.closure_loan_id, closed.account_no, settlement.settlement_amount, "
+                                + "settlement.principal_portion, settlement.interest_portion, settlement.fee_charges_portion, "
+                                + "settlement.penalty_charges_portion from m_loan_topup topup "
+                                + "join m_loan_refinancing_settlement settlement on settlement.refinancing_id = topup.id "
+                                + "join m_loan closed on closed.id = settlement.closure_loan_id where topup.loan_id = ? "
+                                + "order by settlement.closure_loan_id", (rs, rowNum) -> {
+                                    if (rowNum == 0) {
+                                        loan.setRefinancingOperationType(rs.getString("operation_type"));
+                                    }
+                                    return new LoanRefinancingSettlementData(rs.getLong("closure_loan_id"), rs.getString("account_no"),
+                                            rs.getBigDecimal("settlement_amount"), rs.getBigDecimal("principal_portion"),
+                                            rs.getBigDecimal("interest_portion"), rs.getBigDecimal("fee_charges_portion"),
+                                            rs.getBigDecimal("penalty_charges_portion"));
+                                }, loanId);
+                loan.setRefinancingSettlements(settlements);
+            }
+            return loan;
         } catch (final EmptyResultDataAccessException e) {
             throw new LoanNotFoundException(loanId, e);
         }
@@ -348,26 +370,19 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
         // probably require a UNION query
         // but that at present is an edge case
         final Long currentOfficeIdFilter = searchParameters != null && searchParameters.hasCurrentOfficeId()
-                ? searchParameters.getCurrentOfficeId() : null;
+                ? searchParameters.getCurrentOfficeId()
+                : null;
         final boolean useCurrentOfficeFilter = currentOfficeIdFilter != null;
         int arrayPos;
         List<Object> extraCriterias = new ArrayList<>();
-
+        sqlBuilder.append(" where 1=1 ");
         if (useCurrentOfficeFilter) {
-            sqlBuilder.append(" where (c.office_id = ? or g.office_id = ?)");
+            sqlBuilder.append(" and (c.office_id = ? or g.office_id = ?)");
             extraCriterias.add(currentOfficeIdFilter);
             extraCriterias.add(currentOfficeIdFilter);
-            arrayPos = 2;
-        } else {
-            final String hierarchy = this.context.authenticatedUser().getOffice().getHierarchy();
-            final String hierarchySearchString = hierarchy + "%";
-            sqlBuilder.append(" join m_office o on (o.id = c.office_id or o.id = g.office_id) ");
-            sqlBuilder.append(" left join m_office transferToOffice on transferToOffice.id = c.transfer_to_office_id ");
-            sqlBuilder.append(" where ( o.hierarchy like ? or transferToOffice.hierarchy like ?)");
-            extraCriterias.add(hierarchySearchString);
-            extraCriterias.add(hierarchySearchString);
-            arrayPos = 2;
         }
+        this.dataScopeService.forLoan("l", "c", "g").appendTo(sqlBuilder, extraCriterias);
+        arrayPos = extraCriterias.size();
 
         if (searchParameters != null) {
 
@@ -444,21 +459,14 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
         int arrayPos;
         final List<Object> extraCriterias = new ArrayList<>();
 
+        sqlBuilder.append(" where 1=1 ");
         if (useCurrentOfficeFilter) {
-            sqlBuilder.append(" where (c.office_id = ? or g.office_id = ?)");
+            sqlBuilder.append(" and (c.office_id = ? or g.office_id = ?)");
             extraCriterias.add(currentOfficeId);
             extraCriterias.add(currentOfficeId);
-            arrayPos = 2;
-        } else {
-            final String hierarchy = this.context.authenticatedUser().getOffice().getHierarchy();
-            final String hierarchySearchString = hierarchy + "%";
-            sqlBuilder.append(" join m_office o on (o.id = c.office_id or o.id = g.office_id) ");
-            sqlBuilder.append(" left join m_office transferToOffice on transferToOffice.id = c.transfer_to_office_id ");
-            sqlBuilder.append(" where ( o.hierarchy like ? or transferToOffice.hierarchy like ?)");
-            extraCriterias.add(hierarchySearchString);
-            extraCriterias.add(hierarchySearchString);
-            arrayPos = 2;
         }
+        this.dataScopeService.forLoan("l", "c", "g").appendTo(sqlBuilder, extraCriterias);
+        arrayPos = extraCriterias.size();
 
         // pending disbursal (matches loan_status_id = 200)
         sqlBuilder.append(" and l.loan_status_id = ?");
@@ -493,8 +501,8 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
     }
 
     @Override
-    public Page<RepaymentScheduledItemData> retrieveRepaymentScheduledByDueDateRange(final LocalDate fromDate,
-            final LocalDate toDate, final Long currentOfficeId, final Integer limit, final Integer offset) {
+    public Page<RepaymentScheduledItemData> retrieveRepaymentScheduledByDueDateRange(final LocalDate fromDate, final LocalDate toDate,
+            final Long currentOfficeId, final Integer limit, final Integer offset) {
 
         if (fromDate == null || toDate == null) {
             throw new IllegalArgumentException("fromDate and toDate must not be null");
@@ -504,11 +512,10 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
 
         final StringBuilder sqlBuilder = new StringBuilder(250);
         sqlBuilder.append("select " + sqlGenerator.calcFoundRows() + " ");
-        sqlBuilder.append(
-                " ls.loan_id as id, l.client_id as clientId, c.display_name as clientName, "
-                        + " SUM(COALESCE(ls.principal_amount,0) + COALESCE(ls.interest_amount,0) + COALESCE(ls.fee_charges_amount,0) + COALESCE(ls.penalty_charges_amount,0)) as amountToBeRepaid, "
-                        + " CASE WHEN SUM(CASE WHEN ls.completed_derived THEN 1 ELSE 0 END) = COUNT(*) THEN 'Completado' ELSE 'Pendiente' END as status, "
-                        + " MIN(ls.duedate) as dueDateForOrder, MIN(c.account_no) as clientAccountNoForOrder ");
+        sqlBuilder.append(" ls.loan_id as id, l.client_id as clientId, c.display_name as clientName, "
+                + " SUM(COALESCE(ls.principal_amount,0) + COALESCE(ls.interest_amount,0) + COALESCE(ls.fee_charges_amount,0) + COALESCE(ls.penalty_charges_amount,0)) as amountToBeRepaid, "
+                + " CASE WHEN SUM(CASE WHEN ls.completed_derived THEN 1 ELSE 0 END) = COUNT(*) THEN 'Completado' ELSE 'Pendiente' END as status, "
+                + " MIN(ls.duedate) as dueDateForOrder, MIN(c.account_no) as clientAccountNoForOrder ");
         sqlBuilder.append(" from m_loan_repayment_schedule ls ");
         sqlBuilder.append(" inner join m_loan l on l.id = ls.loan_id ");
         sqlBuilder.append(" inner join m_client c on c.id = l.client_id ");
@@ -518,21 +525,14 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
         int arrayPos;
         final List<Object> extraCriterias = new ArrayList<>();
 
+        sqlBuilder.append(" where 1=1 ");
         if (useCurrentOfficeFilter) {
-            sqlBuilder.append(" where (c.office_id = ? or g.office_id = ?)");
+            sqlBuilder.append(" and (c.office_id = ? or g.office_id = ?)");
             extraCriterias.add(currentOfficeId);
             extraCriterias.add(currentOfficeId);
-            arrayPos = 2;
-        } else {
-            final String hierarchy = this.context.authenticatedUser().getOffice().getHierarchy();
-            final String hierarchySearchString = hierarchy + "%";
-            sqlBuilder.append(" join m_office o on (o.id = c.office_id or o.id = g.office_id) ");
-            sqlBuilder.append(" left join m_office transferToOffice on transferToOffice.id = c.transfer_to_office_id ");
-            sqlBuilder.append(" where ( o.hierarchy like ? or transferToOffice.hierarchy like ?)");
-            extraCriterias.add(hierarchySearchString);
-            extraCriterias.add(hierarchySearchString);
-            arrayPos = 2;
         }
+        this.dataScopeService.forLoan("l", "c", "g").appendTo(sqlBuilder, extraCriterias);
+        arrayPos = extraCriterias.size();
 
         // Inclusive due date range semantics (date-based, no timezone ambiguity)
         sqlBuilder.append(" and ls.duedate >= ?");
@@ -562,10 +562,8 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
         final Object[] finalObjectArray = Arrays.copyOf(objectArray, arrayPos);
 
         return this.paginationHelper.fetchPage(this.jdbcTemplate, sqlBuilder.toString(), finalObjectArray,
-                (rs, rowNum) -> new RepaymentScheduledItemData(rs.getLong("id"), rs.getLong("clientId"),
-                        rs.getString("clientName"),
-                        JdbcSupport.getBigDecimalDefaultToZeroIfNull(rs, "amountToBeRepaid"),
-                        rs.getString("status")));
+                (rs, rowNum) -> new RepaymentScheduledItemData(rs.getLong("id"), rs.getLong("clientId"), rs.getString("clientName"),
+                        JdbcSupport.getBigDecimalDefaultToZeroIfNull(rs, "amountToBeRepaid"), rs.getString("status")));
     }
 
     @Override
@@ -1074,8 +1072,7 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
                     + " l.is_charged_off as isChargedOff, l.charge_off_reason_cv_id as chargeOffReasonId, codec.code_value as chargeOffReason, l.charged_off_on_date as chargedOffOnDate, l.enable_down_payment as enableDownPayment, l.disbursed_amount_percentage_for_down_payment as disbursedAmountPercentageForDownPayment, l.enable_auto_repayment_for_down_payment as enableAutoRepaymentForDownPayment,"
                     + " cobu.username as chargedOffByUsername, cobu.firstname as chargedOffByFirstname, cobu.lastname as chargedOffByLastname, l.loan_schedule_type as loanScheduleType, l.loan_schedule_processing_type as loanScheduleProcessingType, "
                     + " l.charge_off_behaviour as chargeOffBehaviour, l.interest_recognition_on_disbursement_date as interestRecognitionOnDisbursementDate, "
-                    + " l.dimensions as dimensions "
-                    + " from m_loan l" //
+                    + " l.dimensions as dimensions " + " from m_loan l" //
                     + " join m_product_loan lp on lp.id = l.product_id" //
                     + " left join m_loan_recalculation_details lir on lir.loan_id = l.id join m_currency rc on rc."
                     + sqlGenerator.escape("code") + " = l.currency_code" //
@@ -1488,14 +1485,14 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
                     createStandingInstructionAtDisbursement, isvariableInstallmentsAllowed, minimumGap, maximumGap, loanSubStatus,
                     canUseForTopup, isTopup, closureLoanId, closureLoanAccountNo, topupAmount, isEqualAmortization,
                     fixedPrincipalPercentagePerInstallment, delinquencyRange, disallowExpectedDisbursements, isFraud,
-                    lastClosedBusinessDate, isSimulation, simulatedDate, simulationStartLastClosedBusinessDate, overpaidOnDate, isChargedOff, enableDownPayment, disbursedAmountPercentageForDownPayment,
-                    enableAutoRepaymentForDownPayment, enableInstallmentLevelDelinquency, loanScheduleType.asEnumOptionData(),
-                    loanScheduleProcessingType.asEnumOptionData(), fixedLength, chargeOffBehaviour.getValueAsStringEnumOptionData(),
-                    interestRecognitionOnDisbursementDate, daysInYearCustomStrategy, enableIncomeCapitalization,
-                    capitalizedIncomeCalculationType, capitalizedIncomeStrategy, capitalizedIncomeType, enableBuyDownFee,
-                    buyDownFeeCalculationType, buyDownFeeStrategy, buyDownFeeIncomeType, merchantBuyDownFee)
-                    .setClientStaffId(clientStaffId).setClientStaffName(clientStaffName).setReadyForComite(readyForComite)
-                    .setDimensions(dimensions);
+                    lastClosedBusinessDate, isSimulation, simulatedDate, simulationStartLastClosedBusinessDate, overpaidOnDate,
+                    isChargedOff, enableDownPayment, disbursedAmountPercentageForDownPayment, enableAutoRepaymentForDownPayment,
+                    enableInstallmentLevelDelinquency, loanScheduleType.asEnumOptionData(), loanScheduleProcessingType.asEnumOptionData(),
+                    fixedLength, chargeOffBehaviour.getValueAsStringEnumOptionData(), interestRecognitionOnDisbursementDate,
+                    daysInYearCustomStrategy, enableIncomeCapitalization, capitalizedIncomeCalculationType, capitalizedIncomeStrategy,
+                    capitalizedIncomeType, enableBuyDownFee, buyDownFeeCalculationType, buyDownFeeStrategy, buyDownFeeIncomeType,
+                    merchantBuyDownFee).setClientStaffId(clientStaffId).setClientStaffName(clientStaffName)
+                    .setReadyForComite(readyForComite).setDimensions(dimensions);
         }
     }
 
@@ -1880,20 +1877,22 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
         final LoanDisbursementDetailMapper rm = new LoanDisbursementDetailMapper(sqlGenerator);
         final String sql = "select " + rm.schema() + " where " + sqlGenerator.in("dd.loan_id", validLoanIds)
                 + " and dd.is_reversed=false group by dd.id, lc.amount_waived_derived order by dd.expected_disburse_date,dd.disbursedon_date,dd.id";
-        
+
         // Log the exact SQL and parameters for debugging
         log.error("=== SQL QUERY DEBUG ===");
         log.error("SQL Query: {}", sql);
         log.error("SQL Query Length: {}", sql.length());
-        log.error("SQL Query at position 177: '{}'", sql.length() > 177 ? sql.substring(Math.max(0, 177 - 10), Math.min(sql.length(), 177 + 20)) : "N/A");
+        log.error("SQL Query at position 177: '{}'",
+                sql.length() > 177 ? sql.substring(Math.max(0, 177 - 10), Math.min(sql.length(), 177 + 20)) : "N/A");
         log.error("Parameters count: {}", parameters.length);
         for (int i = 0; i < parameters.length; i++) {
-            log.error("Parameter [{}]: type={}, value={}", i, parameters[i] != null ? parameters[i].getClass().getName() : "null", parameters[i]);
+            log.error("Parameter [{}]: type={}, value={}", i, parameters[i] != null ? parameters[i].getClass().getName() : "null",
+                    parameters[i]);
         }
         log.error("LoanIds: {}", validLoanIds);
         log.error("SQL IN clause: {}", sqlGenerator.in("dd.loan_id", validLoanIds));
         log.error("======================");
-        
+
         return this.jdbcTemplate.query(sql, rm, parameters).stream().collect(Collectors.groupingBy(DisbursementData::getLoanId)); // NOSONAR
     }
 

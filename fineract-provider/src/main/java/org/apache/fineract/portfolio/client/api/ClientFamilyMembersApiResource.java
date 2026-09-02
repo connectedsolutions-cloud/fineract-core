@@ -88,8 +88,8 @@ public class ClientFamilyMembersApiResource {
     public CommandProcessingResult updateClientFamilyMembers(@PathParam("familyMemberId") final long familyMemberId,
             @Parameter(hidden = true) final String apiRequestBodyAsJson,
             @PathParam("clientId") @Parameter(description = "clientId") final Long clientId) {
-        final CommandWrapper commandRequest = new CommandWrapperBuilder().updateFamilyMembers(familyMemberId)
-                .withJson(apiRequestBodyAsJson).build();
+        final CommandWrapper commandRequest = new CommandWrapperBuilder().updateFamilyMembers(familyMemberId).withJson(apiRequestBodyAsJson)
+                .build();
 
         return this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
     }

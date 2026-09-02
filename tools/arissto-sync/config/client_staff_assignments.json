@@ -1,0 +1,45 @@
+{
+  "source": {
+    "table": "AFI_SOCIO",
+    "external_key": "NUMERO_AFILIACION",
+    "company_key": "ID_EMPRESA",
+    "roles": {
+      "promoter": "ID_PROMOTOR",
+      "account_executive": "ID_EJECUTIVO_CUENTA",
+      "collections_manager": "ID_GESTOR_COBRO"
+    }
+  },
+  "target": {
+    "client_table": "m_client",
+    "staff_table": "m_staff",
+    "datatable": "credesal_client_staff_assignment",
+    "client_key": "client_id",
+    "company_column": "arissto_company_id",
+    "roles": {
+      "promoter": {
+        "legacy_column": "arissto_promoter_person_id",
+        "staff_column": "promoter_staff_id"
+      },
+      "account_executive": {
+        "legacy_column": "arissto_account_executive_person_id",
+        "staff_column": "account_executive_staff_id"
+      },
+      "collections_manager": {
+        "legacy_column": "arissto_collections_manager_person_id",
+        "staff_column": "collections_manager_staff_id"
+      }
+    }
+  },
+  "depends_on": ["clients", "employees"],
+  "missing_dependency_policy": "quarantine",
+  "unexpected_row_policy": "quarantine-no-delete",
+  "notes": [
+    "Every AFI_SOCIO party gets one lossless relationship row, including parties with three null assignments.",
+    "Employee identity is ID_EMPRESA:ID_PERSONA and resolves through m_staff.external_id.",
+    "The three Arissto roles are preserved independently and none is projected into Fineract's native loan-officer field.",
+    "The service never changes m_staff.is_loan_officer or employee active status.",
+    "The extension is authoritative because valid Arissto assignments can cross Fineract office hierarchies.",
+    "Native m_client.staff_id and m_client.gestor_id remain target-owned and are not changed by this service.",
+    "The service never deletes clients, staff, or relationship rows."
+  ]
+}

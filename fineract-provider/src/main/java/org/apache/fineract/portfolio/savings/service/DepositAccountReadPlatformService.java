@@ -52,5 +52,7 @@ public interface DepositAccountReadPlatformService {
 
     Collection<AccountTransferDTO> retrieveDataForInterestTransfer();
 
+    Collection<AccountTransferDTO> retrieveDataForInterestTransfer(Long savingsAccountId);
+
     Collection<Map<String, Object>> retriveDataForRDScheduleCreation();
 }

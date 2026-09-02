@@ -33,16 +33,24 @@ public class RolePermissionsData {
     private final String description;
     @SuppressWarnings("unused")
     private final Boolean disabled;
+    @SuppressWarnings("unused")
+    private final String dataScope;
 
     @SuppressWarnings("unused")
     private final Collection<PermissionData> permissionUsageData;
 
     public RolePermissionsData(final Long id, final String name, final String description, final Boolean disabled,
             final Collection<PermissionData> permissionUsageData) {
+        this(id, name, description, disabled, "ALL", permissionUsageData);
+    }
+
+    public RolePermissionsData(final Long id, final String name, final String description, final Boolean disabled, final String dataScope,
+            final Collection<PermissionData> permissionUsageData) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.disabled = disabled;
+        this.dataScope = dataScope;
         this.permissionUsageData = permissionUsageData;
     }
 }

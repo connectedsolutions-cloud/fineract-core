@@ -21,9 +21,13 @@ package org.apache.fineract.integrationtests.client;
 import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.builder.ResponseSpecBuilder;
 import io.restassured.http.ContentType;
+import io.restassured.path.json.JsonPath;
 import io.restassured.specification.RequestSpecification;
 import io.restassured.specification.ResponseSpecification;
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.fineract.client.models.GetClientsClientIdResponse;
 import org.apache.fineract.client.models.GetClientsResponse;
 import org.apache.fineract.client.models.PageClientSearchData;
@@ -36,6 +40,9 @@ import org.apache.fineract.client.models.PostOfficesResponse;
 import org.apache.fineract.client.models.SortOrder;
 import org.apache.fineract.integrationtests.common.ClientHelper;
 import org.apache.fineract.integrationtests.common.Utils;
+import org.apache.fineract.integrationtests.common.organisation.StaffHelper;
+import org.apache.fineract.integrationtests.common.system.DatatableHelper;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -302,6 +309,174 @@ public class ClientSearchTest extends IntegrationTest {
         assertThat(entityClients.getTotalFilteredRecords()).isEqualTo(2);
         assertThat(entityClients.getPageItems().get(0).getId()).isEqualTo(entityClientResponse.getClientId());
         assertThat(entityClients.getPageItems().get(1).getId()).isEqualTo(secondEntityClientResponse.getClientId());
+    }
+
+    @Test
+    public void testClientSearchOptions_ContainsOfficesAndTags() {
+        String json = clientHelper.retrieveSearchOptionsJson();
+        JsonPath path = JsonPath.from(json);
+        assertThat(path.getList("offices")).isNotEmpty();
+        assertThat(path.getList("tags")).isNotEmpty();
+        assertThat(path.getList("promoters")).isNotNull();
+        assertThat(path.getList("gestores")).isNotNull();
+    }
+
+    @Test
+    public void testClientSearch_EmptyTextWithOfficeFilter_ReturnsClientsInOffice() {
+        PostOfficesResponse newOffice = ok(
+                fineractClient().offices.createOffice(new PostOfficesRequest().name(Utils.randomStringGenerator("FilterOffice_", 6))
+                        .parentId(1L).openingDate(LocalDate.of(1970, 1, 1)).dateFormat("yyyy-MM-dd").locale("en_US")));
+        String lastname = Utils.randomStringGenerator("Filter_LastName_", 5);
+        PostClientsRequest inOffice = ClientHelper.defaultClientCreationRequest().lastname(lastname).officeId(newOffice.getOfficeId());
+        PostClientsResponse inOfficeResponse = clientHelper.createClient(inOffice);
+        PostClientsRequest otherOffice = ClientHelper.defaultClientCreationRequest().lastname(lastname);
+        clientHelper.createClient(otherOffice);
+
+        Map<String, Object> filters = new HashMap<>();
+        filters.put("officeId", newOffice.getOfficeId());
+        String json = clientHelper.searchClientsJson(filters, 0, 50);
+        JsonPath path = JsonPath.from(json);
+        assertThat(path.getLong("totalElements")).isEqualTo(1L);
+        assertThat(path.getLong("content[0].id")).isEqualTo(inOfficeResponse.getClientId());
+    }
+
+    @Test
+    public void testClientSearch_FilterByStatus() {
+        String lastname = Utils.randomStringGenerator("Status_LastName_", 5);
+        PostClientsRequest activeRequest = ClientHelper.defaultClientCreationRequest().lastname(lastname);
+        PostClientsResponse activeResponse = clientHelper.createClient(activeRequest);
+
+        Map<String, Object> activeFilters = new HashMap<>();
+        activeFilters.put("text", lastname);
+        activeFilters.put("status", "ACTIVE");
+        JsonPath activePath = JsonPath.from(clientHelper.searchClientsJson(activeFilters, 0, 50));
+        assertThat(activePath.getLong("totalElements")).isEqualTo(1L);
+        assertThat(activePath.getLong("content[0].id")).isEqualTo(activeResponse.getClientId());
+
+        Map<String, Object> pendingFilters = new HashMap<>();
+        pendingFilters.put("text", lastname);
+        pendingFilters.put("status", "PENDING");
+        JsonPath pendingPath = JsonPath.from(clientHelper.searchClientsJson(pendingFilters, 0, 50));
+        assertThat(pendingPath.getLong("totalElements")).isEqualTo(0L);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testClientSearch_FilterByTag() {
+        String lastname = Utils.randomStringGenerator("Tag_LastName_", 5);
+        PostClientsResponse tagged = clientHelper.createClient(ClientHelper.defaultClientCreationRequest().lastname(lastname));
+        PostClientsResponse untagged = clientHelper.createClient(ClientHelper.defaultClientCreationRequest().lastname(lastname));
+
+        Map<String, Object> template = JsonPath.from(
+                Utils.performServerGet(requestSpec, responseSpec, "/fineract-provider/api/v1/clients/template?" + Utils.TENANT_IDENTIFIER))
+                .getMap("$");
+        List<Map<String, Object>> tags = (List<Map<String, Object>>) template.get("tagOptions");
+        assertThat(tags).isNotEmpty();
+        Number tagId = (Number) tags.get(0).get("id");
+
+        Utils.performServerPut(requestSpec, responseSpec,
+                "/fineract-provider/api/v1/clients/" + tagged.getClientId() + "?" + Utils.TENANT_IDENTIFIER,
+                "{\"tagIds\":[" + tagId.longValue() + "]}");
+
+        Map<String, Object> filters = new HashMap<>();
+        filters.put("text", lastname);
+        filters.put("tagId", tagId.longValue());
+        JsonPath path = JsonPath.from(clientHelper.searchClientsJson(filters, 0, 50));
+        assertThat(path.getLong("totalElements")).isEqualTo(1L);
+        assertThat(path.getLong("content[0].id")).isEqualTo(tagged.getClientId());
+        assertThat(path.getLong("content[0].id")).isNotEqualTo(untagged.getClientId());
+    }
+
+    @Test
+    public void testClientSearch_FilterByPromoterAndGestorFromMigration289() {
+        String lastname = Utils.randomStringGenerator("Staff_LastName_", 5);
+        PostClientsResponse promoterClient = clientHelper.createClient(ClientHelper.defaultClientCreationRequest().lastname(lastname));
+        PostClientsResponse gestorClient = clientHelper.createClient(ClientHelper.defaultClientCreationRequest().lastname(lastname));
+        Integer promoterStaffId = StaffHelper.createStaff(requestSpec, responseSpec);
+        Integer gestorStaffId = StaffHelper.createStaff(requestSpec, responseSpec);
+
+        DatatableHelper datatableHelper = new DatatableHelper(requestSpec, responseSpec);
+        datatableHelper.createDatatableEntry("credesal_client_staff_assignment", promoterClient.getClientId().intValue(), false,
+                assignmentJson(promoterStaffId, null));
+        datatableHelper.createDatatableEntry("credesal_client_staff_assignment", gestorClient.getClientId().intValue(), false,
+                assignmentJson(null, gestorStaffId));
+
+        Map<String, Object> promoterFilters = new HashMap<>();
+        promoterFilters.put("text", lastname);
+        promoterFilters.put("promoterStaffId", promoterStaffId.longValue());
+        JsonPath promoterPath = JsonPath.from(clientHelper.searchClientsJson(promoterFilters, 0, 50));
+        assertThat(promoterPath.getLong("totalElements")).isEqualTo(1L);
+        assertThat(promoterPath.getLong("content[0].id")).isEqualTo(promoterClient.getClientId());
+
+        Map<String, Object> gestorFilters = new HashMap<>();
+        gestorFilters.put("text", lastname);
+        gestorFilters.put("gestorStaffId", gestorStaffId.longValue());
+        JsonPath gestorPath = JsonPath.from(clientHelper.searchClientsJson(gestorFilters, 0, 50));
+        assertThat(gestorPath.getLong("totalElements")).isEqualTo(1L);
+        assertThat(gestorPath.getLong("content[0].id")).isEqualTo(gestorClient.getClientId());
+
+        Map<String, Object> combined = new HashMap<>();
+        combined.put("text", lastname);
+        combined.put("promoterStaffId", promoterStaffId.longValue());
+        combined.put("gestorStaffId", gestorStaffId.longValue());
+        JsonPath combinedPath = JsonPath.from(clientHelper.searchClientsJson(combined, 0, 50));
+        assertThat(combinedPath.getLong("totalElements")).isEqualTo(0L);
+
+        String optionsJson = clientHelper.retrieveSearchOptionsJson();
+        List<Number> promoterIds = JsonPath.from(optionsJson).getList("promoters.id");
+        List<Number> gestorIds = JsonPath.from(optionsJson).getList("gestores.id");
+        Assertions.assertThat(promoterIds.stream().map(Number::longValue).toList()).contains(promoterStaffId.longValue());
+        Assertions.assertThat(gestorIds.stream().map(Number::longValue).toList()).contains(gestorStaffId.longValue());
+    }
+
+    @Test
+    public void testClientSearchOptions_PromotersAndGestoresScopedToOffice() {
+        PostOfficesResponse otherOffice = ok(
+                fineractClient().offices.createOffice(new PostOfficesRequest().name(Utils.randomStringGenerator("StaffOffice_", 6))
+                        .parentId(1L).openingDate(LocalDate.of(1970, 1, 1)).dateFormat("yyyy-MM-dd").locale("en_US")));
+        PostClientsResponse headOfficeClient = clientHelper.createClient(ClientHelper.defaultClientCreationRequest());
+        PostClientsResponse otherOfficeClient = clientHelper
+                .createClient(ClientHelper.defaultClientCreationRequest().officeId(otherOffice.getOfficeId()));
+
+        Integer headOfficeStaff = StaffHelper.createStaff(requestSpec, responseSpec);
+        Map<String, Object> otherStaffPayload = StaffHelper.getMapWithJoiningDate();
+        otherStaffPayload.put("officeId", otherOffice.getOfficeId());
+        otherStaffPayload.put("firstname", Utils.uniqueRandomStringGenerator("other_", 5));
+        otherStaffPayload.put("lastname", Utils.uniqueRandomStringGenerator("Staff_", 4));
+        otherStaffPayload.put("isLoanOfficer", true);
+        Integer otherOfficeStaff = (Integer) StaffHelper
+                .createStaffWithJson(requestSpec, responseSpec, new com.google.gson.Gson().toJson(otherStaffPayload)).get("resourceId");
+
+        DatatableHelper datatableHelper = new DatatableHelper(requestSpec, responseSpec);
+        datatableHelper.createDatatableEntry("credesal_client_staff_assignment", headOfficeClient.getClientId().intValue(), false,
+                assignmentJson(headOfficeStaff, null));
+        datatableHelper.createDatatableEntry("credesal_client_staff_assignment", otherOfficeClient.getClientId().intValue(), false,
+                assignmentJson(otherOfficeStaff, null));
+
+        List<Long> allPromoters = JsonPath.from(clientHelper.retrieveSearchOptionsJson()).getList("promoters.id", Long.class);
+        Assertions.assertThat(allPromoters).contains(headOfficeStaff.longValue(), otherOfficeStaff.longValue());
+
+        List<Long> headOfficePromoters = JsonPath.from(clientHelper.retrieveSearchOptionsJson(1L)).getList("promoters.id", Long.class);
+        Assertions.assertThat(headOfficePromoters).contains(headOfficeStaff.longValue());
+        Assertions.assertThat(headOfficePromoters).doesNotContain(otherOfficeStaff.longValue());
+
+        List<Long> otherOfficePromoters = JsonPath.from(clientHelper.retrieveSearchOptionsJson(otherOffice.getOfficeId()))
+                .getList("promoters.id", Long.class);
+        Assertions.assertThat(otherOfficePromoters).contains(otherOfficeStaff.longValue());
+        Assertions.assertThat(otherOfficePromoters).doesNotContain(headOfficeStaff.longValue());
+    }
+
+    private String assignmentJson(Integer promoterStaffId, Integer gestorStaffId) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("locale", "en");
+        payload.put("dateFormat", "dd MMMM yyyy");
+        if (promoterStaffId != null) {
+            payload.put("promoter_staff_id", promoterStaffId);
+        }
+        if (gestorStaffId != null) {
+            payload.put("collections_manager_staff_id", gestorStaffId);
+        }
+        return new com.google.gson.Gson().toJson(payload);
     }
 
 }

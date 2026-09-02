@@ -38,6 +38,12 @@ public interface SavingsAccountDomainService {
             BigDecimal transactionAmount, PaymentDetail paymentDetail, boolean isAccountTransfer, boolean isRegularTransaction,
             boolean backdatedTxnsAllowedTill);
 
+    SavingsAccountTransaction handleExplicitWithholdTax(SavingsAccount account, LocalDate transactionDate, BigDecimal grossInterestAmount,
+            BigDecimal expectedTaxAmount, String transactionReference, boolean backdatedTxnsAllowedTill);
+
+    SavingsAccountTransaction handleExplicitInterestPosting(SavingsAccount account, LocalDate transactionDate, BigDecimal transactionAmount,
+            String transactionReference, boolean backdatedTxnsAllowedTill);
+
     void postJournalEntries(SavingsAccount savingsAccount, Set<Long> existingTransactionIds, Set<Long> existingReversedTransactionIds,
             boolean backdatedTxnsAllowedTill);
 

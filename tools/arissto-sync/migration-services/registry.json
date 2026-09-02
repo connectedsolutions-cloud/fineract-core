@@ -95,14 +95,34 @@
       }
     },
     {
-      "id": "membership-share-capital",
-      "name": "Membership and share capital",
+      "id": "client-staff-assignments",
+      "name": "Client staff assignments",
       "kind": "sync-block",
       "status": "blocked",
       "executable": true,
+      "cli_block": "client-staff-assignments",
+      "depends_on": ["clients", "employees"],
+      "description": "Synchronizes AFI_SOCIO promoter, account-executive, and collections-manager relationships independently into a lossless one-to-one Fineract client extension after both clients and employees exist. It does not derive or modify Fineract's native loan-officer field. A controlled local apply, exact reconciliation, and unchanged replay of the revised contract are pending.",
+      "documentation": "migration-services/client-staff-assignments/README.md",
+      "detail_documents": ["migration-services/client-staff-assignments/contract.md"],
+      "configuration": "config/client_staff_assignments.json",
+      "commands": {
+        "inspect": "./arissto-sync inspect --block client-staff-assignments --target TARGET",
+        "plan": "./arissto-sync plan --block client-staff-assignments --target TARGET --source-key NUMERO_AFILIACION",
+        "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
+        "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
+        "status": "./arissto-sync status --block client-staff-assignments --target TARGET"
+      }
+    },
+    {
+      "id": "membership-share-capital",
+      "name": "Membership and share capital",
+      "kind": "sync-block",
+      "status": "available",
+      "executable": true,
       "cli_block": "membership-share-capital",
       "depends_on": ["clients"],
-      "description": "Preserves reviewed cooperative membership, share, certificate, contribution, dividend, governance, and current-party operational records in versioned Fineract extension tables; blocked pending controlled local reconciliation of the narrowed operation-log scope, while native shares remain deferred until real dividend savings accounts exist.",
+      "description": "Preserves reviewed cooperative membership, share, certificate, contribution, dividend, governance, and current-party operational records in versioned Fineract extension tables; the narrowed current-party scope is locally reconciled and idempotent, while native financial shares remain isolated in the separately gated native-share-capital service.",
       "documentation": "migration-services/membership-share-capital/README.md",
       "detail_documents": [
         "migration-services/membership-share-capital/contract.md",
@@ -116,6 +136,53 @@
         "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
         "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
         "status": "./arissto-sync status --block membership-share-capital --target TARGET"
+      }
+    },
+    {
+      "id": "savings-deposits",
+      "name": "Savings and fixed-term deposits",
+      "kind": "sync-block",
+      "status": "available",
+      "executable": true,
+      "cli_block": "savings-deposits",
+      "depends_on": ["clients"],
+      "description": "Migrates Arissto VISTA savings and PLAZO fixed-term deposits into native Fineract products, accounts, transactions, interest/accrual, tax, transfer, closure, and accounting lifecycles; the deterministic plan/apply/retry/reconcile engine is locally accepted for all 157 source accounts, with 155 reconciled native positions and 2 reviewed zero-principal placeholders quarantined.",
+      "documentation": "migration-services/savings-deposits/README.md",
+      "detail_documents": [
+        "migration-services/savings-deposits/contract.md",
+        "migration-services/savings-deposits/implementation-sequence.md"
+      ],
+      "configuration": "config/savings_deposits.json",
+      "commands": {
+        "inspect": "./arissto-sync inspect --block savings-deposits --target TARGET",
+        "plan": "./arissto-sync plan --block savings-deposits --target TARGET",
+        "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
+        "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
+        "status": "./arissto-sync status --block savings-deposits --target TARGET"
+      }
+    },
+    {
+      "id": "native-share-capital",
+      "name": "Native share capital",
+      "kind": "sync-block",
+      "status": "available",
+      "executable": true,
+      "cli_block": "native-share-capital",
+      "depends_on": ["clients", "membership-share-capital", "savings-deposits"],
+      "description": "Projects reviewed paid common and preferred positions into native Fineract products, accounts, purchases, accounting, and certificate extensions through deterministic plan/apply/retry/reconcile workflows; the payment-channel schema/API support and controlled lifecycle acceptance have passed locally, while positions without an eligible same-client VISTA account remain explicit quarantines.",
+      "documentation": "migration-services/native-share-capital/README.md",
+      "detail_documents": [
+        "migration-services/membership-share-capital/lifecycle.md",
+        "migration-services/membership-share-capital/implementation-sequence.md"
+      ],
+      "configuration": "config/native_share_capital.json",
+      "commands": {
+        "inspect": "./arissto-sync inspect --block native-share-capital --target TARGET [--source-key 'AFI_ACCION|ID']",
+        "plan": "./arissto-sync plan --block native-share-capital --target TARGET [--source-key 'AFI_ACCION|ID']",
+        "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
+        "retry": "./arissto-sync retry --run RUN_ID --failed-only --target TARGET",
+        "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
+        "status": "./arissto-sync status --block native-share-capital --target TARGET"
       }
     },
     {
@@ -137,6 +204,79 @@
         "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
         "status": "./arissto-sync status --block aml-alerts --target TARGET"
       }
+    },
+    {
+      "id": "loans",
+      "name": "Loans",
+      "kind": "sync-block",
+      "status": "blocked",
+      "executable": true,
+      "cli_block": "loans",
+      "depends_on": [
+        "clients",
+        "employees"
+      ],
+      "post_sync_services": [
+        "mobile-collections"
+      ],
+      "description": "Implements reviewed Arissto loan products and native loan lifecycles, including source-exact schedules and transaction allocations, reversals, Cobro Movil payment routing, terminal cutover adjustments, single-loan refinancing, multi-loan consolidation pending its financial canary and replay, and independent per-loan promoter, account-executive, and collections-manager assignments. Native loan officer remains optional. Gate 5 remains open for schedule/API edge cases, a clean full supported-population reconciliation, and unchanged replay.",
+      "documentation": "migration-services/loans/README.md",
+      "detail_documents": [
+        "migration-services/loans/contract.md",
+        "migration-services/loans/implementation-sequence.md"
+      ],
+      "configuration": "config/loans.json",
+      "commands": {
+        "inspect": "./arissto-sync inspect --block loans [--target TARGET] [--source-key ID_CREDITO]",
+        "plan": "./arissto-sync plan --block loans --target TARGET [--source-key ID_CREDITO]",
+        "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
+        "retry": "./arissto-sync retry --run RUN_ID --failed-only --target TARGET",
+        "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
+        "status": "./arissto-sync status --block loans --target TARGET",
+        "schedule_proof": "./arissto-sync prove-loan-schedule --target local --source-key ID_CREDITO --product-id PRODUCT_ID --client-id CLIENT_ID"
+      }
+    },
+    {
+      "id": "mobile-collections",
+      "name": "Mobile collections",
+      "kind": "sync-block",
+      "status": "available",
+      "executable": true,
+      "cli_block": "mobile-collections",
+      "depends_on": [
+        "clients",
+        "employees",
+        "savings-deposits",
+        "loans"
+      ],
+      "description": "Preserves Arissto Cobro Movil routes, assignments, routed accounts, daily batches, receipts, capture/application timestamps, and deterministic links to native accounts and repayments without creating financial transactions. The metadata engine reconciles locally with six missing-client records quarantined and an idempotent zero-write second plan, but that acceptance used partial native loan and repayment coverage. Final end-to-end repayment-link acceptance remains downstream of a clean full Loans reconciliation on the same target.",
+      "documentation": "migration-services/mobile-collections/README.md",
+      "detail_documents": [
+        "migration-services/mobile-collections/contract.md",
+        "migration-services/mobile-collections/implementation-sequence.md"
+      ],
+      "configuration": "config/mobile_collections.json",
+      "commands": {
+        "inspect": "./arissto-sync inspect --block mobile-collections --target TARGET",
+        "plan": "./arissto-sync plan --block mobile-collections --target TARGET",
+        "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
+        "retry": "./arissto-sync retry --run RUN_ID --failed-only --target TARGET",
+        "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
+        "status": "./arissto-sync status --block mobile-collections --target TARGET"
+      }
+    },
+    {
+      "id": "accounting-journal-entries",
+      "name": "Accounting journal entries",
+      "kind": "sync-block",
+      "status": "planned",
+      "executable": false,
+      "depends_on": [],
+      "description": "Planned migration of reviewed Arissto general-ledger journal headers and debit/credit lines into Fineract journal entries, preserving the exact monthly Arissto journal number in ref_num while preventing duplicate accounting already generated by native product migrations.",
+      "documentation": "migration-services/accounting-journal-entries/README.md",
+      "detail_documents": [
+        "migration-services/accounting-journal-entries/contract.md"
+      ]
     }
   ]
 }

@@ -559,7 +559,8 @@ public final class AccountingConstants {
         SHARES_REFERENCE("shareReferenceId"), //
         SHARES_SUSPENSE("shareSuspenseId"), //
         INCOME_FROM_FEES("incomeFromFeeAccountId"), //
-        SHARES_EQUITY("shareEquityId"); //
+        SHARES_EQUITY("shareEquityId"), //
+        PAYMENT_CHANNEL_FUND_SOURCE_MAPPING("paymentChannelToFundSourceMappings"); //
 
         private final String value;
 

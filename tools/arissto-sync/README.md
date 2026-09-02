@@ -20,6 +20,9 @@ For the registry of available and planned migration services, run:
 
 Service operating guides and the reusable service template live in
 [`migration-services/`](migration-services/README.md).
+The proposed dependency-driven daily workflow is defined separately in
+[`migration-services/orchestration.md`](migration-services/orchestration.md);
+it is a design contract, not yet an executable scheduler.
 
 ### Documentation ownership
 

@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "source": {
+    "position_table": "AFI_ACCION",
+    "certificate_table": "AFI_CERTIFICADO",
+    "movement_table": "MOV_APORTACIONES",
+    "party_table": "AFI_SOCIO",
+    "type_table": "AFI_TIPO_ACCION",
+    "emission_table": "AFI_EMISION_ACCIONES"
+  },
+  "target": {
+    "currency": "USD",
+    "share_product_table": "m_share_product",
+    "share_account_table": "m_share_account",
+    "share_transaction_table": "m_share_account_transactions",
+    "market_price_table": "m_share_product_market_price",
+    "event_map_table": "credesal_share_native_event_map",
+    "certificate_table": "credesal_share_certificate",
+    "savings_map_table": "credesal_savings_migration_account",
+    "savings_owner_table": "credesal_savings_migration_owner"
+  },
+  "share_classes": {
+    "1": {
+      "code": "COMMON",
+      "numbering_code": "1AC",
+      "product_external_id": "arissto-share-common",
+      "expected_accounts": 17,
+      "expected_paid_shares": 6375,
+      "expected_subscribed_shares": 6375,
+      "emission_total_shares": 50000,
+      "approved_total_shares": 6375,
+      "approved_minimum_client_shares": 1,
+      "approved_nominal_client_shares": 1,
+      "approved_maximum_client_shares": 375,
+      "capacity_basis": "subscribed",
+      "approval_evidence": "Credesal approval 2026-08-27: common positions are closed to future growth"
+    },
+    "2": {
+      "code": "PREFERRED",
+      "numbering_code": "1AP",
+      "product_external_id": "arissto-share-preferred",
+      "expected_accounts": 40,
+      "expected_paid_shares": 848,
+      "expected_subscribed_shares": 2048,
+      "emission_total_shares": 100,
+      "approved_total_shares": 50000,
+      "approved_minimum_client_shares": 1,
+      "approved_nominal_client_shares": 1,
+      "approved_maximum_client_shares": 825,
+      "capacity_basis": "subscribed",
+      "approval_evidence": "Credesal approval 2026-08-27: preferred product capacity and subscribed-position client floor"
+    }
+  },
+  "expected": {
+    "accounts": 57,
+    "purchase_events": 66,
+    "paid_shares": 7223,
+    "paid_capital": "36115.00",
+    "certificates": 61,
+    "unit_price": "5.00"
+  },
+  "accounting_candidates": {
+    "shared": {
+      "shareReferenceId": {"gl_code": "1250990901", "classification_enum": 1, "evidence": "fineract_required_zero_balance_fallback", "source_configuration_supported": false, "source_purchase_journal_supported": false, "approval_status": "approved"},
+      "shareSuspenseId": {"gl_code": "2220070303", "classification_enum": 2, "evidence": "fineract_native_apply_approve_control", "source_configuration_supported": false, "source_purchase_journal_supported": false, "approval_status": "approved"},
+      "incomeFromFeeAccountId": {"gl_code": "6423", "classification_enum": 4, "evidence": "mandatory_inactive_detail_mapping_no_source_share_fees", "source_configuration_supported": false, "source_purchase_journal_supported": false, "approval_status": "approved"}
+    },
+    "COMMON": {
+      "shareEquityId": {"gl_code": "311101020001", "classification_enum": 3, "evidence": "arissto_share_type_equity_with_historical_posting_exception", "source_configuration_supported": true, "source_purchase_journal_supported": false, "approval_status": "approved"}
+    },
+    "PREFERRED": {
+      "shareEquityId": {"gl_code": "311101020002", "classification_enum": 3, "evidence": "arissto_share_type_equity_and_purchase_journals", "source_configuration_supported": true, "source_purchase_journal_supported": true, "approval_status": "approved"}
+    }
+  },
+  "accounting_strategy": {
+    "posting_owner": "native_fineract_share_transactions",
+    "office_dimension": "acc_gl_journal_entry.office_id",
+    "canonical_cash_gl_code": "1110010199",
+    "fallback_reference_expected_balance": "0.00",
+    "approval_suspense_expected_balance": "0.00",
+    "share_charges_enabled": false,
+    "payment_channel_mappings": [
+      {"source_payment_type_id": 1, "source_name": "EFECTIVO", "target_payment_type_value": "Cash Payment", "target_payment_type_code": null, "gl_code": "1110010199"},
+      {"source_payment_type_id": 2, "source_name": "CHEQUE AJENO", "target_payment_type_value": "Cheque ajeno", "target_payment_type_code": "CREDESAL_CHEQUE_AJENO", "gl_code": "1110010199"},
+      {"source_payment_type_id": 3, "source_name": "BANCO ATLANTIDA", "target_payment_type_value": "Banco Atlántida", "target_payment_type_code": "CREDESAL_BANCO_ATLANTIDA", "gl_code": "111004020101"},
+      {"source_payment_type_id": 4, "source_name": "BANCO CUSCATLAN", "target_payment_type_value": "Banco Cuscatlán", "target_payment_type_code": "CREDESAL_BANCO_CUSCATLAN", "gl_code": "111004020102"}
+    ]
+  },
+  "source_journal_evidence": {
+    "movement_rows": 66,
+    "distinct_journals": 26,
+    "initial_mixed_journal": {"common_amount": "24875.00", "preferred_amount": "2125.00", "preferred_equity_credit": "27000.00"},
+    "later_common": {"amount": "7000.00", "credited_gl_code": "125001010003"},
+    "later_preferred": {"amount": "2115.00", "credited_gl_code": "311101020002"},
+    "configured_common_equity_purchase_use": false,
+    "yield_gl_code": "222099940101",
+    "yield_line_count": 1303,
+    "yield_credit_total": "612.94",
+    "yield_used_by_purchase_journals": false
+  },
+  "required_permissions": [
+    "CREATE_SHAREPRODUCT",
+    "UPDATE_SHAREPRODUCT",
+    "CREATE_SHAREACCOUNT",
+    "APPROVE_SHAREACCOUNT",
+    "ACTIVATE_SHAREACCOUNT",
+    "APPLYADDITIONALSHARES_SHAREACCOUNT",
+    "APPROVEADDITIONALSHARES_SHAREACCOUNT"
+  ],
+  "release_gates": [
+    "approved_share_product_limits",
+    "approved_share_product_gl_mappings",
+    "reconciled_native_savings_prerequisite",
+    "controlled_native_share_lifecycle_proof"
+  ]
+}

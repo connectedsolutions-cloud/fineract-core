@@ -37,14 +37,23 @@ public interface SavingsAccountWritePlatformService {
 
     CommandProcessingResult withdrawal(Long savingsId, JsonCommand command);
 
+    CommandProcessingResult explicitWithholdTax(Long savingsId, JsonCommand command);
+
+    CommandProcessingResult explicitInterestPosting(Long savingsId, JsonCommand command);
+
     CommandProcessingResult applyAnnualFee(Long savingsAccountChargeId, Long accountId);
 
     CommandProcessingResult calculateInterest(Long savingsId);
+
+    CommandProcessingResult setMigrationInterestCalculationStart(Long savingsId, JsonCommand command);
 
     CommandProcessingResult reverseTransaction(Long savingsId, Long transactionId, boolean allowAccountTransferModification,
             JsonCommand command);
 
     CommandProcessingResult undoTransaction(Long savingsId, Long transactionId, boolean allowAccountTransferModification);
+
+    CommandProcessingResult undoTransaction(Long savingsId, Long transactionId, boolean allowAccountTransferModification,
+            boolean sourceAuthoritativeCleanup);
 
     CommandProcessingResult adjustSavingsTransaction(Long savingsId, Long transactionId, JsonCommand command);
 

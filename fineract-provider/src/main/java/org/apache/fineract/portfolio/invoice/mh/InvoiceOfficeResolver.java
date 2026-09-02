@@ -22,23 +22,23 @@ public class InvoiceOfficeResolver {
     public Long resolveOfficeId(Invoice invoice) {
         if (invoice.getLoanTransactionId() != null) {
             LoanTransaction tx = loanTransactionRepository.findById(invoice.getLoanTransactionId())
-                    .orElseThrow(() -> new PlatformDataIntegrityException("error.msg.loan.transaction.not.found", "Loan transaction not found",
-                            invoice.getLoanTransactionId()));
+                    .orElseThrow(() -> new PlatformDataIntegrityException("error.msg.loan.transaction.not.found",
+                            "Loan transaction not found", invoice.getLoanTransactionId()));
             return tx.getOffice().getId();
         }
         if (invoice.getClientTransactionId() != null) {
             ClientTransaction tx = clientTransactionRepository.findById(invoice.getClientTransactionId())
-                    .orElseThrow(() -> new PlatformDataIntegrityException("error.msg.client.transaction.not.found", "Client transaction not found",
-                            invoice.getClientTransactionId()));
+                    .orElseThrow(() -> new PlatformDataIntegrityException("error.msg.client.transaction.not.found",
+                            "Client transaction not found", invoice.getClientTransactionId()));
             return tx.getClient().officeId();
         }
         if (invoice.getSavingsTransactionId() != null) {
             SavingsAccountTransaction tx = savingsAccountTransactionRepository.findById(invoice.getSavingsTransactionId())
-                    .orElseThrow(() -> new PlatformDataIntegrityException("error.msg.savings.transaction.not.found", "Savings transaction not found",
-                            invoice.getSavingsTransactionId()));
+                    .orElseThrow(() -> new PlatformDataIntegrityException("error.msg.savings.transaction.not.found",
+                            "Savings transaction not found", invoice.getSavingsTransactionId()));
             return tx.getOfficeId();
         }
-        throw new PlatformDataIntegrityException("error.msg.invoice.no.transaction", "Invoice has no linked transaction for MH office resolution",
-                invoice.getId());
+        throw new PlatformDataIntegrityException("error.msg.invoice.no.transaction",
+                "Invoice has no linked transaction for MH office resolution", invoice.getId());
     }
 }

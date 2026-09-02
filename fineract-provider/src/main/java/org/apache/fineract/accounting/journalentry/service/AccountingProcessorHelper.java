@@ -168,6 +168,7 @@ public class AccountingProcessorHelper {
                     feePaid, penaltyPaid);
 
             transaction.setLoanToLoanTransfer(loanTxnDto.isLoanToLoanTransfer());
+            transaction.setSourceExactComponentReallocation(loanTxnDto.isSourceExactComponentReallocation());
             newLoanTransactions.add(transaction);
         }
 
@@ -425,7 +426,8 @@ public class AccountingProcessorHelper {
             createDebitJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount, dimensions);
         }
 
-        // When null accounts were skipped (e.g. available-at-cashier with empty debit/credit), we do not post that side; skip validation
+        // When null accounts were skipped (e.g. available-at-cashier with empty debit/credit), we do not post that
+        // side; skip validation
         if (totalCreditedAmount.compareTo(totalAmount) == 0 && totalDebitedAmount.compareTo(totalAmount) == 0) {
             // No skips: validate as before
             if (totalAmount.compareTo(totalCreditedAmount) != 0) {
@@ -438,8 +440,8 @@ public class AccountingProcessorHelper {
             if (totalAmount.compareTo(totalDebitedAmount) != 0) {
                 throw new PlatformDataIntegrityException(
                         "Meltdown in advanced accounting...sum of all charge debits does not equal the total transaction amount",
-                        "Sum of charge debits (" + totalDebitedAmount + ") does not equal transaction total (" + totalAmount
-                                + ") for loan " + loanId + ", transaction " + transactionId,
+                        "Sum of charge debits (" + totalDebitedAmount + ") does not equal transaction total (" + totalAmount + ") for loan "
+                                + loanId + ", transaction " + transactionId,
                         totalDebitedAmount, totalAmount);
             }
         }
@@ -1180,8 +1182,10 @@ public class AccountingProcessorHelper {
     }
 
     private GLAccount getLinkedGLAccountForLoanCharges(final Long loanProductId, final int accountMappingTypeId, final Long chargeId) {
-        // For "available at cashier" charges, use only the charge's debit/credit GL accounts (m_charge); no product fallback.
-        // When debit_account_id or credit_account_id is null, we return null so no GL posting is generated for that side.
+        // For "available at cashier" charges, use only the charge's debit/credit GL accounts (m_charge); no product
+        // fallback.
+        // When debit_account_id or credit_account_id is null, we return null so no GL posting is generated for that
+        // side.
         if (chargeId != null) {
             final var charge = this.chargeRepositoryWrapper.findOneWithNotFoundDetection(chargeId);
             if (ChargeTimeType.fromInt(charge.getChargeTimeType()).isAvailableAtCashier()) {
@@ -1435,7 +1439,8 @@ public class AccountingProcessorHelper {
             }
         }
 
-        // When null accounts were skipped (e.g. available-at-cashier with empty GL), totalCreditedAmount may be less than totalAmount; skip validation
+        // When null accounts were skipped (e.g. available-at-cashier with empty GL), totalCreditedAmount may be less
+        // than totalAmount; skip validation
         if (totalCreditedAmount.compareTo(totalAmount) != 0) {
             return; // Partial postings allowed (null debit/credit on charge)
         }

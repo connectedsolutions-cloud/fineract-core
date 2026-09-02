@@ -31,9 +31,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * Builds a JSON snapshot of all {@code m_loan} column values for a given loan. Used when marking a
- * loan as ready for comité to persist the state at that moment into
- * {@code original_approval_submission}.
+ * Builds a JSON snapshot of all {@code m_loan} column values for a given loan. Used when marking a loan as ready for
+ * comité to persist the state at that moment into {@code original_approval_submission}.
  */
 @RequiredArgsConstructor
 public class LoanOriginalApprovalSubmissionSnapshotHelper {
@@ -45,11 +44,12 @@ public class LoanOriginalApprovalSubmissionSnapshotHelper {
     private final Gson gson = new Gson();
 
     /**
-     * Fetches the current {@code m_loan} row for the given {@code loanId}, builds a key-value map
-     * of all columns (excluding {@code original_approval_submission}), converts values to
-     * JSON-friendly types, and returns the JSON string.
+     * Fetches the current {@code m_loan} row for the given {@code loanId}, builds a key-value map of all columns
+     * (excluding {@code original_approval_submission}), converts values to JSON-friendly types, and returns the JSON
+     * string.
      *
-     * @param loanId the loan id
+     * @param loanId
+     *            the loan id
      * @return JSON string of column names (snake_case) to values
      */
     public String buildSnapshotJson(Long loanId) {

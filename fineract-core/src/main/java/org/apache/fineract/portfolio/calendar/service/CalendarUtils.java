@@ -22,7 +22,6 @@ import com.google.gson.JsonElement;
 import java.text.ParseException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoField;
@@ -46,6 +45,7 @@ import net.fortuna.ical4j.validate.ValidationException;
 import org.apache.fineract.infrastructure.core.data.DataValidatorBuilder;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
+import org.apache.fineract.infrastructure.core.service.AnchoredMonthlyDateUtils;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.organisation.workingdays.domain.WorkingDays;
 import org.apache.fineract.organisation.workingdays.service.WorkingDaysUtil;
@@ -91,10 +91,7 @@ public final class CalendarUtils {
 
     public static Temporal adjustDate(final Temporal date, final Temporal seedDate, final PeriodFrequencyType frequencyType) {
         if (frequencyType.isMonthly() && seedDate.get(ChronoField.DAY_OF_MONTH) > 28 && date.get(ChronoField.DAY_OF_MONTH) >= 28) {
-            int noOfDaysInCurrentMonth = YearMonth.from(date).lengthOfMonth();
-            int seedDay = seedDate.get(ChronoField.DAY_OF_MONTH);
-            int adjustedDay = Math.min(noOfDaysInCurrentMonth, seedDay);
-            return date.with(ChronoField.DAY_OF_MONTH, adjustedDay);
+            return AnchoredMonthlyDateUtils.adjustToAnchorDay(date, seedDate);
         }
         return date;
     }

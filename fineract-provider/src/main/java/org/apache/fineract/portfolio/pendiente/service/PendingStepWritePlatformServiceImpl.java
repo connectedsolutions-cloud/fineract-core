@@ -26,20 +26,20 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
+import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.organisation.office.domain.Office;
 import org.apache.fineract.organisation.office.domain.OfficeRepositoryWrapper;
 import org.apache.fineract.portfolio.pendiente.data.PendingStepData;
 import org.apache.fineract.portfolio.pendiente.domain.PendingFlow;
 import org.apache.fineract.portfolio.pendiente.domain.PendingFlowBlueprint;
-import org.apache.fineract.portfolio.pendiente.domain.PendingStep;
 import org.apache.fineract.portfolio.pendiente.domain.PendingFlowRepository;
+import org.apache.fineract.portfolio.pendiente.domain.PendingStep;
 import org.apache.fineract.portfolio.pendiente.domain.PendingStepRepository;
+import org.apache.fineract.portfolio.pendiente.exception.PendingStepNotFoundException;
 import org.apache.fineract.portfolio.pendiente.service.builder.PendingFlowBuilder;
 import org.apache.fineract.portfolio.pendiente.service.builder.PendingFlowBuilderRegistry;
-import org.apache.fineract.portfolio.pendiente.exception.PendingStepNotFoundException;
 import org.apache.fineract.useradministration.domain.AppUser;
 import org.apache.fineract.useradministration.domain.AppUserRepository;
 import org.springframework.stereotype.Service;
@@ -239,9 +239,8 @@ public class PendingStepWritePlatformServiceImpl implements PendingStepWritePlat
     }
 
     /**
-     * Applies optional next-step fields from the complete request JSON. Expects a "nextStep" object
-     * with optional: responsableUserId, dueDate, references, note, officeId. Falls back to current user
-     * and nulls when not provided.
+     * Applies optional next-step fields from the complete request JSON. Expects a "nextStep" object with optional:
+     * responsableUserId, dueDate, references, note, officeId. Falls back to current user and nulls when not provided.
      */
     private void applyNextStepOverridesFromRequest(PendingStep newNext, String json, AppUser currentUser) {
         newNext.setNote(null);
@@ -309,12 +308,11 @@ public class PendingStepWritePlatformServiceImpl implements PendingStepWritePlat
     }
 
     /**
-     * Resolves references for the next step from the blueprint. For reference_type "prev_step"
-     * copies the completed step's references; otherwise passthrough of reference_fields.
+     * Resolves references for the next step from the blueprint. For reference_type "prev_step" copies the completed
+     * step's references; otherwise passthrough of reference_fields.
      */
     private String resolveNextStepReferences(JsonObject nextStepDef, PendingStep completedStep) {
-        String referenceType = nextStepDef.has("reference_type")
-                ? fromJsonHelper.extractStringNamed("reference_type", nextStepDef) : null;
+        String referenceType = nextStepDef.has("reference_type") ? fromJsonHelper.extractStringNamed("reference_type", nextStepDef) : null;
         if ("prev_step".equals(referenceType) && completedStep.getReferences() != null) {
             return completedStep.getReferences();
         }

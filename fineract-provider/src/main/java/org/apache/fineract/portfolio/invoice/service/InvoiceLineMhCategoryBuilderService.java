@@ -9,4 +9,3 @@ public interface InvoiceLineMhCategoryBuilderService {
 
     List<InvoiceLineRequest> buildForClientTransaction(Long clientTransactionId);
 }
-

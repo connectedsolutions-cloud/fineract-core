@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.domain.AbstractAuditableWithUTCDateTimeCustom;
 import org.apache.fineract.infrastructure.core.domain.LocalDateInterval;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
@@ -211,11 +212,19 @@ public final class SavingsAccountTransaction extends AbstractAuditableWithUTCDat
 
     public static SavingsAccountTransaction interestPosting(final SavingsAccount savingsAccount, final Office office, final LocalDate date,
             final Money amount, final boolean isManualTransaction) {
+        return interestPosting(savingsAccount, office, date, amount, isManualTransaction, null);
+    }
+
+    public static SavingsAccountTransaction interestPosting(final SavingsAccount savingsAccount, final Office office, final LocalDate date,
+            final Money amount, final boolean isManualTransaction, final String refNo) {
         final boolean isReversed = false;
         final Boolean lienTransaction = false;
-        final String refNo = null;
         return new SavingsAccountTransaction(savingsAccount, office, SavingsAccountTransactionType.INTEREST_POSTING.getValue(), date,
                 amount, isReversed, isManualTransaction, lienTransaction, refNo);
+    }
+
+    public boolean isReferencedManualInterestPosting() {
+        return isInterestPostingAndNotReversed() && this.isManualTransaction && StringUtils.isNotBlank(this.refNo);
     }
 
     public static SavingsAccountTransaction overdraftInterest(final SavingsAccount savingsAccount, final Office office,
@@ -304,10 +313,14 @@ public final class SavingsAccountTransaction extends AbstractAuditableWithUTCDat
 
     public static SavingsAccountTransaction withHoldTax(final SavingsAccount savingsAccount, final Office office, final LocalDate date,
             final Money amount, final Map<TaxComponent, BigDecimal> taxDetails) {
+        return withHoldTax(savingsAccount, office, date, amount, taxDetails, null);
+    }
+
+    public static SavingsAccountTransaction withHoldTax(final SavingsAccount savingsAccount, final Office office, final LocalDate date,
+            final Money amount, final Map<TaxComponent, BigDecimal> taxDetails, final String refNo) {
         final boolean isReversed = false;
         final boolean isManualTransaction = false;
         final Boolean lienTransaction = false;
-        final String refNo = null;
         SavingsAccountTransaction accountTransaction = new SavingsAccountTransaction(savingsAccount, office,
                 SavingsAccountTransactionType.WITHHOLD_TAX.getValue(), date, amount, isReversed, isManualTransaction, lienTransaction,
                 refNo);
@@ -327,9 +340,13 @@ public final class SavingsAccountTransaction extends AbstractAuditableWithUTCDat
     }
 
     public static SavingsAccountTransaction copyTransaction(SavingsAccountTransaction accountTransaction) {
-        return new SavingsAccountTransaction(accountTransaction.savingsAccount, accountTransaction.office, accountTransaction.paymentDetail,
-                accountTransaction.typeOf, accountTransaction.getTransactionDate(), accountTransaction.amount, accountTransaction.reversed,
-                accountTransaction.isManualTransaction, accountTransaction.lienTransaction, accountTransaction.refNo);
+        final SavingsAccountTransaction copy = new SavingsAccountTransaction(accountTransaction.savingsAccount, accountTransaction.office,
+                accountTransaction.paymentDetail, accountTransaction.typeOf, accountTransaction.getTransactionDate(),
+                accountTransaction.amount, accountTransaction.reversed, accountTransaction.isManualTransaction,
+                accountTransaction.lienTransaction, accountTransaction.refNo);
+        accountTransaction.taxDetails.forEach(
+                detail -> copy.taxDetails.add(new SavingsAccountTransactionTaxDetails(copy, detail.getTaxComponent(), detail.getAmount())));
+        return copy;
     }
 
     public static SavingsAccountTransaction holdAmount(final SavingsAccount savingsAccount, final Office office,

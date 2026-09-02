@@ -149,7 +149,7 @@ certificate projection and do not alter native capital.
 | Source field/evidence | Fineract destination | Rule |
 |---|---|---|
 | `AFI_TIPO_ACCION.ID_TIPO_ACCION` | `m_share_product.external_id` | Stable class crosswalk; exactly one product for common and one for preferred |
-| `AFI_TIPO_ACCION.TIPO_ACCION` / `CODIGO` | product name / short name | Reviewed labels; do not derive products from `OPR_OPERACIONES.PRODUCTO` |
+| `AFI_TIPO_ACCION.TIPO_ACCION` / `CODIGO` | product name / short name / `numberingCode` | Reviewed labels; store `1AC` for common and `1AP` for preferred under migration `0315`; do not derive products from `OPR_OPERACIONES.PRODUCTO` |
 | `AFI_EMISION_ACCIONES.VALOR_ACCION` | product/unit market price | 5.00 for both classes; seed price history effective no later than the first migrated purchase |
 | `AFI_EMISION_ACCIONES.NUMERO_ACCIONES` | product issuance metadata, not automatic capacity | Preferred configured issuance is 100 although current subscribed/paid positions exceed it; block until business-approved product limits are supplied |
 | `AFI_TIPO_ACCION.ID_CUENTA` | candidate `shareEquityId` | Resolves to distinct common/preferred equity GL codes; target GL crosswalk still must be reviewed |
@@ -172,12 +172,12 @@ totals. This makes the purchase projection source-ready, but not target-ready.
 
 Before native writes are enabled, the implementation still needs:
 
-1. business-approved common/preferred product capacity and per-client limits;
-2. reviewed accounting/GL mappings for each product: Fineract cash accounting
-   requires `shareReferenceId` (asset), `shareSuspenseId` (liability),
-   `shareEquityId` (equity), and `incomeFromFeeAccountId` (income). Arissto identifies
-   the two equity accounts and yield/provision accounts but does not provide a
-   safe one-to-one mapping for all four roles;
+1. apply the already approved common/preferred product capacity and per-client
+   limits during native product provisioning;
+2. apply tenant migration `0295_seed_native_share_accounting.xml`, then require
+   inspection to resolve the approved reference, suspense, class-equity, fee,
+   and payment-channel mappings. Cash is canonical across offices and journal
+   `office_id` carries the office dimension;
 3. completion of the independent native savings migration, including real
    products, ownership, movements, posted interest, accrual state, and
    accounting reconciliation;

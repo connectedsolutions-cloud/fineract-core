@@ -148,6 +148,84 @@ public class SavingsAccountDomainServiceJpa implements SavingsAccountDomainServi
 
     @Transactional
     @Override
+    public SavingsAccountTransaction handleExplicitWithholdTax(final SavingsAccount account, final LocalDate transactionDate,
+            final BigDecimal grossInterestAmount, final BigDecimal expectedTaxAmount, final String transactionReference,
+            final boolean backdatedTxnsAllowedTill) {
+        context.authenticatedUser();
+        account.validateForAccountBlock();
+        account.validateForDebitBlock();
+
+        final boolean isSavingsInterestPostingAtCurrentPeriodEnd = this.configurationDomainService
+                .isSavingsInterestPostingAtCurrentPeriodEnd();
+        final Integer financialYearBeginningMonth = this.configurationDomainService.retrieveFinancialYearBeginningMonth();
+        final boolean postReversals = this.configurationDomainService.isReversalTransactionAllowed();
+        final Set<Long> existingTransactionIds = new HashSet<>();
+        final Set<Long> existingReversedTransactionIds = new HashSet<>();
+        if (backdatedTxnsAllowedTill) {
+            updateTransactionDetailsWithPivotConfig(account, existingTransactionIds, existingReversedTransactionIds);
+        } else {
+            updateExistingTransactionsDetails(account, existingTransactionIds, existingReversedTransactionIds);
+        }
+
+        final SavingsAccountTransaction withholdTax = account.createExplicitWithholdTaxTransaction(grossInterestAmount, expectedTaxAmount,
+                transactionDate, transactionReference, backdatedTxnsAllowedTill);
+        final LocalDate today = DateUtils.getBusinessLocalDate();
+        final MathContext mc = MathContext.DECIMAL64;
+        final boolean isInterestTransfer = false;
+        final LocalDate postInterestOnDate = null;
+        if (account.isBeforeLastPostingPeriod(transactionDate, backdatedTxnsAllowedTill)) {
+            account.postInterest(mc, today, isInterestTransfer, isSavingsInterestPostingAtCurrentPeriodEnd, financialYearBeginningMonth,
+                    postInterestOnDate, backdatedTxnsAllowedTill, postReversals);
+        } else {
+            account.calculateInterestUsing(mc, today, isInterestTransfer, isSavingsInterestPostingAtCurrentPeriodEnd,
+                    financialYearBeginningMonth, postInterestOnDate, backdatedTxnsAllowedTill, postReversals);
+        }
+
+        account.validateAccountBalanceDoesNotBecomeNegativeMinimal(expectedTaxAmount, false);
+        saveTransactionToGenerateTransactionId(withholdTax);
+        if (backdatedTxnsAllowedTill) {
+            saveUpdatedTransactionsOfSavingsAccount(account.getSavingsAccountTransactionsWithPivotConfig());
+        }
+        this.savingsAccountRepository.save(account);
+        postJournalEntries(account, existingTransactionIds, existingReversedTransactionIds, false, backdatedTxnsAllowedTill);
+        return withholdTax;
+    }
+
+    @Transactional
+    @Override
+    public SavingsAccountTransaction handleExplicitInterestPosting(final SavingsAccount account, final LocalDate transactionDate,
+            final BigDecimal transactionAmount, final String transactionReference, final boolean backdatedTxnsAllowedTill) {
+        context.authenticatedUser();
+        account.validateForAccountBlock();
+
+        final boolean isSavingsInterestPostingAtCurrentPeriodEnd = this.configurationDomainService
+                .isSavingsInterestPostingAtCurrentPeriodEnd();
+        final Integer financialYearBeginningMonth = this.configurationDomainService.retrieveFinancialYearBeginningMonth();
+        final boolean postReversals = this.configurationDomainService.isReversalTransactionAllowed();
+        final Set<Long> existingTransactionIds = new HashSet<>();
+        final Set<Long> existingReversedTransactionIds = new HashSet<>();
+        if (backdatedTxnsAllowedTill) {
+            updateTransactionDetailsWithPivotConfig(account, existingTransactionIds, existingReversedTransactionIds);
+        } else {
+            updateExistingTransactionsDetails(account, existingTransactionIds, existingReversedTransactionIds);
+        }
+
+        final SavingsAccountTransaction interestPosting = account.createExplicitInterestPostingTransaction(transactionAmount,
+                transactionDate, transactionReference, backdatedTxnsAllowedTill);
+        account.calculateInterestUsing(MathContext.DECIMAL64, DateUtils.getBusinessLocalDate(), false,
+                isSavingsInterestPostingAtCurrentPeriodEnd, financialYearBeginningMonth, null, backdatedTxnsAllowedTill, postReversals);
+
+        saveTransactionToGenerateTransactionId(interestPosting);
+        if (backdatedTxnsAllowedTill) {
+            saveUpdatedTransactionsOfSavingsAccount(account.getSavingsAccountTransactionsWithPivotConfig());
+        }
+        this.savingsAccountRepository.save(account);
+        postJournalEntries(account, existingTransactionIds, existingReversedTransactionIds, false, backdatedTxnsAllowedTill);
+        return interestPosting;
+    }
+
+    @Transactional
+    @Override
     public SavingsAccountTransaction handleDeposit(final SavingsAccount account, final DateTimeFormatter fmt,
             final LocalDate transactionDate, final BigDecimal transactionAmount, final PaymentDetail paymentDetail,
             final boolean isAccountTransfer, final boolean isRegularTransaction, final boolean backdatedTxnsAllowedTill) {

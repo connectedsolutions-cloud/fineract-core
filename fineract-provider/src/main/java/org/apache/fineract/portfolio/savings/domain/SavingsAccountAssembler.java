@@ -344,6 +344,11 @@ public class SavingsAccountAssembler {
         return loadTransactionsToSavingsAccount(account, backdatedTxnsAllowedTill);
     }
 
+    public SavingsAccount assembleFromLocked(final Long savingsId, final boolean backdatedTxnsAllowedTill) {
+        final SavingsAccount account = this.savingsAccountRepository.findOneLockedWithNotFoundDetection(savingsId);
+        return loadTransactionsToSavingsAccount(account, backdatedTxnsAllowedTill);
+    }
+
     public SavingsAccount loadTransactionsToSavingsAccount(final SavingsAccount account, final boolean backdatedTxnsAllowedTill) {
         List<SavingsAccountTransaction> savingsAccountTransactions = null;
         if (backdatedTxnsAllowedTill) {
@@ -392,6 +397,24 @@ public class SavingsAccountAssembler {
         if (backdatedTxnsAllowedTill && account.getSavingsAccountTransactionData() != null
                 && account.getSummary().getInterestPostedTillDate() != null) {
             List<SavingsAccountTransactionData> removalList = new ArrayList<>();
+
+            final LocalDate interestPostedTillDate = account.getSummary().getInterestPostedTillDate();
+            final LocalDate configuredStart = account.getStartInterestCalculationDate();
+            if (configuredStart != null && configuredStart.isAfter(interestPostedTillDate)) {
+                for (final SavingsAccountTransactionData transaction : account.getSavingsAccountTransactionData()) {
+                    if (transaction.getDate().isAfter(configuredStart)) {
+                        break;
+                    }
+                    removalList.add(transaction);
+                    if (transaction.isNotReversed() && !transaction.isReversalTransaction()) {
+                        account.getSummary().setRunningBalanceOnPivotDate(transaction.getRunningBalance());
+                        account.setLastSavingsAccountTransaction(transaction);
+                    }
+                }
+                account.getSavingsAccountTransactionData().removeAll(removalList);
+                account.setHelpers(this.savingsAccountTransactionDataSummaryWrapper, this.savingsHelper);
+                return account;
+            }
 
             for (int i = 0; i < account.getSavingsAccountTransactionData().size(); i++) {
                 SavingsAccountTransactionData savingsAccountTransaction = account.getSavingsAccountTransactionData().get(i);

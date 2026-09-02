@@ -211,7 +211,11 @@ public class DepositAccountDomainServiceJpa implements DepositAccountDomainServi
         final DateTimeFormatter fmt = DateTimeFormatter.ofPattern(command.dateFormat()).withLocale(locale);
         final LocalDate closedDate = command.localDateValueOfParameterNamed(SavingsApiConstants.closedOnDateParamName);
         Long savingsTransactionId = null;
-        account.postMaturityInterest(isSavingsInterestPostingAtCurrentPeriodEnd, financialYearBeginningMonth);
+        final boolean postMaturityInterest = !command.hasParameter(DepositsApiConstants.postMaturityInterestParamName)
+                || command.booleanPrimitiveValueOfParameterNamed(DepositsApiConstants.postMaturityInterestParamName);
+        if (postMaturityInterest) {
+            account.postMaturityInterest(isSavingsInterestPostingAtCurrentPeriodEnd, financialYearBeginningMonth);
+        }
         account.setClosedOnDate(closedDate);
         final Integer onAccountClosureId = command.integerValueOfParameterNamed(onAccountClosureIdParamName);
         final DepositAccountOnClosureType onClosureType = DepositAccountOnClosureType.fromInt(onAccountClosureId);
@@ -254,7 +258,7 @@ public class DepositAccountDomainServiceJpa implements DepositAccountDomainServi
     @Override
     public Long handleFDAccountMaturityClosure(final FixedDepositAccount account, final PaymentDetail paymentDetail, final AppUser user,
             final DateTimeFormatter fmt, final LocalDate closedDate, final Integer onAccountClosureId, final Long toSavingsId,
-            final String transferDescription, Map<String, Object> changes) {
+            final String transferDescription, Map<String, Object> changes, final boolean postMaturityInterest) {
 
         final boolean isSavingsInterestPostingAtCurrentPeriodEnd = this.configurationDomainService
                 .isSavingsInterestPostingAtCurrentPeriodEnd();
@@ -272,7 +276,9 @@ public class DepositAccountDomainServiceJpa implements DepositAccountDomainServi
 
         final MathContext mc = MathContext.DECIMAL64;
         Long savingsTransactionId = null;
-        account.postMaturityInterest(isSavingsInterestPostingAtCurrentPeriodEnd, financialYearBeginningMonth);
+        if (postMaturityInterest) {
+            account.postMaturityInterest(isSavingsInterestPostingAtCurrentPeriodEnd, financialYearBeginningMonth);
+        }
         account.setClosedOnDate(closedDate);
         final DepositAccountOnClosureType onClosureType = DepositAccountOnClosureType.fromInt(onAccountClosureId);
         if (onClosureType.isReinvest()) {
@@ -293,10 +299,12 @@ public class DepositAccountDomainServiceJpa implements DepositAccountDomainServi
                     false, isRegularTransaction);
             savingsTransactionId = withdrawal.getId();
 
-            if (onClosureType.isReinvestPrincipalAndInterest()) {
-                account.updateClosedStatus();
-                account.updateOnAccountClosureStatus(onClosureType);
-            }
+            // Both reinvestment modes end this native term. The replacement
+            // account carries the next term; leaving the principal-only
+            // predecessor in MATURED status produces two apparent current
+            // positions for one deposit lifecycle.
+            account.updateClosedStatus();
+            account.updateOnAccountClosureStatus(onClosureType);
             changes.put("reinvestedDepositId", reinvestedDeposit.getId());
             reinvestedDeposit.approveAndActivateApplication(closedDate, user);
             this.savingsAccountRepository.save(reinvestedDeposit);

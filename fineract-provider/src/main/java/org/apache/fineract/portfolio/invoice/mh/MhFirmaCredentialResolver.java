@@ -17,7 +17,8 @@ public class MhFirmaCredentialResolver {
     private final OfficeRepository officeRepository;
 
     public MhFirmaCredentials resolve(Long officeId) {
-        MhCompanyConfig company = mhCompanyConfigRepository.findById(MhCompanyConfig.SINGLETON_ID).orElseGet(MhCompanyConfig::emptySingleton);
+        MhCompanyConfig company = mhCompanyConfigRepository.findById(MhCompanyConfig.SINGLETON_ID)
+                .orElseGet(MhCompanyConfig::emptySingleton);
         Office office = officeId != null ? officeRepository.findById(officeId).orElse(null) : null;
 
         String rawNit = firstNonBlank(office != null ? office.getMhNit() : null, company.getNit());
@@ -27,7 +28,8 @@ public class MhFirmaCredentialResolver {
         }
         String passwordPri = firstNonBlank(office != null ? office.getMhPasswordPri() : null, company.getPasswordPri());
         if (StringUtils.isBlank(passwordPri)) {
-            throw new PlatformDataIntegrityException("error.msg.mh.password.missing", "MH private key password is not configured", officeId);
+            throw new PlatformDataIntegrityException("error.msg.mh.password.missing", "MH private key password is not configured",
+                    officeId);
         }
         String signingApiKey = firstNonBlank(office != null ? office.getMhSigningApiKey() : null, company.getSigningApiKey());
         String firmaSecret = firstNonBlank(office != null ? office.getMhFirmaSecret() : null, company.getFirmaSecret());

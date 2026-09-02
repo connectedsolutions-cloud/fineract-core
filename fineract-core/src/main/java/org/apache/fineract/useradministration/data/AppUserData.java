@@ -58,6 +58,9 @@ public final class AppUserData {
     @SuppressWarnings("unused")
     private Set<ClientData> clients;
 
+    private String dataScope;
+    private String effectiveDataScope;
+
     public static AppUserData importInstance(Long officeId, Long staffId, String username, String firstname, String lastname, String email,
             Boolean sendPasswordToEmail, Boolean passwordNeverExpires, List<Long> roleIds, Integer rowIndex) {
         return new AppUserData(officeId, staffId, username, firstname, lastname, email, sendPasswordToEmail, passwordNeverExpires, roleIds,
@@ -101,8 +104,8 @@ public final class AppUserData {
 
     public static AppUserData template(final Collection<OfficeData> offices, final Collection<RoleData> availableRoles,
             final Collection<RoleData> selfServiceRoles) {
-        return new AppUserData(null, null, null, null, null, null, null, null, null, availableRoles, selfServiceRoles, null, offices,
-                null, null, null);
+        return new AppUserData(null, null, null, null, null, null, null, null, null, availableRoles, selfServiceRoles, null, offices, null,
+                null, null);
     }
 
     public static AppUserData dropdown(final Long id, final String username) {
@@ -111,8 +114,9 @@ public final class AppUserData {
 
     public static AppUserData instance(final Long id, final String username, final String email, final Long officeId,
             final String officeName, final Long currentOfficeId, final List<Long> offices, final String firstname, final String lastname,
-            final Collection<RoleData> availableRoles, final Collection<RoleData> selfServiceRoles, final Collection<RoleData> selectedRoles,
-            final StaffData staff, final Boolean passwordNeverExpire, final Boolean isSelfServiceUser) {
+            final Collection<RoleData> availableRoles, final Collection<RoleData> selfServiceRoles,
+            final Collection<RoleData> selectedRoles, final StaffData staff, final Boolean passwordNeverExpire,
+            final Boolean isSelfServiceUser) {
         return new AppUserData(id, username, email, officeId, officeName, currentOfficeId, offices, firstname, lastname, availableRoles,
                 selfServiceRoles, selectedRoles, null, staff, passwordNeverExpire, isSelfServiceUser);
     }
@@ -128,9 +132,9 @@ public final class AppUserData {
 
     private AppUserData(final Long id, final String username, final String email, final Long officeId, final String officeName,
             final Long currentOfficeId, final List<Long> offices, final String firstname, final String lastname,
-            final Collection<RoleData> availableRoles, final Collection<RoleData> selfServiceRoles, final Collection<RoleData> selectedRoles,
-            final Collection<OfficeData> allowedOffices, final StaffData staff, final Boolean passwordNeverExpire,
-            final Boolean isSelfServiceUser) {
+            final Collection<RoleData> availableRoles, final Collection<RoleData> selfServiceRoles,
+            final Collection<RoleData> selectedRoles, final Collection<OfficeData> allowedOffices, final StaffData staff,
+            final Boolean passwordNeverExpire, final Boolean isSelfServiceUser) {
         this.id = id;
         this.username = username;
         this.officeId = officeId != null ? officeId : currentOfficeId; // Backward compatibility
@@ -182,6 +186,22 @@ public final class AppUserData {
 
     public void setClients(Set<ClientData> clients) {
         this.clients = clients;
+    }
+
+    public void setDataScope(final String dataScope) {
+        this.dataScope = dataScope;
+    }
+
+    public String getDataScope() {
+        return this.dataScope;
+    }
+
+    public void setEffectiveDataScope(final String effectiveDataScope) {
+        this.effectiveDataScope = effectiveDataScope;
+    }
+
+    public String getEffectiveDataScope() {
+        return this.effectiveDataScope;
     }
 
     public boolean isSelfServiceUser() {

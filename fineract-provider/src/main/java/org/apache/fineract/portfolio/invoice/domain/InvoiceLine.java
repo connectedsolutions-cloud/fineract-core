@@ -128,4 +128,3 @@ public class InvoiceLine extends AbstractPersistableCustom<Long> {
         return precioUni == null ? BigDecimal.ZERO : precioUni;
     }
 }
-

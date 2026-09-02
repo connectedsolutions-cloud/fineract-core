@@ -107,11 +107,11 @@ public class LoanTermVariationsMapper {
             interestChargedFromDate = loan.getDisbursementDate();
         }
 
-        return LoanApplicationTerms.assembleFrom(scheduleGeneratorDTO.getCurrency(), loanTermFrequency, loan.getTermPeriodFrequencyType(),
-                nthDayType, dayOfWeekType, loan.getDisbursementDate(), loan.getExpectedFirstRepaymentOnDate(),
-                scheduleGeneratorDTO.getCalculatedRepaymentsStartingFromDate(), loan.getInArrearsTolerance(),
-                loan.getLoanRepaymentScheduleDetail(), loan.getLoanProduct().isMultiDisburseLoan(), loan.getFixedEmiAmount(),
-                disbursementData, loan.getMaxOutstandingLoanBalance(), interestChargedFromDate,
+        final LoanApplicationTerms loanApplicationTerms = LoanApplicationTerms.assembleFrom(scheduleGeneratorDTO.getCurrency(),
+                loanTermFrequency, loan.getTermPeriodFrequencyType(), nthDayType, dayOfWeekType, loan.getDisbursementDate(),
+                loan.getExpectedFirstRepaymentOnDate(), scheduleGeneratorDTO.getCalculatedRepaymentsStartingFromDate(),
+                loan.getInArrearsTolerance(), loan.getLoanRepaymentScheduleDetail(), loan.getLoanProduct().isMultiDisburseLoan(),
+                loan.getFixedEmiAmount(), disbursementData, loan.getMaxOutstandingLoanBalance(), interestChargedFromDate,
                 loan.getLoanProduct().getPrincipalThresholdForLastInstallment(),
                 loan.getLoanProductRelatedDetail().getInstallmentAmountInMultiplesOf(), recalculationFrequencyType, restCalendarInstance,
                 compoundingMethod, compoundingCalendarInstance, compoundingFrequencyType,
@@ -121,6 +121,8 @@ public class LoanTermVariationsMapper {
                 allowCompoundingOnEod, scheduleGeneratorDTO.isFirstRepaymentDateAllowedOnHoliday(),
                 scheduleGeneratorDTO.isInterestToBeRecoveredFirstWhenGreaterThanEMI(), loan.getFixedPrincipalPercentagePerInstallment(),
                 scheduleGeneratorDTO.isPrincipalCompoundingDisabledForOverdueLoans(), repaymentStartDateType, loan.getSubmittedOnDate());
+        loanApplicationTerms.setRoundInterestHalfCentDown(loan.getLoanProduct().usesCredesalInterestRounding());
+        return loanApplicationTerms;
     }
 
     private BigDecimal constructFloatingInterestRates(final BigDecimal annualNominalInterestRate, final FloatingRateDTO floatingRateDTO,

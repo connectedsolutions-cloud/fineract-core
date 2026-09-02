@@ -25,8 +25,8 @@ public interface PendingFlowWritePlatformService {
     PendingFlowData createFromBlueprint(Long blueprintId, String json);
 
     /**
-     * Creates only the pending flow and its first step using the builder for the blueprint.
-     * Requires responsableUserId in the request body; dueDate and reference items are optional.
+     * Creates only the pending flow and its first step using the builder for the blueprint. Requires responsableUserId
+     * in the request body; dueDate and reference items are optional.
      */
     PendingFlowData createFlowAndFirstStep(Long blueprintId, String json);
 }

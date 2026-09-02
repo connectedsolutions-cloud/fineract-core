@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.23.xsd">
+    <changeSet id="0302-1-add-fixed-deposit-migration-link-permission" author="credesal">
+        <insert tableName="m_permission">
+            <column name="grouping" value="portfolio"/>
+            <column name="code" value="MIGRATIONLINK_FIXEDDEPOSITACCOUNT"/>
+            <column name="entity_name" value="FIXEDDEPOSITACCOUNT"/>
+            <column name="action_name" value="MIGRATIONLINK"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <rollback>
+            <delete tableName="m_permission">
+                <where>code='MIGRATIONLINK_FIXEDDEPOSITACCOUNT'</where>
+            </delete>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

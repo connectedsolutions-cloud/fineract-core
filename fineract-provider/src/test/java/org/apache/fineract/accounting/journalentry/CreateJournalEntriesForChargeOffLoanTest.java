@@ -18,6 +18,7 @@
  */
 package org.apache.fineract.accounting.journalentry;
 
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -66,7 +67,7 @@ class CreateJournalEntriesForChargeOffLoanTest {
         when(helper.getLatestClosureByBranch(1L)).thenReturn(mockClosure);
 
         LoanTransactionEnumData transactionType = mock(LoanTransactionEnumData.class);
-        when(transactionType.isChargeoff()).thenReturn(true);
+        lenient().when(transactionType.isChargeoff()).thenReturn(true);
 
         LoanTransactionDTO loanTransactionDTO = new LoanTransactionDTO(1L, 1L, "txn-123", LocalDate.now(ZoneId.systemDefault()),
                 transactionType, new BigDecimal("500.00"), new BigDecimal("500.00"), null, null, null, null, false, Collections.emptyList(),
@@ -161,5 +162,31 @@ class CreateJournalEntriesForChargeOffLoanTest {
 
         verify(helper, times(1)).getLinkedGLAccountForLoanProduct(1L, AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), 1L);
         verify(helper, times(1)).getLinkedGLAccountForLoanProduct(1L, AccrualAccountsForLoan.CHARGE_OFF_EXPENSE.getValue(), 1L);
+    }
+
+    @Test
+    void shouldCreateBalancedJournalForSourceExactComponentReallocation() {
+        final LocalDate transactionDate = LocalDate.of(2024, 9, 1);
+        final LoanTransactionEnumData transactionType = mock(LoanTransactionEnumData.class);
+        final LoanTransactionDTO transaction = new LoanTransactionDTO(1L, null, "txn-reallocation", transactionDate, transactionType,
+                BigDecimal.ZERO, new BigDecimal("2.15"), new BigDecimal("-2.15"), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false,
+                Collections.emptyList(), Collections.emptyList(), false, "", null, null, null, null);
+        transaction.setSourceExactComponentReallocation(true);
+        loanDTO = new LoanDTO(1L, 1L, 1L, "USD", false, false, true, List.of(transaction), false, false, null, false, false, null, null,
+                null, (String) null);
+        final GLAccount portfolio = new GLAccount();
+        portfolio.setId(20L);
+        final GLAccount interestReceivable = new GLAccount();
+        interestReceivable.setId(21L);
+        when(helper.getLinkedGLAccountForLoanProduct(1L, AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), null)).thenReturn(portfolio);
+        when(helper.getLinkedGLAccountForLoanProduct(1L, AccrualAccountsForLoan.INTEREST_RECEIVABLE.getValue(), null))
+                .thenReturn(interestReceivable);
+
+        processor.createJournalEntriesForLoan(loanDTO);
+
+        verify(helper).createCreditJournalEntryForLoan(helper.getOfficeById(1L), "USD", 1L, "txn-reallocation", transactionDate,
+                new BigDecimal("2.15"), portfolio, null);
+        verify(helper).createDebitJournalEntryForLoan(helper.getOfficeById(1L), "USD", 1L, "txn-reallocation", transactionDate,
+                new BigDecimal("2.15"), interestReceivable, null);
     }
 }

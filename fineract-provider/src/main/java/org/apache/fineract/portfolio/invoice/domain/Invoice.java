@@ -136,9 +136,9 @@ public class Invoice extends AbstractAuditableCustom {
 
     protected Invoice() {}
 
-    public static Invoice draft(Long loanTransactionId, Long savingsTransactionId, Long clientTransactionId, Integer version, String ambiente,
-            String tipoDte, String numeroControl, String codigoGeneracion, Integer tipoModelo, Integer tipoOperacion, LocalDate fecEmi,
-            LocalTime horEmi, String tipoMoneda) {
+    public static Invoice draft(Long loanTransactionId, Long savingsTransactionId, Long clientTransactionId, Integer version,
+            String ambiente, String tipoDte, String numeroControl, String codigoGeneracion, Integer tipoModelo, Integer tipoOperacion,
+            LocalDate fecEmi, LocalTime horEmi, String tipoMoneda) {
         Invoice invoice = new Invoice();
         invoice.status = InvoiceStatus.DRAFT;
         invoice.loanTransactionId = loanTransactionId;
@@ -320,7 +320,8 @@ public class Invoice extends AbstractAuditableCustom {
         this.motivoContin = motivoContin;
     }
 
-    public void setAuthorityData(String authorityStatus, String authorityMessage, String selloRecibido, LocalDateTime authorityProcessedAt) {
+    public void setAuthorityData(String authorityStatus, String authorityMessage, String selloRecibido,
+            LocalDateTime authorityProcessedAt) {
         this.authorityStatus = authorityStatus;
         this.authorityMessage = authorityMessage;
         this.selloRecibido = selloRecibido;
@@ -382,4 +383,3 @@ public class Invoice extends AbstractAuditableCustom {
         return summary;
     }
 }
-

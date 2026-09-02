@@ -162,11 +162,13 @@ import org.apache.fineract.portfolio.loanaccount.domain.LoanCharge;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanDisbursementDetails;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanEvent;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanLifecycleStateMachine;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanRefinancingSettlement;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallment;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallmentRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleProcessingWrapper;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepositoryWrapper;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanSimulationValidator;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanStatus;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanSubStatus;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTermVariationType;
@@ -177,8 +179,10 @@ import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRelationR
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRelationTypeEnum;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType;
+import org.apache.fineract.portfolio.loanaccount.domain.SourceExactRepaymentAllocation;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.MoneyHolder;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.TransactionCtx;
+import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor;
 import org.apache.fineract.portfolio.loanaccount.exception.DateMismatchException;
 import org.apache.fineract.portfolio.loanaccount.exception.ExceedingTrancheCountException;
 import org.apache.fineract.portfolio.loanaccount.exception.InvalidLoanStateTransitionException;
@@ -204,7 +208,6 @@ import org.apache.fineract.portfolio.loanaccount.serialization.LoanChargeValidat
 import org.apache.fineract.portfolio.loanaccount.serialization.LoanDownPaymentTransactionValidator;
 import org.apache.fineract.portfolio.loanaccount.serialization.LoanOfficerValidator;
 import org.apache.fineract.portfolio.loanaccount.serialization.LoanTransactionValidator;
-import org.apache.fineract.portfolio.loanaccount.domain.LoanSimulationValidator;
 import org.apache.fineract.portfolio.loanaccount.serialization.LoanUpdateCommandFromApiJsonDeserializer;
 import org.apache.fineract.portfolio.loanaccount.service.adjustment.LoanAdjustmentParameter;
 import org.apache.fineract.portfolio.loanaccount.service.adjustment.LoanAdjustmentService;
@@ -316,14 +319,29 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
 
     @Override
     public CommandProcessingResult disburseLoan(Long loanId, JsonCommand command, Boolean isAccountTransfer) {
-        return disburseLoan(loanId, command, isAccountTransfer, false);
+        return disburseLoanInternal(loanId, command, isAccountTransfer, false, false);
     }
 
     @Transactional
     @Override
     public CommandProcessingResult disburseLoan(final Long loanId, final JsonCommand command, Boolean isAccountTransfer,
             Boolean isWithoutAutoPayment) {
-        loanTransactionValidator.validateDisbursement(command, isAccountTransfer, loanId);
+        return disburseLoanInternal(loanId, command, isAccountTransfer, isWithoutAutoPayment, false);
+    }
+
+    @Transactional
+    @Override
+    public CommandProcessingResult disburseSourceExactTopupLoan(final Long loanId, final JsonCommand command) {
+        return disburseLoanInternal(loanId, command, false, false, true);
+    }
+
+    private CommandProcessingResult disburseLoanInternal(final Long loanId, final JsonCommand command, final Boolean isAccountTransfer,
+            final Boolean isWithoutAutoPayment, final boolean sourceExactTopup) {
+        if (sourceExactTopup) {
+            loanTransactionValidator.validateSourceExactTopupDisbursement(command, loanId);
+        } else {
+            loanTransactionValidator.validateDisbursement(command, isAccountTransfer, loanId);
+        }
 
         Loan loan = loanAssembler.assembleFrom(loanId);
 
@@ -384,16 +402,59 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             final ExternalId txnExternalId = externalIdFactory.createFromCommand(command, LoanApiConstants.externalIdParameterName);
 
             if (loan.isTopup() && loan.getClientId() != null) {
-                final BigDecimal loanOutstanding = loanApplicationValidator.validateTopupLoan(loan, actualDisbursementDate);
-
-                amountToDisburse = disburseAmount.minus(loanOutstanding);
-                disburseLoanToLoan(loan, command, loanOutstanding);
+                final List<Long> predecessorIds = loan.getTopupLoanDetails().getLoanIdsToClose();
+                final List<Loan> lockedPredecessors = loanRepository.findAllByIdForRefinancingUpdate(predecessorIds);
+                if (lockedPredecessors.size() != predecessorIds.size()) {
+                    throw new GeneralPlatformDomainRuleException("error.msg.loan.refinancing.predecessor.missing",
+                            "One or more predecessor loans no longer exist");
+                }
+                final Map<Long, BigDecimal> quotedSettlements = loanApplicationValidator.validateRefinancingLoans(loan,
+                        actualDisbursementDate);
+                final Map<Long, SourceExactRefinancingSettlement> sourceExactSettlements = sourceExactTopup
+                        ? sourceExactRefinancingSettlementsFrom(command, loan)
+                        : Map.of();
+                BigDecimal settlementTotal = BigDecimal.ZERO;
+                for (LoanRefinancingSettlement settlement : loan.getTopupLoanDetails().getSettlements()) {
+                    final Long predecessorLoanId = settlement.getLoanIdToClose();
+                    final SourceExactRefinancingSettlement sourceExactSettlement = sourceExactSettlements.get(predecessorLoanId);
+                    final BigDecimal settlementAmount;
+                    final SourceExactRepaymentAllocation allocation;
+                    final ExternalId repaymentExternalId;
+                    final ExternalId transferExternalId;
+                    if (sourceExactTopup) {
+                        if (sourceExactSettlement == null) {
+                            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.refinancing.settlement.missing",
+                                    "No source-exact settlement was supplied for predecessor loan %s", predecessorLoanId);
+                        }
+                        allocation = sourceExactSettlement.allocation();
+                        settlementAmount = allocation.total();
+                        repaymentExternalId = sourceExactSettlement.repaymentExternalId();
+                        transferExternalId = sourceExactSettlement.transferExternalId();
+                    } else {
+                        settlementAmount = quotedSettlements.get(predecessorLoanId);
+                        allocation = null;
+                        repaymentExternalId = ExternalId.empty();
+                        transferExternalId = ExternalId.empty();
+                    }
+                    settlementTotal = settlementTotal.add(settlementAmount);
+                    disburseLoanToLoan(loan, command, settlement, settlementAmount, repaymentExternalId, transferExternalId, allocation);
+                }
+                if (settlementTotal.compareTo(disburseAmount.getAmount()) > 0) {
+                    throw new GeneralPlatformDomainRuleException("error.msg.loan.refinancing.settlements.must.not.exceed.disbursement",
+                            "Refinancing settlements %s must not exceed the successor disbursement amount %s", settlementTotal,
+                            disburseAmount.getAmount());
+                }
+                amountToDisburse = disburseAmount.minus(settlementTotal);
+                loan.getTopupLoanDetails().setTopupAmount(settlementTotal);
+            } else if (sourceExactTopup) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.topup.requires.topup.loan",
+                        "Source-exact top-up disbursement requires a native top-up loan");
             }
 
             LoanTransaction disbursementTransaction = null;
             if (isAccountTransfer) {
                 disburseLoanToSavings(loan, command, amountToDisburse, paymentDetail);
-            } else {
+            } else if (!loan.isTopup() || amountToDisburse.isGreaterThanZero()) {
                 disbursementTransaction = LoanTransaction.disbursement(loan, amountToDisburse, paymentDetail, actualDisbursementDate,
                         txnExternalId, loan.getTotalOverpaidAsMoney());
                 disbursementTransaction.updateLoan(loan);
@@ -1127,6 +1188,224 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
 
     @Transactional
     @Override
+    public CommandProcessingResult makeSourceExactLoanRepayment(final Long loanId, final JsonCommand command) {
+        return makeSourceExactLoanTransaction(loanId, command, LoanTransactionType.REPAYMENT);
+    }
+
+    @Transactional
+    @Override
+    public CommandProcessingResult makeSourceExactComponentReallocation(final Long loanId, final JsonCommand command) {
+        this.loanTransactionValidator.validateSourceExactComponentReallocation(command.json());
+        final Loan loan = this.loanAssembler.assembleFrom(loanId);
+        if (!CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor.STRATEGY_CODE.equals(loan.transactionProcessingStrategy())
+                || !loan.isPeriodicAccrualAccountingEnabledOnLoanProduct()) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.component.reallocation.not.supported",
+                    "Source-exact component reallocation requires the Credesal strategy and periodic accrual accounting");
+        }
+        final LocalDate transactionDate = command.localDateValueOfParameterNamed(LoanApiConstants.transactionDateParamName);
+        final SourceExactRepaymentAllocation allocation = sourceExactAllocationFrom(command);
+        final ExternalId externalId = externalIdFactory.createFromCommand(command, LoanApiConstants.externalIdParameterName);
+        final Map<String, Object> changes = new LinkedHashMap<>();
+        changes.put(LoanApiConstants.transactionDateParamName,
+                command.stringValueOfParameterNamed(LoanApiConstants.transactionDateParamName));
+        changes.put(LoanApiConstants.TRANSACTION_AMOUNT_PARAMNAME, BigDecimal.ZERO);
+        changes.put(LoanApiConstants.sourceExactPrincipalPortionParameterName, allocation.principal());
+        changes.put(LoanApiConstants.sourceExactInterestPortionParameterName, allocation.interest());
+        changes.put(LoanApiConstants.sourceExactFeeChargesPortionParameterName, allocation.feeCharges());
+        changes.put(LoanApiConstants.sourceExactPenaltyChargesPortionParameterName, allocation.penaltyCharges());
+        changes.put(LoanApiConstants.sourceSystemParameterName,
+                command.stringValueOfParameterNamed(LoanApiConstants.sourceSystemParameterName));
+        changes.put(LoanApiConstants.sourceReversalMovementIdsParameterName,
+                command.stringValueOfParameterNamed(LoanApiConstants.sourceReversalMovementIdsParameterName));
+        changes.put(LoanApiConstants.sourceRepaymentMovementIdParameterName,
+                command.stringValueOfParameterNamed(LoanApiConstants.sourceRepaymentMovementIdParameterName));
+        changes.put(LoanApiConstants.externalIdParameterName, externalId);
+        final String note = command.stringValueOfParameterNamed(LoanApiConstants.noteParameterName);
+        changes.put(LoanApiConstants.noteParameterName, note);
+        final PaymentDetail paymentDetail = this.paymentDetailWritePlatformService.createAndPersistPaymentDetail(command, changes);
+        final LoanTransaction transaction = this.loanAccountDomainService.makeSourceExactComponentReallocation(loan, transactionDate,
+                paymentDetail, note, externalId, allocation,
+                command.stringValueOfParameterNamed(LoanApiConstants.sourceSystemParameterName),
+                command.stringValueOfParameterNamed(LoanApiConstants.sourceReversalMovementIdsParameterName),
+                command.stringValueOfParameterNamed(LoanApiConstants.sourceRepaymentMovementIdParameterName));
+        this.loanAccountDomainService.updateAndSaveLoanCollateralTransactionsForIndividualAccounts(transaction.getLoan(), transaction);
+        return new CommandProcessingResultBuilder().withCommandId(command.commandId()).withLoanId(loan.getId())
+                .withEntityId(transaction.getId()).withEntityExternalId(transaction.getExternalId()).withOfficeId(loan.getOfficeId())
+                .withClientId(loan.getClientId()).withGroupId(loan.getGroupId()).with(changes).build();
+    }
+
+    private record SourceExactActiveScheduleRow(Integer installmentNumber, LocalDate fromDate, LocalDate dueDate, BigDecimal principal,
+            BigDecimal interest) {}
+
+    @Transactional
+    @Override
+    public CommandProcessingResult importSourceExactActiveSchedule(final Long loanId, final JsonCommand command) {
+        final Loan loan = this.loanAssembler.assembleFrom(loanId);
+        if (!loan.isActive() || !CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor.STRATEGY_CODE
+                .equals(loan.transactionProcessingStrategy()) || !loan.isPeriodicAccrualAccountingEnabledOnLoanProduct()) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.active.schedule.not.supported",
+                    "Source-exact active schedule import requires an active Credesal periodic-accrual loan");
+        }
+        final String sourceSystem = command
+                .stringValueOfParameterNamed(LoanApiConstants.sourceExactScheduleSourceSystemParamName);
+        final String sourceLoanExternalId = command
+                .stringValueOfParameterNamed(LoanApiConstants.sourceExactScheduleLoanExternalIdParamName);
+        if (!"ARISSTO".equals(sourceSystem) || loan.getExternalId().isEmpty()
+                || !Objects.equals(loan.getExternalId().getValue(), sourceLoanExternalId)
+                || sourceLoanExternalId == null || !sourceLoanExternalId.startsWith("ARISSTO:CRD:")) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.active.schedule.identity.invalid",
+                    "Source-exact active schedule import requires the matching Arissto loan identity");
+        }
+        final long activeDisbursements = loan.getLoanTransactions().stream()
+                .filter(LoanTransaction::isNotReversed).filter(LoanTransaction::isDisbursement).count();
+        final long laterFinancialTransactions = loan.getLoanTransactions().stream().filter(LoanTransaction::isNotReversed)
+                .filter(transaction -> !transaction.isDisbursement()).count();
+        if (activeDisbursements != 1 || laterFinancialTransactions != 0) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.active.schedule.servicing.started",
+                    "Source-exact active schedule must be imported after the sole disbursement and before servicing starts");
+        }
+
+        final String dateFormat = command.stringValueOfParameterNamed("dateFormat");
+        final Locale locale = command.extractLocale();
+        final JsonArray rows = command.arrayOfParameterNamed(LoanApiConstants.sourceExactScheduleInstallmentsParamName);
+        final List<SourceExactActiveScheduleRow> sourceRows = new ArrayList<>();
+        for (final JsonElement row : rows) {
+            sourceRows.add(new SourceExactActiveScheduleRow(
+                    this.fromApiJsonHelper.extractIntegerNamed(LoanApiConstants.sourceExactScheduleInstallmentNumberParamName, row, locale),
+                    this.fromApiJsonHelper.extractLocalDateNamed(LoanApiConstants.sourceExactScheduleFromDateParamName, row, dateFormat,
+                            locale),
+                    this.fromApiJsonHelper.extractLocalDateNamed(LoanApiConstants.dueDateParamName, row, dateFormat, locale),
+                    this.fromApiJsonHelper.extractBigDecimalNamed(LoanApiConstants.sourceExactSchedulePrincipalParamName, row, locale),
+                    this.fromApiJsonHelper.extractBigDecimalNamed(LoanApiConstants.sourceExactScheduleInterestParamName, row, locale)));
+        }
+        applySourceExactActiveSchedule(loan, sourceRows);
+        this.loanRepaymentScheduleInstallmentRepository.saveAll(loan.getRepaymentScheduleInstallments());
+        this.loanBalanceService.updateLoanSummaryDerivedFields(loan);
+        this.loanRepositoryWrapper.saveAndFlush(loan);
+
+        final Map<String, Object> changes = new LinkedHashMap<>();
+        changes.put(LoanApiConstants.sourceExactScheduleSourceSystemParamName, sourceSystem);
+        changes.put(LoanApiConstants.sourceExactScheduleLoanExternalIdParamName, sourceLoanExternalId);
+        changes.put(LoanApiConstants.sourceExactScheduleInstallmentsParamName, sourceRows.size());
+        return new CommandProcessingResultBuilder().withCommandId(command.commandId()).withLoanId(loan.getId()).withEntityId(loan.getId())
+                .withEntityExternalId(loan.getExternalId()).withOfficeId(loan.getOfficeId()).withClientId(loan.getClientId())
+                .withGroupId(loan.getGroupId()).with(changes).build();
+    }
+
+    static void applySourceExactActiveSchedule(final Loan loan, final List<SourceExactActiveScheduleRow> sourceRows) {
+        final List<LoanRepaymentScheduleInstallment> targetRows = loan.getRepaymentScheduleInstallments().stream()
+                .filter(installment -> !installment.isDownPayment() && !installment.isAdditional())
+                .sorted(Comparator.comparing(LoanRepaymentScheduleInstallment::getInstallmentNumber)).toList();
+        if (sourceRows.isEmpty() || sourceRows.size() != targetRows.size()) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.active.schedule.cardinality.invalid",
+                    "Source-exact active schedule must match the native installment cardinality");
+        }
+        BigDecimal principalTotal = BigDecimal.ZERO;
+        LocalDate previousDueDate = null;
+        for (int index = 0; index < sourceRows.size(); index++) {
+            final SourceExactActiveScheduleRow source = sourceRows.get(index);
+            final LoanRepaymentScheduleInstallment target = targetRows.get(index);
+            final int expectedNumber = index + 1;
+            if (!Objects.equals(source.installmentNumber(), expectedNumber) || source.fromDate() == null || source.dueDate() == null
+                    || source.principal() == null || source.interest() == null || source.principal().signum() < 0
+                    || source.interest().signum() < 0 || !source.fromDate().isBefore(source.dueDate())
+                    || previousDueDate != null && !source.dueDate().isAfter(previousDueDate)
+                    || previousDueDate != null && !source.fromDate().equals(previousDueDate)) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.active.schedule.row.invalid",
+                        "Source-exact active schedule rows must be complete, nonnegative, contiguous, and strictly ordered");
+            }
+            if (hasFinancialProgress(target)) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.active.schedule.installment.serviced",
+                        "Source-exact active schedule cannot replace a serviced or accrued installment");
+            }
+            principalTotal = principalTotal.add(source.principal());
+            previousDueDate = source.dueDate();
+        }
+        if (principalTotal.compareTo(loan.getApprovedPrincipal()) != 0) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.active.schedule.principal.invalid",
+                    "Source-exact active schedule principal must equal the approved principal");
+        }
+        for (int index = 0; index < sourceRows.size(); index++) {
+            final SourceExactActiveScheduleRow source = sourceRows.get(index);
+            final LoanRepaymentScheduleInstallment target = targetRows.get(index);
+            target.updateFromDate(source.fromDate());
+            target.updateDueDate(source.dueDate());
+            target.updatePrincipal(source.principal());
+            target.updateInterestCharged(source.interest());
+            target.updateObligationMet(false);
+            target.updateObligationMetOnDate(null);
+        }
+        loan.setExpectedMaturityDate(sourceRows.getLast().dueDate());
+    }
+
+    private static boolean hasFinancialProgress(final LoanRepaymentScheduleInstallment installment) {
+        return hasAmount(installment.getPrincipalCompleted()) || hasAmount(installment.getPrincipalWrittenOff())
+                || hasAmount(installment.getInterestPaid()) || hasAmount(installment.getInterestWaived())
+                || hasAmount(installment.getInterestWrittenOff()) || hasAmount(installment.getInterestAccrued())
+                || hasAmount(installment.getFeeChargesPaid()) || hasAmount(installment.getFeeChargesWaived())
+                || hasAmount(installment.getFeeChargesWrittenOff()) || hasAmount(installment.getFeeAccrued())
+                || hasAmount(installment.getPenaltyChargesPaid()) || hasAmount(installment.getPenaltyChargesWaived())
+                || hasAmount(installment.getPenaltyChargesWrittenOff()) || hasAmount(installment.getPenaltyAccrued());
+    }
+
+    private static boolean hasAmount(final BigDecimal amount) {
+        return amount != null && amount.signum() != 0;
+    }
+
+    @Transactional
+    @Override
+    public CommandProcessingResult makeSourceExactLoanGoodwillCredit(final Long loanId, final JsonCommand command) {
+        return makeSourceExactLoanTransaction(loanId, command, LoanTransactionType.GOODWILL_CREDIT);
+    }
+
+    private CommandProcessingResult makeSourceExactLoanTransaction(final Long loanId, final JsonCommand command,
+            final LoanTransactionType transactionType) {
+        this.loanTransactionValidator.validateSourceExactRepaymentTransaction(command.json());
+
+        final LocalDate transactionDate = command.localDateValueOfParameterNamed(LoanApiConstants.transactionDateParamName);
+        final BigDecimal transactionAmount = command.bigDecimalValueOfParameterNamed(LoanApiConstants.TRANSACTION_AMOUNT_PARAMNAME);
+        final SourceExactRepaymentAllocation allocation = sourceExactAllocationFrom(command);
+        final ExternalId txnExternalId = externalIdFactory.createFromCommand(command, LoanApiConstants.externalIdParameterName);
+        final Loan loan = this.loanAssembler.assembleFrom(loanId);
+        if (!CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor.STRATEGY_CODE.equals(loan.transactionProcessingStrategy())) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.repayment.strategy.not.supported",
+                    "Source-exact repayment is only supported by the Credesal accrued-interest transaction strategy");
+        }
+
+        final Map<String, Object> changes = new LinkedHashMap<>();
+        changes.put(LoanApiConstants.transactionDateParamName,
+                command.stringValueOfParameterNamed(LoanApiConstants.transactionDateParamName));
+        changes.put(LoanApiConstants.TRANSACTION_AMOUNT_PARAMNAME,
+                command.stringValueOfParameterNamed(LoanApiConstants.TRANSACTION_AMOUNT_PARAMNAME));
+        changes.put(LoanApiConstants.sourceExactPrincipalPortionParameterName, allocation.principal());
+        changes.put(LoanApiConstants.sourceExactInterestPortionParameterName, allocation.interest());
+        changes.put(LoanApiConstants.sourceExactFeeChargesPortionParameterName, allocation.feeCharges());
+        changes.put(LoanApiConstants.sourceExactPenaltyChargesPortionParameterName, allocation.penaltyCharges());
+        changes.put(LoanApiConstants.localeParameterName, command.locale());
+        changes.put(LoanApiConstants.dateFormatParameterName, command.dateFormat());
+        changes.put(LoanApiConstants.PAYMENT_TYPE_PARAMNAME, command.longValueOfParameterNamed(LoanApiConstants.PAYMENT_TYPE_PARAMNAME));
+        changes.put(LoanApiConstants.externalIdParameterName, txnExternalId);
+
+        final String noteText = command.stringValueOfParameterNamed(LoanApiConstants.noteParameterName);
+        if (StringUtils.isNotBlank(noteText)) {
+            changes.put(LoanApiConstants.noteParameterName, noteText);
+        }
+        final PaymentDetail paymentDetail = this.paymentDetailWritePlatformService.createAndPersistPaymentDetail(command, changes);
+        final LoanTransaction loanTransaction = this.loanAccountDomainService.makeSourceExactTransaction(transactionType, loan,
+                transactionDate, transactionAmount, paymentDetail, noteText, txnExternalId, allocation, null, false, false, false);
+        if (command.parameterExists("cashierId")) {
+            loanTransaction.setCashierId(command.longValueOfParameterNamed("cashierId"));
+        }
+        this.loanAccountDomainService.updateAndSaveLoanCollateralTransactionsForIndividualAccounts(loanTransaction.getLoan(),
+                loanTransaction);
+
+        return new CommandProcessingResultBuilder().withCommandId(command.commandId()).withLoanId(loan.getId())
+                .withEntityId(loanTransaction.getId()).withEntityExternalId(loanTransaction.getExternalId())
+                .withOfficeId(loan.getOfficeId()).withClientId(loan.getClientId()).withGroupId(loan.getGroupId()).with(changes).build();
+    }
+
+    @Transactional
+    @Override
     public Map<String, Object> makeLoanBulkRepayment(final CollectionSheetBulkRepaymentCommand bulkRepaymentCommand) {
 
         final SingleRepaymentCommand[] repaymentCommand = bulkRepaymentCommand.getLoanTransactions();
@@ -1671,18 +1950,73 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                 .build();
     }
 
-    private void disburseLoanToLoan(final Loan loan, final JsonCommand command, final BigDecimal amount) {
+    private void disburseLoanToLoan(final Loan loan, final JsonCommand command, final LoanRefinancingSettlement settlement,
+            final BigDecimal amount, final ExternalId repaymentExternalId, final ExternalId transferExternalId,
+            final SourceExactRepaymentAllocation sourceExactAllocation) {
         final LocalDate transactionDate = command.localDateValueOfParameterNamed("actualDisbursementDate");
-        final ExternalId txnExternalId = externalIdFactory.createFromCommand(command, LoanApiConstants.externalIdParameterName);
 
         final Locale locale = command.extractLocale();
         final DateTimeFormatter fmt = DateTimeFormatter.ofPattern(command.dateFormat()).withLocale(locale);
         final AccountTransferDTO accountTransferDTO = new AccountTransferDTO(transactionDate, amount, PortfolioAccountType.LOAN,
-                PortfolioAccountType.LOAN, loan.getId(), loan.getTopupLoanDetails().getLoanIdToClose(), "Loan Topup", locale, fmt,
-                LoanTransactionType.DISBURSEMENT.getValue(), LoanTransactionType.REPAYMENT.getValue(), txnExternalId, loan, null);
+                PortfolioAccountType.LOAN, loan.getId(), settlement.getLoanIdToClose(), "Loan Refinancing", locale, fmt,
+                LoanTransactionType.DISBURSEMENT.getValue(), LoanTransactionType.REPAYMENT.getValue(), transferExternalId, loan, null,
+                repaymentExternalId, sourceExactAllocation);
         AccountTransferDetails accountTransferDetails = this.accountTransfersWritePlatformService.repayLoanWithTopup(accountTransferDTO);
-        loan.getTopupLoanDetails().setAccountTransferDetails(accountTransferDetails.getId());
-        loan.getTopupLoanDetails().setTopupAmount(amount);
+        final Long repaymentTransactionId = accountTransferDetails.getAccountTransferTransactions().stream()
+                .map(transaction -> transaction.getToLoanTransaction()).filter(Objects::nonNull).map(LoanTransaction::getId).findFirst()
+                .orElse(null);
+        settlement.recordSettlement(accountTransferDetails.getId(), repaymentTransactionId, amount, sourceExactAllocation);
+        if (!loan.getTopupLoanDetails().isConsolidation()) {
+            loan.getTopupLoanDetails().setAccountTransferDetails(accountTransferDetails.getId());
+        }
+    }
+
+    private Map<Long, SourceExactRefinancingSettlement> sourceExactRefinancingSettlementsFrom(final JsonCommand command, final Loan loan) {
+        final Map<Long, SourceExactRefinancingSettlement> result = new LinkedHashMap<>();
+        final JsonArray rows = command.arrayOfParameterNamed(LoanApiConstants.refinancingSettlements);
+        if (rows == null || rows.isEmpty()) {
+            final Long predecessorLoanId = loan.getTopupLoanDetails().getLoanIdToClose();
+            result.put(predecessorLoanId, new SourceExactRefinancingSettlement(predecessorLoanId, sourceExactAllocationFrom(command),
+                    ExternalIdFactory.produce(
+                            command.stringValueOfParameterNamed(LoanApiConstants.sourceExactTopupRepaymentExternalIdParameterName)),
+                    ExternalIdFactory.produce(
+                            command.stringValueOfParameterNamed(LoanApiConstants.sourceExactTopupTransferExternalIdParameterName))));
+            return result;
+        }
+        for (JsonElement rowElement : rows) {
+            final JsonObject row = rowElement.getAsJsonObject();
+            final Long predecessorLoanId = row.get(LoanApiConstants.loanIdToClose).getAsLong();
+            final SourceExactRepaymentAllocation allocation = new SourceExactRepaymentAllocation(
+                    row.get(LoanApiConstants.sourceExactPrincipalPortionParameterName).getAsBigDecimal(),
+                    row.get(LoanApiConstants.sourceExactInterestPortionParameterName).getAsBigDecimal(),
+                    row.get(LoanApiConstants.sourceExactFeeChargesPortionParameterName).getAsBigDecimal(),
+                    row.get(LoanApiConstants.sourceExactPenaltyChargesPortionParameterName).getAsBigDecimal());
+            final SourceExactRefinancingSettlement previous = result.put(predecessorLoanId,
+                    new SourceExactRefinancingSettlement(predecessorLoanId, allocation,
+                            ExternalIdFactory.produce(row.get(LoanApiConstants.refinancingRepaymentExternalId).getAsString()),
+                            ExternalIdFactory.produce(row.get(LoanApiConstants.refinancingTransferExternalId).getAsString())));
+            if (previous != null) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.refinancing.predecessor.duplicate",
+                        "Predecessor loan %s appears more than once", predecessorLoanId);
+            }
+        }
+        if (!result.keySet().equals(Set.copyOf(loan.getTopupLoanDetails().getLoanIdsToClose()))) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.refinancing.predecessors.must.match",
+                    "Source-exact settlement predecessors must exactly match the refinancing application");
+        }
+        return result;
+    }
+
+    private record SourceExactRefinancingSettlement(Long predecessorLoanId, SourceExactRepaymentAllocation allocation,
+            ExternalId repaymentExternalId, ExternalId transferExternalId) {
+    }
+
+    private SourceExactRepaymentAllocation sourceExactAllocationFrom(final JsonCommand command) {
+        return new SourceExactRepaymentAllocation(
+                command.bigDecimalValueOfParameterNamed(LoanApiConstants.sourceExactPrincipalPortionParameterName),
+                command.bigDecimalValueOfParameterNamed(LoanApiConstants.sourceExactInterestPortionParameterName),
+                command.bigDecimalValueOfParameterNamed(LoanApiConstants.sourceExactFeeChargesPortionParameterName),
+                command.bigDecimalValueOfParameterNamed(LoanApiConstants.sourceExactPenaltyChargesPortionParameterName));
     }
 
     protected Long disburseLoanToSavings(final Loan loan, final JsonCommand command, final Money amount,

@@ -52,5 +52,6 @@ public class AccountingBridgeLoanTransactionDTO {
     private BigDecimal penaltyPaid;
     private LoanChargeData loanChargeData;
     private boolean loanToLoanTransfer;
+    private boolean sourceExactComponentReallocation;
 
 }

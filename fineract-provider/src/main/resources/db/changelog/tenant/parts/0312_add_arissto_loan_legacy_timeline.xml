@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0312-1-create-arissto-loan-legacy-timeline" author="credesal">
+        <createTable tableName="credesal_loan_legacy_timeline">
+            <column name="loan_id" type="BIGINT"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="source_submitted_on" type="DATE"><constraints nullable="false"/></column>
+            <column name="source_approved_on" type="DATE"/>
+            <column name="source_resolution_on" type="DATE"/>
+            <column name="source_disbursed_on" type="DATE"><constraints nullable="false"/></column>
+            <column name="effective_approved_on" type="DATE"><constraints nullable="false"/></column>
+            <column name="classification" type="VARCHAR(64)"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_loan_legacy_timeline" baseColumnNames="loan_id"
+                                 constraintName="FK_credesal_loan_legacy_timeline_loan"
+                                 referencedTableName="m_loan" referencedColumnNames="id"
+                                 onDelete="CASCADE" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <changeSet id="0312-2-register-arissto-loan-legacy-timeline" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(1) FROM x_registered_table WHERE registered_table_name = 'credesal_loan_legacy_timeline'</sqlCheck>
+        </preConditions>
+        <insert tableName="x_registered_table">
+            <column name="registered_table_name" value="credesal_loan_legacy_timeline"/>
+            <column name="application_table_name" value="m_loan"/>
+            <column name="category" valueNumeric="100"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0312-3-arissto-loan-legacy-timeline-permissions" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(1) FROM m_permission WHERE code = 'CREATE_credesal_loan_legacy_timeline'</sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission"><column name="grouping" value="datatable"/><column name="code" value="CREATE_credesal_loan_legacy_timeline"/><column name="entity_name" value="credesal_loan_legacy_timeline"/><column name="action_name" value="CREATE"/><column name="can_maker_checker" valueBoolean="false"/></insert>
+        <insert tableName="m_permission"><column name="grouping" value="datatable"/><column name="code" value="READ_credesal_loan_legacy_timeline"/><column name="entity_name" value="credesal_loan_legacy_timeline"/><column name="action_name" value="READ"/><column name="can_maker_checker" valueBoolean="false"/></insert>
+        <insert tableName="m_permission"><column name="grouping" value="datatable"/><column name="code" value="UPDATE_credesal_loan_legacy_timeline"/><column name="entity_name" value="credesal_loan_legacy_timeline"/><column name="action_name" value="UPDATE"/><column name="can_maker_checker" valueBoolean="false"/></insert>
+        <insert tableName="m_permission"><column name="grouping" value="datatable"/><column name="code" value="DELETE_credesal_loan_legacy_timeline"/><column name="entity_name" value="credesal_loan_legacy_timeline"/><column name="action_name" value="DELETE"/><column name="can_maker_checker" valueBoolean="false"/></insert>
+    </changeSet>
+
+</databaseChangeLog>

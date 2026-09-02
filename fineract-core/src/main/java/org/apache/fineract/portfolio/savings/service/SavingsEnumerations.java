@@ -376,6 +376,10 @@ public final class SavingsEnumerations {
                 optionData = new EnumOptionData(SavingsPostingInterestPeriodType.MONTHLY.getValue().longValue(),
                         codePrefix + SavingsPostingInterestPeriodType.MONTHLY.getCode(), "Monthly");
             break;
+            case MONTHLY_ON_ACTIVATION_DATE:
+                optionData = new EnumOptionData(SavingsPostingInterestPeriodType.MONTHLY_ON_ACTIVATION_DATE.getValue().longValue(),
+                        codePrefix + SavingsPostingInterestPeriodType.MONTHLY_ON_ACTIVATION_DATE.getCode(), "Monthly on activation date");
+            break;
             case QUATERLY:
                 optionData = new EnumOptionData(SavingsPostingInterestPeriodType.QUATERLY.getValue().longValue(),
                         codePrefix + SavingsPostingInterestPeriodType.QUATERLY.getCode(), "Quarterly");
@@ -427,6 +431,11 @@ public final class SavingsEnumerations {
             case MONTHLY:
                 optionData = new EnumOptionData(SavingsCompoundingInterestPeriodType.MONTHLY.getValue().longValue(),
                         codePrefix + SavingsCompoundingInterestPeriodType.MONTHLY.getCode(), "Monthly");
+            break;
+            case MONTHLY_ON_ACTIVATION_DATE:
+                optionData = new EnumOptionData(SavingsCompoundingInterestPeriodType.MONTHLY_ON_ACTIVATION_DATE.getValue().longValue(),
+                        codePrefix + SavingsCompoundingInterestPeriodType.MONTHLY_ON_ACTIVATION_DATE.getCode(),
+                        "Monthly on activation date");
             break;
             case QUATERLY:
                 optionData = new EnumOptionData(SavingsCompoundingInterestPeriodType.QUATERLY.getValue().longValue(),
@@ -487,6 +496,10 @@ public final class SavingsEnumerations {
 
         switch (type) {
             case INVALID:
+            break;
+            case ACTUAL:
+                optionData = new EnumOptionData(SavingsInterestCalculationDaysInYearType.ACTUAL.getValue().longValue(),
+                        SavingsInterestCalculationDaysInYearType.ACTUAL.getCode(), "Actual");
             break;
             case DAYS_360:
                 optionData = new EnumOptionData(SavingsInterestCalculationDaysInYearType.DAYS_360.getValue().longValue(),

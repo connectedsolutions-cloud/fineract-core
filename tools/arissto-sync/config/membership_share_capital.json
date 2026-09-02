@@ -58,7 +58,7 @@
     "Empty designed tables remain in inspection so a future population change is visible.",
     "The current member profile is a queryable one-to-one Fineract client datatable.",
     "Certificate-derived common/preferred subscribed and paid quantities are stored explicitly; the legacy preferred AFI_ACCION share count is not native approved capital.",
-    "Native Fineract share accounts are deferred because they require a real dividend savings account and the savings migration has not yet provided one for current members.",
+    "Native Fineract share accounts are deferred until the independent savings-deposits service has migrated and reconciled an eligible active same-client VISTA account.",
     "OPR_OPERACIONES is limited to membership operation types whose ID_ASOCIADO resolves to the current AFI_SOCIO master; unresolved legacy operations and PLUS products remain source-side research evidence and are not synced.",
     "Direct PostgreSQL writes are restricted to the two versioned Credesal extension tables and use parameterized upserts in bounded transactions."
   ]

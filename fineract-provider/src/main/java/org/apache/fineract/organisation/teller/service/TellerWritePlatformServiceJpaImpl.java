@@ -40,10 +40,10 @@ import org.apache.fineract.infrastructure.core.exception.ErrorHandler;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.apache.fineract.infrastructure.security.exception.NoAuthorizationException;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
-import org.apache.fineract.organisation.office.domain.Office;
-import org.apache.fineract.organisation.office.domain.OfficeRepositoryWrapper;
 import org.apache.fineract.organisation.monetary.data.CurrencyData;
 import org.apache.fineract.organisation.monetary.service.CurrencyReadPlatformService;
+import org.apache.fineract.organisation.office.domain.Office;
+import org.apache.fineract.organisation.office.domain.OfficeRepositoryWrapper;
 import org.apache.fineract.organisation.staff.domain.Staff;
 import org.apache.fineract.organisation.staff.domain.StaffRepository;
 import org.apache.fineract.organisation.staff.exception.StaffNotFoundException;
@@ -259,12 +259,11 @@ public class TellerWritePlatformServiceJpaImpl implements TellerWritePlatformSer
             this.cashierRepository.save(cashier);
 
             if (cashier.getOpeningBalance() != null) {
-                String currencyCode = command.parameterExists("currencyCode")
-                        ? command.stringValueOfParameterNamed("currencyCode") : getDefaultCurrencyCode();
+                String currencyCode = command.parameterExists("currencyCode") ? command.stringValueOfParameterNamed("currencyCode")
+                        : getDefaultCurrencyCode();
                 if (currencyCode != null) {
-                    CashierTransaction openTxn = CashierTransaction.createBalanceTransaction(cashier,
-                            CashierTxnType.OPEN_CASHIER.getId(), cashier.getOpeningBalance(), cashier.getStartDate(),
-                            currencyCode, "Opening balance");
+                    CashierTransaction openTxn = CashierTransaction.createBalanceTransaction(cashier, CashierTxnType.OPEN_CASHIER.getId(),
+                            cashier.getOpeningBalance(), cashier.getStartDate(), currencyCode, "Opening balance");
                     this.cashierTxnRepository.save(openTxn);
                 }
             }
@@ -308,11 +307,10 @@ public class TellerWritePlatformServiceJpaImpl implements TellerWritePlatformSer
             }
 
             if (changes.containsKey("endDate") && cashier.getEndDate() != null) {
-                String currencyCode = command.parameterExists("currencyCode")
-                        ? command.stringValueOfParameterNamed("currencyCode") : getDefaultCurrencyCode();
+                String currencyCode = command.parameterExists("currencyCode") ? command.stringValueOfParameterNamed("currencyCode")
+                        : getDefaultCurrencyCode();
                 if (currencyCode != null) {
-                    BigDecimal closingAmount = cashier.getClosingBalance() != null ? cashier.getClosingBalance()
-                            : BigDecimal.ZERO;
+                    BigDecimal closingAmount = cashier.getClosingBalance() != null ? cashier.getClosingBalance() : BigDecimal.ZERO;
                     String closingNote = "Closing balance";
                     if (command.parameterExists("closingNote")) {
                         String note = command.stringValueOfParameterNamed("closingNote");
@@ -320,9 +318,8 @@ public class TellerWritePlatformServiceJpaImpl implements TellerWritePlatformSer
                             closingNote = note.length() > 200 ? note.substring(0, 200) : note;
                         }
                     }
-                    CashierTransaction closeTxn = CashierTransaction.createBalanceTransaction(cashier,
-                            CashierTxnType.CLOSE_CASHIER.getId(), closingAmount, cashier.getEndDate(), currencyCode,
-                            closingNote);
+                    CashierTransaction closeTxn = CashierTransaction.createBalanceTransaction(cashier, CashierTxnType.CLOSE_CASHIER.getId(),
+                            closingAmount, cashier.getEndDate(), currencyCode, closingNote);
                     this.cashierTxnRepository.save(closeTxn);
                 }
             }
@@ -466,9 +463,9 @@ public class TellerWritePlatformServiceJpaImpl implements TellerWritePlatformSer
                     cashierTxn.getTxnDate(), JournalEntryType.DEBIT, cashierTxn.getTxnAmount(), cashierTxn.getTxnNote(), // Description
                     null, null, null, // entity Type, entityId, reference number
                     null, null, null, null, null); // Loan
-                                             // and
-                                             // Savings
-                                             // Txn
+            // and
+            // Savings
+            // Txn
 
             final JournalEntry creditJournalEntry = JournalEntry.createNew(cashierOffice, null, // payment
                                                                                                 // detail
@@ -478,9 +475,9 @@ public class TellerWritePlatformServiceJpaImpl implements TellerWritePlatformSer
                     cashierTxn.getTxnDate(), JournalEntryType.CREDIT, cashierTxn.getTxnAmount(), cashierTxn.getTxnNote(), // Description
                     null, null, null, // entity Type, entityId, reference number
                     null, null, null, null, null); // Loan
-                                             // and
-                                             // Savings
-                                             // Txn
+            // and
+            // Savings
+            // Txn
 
             this.glJournalEntryRepository.saveAndFlush(debitJournalEntry);
             this.glJournalEntryRepository.saveAndFlush(creditJournalEntry);

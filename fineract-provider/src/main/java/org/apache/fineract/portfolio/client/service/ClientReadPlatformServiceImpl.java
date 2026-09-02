@@ -23,7 +23,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -43,6 +42,8 @@ import org.apache.fineract.infrastructure.core.service.Page;
 import org.apache.fineract.infrastructure.core.service.PaginationHelper;
 import org.apache.fineract.infrastructure.core.service.SearchParameters;
 import org.apache.fineract.infrastructure.core.service.database.DatabaseSpecificSQLGenerator;
+import org.apache.fineract.infrastructure.security.datascope.DataScopeClause;
+import org.apache.fineract.infrastructure.security.datascope.DataScopeService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.infrastructure.security.utils.ColumnValidator;
 import org.apache.fineract.portfolio.client.data.ClientCollateralManagementData;
@@ -87,6 +88,7 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
     private final ClientRepositoryWrapper clientRepositoryWrapper;
     private final ClientMapper clientMapper;
     private final ClientTagMappingRepository clientTagMappingRepository;
+    private final DataScopeService dataScopeService;
 
     @Override
     public Page<ClientData> retrieveAll(final SearchParameters searchParameters) {
@@ -101,19 +103,14 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
             throw new PlatformApiDataValidationException(dataValidationErrors);
         }
 
-        final String userOfficeHierarchy = this.context.officeHierarchy();
-        final String underHierarchySearchString = userOfficeHierarchy + "%";
         final String appUserID = String.valueOf(context.authenticatedUser().getId());
-
-        // if (searchParameters.isScopedByOfficeHierarchy()) {
-        // this.context.validateAccessRights(searchParameters.getHierarchy());
-        // underHierarchySearchString = searchParameters.getHierarchy() + "%";
-        // }
-        List<Object> paramList = new ArrayList<>(Arrays.asList(underHierarchySearchString, underHierarchySearchString));
+        final DataScopeClause scopeClause = this.dataScopeService.forClient("c");
+        List<Object> paramList = new ArrayList<>();
         final StringBuilder sqlBuilder = new StringBuilder(200);
         sqlBuilder.append("select " + sqlGenerator.calcFoundRows() + " ");
         sqlBuilder.append(this.clientToDataMapper.schema());
-        sqlBuilder.append(" where (o.hierarchy like ? or transferToOffice.hierarchy like ?) ");
+        sqlBuilder.append(" where 1=1 ");
+        scopeClause.appendTo(sqlBuilder, paramList);
 
         if (searchParameters != null) {
             if (searchParameters.getIsSelfUser()) {
@@ -214,25 +211,23 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
     @Override
     public ClientData retrieveOne(final Long clientId) {
         try {
-            final String hierarchy = this.context.officeHierarchy();
-            final String hierarchySearchString = hierarchy + "%";
-
-            final Client client = clientRepositoryWrapper.getClientByClientIdAndHierarchy(clientId, hierarchySearchString);
+            final Client client = clientRepositoryWrapper.findOneWithNotFoundDetection(clientId);
+            if (!this.dataScopeService.canAccessClient(client)) {
+                throw new ClientNotFoundException(clientId);
+            }
             final ClientData clientData = clientMapper.map(client);
 
             // Fetch tags separately using a dedicated query to avoid JOIN FETCH issues with collections
             // This is more reliable and performs better with large tag lists
             final List<ClientTagMapping> tagMappings = clientTagMappingRepository.findByClientIdWithTag(clientId);
-            
+
             final Set<ClientTagData> tags;
             if (tagMappings != null && !tagMappings.isEmpty()) {
-                tags = tagMappings.stream()
-                        .map(mapping -> ClientTagData.from(mapping.getTag()))
-                        .collect(Collectors.toSet());
+                tags = tagMappings.stream().map(mapping -> ClientTagData.from(mapping.getTag())).collect(Collectors.toSet());
             } else {
                 tags = new HashSet<>();
             }
-            
+
             if (clientData != null) {
                 clientData.setTags(tags.isEmpty() ? null : tags);
             }
@@ -322,7 +317,8 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
             sqlBuilder.append(
                     "cvSubStatus.code_value as subStatusValue,cvSubStatus.code_description as subStatusDesc,c.office_id as officeId, o.name as officeName, ");
             sqlBuilder.append("c.transfer_to_office_id as transferToOfficeId, transferToOffice.name as transferToOfficeName, ");
-            sqlBuilder.append("c.firstname as firstname, c.middlename as middlename, c.lastname as lastname, c.secondlastname as secondlastname, c.marriedlastname as marriedlastname, ");
+            sqlBuilder.append(
+                    "c.firstname as firstname, c.middlename as middlename, c.lastname as lastname, c.secondlastname as secondlastname, c.marriedlastname as marriedlastname, ");
             sqlBuilder.append("c.fullname as fullname, c.display_name as displayName, ");
             sqlBuilder.append("c.mobile_no as mobileNo, ");
             sqlBuilder.append("c.is_staff as isStaff, ");
@@ -614,7 +610,8 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
         final Collection<CodeValueData> clientNonPersonMainBusinessLineOptions = null;
         final List<EnumOptionData> clientLegalFormOptions = null;
         return ClientData.template(null, null, null, null, narrations, null, null, clientTypeOptions, clientClassificationOptions,
-                clientNonPersonConstitutionOptions, clientNonPersonMainBusinessLineOptions, clientLegalFormOptions, null, null, null, null, null);
+                clientNonPersonConstitutionOptions, clientNonPersonMainBusinessLineOptions, clientLegalFormOptions, null, null, null, null,
+                null);
     }
 
     @Override
@@ -650,7 +647,8 @@ public class ClientReadPlatformServiceImpl implements ClientReadPlatformService 
             builder.append(
                     "cvSubStatus.code_value as subStatusValue,cvSubStatus.code_description as subStatusDesc,c.office_id as officeId, o.name as officeName, ");
             builder.append("c.transfer_to_office_id as transferToOfficeId, transferToOffice.name as transferToOfficeName, ");
-            builder.append("c.firstname as firstname, c.middlename as middlename, c.lastname as lastname, c.secondlastname as secondlastname, c.marriedlastname as marriedlastname, ");
+            builder.append(
+                    "c.firstname as firstname, c.middlename as middlename, c.lastname as lastname, c.secondlastname as secondlastname, c.marriedlastname as marriedlastname, ");
             builder.append("c.fullname as fullname, c.display_name as displayName, ");
             builder.append("c.mobile_no as mobileNo, ");
             builder.append("c.is_staff as isStaff, ");

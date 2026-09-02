@@ -28,7 +28,10 @@ import lombok.RequiredArgsConstructor;
 import org.apache.fineract.accounting.common.AccountingRuleType;
 import org.apache.fineract.infrastructure.core.config.FineractProperties;
 import org.apache.fineract.infrastructure.core.domain.ExternalId;
+import org.apache.fineract.infrastructure.security.datascope.DataScopeService;
 import org.apache.fineract.portfolio.accountdetails.domain.AccountType;
+import org.apache.fineract.portfolio.client.domain.Client;
+import org.apache.fineract.portfolio.group.domain.Group;
 import org.apache.fineract.portfolio.loanaccount.exception.LoanNotFoundException;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
@@ -52,6 +55,7 @@ public class LoanRepositoryWrapper {
 
     private final LoanRepository repository;
     private final FineractProperties fineractProperties;
+    private final DataScopeService dataScopeService;
 
     @Transactional(readOnly = true)
     public Loan findOneWithNotFoundDetection(final Long id) {
@@ -69,6 +73,7 @@ public class LoanRepositoryWrapper {
         if (loadLazyCollections) {
             loan.initializeLazyCollections();
         }
+        assertCanAccess(loan);
         return loan;
     }
 
@@ -78,7 +83,22 @@ public class LoanRepositoryWrapper {
         if (loadLazyCollections) {
             loan.initializeLazyCollections();
         }
+        assertCanAccess(loan);
         return loan;
+    }
+
+    private void assertCanAccess(final Loan loan) {
+        final Client client = loan.getClient();
+        final Group group = loan.getGroup();
+        final Long officeId = client != null && client.getOffice() != null ? client.getOffice().getId() : null;
+        final Long groupOfficeId = group != null && group.getOffice() != null ? group.getOffice().getId() : null;
+        final Long loanOfficerId = loan.getLoanOfficer() != null ? loan.getLoanOfficer().getId() : null;
+        final Long clientStaffId = client != null ? client.staffId() : null;
+        final Long gestorId = client != null ? client.gestorId() : null;
+        if (!this.dataScopeService.canAccessLoan(loan.getId(), loan.getClientId(), officeId, groupOfficeId, loanOfficerId, clientStaffId,
+                gestorId)) {
+            throw new LoanNotFoundException(loan.getId());
+        }
     }
 
     // Root Entities are enough

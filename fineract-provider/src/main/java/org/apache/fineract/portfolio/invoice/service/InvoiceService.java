@@ -22,4 +22,3 @@ public interface InvoiceService {
 
     InvoiceData toInvoiceData(Invoice invoice);
 }
-

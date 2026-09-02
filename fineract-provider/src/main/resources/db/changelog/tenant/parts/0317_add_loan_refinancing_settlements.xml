@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0317-1-add-refinancing-operation-type" author="credesal">
+        <addColumn tableName="m_loan_topup">
+            <column name="operation_type" type="VARCHAR(30)" defaultValue="SINGLE_REFINANCE">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="0317-2-add-loan-refinancing-settlements" author="credesal">
+        <createTable tableName="m_loan_refinancing_settlement">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="refinancing_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="closure_loan_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="account_transfer_details_id" type="BIGINT"/>
+            <column name="repayment_transaction_id" type="BIGINT"/>
+            <column name="settlement_amount" type="DECIMAL(19,6)"/>
+            <column name="principal_portion" type="DECIMAL(19,6)"/>
+            <column name="interest_portion" type="DECIMAL(19,6)"/>
+            <column name="fee_charges_portion" type="DECIMAL(19,6)"/>
+            <column name="penalty_charges_portion" type="DECIMAL(19,6)"/>
+        </createTable>
+        <addUniqueConstraint tableName="m_loan_refinancing_settlement"
+                             columnNames="refinancing_id, closure_loan_id"
+                             constraintName="uk_refinancing_predecessor"/>
+        <addForeignKeyConstraint baseTableName="m_loan_refinancing_settlement" baseColumnNames="refinancing_id"
+                                 referencedTableName="m_loan_topup" referencedColumnNames="id"
+                                 constraintName="fk_refinancing_settlement_header"/>
+        <addForeignKeyConstraint baseTableName="m_loan_refinancing_settlement" baseColumnNames="closure_loan_id"
+                                 referencedTableName="m_loan" referencedColumnNames="id"
+                                 constraintName="fk_refinancing_settlement_loan"/>
+        <createIndex tableName="m_loan_refinancing_settlement" indexName="idx_refinancing_predecessor">
+            <column name="closure_loan_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0317-3-backfill-native-topups" author="credesal">
+        <sql>
+            INSERT INTO m_loan_refinancing_settlement
+                (refinancing_id, closure_loan_id, account_transfer_details_id, settlement_amount)
+            SELECT id, closure_loan_id, account_transfer_details_id, topup_amount
+            FROM m_loan_topup
+            WHERE NOT EXISTS (
+                SELECT 1 FROM m_loan_refinancing_settlement settlement
+                WHERE settlement.refinancing_id = m_loan_topup.id
+                  AND settlement.closure_loan_id = m_loan_topup.closure_loan_id
+            )
+        </sql>
+    </changeSet>
+
+    <changeSet id="0317-4-add-source-exact-refinancing-permission" author="credesal">
+        <insert tableName="m_permission">
+            <column name="grouping" value="transaction_loan"/>
+            <column name="code" value="SOURCEEXACTREFINANCINGDISBURSE_LOAN"/>
+            <column name="entity_name" value="LOAN"/>
+            <column name="action_name" value="SOURCEEXACTREFINANCINGDISBURSE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

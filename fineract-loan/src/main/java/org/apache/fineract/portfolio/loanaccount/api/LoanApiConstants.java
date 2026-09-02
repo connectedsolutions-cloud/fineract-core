@@ -138,6 +138,13 @@ public interface LoanApiConstants {
     String parentAccountParamName = "isParentAccount";
     String totalLoanParamName = "totalLoan";
     String installmentAmountParamName = "installmentAmount";
+    String sourceExactScheduleInstallmentsParamName = "installments";
+    String sourceExactScheduleSourceSystemParamName = "sourceSystem";
+    String sourceExactScheduleLoanExternalIdParamName = "sourceLoanExternalId";
+    String sourceExactScheduleInstallmentNumberParamName = "installmentNumber";
+    String sourceExactScheduleFromDateParamName = "fromDate";
+    String sourceExactSchedulePrincipalParamName = "principal";
+    String sourceExactScheduleInterestParamName = "interest";
     // loan write off
     String WRITEOFFREASONS = "WriteOffReasons";
     // loan charge-off
@@ -154,6 +161,10 @@ public interface LoanApiConstants {
     String clientActiveLoanOptions = "clientActiveLoanOptions";
     String isTopup = "isTopup";
     String loanIdToClose = "loanIdToClose";
+    String loanIdsToClose = "loanIdsToClose";
+    String refinancingSettlements = "refinancingSettlements";
+    String refinancingRepaymentExternalId = "repaymentExternalId";
+    String refinancingTransferExternalId = "transferExternalId";
     String topupAmount = "topupAmount";
 
     String statusAttributeName = "status";
@@ -178,6 +189,15 @@ public interface LoanApiConstants {
 
     String TRANSACTION_AMOUNT_PARAMNAME = "transactionAmount";
     String PAYMENT_TYPE_PARAMNAME = "paymentTypeId";
+    String sourceExactPrincipalPortionParameterName = "principalPortion";
+    String sourceExactInterestPortionParameterName = "interestPortion";
+    String sourceExactFeeChargesPortionParameterName = "feeChargesPortion";
+    String sourceExactPenaltyChargesPortionParameterName = "penaltyChargesPortion";
+    String sourceSystemParameterName = "sourceSystem";
+    String sourceReversalMovementIdsParameterName = "sourceReversalMovementIds";
+    String sourceRepaymentMovementIdParameterName = "sourceRepaymentMovementId";
+    String sourceExactTopupRepaymentExternalIdParameterName = "topupRepaymentExternalId";
+    String sourceExactTopupTransferExternalIdParameterName = "topupTransferExternalId";
     String FRAUD_ATTRIBUTE_NAME = "fraud";
 
     // Commands

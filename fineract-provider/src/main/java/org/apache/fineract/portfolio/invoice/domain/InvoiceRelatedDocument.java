@@ -57,4 +57,3 @@ public class InvoiceRelatedDocument extends AbstractPersistableCustom<Long> {
         return fechaGeneracion;
     }
 }
-

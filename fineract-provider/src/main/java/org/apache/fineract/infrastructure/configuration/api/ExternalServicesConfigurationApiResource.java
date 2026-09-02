@@ -28,6 +28,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -41,19 +42,26 @@ import org.apache.fineract.commands.domain.CommandWrapper;
 import org.apache.fineract.commands.service.CommandWrapperBuilder;
 import org.apache.fineract.commands.service.PortfolioCommandSourceWritePlatformService;
 import org.apache.fineract.infrastructure.configuration.data.ExternalServicesPropertiesData;
+import org.apache.fineract.infrastructure.configuration.data.ResendCredentialsData;
+import org.apache.fineract.infrastructure.configuration.data.SMTPCredentialsData;
+import org.apache.fineract.infrastructure.configuration.data.SmtpConnectionTestResult;
+import org.apache.fineract.infrastructure.configuration.exception.ExternalServiceConfigurationNotFoundException;
 import org.apache.fineract.infrastructure.configuration.service.ExternalServicesPropertiesReadPlatformService;
 import org.apache.fineract.infrastructure.core.api.ApiRequestParameterHelper;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.core.serialization.ApiRequestJsonSerializationSettings;
 import org.apache.fineract.infrastructure.core.serialization.ToApiJsonSerializer;
+import org.apache.fineract.infrastructure.core.service.ResendEmailClient;
+import org.apache.fineract.infrastructure.core.service.SmtpMailSenderFactory;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.springframework.stereotype.Component;
 
 @Path("/v1/externalservice")
 @Component
-@Tag(name = "External Services", description = "External Services Configuration related to set of supported configurations for third party services like Amazon S3 and SMTP:\n"
+@Tag(name = "External Services", description = "External Services Configuration related to set of supported configurations for third party services like Amazon S3, SMTP, and Resend:\n"
         + "\n" + "S3 (Amazon S3):\n" + "s3_access_key -\n" + "s3_bucket_name -\n" + "s3_secret_key -\n" + "\n" + "\n"
-        + "SMTP (Email Service):\n" + "username -\n" + "password -\n" + "host -\n" + "port -\n" + "useTLS -")
+        + "SMTP (Email Service):\n" + "username -\n" + "password -\n" + "host -\n" + "port -\n" + "useTLS -\n" + "\n"
+        + "RESEND (Email HTTP API):\n" + "apiKey -\n" + "fromEmail -\n" + "fromName -")
 @RequiredArgsConstructor
 public class ExternalServicesConfigurationApiResource {
 
@@ -62,13 +70,16 @@ public class ExternalServicesConfigurationApiResource {
     private final ToApiJsonSerializer<ExternalServicesPropertiesData> toApiJsonSerializer;
     private final ApiRequestParameterHelper apiRequestParameterHelper;
     private final PortfolioCommandSourceWritePlatformService commandsSourceWritePlatformService;
+    private final SmtpMailSenderFactory smtpMailSenderFactory;
+    private final ResendEmailClient resendEmailClient;
 
     @GET
     @Path("{servicename}")
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     @Operation(summary = "Retrieve External Services Configuration", description = "Returns a external Service configurations based on the Service Name.\n"
-            + "\n" + "Service Names supported are S3 and SMTP.\n" + "\n" + "Example Requests:\n" + "\n" + "externalservice/SMTP")
+            + "\n" + "Service Names supported are S3, SMTP, SMS, NOTIFICATION and RESEND.\n" + "\n" + "Example Requests:\n" + "\n"
+            + "externalservice/SMTP")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = ExternalServicesPropertiesData.class))) })
     public String retrieveOne(@PathParam("servicename") @Parameter(description = "servicename") final String serviceName,
@@ -99,5 +110,28 @@ public class ExternalServicesConfigurationApiResource {
         final CommandProcessingResult result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
         return this.toApiJsonSerializer.serialize(result);
 
+    }
+
+    @POST
+    @Path("{servicename}/testconnection")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Test email service connection", description = "Tests the saved SMTP or Resend credentials. SMTP authenticates without sending mail. Resend sends a short test email to the configured from address.\n"
+            + "\n" + "Example: \n" + "\n" + "externalservice/SMTP/testconnection\n" + "externalservice/RESEND/testconnection")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = ExternalServicesConfigurationApiResourceSwagger.PostSmtpTestConnectionResponse.class))) })
+    public String testConnection(@PathParam("servicename") @Parameter(description = "servicename") final String serviceName) {
+        this.context.authenticatedUser().validateHasReadPermission(ExternalServiceConfigurationApiConstant.EXTERNAL_SERVICE_RESOURCE_NAME);
+        final SmtpConnectionTestResult result;
+        if ("SMTP".equalsIgnoreCase(serviceName)) {
+            final SMTPCredentialsData credentials = this.externalServicePropertiesReadPlatformService.getSMTPCredentials();
+            result = this.smtpMailSenderFactory.testConnection(credentials);
+        } else if ("RESEND".equalsIgnoreCase(serviceName)) {
+            final ResendCredentialsData credentials = this.externalServicePropertiesReadPlatformService.getResendCredentials();
+            result = this.resendEmailClient.testConnection(credentials);
+        } else {
+            throw new ExternalServiceConfigurationNotFoundException(serviceName);
+        }
+        return this.toApiJsonSerializer.serialize(result);
     }
 }

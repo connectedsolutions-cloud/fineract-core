@@ -96,10 +96,12 @@ public class ShareAccountsConfiguration {
             SavingsAccountReadPlatformService savingsAccountReadPlatformService, ClientReadPlatformService clientReadPlatformService,
             ShareAccountChargeReadPlatformService shareAccountChargeReadPlatformService,
             PurchasedSharesReadPlatformService purchasedSharesReadPlatformService, JdbcTemplate jdbcTemplate,
-            PaginationHelper paginationHelper, DatabaseSpecificSQLGenerator sqlGenerator) {
+            PaginationHelper paginationHelper, DatabaseSpecificSQLGenerator sqlGenerator,
+            org.apache.fineract.infrastructure.security.datascope.DataScopeService dataScopeService) {
         return new ShareAccountReadPlatformServiceImpl(applicationContext, chargeReadPlatformService,
                 shareProductDropdownReadPlatformService, savingsAccountReadPlatformService, clientReadPlatformService,
-                shareAccountChargeReadPlatformService, purchasedSharesReadPlatformService, jdbcTemplate, paginationHelper, sqlGenerator);
+                shareAccountChargeReadPlatformService, purchasedSharesReadPlatformService, jdbcTemplate, paginationHelper, sqlGenerator,
+                dataScopeService);
     }
 
     @Bean

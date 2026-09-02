@@ -78,6 +78,9 @@ import org.apache.fineract.portfolio.loanproduct.exception.LoanProductCannotBeMo
 import org.apache.fineract.portfolio.loanproduct.exception.LoanProductDateException;
 import org.apache.fineract.portfolio.loanproduct.exception.LoanProductNotFoundException;
 import org.apache.fineract.portfolio.loanproduct.serialization.LoanProductDataValidator;
+import org.apache.fineract.portfolio.namingsequence.CredesalNamingCodes;
+import org.apache.fineract.portfolio.namingsequence.CredesalNamingNamespace;
+import org.apache.fineract.portfolio.namingsequence.service.CredesalProductNumberingSupport;
 import org.apache.fineract.portfolio.rate.domain.Rate;
 import org.apache.fineract.portfolio.rate.domain.RateRepositoryWrapper;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -108,6 +111,7 @@ public class LoanProductWritePlatformServiceJpaRepositoryImpl implements LoanPro
     private final LoanProductUpdateUtil loanProductUpdateUtil;
     private final CrdTipoLineaRepository crdTipoLineaRepository;
     private final CrdSluRepository crdSluRepository;
+    private final CredesalProductNumberingSupport productNumberingSupport;
     private final LoanProductPaymentAllocationRuleMerger loanProductPaymentAllocationRuleMerger = new LoanProductPaymentAllocationRuleMerger();
     private final LoanProductCreditAllocationRuleMerger loanProductCreditAllocationRuleMerger = new LoanProductCreditAllocationRuleMerger();
 
@@ -151,6 +155,9 @@ public class LoanProductWritePlatformServiceJpaRepositoryImpl implements LoanPro
             }
 
             applyCrdCatalogTags(loanProduct, command);
+
+            loanProduct.setNumberingCode(
+                    this.productNumberingSupport.assignOnCreate(command, CredesalNamingNamespace.LOAN, "m_product_loan"));
 
             this.loanProductRepository.saveAndFlush(loanProduct);
 
@@ -199,7 +206,8 @@ public class LoanProductWritePlatformServiceJpaRepositoryImpl implements LoanPro
 
     private void applyCrdCatalogTags(final LoanProduct loanProduct, final JsonCommand command) {
         if (command.parameterExists(LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME)) {
-            loanProduct.setTipoLinea(findTipoLineaByIdIfProvided(command.stringValueOfParameterNamed(LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME)));
+            loanProduct.setTipoLinea(
+                    findTipoLineaByIdIfProvided(command.stringValueOfParameterNamed(LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME)));
         }
         if (command.parameterExists(LoanProductConstants.ID_SLUS_PARAM_NAME)) {
             loanProduct.setSlus(assembleListOfProductSlus(command));
@@ -272,6 +280,11 @@ public class LoanProductWritePlatformServiceJpaRepositoryImpl implements LoanPro
             }
 
             final Map<String, Object> changes = loanProductUpdateUtil.update(product, command, this.aprCalculator, floatingRate);
+            changes.putAll(this.productNumberingSupport.applyUpdate(command, CredesalNamingNamespace.LOAN, product.getNumberingCode(),
+                    "m_product_loan", product.getId()));
+            if (changes.containsKey(CredesalNamingCodes.PARAM_NAME)) {
+                product.setNumberingCode((String) changes.get(CredesalNamingCodes.PARAM_NAME));
+            }
 
             if (changes.containsKey("fundId")) {
                 final Long fundId = (Long) changes.get("fundId");

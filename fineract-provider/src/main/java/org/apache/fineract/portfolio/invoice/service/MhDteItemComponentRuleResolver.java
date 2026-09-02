@@ -17,8 +17,8 @@ public class MhDteItemComponentRuleResolver {
         }
         return forTarget.stream()
                 .filter(m -> !DEFAULT_CLIENT_TYPE_KEY.equals(m.getClientTypeKey()) && requestedClientKey.equals(m.getClientTypeKey()))
-                .findFirst().orElseGet(() -> forTarget.stream().filter(m -> DEFAULT_CLIENT_TYPE_KEY.equals(m.getClientTypeKey())).findFirst()
-                        .orElse(null));
+                .findFirst().orElseGet(() -> forTarget.stream().filter(m -> DEFAULT_CLIENT_TYPE_KEY.equals(m.getClientTypeKey()))
+                        .findFirst().orElse(null));
     }
 
     public String normalizeClientTypeKey(String clientType) {
@@ -37,4 +37,3 @@ public class MhDteItemComponentRuleResolver {
         return "L_" + c.name();
     }
 }
-

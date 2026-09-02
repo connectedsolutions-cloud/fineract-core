@@ -121,13 +121,31 @@ public class LoanTransactionValidatorImpl implements LoanTransactionValidator {
 
     @Override
     public void validateDisbursement(JsonCommand command, boolean isAccountTransfer, Long loanId) {
+        validateDisbursement(command, isAccountTransfer, loanId, false);
+    }
+
+    @Override
+    public void validateSourceExactTopupDisbursement(final JsonCommand command, final Long loanId) {
+        validateDisbursement(command, false, loanId, true);
+    }
+
+    private void validateDisbursement(final JsonCommand command, final boolean isAccountTransfer, final Long loanId,
+            final boolean sourceExactTopup) {
         String json = command.json();
         if (StringUtils.isBlank(json)) {
             throw new InvalidJsonException();
         }
 
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
-        this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, getDisbursementParameters(isAccountTransfer));
+        final Set<String> supportedParameters = getDisbursementParameters(isAccountTransfer);
+        if (sourceExactTopup) {
+            supportedParameters.addAll(Arrays.asList(LoanApiConstants.sourceExactPrincipalPortionParameterName,
+                    LoanApiConstants.sourceExactInterestPortionParameterName, LoanApiConstants.sourceExactFeeChargesPortionParameterName,
+                    LoanApiConstants.sourceExactPenaltyChargesPortionParameterName,
+                    LoanApiConstants.sourceExactTopupRepaymentExternalIdParameterName,
+                    LoanApiConstants.sourceExactTopupTransferExternalIdParameterName, LoanApiConstants.refinancingSettlements));
+        }
+        this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, supportedParameters);
 
         Validator.validateOrThrow("loan.disbursement", baseDataValidator -> {
             final JsonElement element = this.fromApiJsonHelper.parse(json);
@@ -151,6 +169,35 @@ public class LoanTransactionValidatorImpl implements LoanTransactionValidator {
                     .extractBigDecimalWithLocaleNamed(LoanApiConstants.fixedEmiAmountParameterName, element);
             baseDataValidator.reset().parameter(LoanApiConstants.fixedEmiAmountParameterName).value(emiAmount).ignoreIfNull()
                     .positiveAmount().notGreaterThanMax(principal);
+
+            if (sourceExactTopup) {
+                final JsonArray refinancingSettlements = this.fromApiJsonHelper
+                        .extractJsonArrayNamed(LoanApiConstants.refinancingSettlements, element);
+                if (refinancingSettlements == null || refinancingSettlements.isEmpty()) {
+                    validateSourceExactSettlement(baseDataValidator, element, "");
+                } else {
+                    final Set<Long> predecessorIds = new HashSet<>();
+                    int index = 0;
+                    for (JsonElement settlement : refinancingSettlements) {
+                        final String path = LoanApiConstants.refinancingSettlements + "[" + index + "].";
+                        if (!settlement.isJsonObject()) {
+                            baseDataValidator.reset().parameter(path).value(settlement).failWithCode("must.be.object",
+                                    "Each refinancing settlement must be a JSON object");
+                        } else {
+                            final Long predecessorLoanId = this.fromApiJsonHelper.extractLongNamed(LoanApiConstants.loanIdToClose,
+                                    settlement);
+                            baseDataValidator.reset().parameter(path + LoanApiConstants.loanIdToClose).value(predecessorLoanId).notNull()
+                                    .longGreaterThanZero();
+                            if (predecessorLoanId != null && !predecessorIds.add(predecessorLoanId)) {
+                                baseDataValidator.reset().parameter(path + LoanApiConstants.loanIdToClose).value(predecessorLoanId)
+                                        .failWithCode("duplicate", "A predecessor loan cannot appear more than once");
+                            }
+                            validateSourceExactSettlement(baseDataValidator, settlement, path);
+                        }
+                        index++;
+                    }
+                }
+            }
 
             validatePaymentDetails(baseDataValidator, element);
 
@@ -243,6 +290,21 @@ public class LoanTransactionValidatorImpl implements LoanTransactionValidator {
                         actualDisbursementDate, approvedOnDate);
             }
         });
+    }
+
+    private void validateSourceExactSettlement(final DataValidatorBuilder baseDataValidator, final JsonElement element, final String path) {
+        validateSourceExactComponent(baseDataValidator, element, LoanApiConstants.sourceExactPrincipalPortionParameterName);
+        validateSourceExactComponent(baseDataValidator, element, LoanApiConstants.sourceExactInterestPortionParameterName);
+        validateSourceExactComponent(baseDataValidator, element, LoanApiConstants.sourceExactFeeChargesPortionParameterName);
+        validateSourceExactComponent(baseDataValidator, element, LoanApiConstants.sourceExactPenaltyChargesPortionParameterName);
+        final String repaymentParameter = path.isEmpty() ? LoanApiConstants.sourceExactTopupRepaymentExternalIdParameterName
+                : LoanApiConstants.refinancingRepaymentExternalId;
+        final String transferParameter = path.isEmpty() ? LoanApiConstants.sourceExactTopupTransferExternalIdParameterName
+                : LoanApiConstants.refinancingTransferExternalId;
+        final String repaymentExternalId = this.fromApiJsonHelper.extractStringNamed(repaymentParameter, element);
+        baseDataValidator.reset().parameter(path + repaymentParameter).value(repaymentExternalId).notBlank().notExceedingLengthOf(100);
+        final String transferExternalId = this.fromApiJsonHelper.extractStringNamed(transferParameter, element);
+        baseDataValidator.reset().parameter(path + transferParameter).value(transferExternalId).notBlank().notExceedingLengthOf(100);
     }
 
     protected void validateDisbursementWithPostDatedChecks(final String json, final Long loanId) {
@@ -401,6 +463,141 @@ public class LoanTransactionValidatorImpl implements LoanTransactionValidator {
     @Override
     public void validateNewRepaymentTransaction(final String json) {
         validatePaymentTransaction(json);
+    }
+
+    @Override
+    public void validateSourceExactRepaymentTransaction(final String json) {
+        if (StringUtils.isBlank(json)) {
+            throw new InvalidJsonException();
+        }
+
+        final Set<String> transactionParameters = new HashSet<>(getRepaymentParameters());
+        transactionParameters.addAll(Arrays.asList(LoanApiConstants.sourceExactPrincipalPortionParameterName,
+                LoanApiConstants.sourceExactInterestPortionParameterName, LoanApiConstants.sourceExactFeeChargesPortionParameterName,
+                LoanApiConstants.sourceExactPenaltyChargesPortionParameterName, "cashierId"));
+        final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
+        this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, transactionParameters);
+
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
+        final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("loan.transaction");
+        final JsonElement element = this.fromApiJsonHelper.parse(json);
+
+        final LocalDate transactionDate = this.fromApiJsonHelper.extractLocalDateNamed("transactionDate", element);
+        baseDataValidator.reset().parameter("transactionDate").value(transactionDate).notNull();
+        final BigDecimal transactionAmount = this.fromApiJsonHelper.extractBigDecimalWithLocaleNamed("transactionAmount", element);
+        baseDataValidator.reset().parameter("transactionAmount").value(transactionAmount).notNull().positiveAmount();
+
+        final BigDecimal principal = validateSourceExactComponent(baseDataValidator, element,
+                LoanApiConstants.sourceExactPrincipalPortionParameterName);
+        final BigDecimal interest = validateSourceExactComponent(baseDataValidator, element,
+                LoanApiConstants.sourceExactInterestPortionParameterName);
+        final BigDecimal fees = validateSourceExactComponent(baseDataValidator, element,
+                LoanApiConstants.sourceExactFeeChargesPortionParameterName);
+        final BigDecimal penalties = validateSourceExactComponent(baseDataValidator, element,
+                LoanApiConstants.sourceExactPenaltyChargesPortionParameterName);
+        if (transactionAmount != null && principal != null && interest != null && fees != null && penalties != null) {
+            final BigDecimal componentTotal = principal.add(interest).add(fees).add(penalties);
+            if (transactionAmount.compareTo(componentTotal) != 0) {
+                baseDataValidator.reset().parameter("transactionAmount").value(transactionAmount)
+                        .failWithCode("must.equal.source.exact.components", componentTotal);
+            }
+        }
+
+        final String externalId = this.fromApiJsonHelper.extractStringNamed(LoanApiConstants.externalIdParameterName, element);
+        baseDataValidator.reset().parameter(LoanApiConstants.externalIdParameterName).value(externalId).notBlank()
+                .notExceedingLengthOf(100);
+        final String note = this.fromApiJsonHelper.extractStringNamed(LoanApiConstants.noteParameterName, element);
+        baseDataValidator.reset().parameter(LoanApiConstants.noteParameterName).value(note).notExceedingLengthOf(1000);
+        validatePaymentDetails(baseDataValidator, element);
+        throwExceptionIfValidationWarningsExist(dataValidationErrors);
+    }
+
+    @Override
+    public void validateSourceExactComponentReallocation(final String json) {
+        if (StringUtils.isBlank(json)) {
+            throw new InvalidJsonException();
+        }
+        final Set<String> parameters = new HashSet<>(getRepaymentParameters());
+        parameters.addAll(Arrays.asList(LoanApiConstants.sourceExactPrincipalPortionParameterName,
+                LoanApiConstants.sourceExactInterestPortionParameterName, LoanApiConstants.sourceExactFeeChargesPortionParameterName,
+                LoanApiConstants.sourceExactPenaltyChargesPortionParameterName, LoanApiConstants.sourceSystemParameterName,
+                LoanApiConstants.sourceReversalMovementIdsParameterName, LoanApiConstants.sourceRepaymentMovementIdParameterName,
+                "cashierId"));
+        final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
+        this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, parameters);
+
+        final List<ApiParameterError> errors = new ArrayList<>();
+        final DataValidatorBuilder validator = new DataValidatorBuilder(errors).resource("loan.transaction");
+        final JsonElement element = this.fromApiJsonHelper.parse(json);
+        final LocalDate transactionDate = this.fromApiJsonHelper.extractLocalDateNamed("transactionDate", element);
+        validator.reset().parameter("transactionDate").value(transactionDate).notNull();
+        final BigDecimal amount = this.fromApiJsonHelper.extractBigDecimalWithLocaleNamed("transactionAmount", element);
+        validator.reset().parameter("transactionAmount").value(amount).notNull();
+        final BigDecimal principal = this.fromApiJsonHelper
+                .extractBigDecimalWithLocaleNamed(LoanApiConstants.sourceExactPrincipalPortionParameterName, element);
+        final BigDecimal interest = this.fromApiJsonHelper
+                .extractBigDecimalWithLocaleNamed(LoanApiConstants.sourceExactInterestPortionParameterName, element);
+        final BigDecimal fees = this.fromApiJsonHelper
+                .extractBigDecimalWithLocaleNamed(LoanApiConstants.sourceExactFeeChargesPortionParameterName, element);
+        final BigDecimal penalties = this.fromApiJsonHelper
+                .extractBigDecimalWithLocaleNamed(LoanApiConstants.sourceExactPenaltyChargesPortionParameterName, element);
+        validator.reset().parameter(LoanApiConstants.sourceExactPrincipalPortionParameterName).value(principal).notNull();
+        validator.reset().parameter(LoanApiConstants.sourceExactInterestPortionParameterName).value(interest).notNull();
+        validator.reset().parameter(LoanApiConstants.sourceExactFeeChargesPortionParameterName).value(fees).notNull();
+        validator.reset().parameter(LoanApiConstants.sourceExactPenaltyChargesPortionParameterName).value(penalties).notNull();
+        if (amount != null && amount.compareTo(BigDecimal.ZERO) != 0) {
+            validator.reset().parameter("transactionAmount").value(amount).failWithCode("must.be.zero");
+        }
+        if (principal != null && principal.compareTo(BigDecimal.ZERO) <= 0) {
+            validator.reset().parameter(LoanApiConstants.sourceExactPrincipalPortionParameterName).value(principal)
+                    .failWithCode("must.be.positive");
+        }
+        if (interest != null && interest.compareTo(BigDecimal.ZERO) >= 0) {
+            validator.reset().parameter(LoanApiConstants.sourceExactInterestPortionParameterName).value(interest)
+                    .failWithCode("must.be.negative");
+        }
+        if (fees != null && fees.compareTo(BigDecimal.ZERO) != 0) {
+            validator.reset().parameter(LoanApiConstants.sourceExactFeeChargesPortionParameterName).value(fees)
+                    .failWithCode("must.be.zero");
+        }
+        if (penalties != null && penalties.compareTo(BigDecimal.ZERO) != 0) {
+            validator.reset().parameter(LoanApiConstants.sourceExactPenaltyChargesPortionParameterName).value(penalties)
+                    .failWithCode("must.be.zero");
+        }
+        if (principal != null && interest != null && fees != null && penalties != null
+                && principal.add(interest).add(fees).add(penalties).compareTo(BigDecimal.ZERO) != 0) {
+            validator.reset().parameter("transactionAmount").value(amount).failWithCode("components.must.net.to.zero");
+        }
+        final String externalId = this.fromApiJsonHelper.extractStringNamed(LoanApiConstants.externalIdParameterName, element);
+        validator.reset().parameter(LoanApiConstants.externalIdParameterName).value(externalId).notBlank().notExceedingLengthOf(100);
+        if (externalId != null && !externalId.startsWith("ARISSTO:CRD-REALLOC:")) {
+            validator.reset().parameter(LoanApiConstants.externalIdParameterName).value(externalId)
+                    .failWithCode("must.be.arissto.reallocation.identity");
+        }
+        final String sourceSystem = this.fromApiJsonHelper.extractStringNamed(LoanApiConstants.sourceSystemParameterName, element);
+        validator.reset().parameter(LoanApiConstants.sourceSystemParameterName).value(sourceSystem).notBlank();
+        if (sourceSystem != null && !"ARISSTO".equals(sourceSystem)) {
+            validator.reset().parameter(LoanApiConstants.sourceSystemParameterName).value(sourceSystem).failWithCode("must.be.arissto");
+        }
+        final String reversalIds = this.fromApiJsonHelper.extractStringNamed(LoanApiConstants.sourceReversalMovementIdsParameterName,
+                element);
+        validator.reset().parameter(LoanApiConstants.sourceReversalMovementIdsParameterName).value(reversalIds).notBlank()
+                .notExceedingLengthOf(255);
+        final String repaymentId = this.fromApiJsonHelper.extractStringNamed(LoanApiConstants.sourceRepaymentMovementIdParameterName,
+                element);
+        validator.reset().parameter(LoanApiConstants.sourceRepaymentMovementIdParameterName).value(repaymentId).notBlank()
+                .notExceedingLengthOf(100);
+        final String note = this.fromApiJsonHelper.extractStringNamed(LoanApiConstants.noteParameterName, element);
+        validator.reset().parameter(LoanApiConstants.noteParameterName).value(note).notBlank().notExceedingLengthOf(1000);
+        validatePaymentDetails(validator, element);
+        throwExceptionIfValidationWarningsExist(errors);
+    }
+
+    private BigDecimal validateSourceExactComponent(final DataValidatorBuilder baseDataValidator, final JsonElement element,
+            final String parameterName) {
+        final BigDecimal value = this.fromApiJsonHelper.extractBigDecimalWithLocaleNamed(parameterName, element);
+        baseDataValidator.reset().parameter(parameterName).value(value).notNull().zeroOrPositiveAmount();
+        return value;
     }
 
     @Override

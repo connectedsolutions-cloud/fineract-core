@@ -20,7 +20,8 @@ public class MhDteItemComponentPreviewData {
     private List<MhDteItemComponentJournalLineData> journalEntries;
 
     public static MhDteItemComponentPreviewData empty(Long loanTransactionId, String clientTypeInput) {
-        return MhDteItemComponentPreviewData.builder().loanTransactionId(loanTransactionId).clientTypeInput(clientTypeInput).lines(List.of())
-                .totalsByDteAmountType(new LinkedHashMap<>()).warnings(new ArrayList<>()).journalEntries(List.of()).build();
+        return MhDteItemComponentPreviewData.builder().loanTransactionId(loanTransactionId).clientTypeInput(clientTypeInput)
+                .lines(List.of()).totalsByDteAmountType(new LinkedHashMap<>()).warnings(new ArrayList<>()).journalEntries(List.of())
+                .build();
     }
 }

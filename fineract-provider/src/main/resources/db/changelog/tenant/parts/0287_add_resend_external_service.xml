@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0287-1-add-resend-external-service" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM c_external_service WHERE name = 'RESEND'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="c_external_service">
+            <column name="name" value="RESEND"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0287-2-add-resend-properties" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1)
+                FROM c_external_service_properties esp
+                INNER JOIN c_external_service es ON esp.external_service_id = es.id
+                WHERE es.name = 'RESEND'
+            </sqlCheck>
+        </preConditions>
+        <sql><![CDATA[
+            INSERT INTO c_external_service_properties (name, value, external_service_id)
+            SELECT 'apiKey', NULL, es.id FROM c_external_service es WHERE es.name = 'RESEND';
+            INSERT INTO c_external_service_properties (name, value, external_service_id)
+            SELECT 'fromEmail', NULL, es.id FROM c_external_service es WHERE es.name = 'RESEND';
+            INSERT INTO c_external_service_properties (name, value, external_service_id)
+            SELECT 'fromName', NULL, es.id FROM c_external_service es WHERE es.name = 'RESEND';
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

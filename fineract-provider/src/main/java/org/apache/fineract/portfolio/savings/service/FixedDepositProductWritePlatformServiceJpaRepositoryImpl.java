@@ -49,6 +49,9 @@ import org.apache.fineract.portfolio.savings.domain.DepositProductAssembler;
 import org.apache.fineract.portfolio.savings.domain.FixedDepositProduct;
 import org.apache.fineract.portfolio.savings.domain.FixedDepositProductRepository;
 import org.apache.fineract.portfolio.savings.exception.FixedDepositProductNotFoundException;
+import org.apache.fineract.portfolio.namingsequence.CredesalNamingCodes;
+import org.apache.fineract.portfolio.namingsequence.CredesalNamingNamespace;
+import org.apache.fineract.portfolio.namingsequence.service.CredesalProductNumberingSupport;
 import org.apache.fineract.portfolio.tax.domain.TaxGroup;
 import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.annotation.Transactional;
@@ -63,6 +66,7 @@ public class FixedDepositProductWritePlatformServiceJpaRepositoryImpl implements
     private final DepositProductAssembler depositProductAssembler;
     private final ProductToGLAccountMappingWritePlatformService accountMappingWritePlatformService;
     private final InterestRateChartAssembler chartAssembler;
+    private final CredesalProductNumberingSupport productNumberingSupport;
 
     @Transactional
     @Override
@@ -72,6 +76,8 @@ public class FixedDepositProductWritePlatformServiceJpaRepositoryImpl implements
             this.fromApiJsonDataValidator.validateForFixedDepositCreate(command.json());
 
             final FixedDepositProduct product = this.depositProductAssembler.assembleFixedDepositProduct(command);
+            product.setNumberingCode(
+                    this.productNumberingSupport.assignOnCreate(command, CredesalNamingNamespace.SAVINGS, "m_savings_product"));
 
             this.fixedDepositProductRepository.saveAndFlush(product);
 
@@ -104,6 +110,11 @@ public class FixedDepositProductWritePlatformServiceJpaRepositoryImpl implements
             product.setHelpers(this.chartAssembler);
 
             final Map<String, Object> changes = product.update(command);
+            changes.putAll(this.productNumberingSupport.applyUpdate(command, CredesalNamingNamespace.SAVINGS, product.getNumberingCode(),
+                    "m_savings_product", product.getId()));
+            if (changes.containsKey(CredesalNamingCodes.PARAM_NAME)) {
+                product.setNumberingCode((String) changes.get(CredesalNamingCodes.PARAM_NAME));
+            }
 
             if (changes.containsKey(chargesParamName)) {
                 final Set<Charge> savingsProductCharges = this.depositProductAssembler.assembleListOfSavingsProductCharges(command,

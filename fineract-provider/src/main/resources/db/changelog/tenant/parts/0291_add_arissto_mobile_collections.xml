@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<!--
+    Operational Arissto Cobro Movil history. These tables preserve routes,
+    assignments, batches, and captured items without creating loan repayments
+    or accounting entries. Native m_loan_transaction remains authoritative.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0291-1-create-mobile-collection-route" author="credesal">
+        <createTable tableName="credesal_mobile_collection_route">
+            <column autoIncrement="true" name="id" type="BIGINT"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="arissto_route_id" type="INT"><constraints nullable="false"/></column>
+            <column name="arissto_company_id" type="VARCHAR(3)"/>
+            <column name="arissto_branch_id" type="VARCHAR(3)"/>
+            <column name="office_id" type="BIGINT"/>
+            <column name="arissto_responsible_person_id" type="VARCHAR(5)"/>
+            <column name="responsible_staff_id" type="BIGINT"/>
+            <column name="route_name" type="VARCHAR(254)"/>
+            <column name="source_status" type="VARCHAR(1)"/>
+            <column name="created_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP"><constraints nullable="false"/></column>
+            <column name="updated_at" type="DATETIME"/>
+        </createTable>
+        <addUniqueConstraint tableName="credesal_mobile_collection_route" columnNames="arissto_route_id"
+                             constraintName="UK_cr_mc_route_source"/>
+        <addForeignKeyConstraint baseTableName="credesal_mobile_collection_route" baseColumnNames="office_id"
+                                 constraintName="FK_cr_mc_route_office" referencedTableName="m_office" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_mobile_collection_route" baseColumnNames="responsible_staff_id"
+                                 constraintName="FK_cr_mc_route_staff" referencedTableName="m_staff" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+    </changeSet>
+
+    <changeSet id="0291-2-create-mobile-collection-assignment" author="credesal">
+        <createTable tableName="credesal_mobile_collection_assignment">
+            <column autoIncrement="true" name="id" type="BIGINT"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="arissto_assignment_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="route_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="arissto_associate_id" type="INT"><constraints nullable="false"/></column>
+            <column name="client_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="created_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP"><constraints nullable="false"/></column>
+            <column name="updated_at" type="DATETIME"/>
+        </createTable>
+        <addUniqueConstraint tableName="credesal_mobile_collection_assignment" columnNames="arissto_assignment_id"
+                             constraintName="UK_cr_mc_assign_source"/>
+        <addForeignKeyConstraint baseTableName="credesal_mobile_collection_assignment" baseColumnNames="route_id"
+                                 constraintName="FK_cr_mc_assign_route" referencedTableName="credesal_mobile_collection_route"
+                                 referencedColumnNames="id" onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_mobile_collection_assignment" baseColumnNames="client_id"
+                                 constraintName="FK_cr_mc_assign_client" referencedTableName="m_client" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <createIndex tableName="credesal_mobile_collection_assignment" indexName="IX_cr_mc_assign_route"><column name="route_id"/></createIndex>
+        <createIndex tableName="credesal_mobile_collection_assignment" indexName="IX_cr_mc_assign_client"><column name="client_id"/></createIndex>
+    </changeSet>
+
+    <changeSet id="0291-3-create-mobile-collection-batch" author="credesal">
+        <createTable tableName="credesal_mobile_collection_batch">
+            <column autoIncrement="true" name="id" type="BIGINT"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="arissto_master_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="arissto_company_id" type="VARCHAR(3)"><constraints nullable="false"/></column>
+            <column name="arissto_branch_id" type="VARCHAR(3)"><constraints nullable="false"/></column>
+            <column name="arissto_period_id" type="VARCHAR(5)"><constraints nullable="false"/></column>
+            <column name="arissto_collection_id" type="VARCHAR(10)"><constraints nullable="false"/></column>
+            <column name="office_id" type="BIGINT"/>
+            <column name="arissto_responsible_person_id" type="VARCHAR(5)"/>
+            <column name="responsible_staff_id" type="BIGINT"/>
+            <column name="arissto_promoter_person_id" type="VARCHAR(5)"/>
+            <column name="promoter_staff_id" type="BIGINT"/>
+            <column name="source_date" type="DATETIME"/>
+            <column name="collection_date" type="DATETIME"/>
+            <column name="observation" type="VARCHAR(8000)"/>
+            <column name="arissto_daily_close_id" type="VARCHAR(12)"/>
+            <column name="arissto_collection_close_id" type="VARCHAR(12)"/>
+            <column name="arissto_remittance_close_id" type="VARCHAR(12)"/>
+            <column name="source_total" type="DECIMAL(18,2)"/>
+            <column name="source_difference" type="DECIMAL(18,2)"/>
+            <column name="source_remitted" type="DECIMAL(18,2)"/>
+            <column name="source_status" type="VARCHAR(1)"/>
+            <column name="source_created_at" type="DATETIME"/>
+            <column name="source_updated_at" type="DATETIME"/>
+            <column name="created_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP"><constraints nullable="false"/></column>
+            <column name="updated_at" type="DATETIME"/>
+        </createTable>
+        <addUniqueConstraint tableName="credesal_mobile_collection_batch" columnNames="arissto_master_id"
+                             constraintName="UK_cr_mc_batch_master"/>
+        <addUniqueConstraint tableName="credesal_mobile_collection_batch"
+                             columnNames="arissto_company_id,arissto_branch_id,arissto_period_id,arissto_collection_id"
+                             constraintName="UK_cr_mc_batch_source"/>
+        <addForeignKeyConstraint baseTableName="credesal_mobile_collection_batch" baseColumnNames="office_id"
+                                 constraintName="FK_cr_mc_batch_office" referencedTableName="m_office" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_mobile_collection_batch" baseColumnNames="responsible_staff_id"
+                                 constraintName="FK_cr_mc_batch_res_staff" referencedTableName="m_staff" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_mobile_collection_batch" baseColumnNames="promoter_staff_id"
+                                 constraintName="FK_cr_mc_batch_prom_staff" referencedTableName="m_staff" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <createIndex tableName="credesal_mobile_collection_batch" indexName="IX_cr_mc_batch_date"><column name="collection_date"/></createIndex>
+    </changeSet>
+
+    <changeSet id="0291-4-create-mobile-collection-item" author="credesal">
+        <createTable tableName="credesal_mobile_collection_item">
+            <column autoIncrement="true" name="id" type="BIGINT"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="batch_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="arissto_company_id" type="VARCHAR(3)"><constraints nullable="false"/></column>
+            <column name="arissto_branch_id" type="VARCHAR(3)"><constraints nullable="false"/></column>
+            <column name="arissto_period_id" type="VARCHAR(5)"><constraints nullable="false"/></column>
+            <column name="arissto_collection_id" type="VARCHAR(10)"><constraints nullable="false"/></column>
+            <column name="arissto_collection_item_id" type="VARCHAR(10)"><constraints nullable="false"/></column>
+            <column name="arissto_detail_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="arissto_member_branch_id" type="VARCHAR(3)"/>
+            <column name="arissto_member_id" type="VARCHAR(10)"/>
+            <column name="client_id" type="BIGINT"/>
+            <column name="arissto_promoter_person_id" type="VARCHAR(5)"/>
+            <column name="promoter_staff_id" type="BIGINT"/>
+            <column name="arissto_account_number" type="VARCHAR(25)"/>
+            <column name="loan_id" type="BIGINT"/>
+            <column name="loan_transaction_id" type="BIGINT"/>
+            <column name="link_status" type="VARCHAR(32)"><constraints nullable="false"/></column>
+            <column name="source_amount" type="DECIMAL(18,2)"/>
+            <column name="source_receipt_number" type="DECIMAL(12,0)"/>
+            <column name="arissto_receipt_book_id" type="VARCHAR(10)"/>
+            <column name="arissto_receipt_stub" type="VARCHAR(20)"/>
+            <column name="source_movement_date" type="DATETIME"/>
+            <column name="arissto_daily_close_id" type="VARCHAR(12)"/>
+            <column name="source_system_code" type="SMALLINT"/>
+            <column name="source_transaction_code" type="VARCHAR(5)"/>
+            <column name="source_applied" type="VARCHAR(1)"/>
+            <column name="source_apply_requested" type="VARCHAR(1)"/>
+            <column name="source_verified" type="VARCHAR(1)"/>
+            <column name="source_inconsistency" type="VARCHAR(1)"/>
+            <column name="collected_at" type="DATETIME"/>
+            <column name="loaded_at" type="DATETIME"/>
+            <column name="applied_at" type="DATETIME"/>
+            <column name="arissto_mcd_movement_id" type="BIGINT"/>
+            <column name="arissto_loan_movement_id" type="VARCHAR(10)"/>
+            <column name="source_created_at" type="DATETIME"/>
+            <column name="source_updated_at" type="DATETIME"/>
+            <column name="created_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP"><constraints nullable="false"/></column>
+            <column name="updated_at" type="DATETIME"/>
+        </createTable>
+        <addUniqueConstraint tableName="credesal_mobile_collection_item"
+                             columnNames="arissto_company_id,arissto_branch_id,arissto_period_id,arissto_collection_id,arissto_collection_item_id"
+                             constraintName="UK_cr_mc_item_source"/>
+        <addForeignKeyConstraint baseTableName="credesal_mobile_collection_item" baseColumnNames="batch_id"
+                                 constraintName="FK_cr_mc_item_batch" referencedTableName="credesal_mobile_collection_batch"
+                                 referencedColumnNames="id" onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_mobile_collection_item" baseColumnNames="client_id"
+                                 constraintName="FK_cr_mc_item_client" referencedTableName="m_client" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_mobile_collection_item" baseColumnNames="promoter_staff_id"
+                                 constraintName="FK_cr_mc_item_staff" referencedTableName="m_staff" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_mobile_collection_item" baseColumnNames="loan_id"
+                                 constraintName="FK_cr_mc_item_loan" referencedTableName="m_loan" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_mobile_collection_item" baseColumnNames="loan_transaction_id"
+                                 constraintName="FK_cr_mc_item_loan_txn" referencedTableName="m_loan_transaction" referencedColumnNames="id"
+                                 onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <createIndex tableName="credesal_mobile_collection_item" indexName="IX_cr_mc_item_batch"><column name="batch_id"/></createIndex>
+        <createIndex tableName="credesal_mobile_collection_item" indexName="IX_cr_mc_item_client"><column name="client_id"/></createIndex>
+        <createIndex tableName="credesal_mobile_collection_item" indexName="IX_cr_mc_item_loan"><column name="loan_id"/></createIndex>
+        <createIndex tableName="credesal_mobile_collection_item" indexName="IX_cr_mc_item_txn"><column name="loan_transaction_id"/></createIndex>
+        <createIndex tableName="credesal_mobile_collection_item" indexName="IX_cr_mc_item_link_status"><column name="link_status"/></createIndex>
+        <createIndex tableName="credesal_mobile_collection_item" indexName="IX_cr_mc_item_mcd_movement"><column name="arissto_mcd_movement_id"/></createIndex>
+        <createIndex tableName="credesal_mobile_collection_item" indexName="IX_cr_mc_item_loan_movement"><column name="arissto_loan_movement_id"/></createIndex>
+    </changeSet>
+
+</databaseChangeLog>

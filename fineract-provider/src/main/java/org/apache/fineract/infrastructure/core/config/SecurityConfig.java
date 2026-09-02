@@ -45,10 +45,12 @@ import org.apache.fineract.infrastructure.jobs.filter.LoanCOBFilterHelper;
 import org.apache.fineract.infrastructure.security.data.PlatformRequestLog;
 import org.apache.fineract.infrastructure.security.filter.TenantAwareBasicAuthenticationFilter;
 import org.apache.fineract.infrastructure.security.filter.TwoFactorAuthenticationFilter;
+import org.apache.fineract.infrastructure.security.filter.UserImpersonationFilter;
 import org.apache.fineract.infrastructure.security.service.AuthTenantDetailsService;
 import org.apache.fineract.infrastructure.security.service.TenantAwareJpaPlatformUserDetailsService;
 import org.apache.fineract.infrastructure.security.service.TwoFactorService;
 import org.apache.fineract.notification.service.UserNotificationService;
+import org.apache.fineract.useradministration.service.UserImpersonationWritePlatformService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.web.ServerProperties;
@@ -135,6 +137,8 @@ public class SecurityConfig {
                     auth.requestMatchers(antMatcher(HttpMethod.OPTIONS, "/api/**")).permitAll() //
                             .requestMatchers(antMatcher(HttpMethod.POST, "/api/*/echo")).permitAll() //
                             .requestMatchers(antMatcher(HttpMethod.POST, "/api/*/authentication")).permitAll() //
+                            .requestMatchers(antMatcher(HttpMethod.POST, "/api/*/passwordreset/request")).permitAll() //
+                            .requestMatchers(antMatcher(HttpMethod.POST, "/api/*/passwordreset/complete")).permitAll() //
                             .requestMatchers(antMatcher(HttpMethod.PUT, "/api/*/instance-mode")).permitAll() //
                             // businessdate
                             .requestMatchers(antMatcher(HttpMethod.GET, "/api/*/businessdate/*"))
@@ -167,6 +171,7 @@ public class SecurityConfig {
                 // is used by non-browser clients
                 .sessionManagement((smc) -> smc.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) //
                 .addFilterBefore(tenantAwareBasicAuthenticationFilter(), SecurityContextHolderFilter.class) //
+                .addFilterAfter(userImpersonationFilter(), TenantAwareBasicAuthenticationFilter.class) //
                 .addFilterAfter(requestResponseFilter(), ExceptionTranslationFilter.class) //
                 .addFilterAfter(correlationHeaderFilter(), RequestResponseFilter.class) //
                 .addFilterAfter(fineractInstanceModeApiFilter(), CorrelationHeaderFilter.class); //
@@ -221,6 +226,10 @@ public class SecurityConfig {
 
     public CallerIpTrackingFilter callerIpTrackingFilter() {
         return new CallerIpTrackingFilter(fineractProperties);
+    }
+
+    public UserImpersonationFilter userImpersonationFilter() {
+        return new UserImpersonationFilter(applicationContext.getBean(UserImpersonationWritePlatformService.class));
     }
 
     public TenantAwareBasicAuthenticationFilter tenantAwareBasicAuthenticationFilter() throws Exception {

@@ -17,18 +17,18 @@ import org.apache.fineract.portfolio.invoice.data.InvoiceCreateRequest;
 import org.apache.fineract.portfolio.invoice.data.InvoiceData;
 import org.apache.fineract.portfolio.invoice.data.InvoiceLineRequest;
 import org.apache.fineract.portfolio.invoice.data.InvoiceMetadataUpdateRequest;
-import org.apache.fineract.portfolio.loanaccount.domain.Loan;
-import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
-import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepository;
 import org.apache.fineract.portfolio.invoice.domain.Invoice;
 import org.apache.fineract.portfolio.invoice.domain.InvoiceIssuer;
 import org.apache.fineract.portfolio.invoice.domain.InvoiceLine;
-import org.apache.fineract.portfolio.invoice.domain.MhCompanyConfig;
-import org.apache.fineract.portfolio.invoice.domain.MhCompanyConfigRepository;
 import org.apache.fineract.portfolio.invoice.domain.InvoiceReceiver;
 import org.apache.fineract.portfolio.invoice.domain.InvoiceRepository;
 import org.apache.fineract.portfolio.invoice.domain.InvoiceStatus;
 import org.apache.fineract.portfolio.invoice.domain.InvoiceSummary;
+import org.apache.fineract.portfolio.invoice.domain.MhCompanyConfig;
+import org.apache.fineract.portfolio.invoice.domain.MhCompanyConfigRepository;
+import org.apache.fineract.portfolio.loanaccount.domain.Loan;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,9 +55,8 @@ public class InvoiceServiceImpl implements InvoiceService {
         validateCreatePayload(request, numeroControl);
 
         Invoice invoice = Invoice.draft(request.getLoanTransactionId(), request.getSavingsTransactionId(), request.getClientTransactionId(),
-                request.getVersion(), request.getAmbiente(), request.getTipoDte(), numeroControl,
-                request.getCodigoGeneracion(), request.getTipoModelo(), request.getTipoOperacion(), request.getFecEmi(),
-                request.getHorEmi(), request.getTipoMoneda());
+                request.getVersion(), request.getAmbiente(), request.getTipoDte(), numeroControl, request.getCodigoGeneracion(),
+                request.getTipoModelo(), request.getTipoOperacion(), request.getFecEmi(), request.getHorEmi(), request.getTipoMoneda());
         invoice.setContingency(request.getTipoContingencia(), request.getMotivoContin());
         MhCompanyConfig mhCompanyConfig = mhCompanyConfigRepository.findById(MhCompanyConfig.SINGLETON_ID).orElse(null);
 
@@ -76,7 +75,8 @@ public class InvoiceServiceImpl implements InvoiceService {
         invoice.replaceLines(toDomainLines(request.getLines()));
         invoice.setSummary(buildSummaryFromLines(invoice.getLines()));
         Invoice saved = invoiceRepository.save(invoice);
-        log.info("INVOICE_DRAFT_CREATE_OK invoiceId={} linkedLoanTx={} linkedSavingsTx={} linkedClientTx={} totalNoSuj={} totalExenta={} totalGravada={} totalPagar={}",
+        log.info(
+                "INVOICE_DRAFT_CREATE_OK invoiceId={} linkedLoanTx={} linkedSavingsTx={} linkedClientTx={} totalNoSuj={} totalExenta={} totalGravada={} totalPagar={}",
                 saved.getId(), saved.getLoanTransactionId(), saved.getSavingsTransactionId(), saved.getClientTransactionId(),
                 saved.getSummary() != null ? saved.getSummary().getTotalNoSuj() : null,
                 saved.getSummary() != null ? saved.getSummary().getTotalExenta() : null,
@@ -220,7 +220,8 @@ public class InvoiceServiceImpl implements InvoiceService {
         createDraft(request);
     }
 
-    // Savings transaction invoice auto-draft hook is intentionally pending until a savings-side trigger invokes InvoiceService.
+    // Savings transaction invoice auto-draft hook is intentionally pending until a savings-side trigger invokes
+    // InvoiceService.
 
     private void validateCreatePayload(InvoiceCreateRequest request, String numeroControl) {
         if (!isUuidV4(request.getCodigoGeneracion())) {
@@ -387,4 +388,3 @@ public class InvoiceServiceImpl implements InvoiceService {
         return StringUtils.defaultIfBlank(tipoDocumento, "13");
     }
 }
-

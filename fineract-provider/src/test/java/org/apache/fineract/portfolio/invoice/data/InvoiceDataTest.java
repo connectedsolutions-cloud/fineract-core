@@ -20,8 +20,8 @@ class InvoiceDataTest {
     @Test
     void fromMapsIssuerLinesAndSummaryForPrint() {
         String codigoGeneracion = UUID.randomUUID().toString();
-        Invoice invoice = Invoice.draft(10L, null, null, 3, "00", "03", "DTE-03-00010001-000000000000001",
-                codigoGeneracion, 1, 1, LocalDate.of(2026, 5, 21), LocalTime.of(14, 30), "USD");
+        Invoice invoice = Invoice.draft(10L, null, null, 3, "00", "03", "DTE-03-00010001-000000000000001", codigoGeneracion, 1, 1,
+                LocalDate.of(2026, 5, 21), LocalTime.of(14, 30), "USD");
         invoice.setStatus(InvoiceStatus.ACCEPTED);
         invoice.setAuthorityData(null, null, "SELLO123", null);
 

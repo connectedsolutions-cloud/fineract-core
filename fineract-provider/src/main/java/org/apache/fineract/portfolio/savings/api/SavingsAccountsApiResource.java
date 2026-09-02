@@ -538,6 +538,9 @@ public class SavingsAccountsApiResource {
         } else if (is(commandParam, "calculateInterest")) {
             final CommandWrapper commandRequest = builder.withNoJsonBody().savingsAccountInterestCalculation(accountId).build();
             result = commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        } else if (is(commandParam, "migrationInterestStart")) {
+            final CommandWrapper commandRequest = builder.savingsAccountMigrationInterestStart(accountId).build();
+            result = commandsSourceWritePlatformService.logCommandSource(commandRequest);
         } else if (is(commandParam, "postInterest")) {
             final CommandWrapper commandRequest = builder.savingsAccountInterestPosting(accountId).build();
             result = commandsSourceWritePlatformService.logCommandSource(commandRequest);

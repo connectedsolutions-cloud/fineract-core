@@ -62,4 +62,8 @@ public class AuthenticatedOauthUserData {
 
     @SuppressWarnings("unused")
     private boolean isTwoFactorAuthenticationRequired;
+
+    private String dataScope;
+
+    private String dataScopeOverride;
 }

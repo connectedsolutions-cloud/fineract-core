@@ -200,12 +200,12 @@ public class ClientApiConstants {
      */
     protected static final Set<String> CLIENT_RESPONSE_DATA_PARAMETERS = new HashSet<>(Arrays.asList(idParamName, accountNoParamName,
             externalIdParamName, statusParamName, activeParamName, activationDateParamName, firstnameParamName, middlenameParamName,
-            lastnameParamName, secondlastnameParamName, marriedlastnameParamName, fullnameParamName, displayNameParamName, mobileNoParamName,
-            emailAddressParamName, officeIdParamName,
-            officeNameParamName, transferToOfficeIdParamName, transferToOfficeNameParamName, hierarchyParamName, imageIdParamName,
-            imagePresentParamName, staffIdParamName, staffNameParamName, gestorIdParamName, gestorNameParamName, timelineParamName, groupsParamName, tagsParamName, tagOptionsParamName, officeOptionsParamName,
-            staffOptionsParamName, dateOfBirthParamName, genderParamName, clientTypeParamName, clientClassificationParamName,
-            legalFormParamName, clientNonPersonDetailsParamName, isStaffParamName, legalFormParamName));
+            lastnameParamName, secondlastnameParamName, marriedlastnameParamName, fullnameParamName, displayNameParamName,
+            mobileNoParamName, emailAddressParamName, officeIdParamName, officeNameParamName, transferToOfficeIdParamName,
+            transferToOfficeNameParamName, hierarchyParamName, imageIdParamName, imagePresentParamName, staffIdParamName,
+            staffNameParamName, gestorIdParamName, gestorNameParamName, timelineParamName, groupsParamName, tagsParamName,
+            tagOptionsParamName, officeOptionsParamName, staffOptionsParamName, dateOfBirthParamName, genderParamName, clientTypeParamName,
+            clientClassificationParamName, legalFormParamName, clientNonPersonDetailsParamName, isStaffParamName, legalFormParamName));
 
     protected static final Set<String> CLIENT_CHARGES_RESPONSE_DATA_PARAMETERS = new HashSet<>(Arrays.asList(chargeIdParamName,
             clientIdParamName, chargeNameParamName, penaltyParamName, chargeTimeTypeParamName, dueAsOfDateParamName,

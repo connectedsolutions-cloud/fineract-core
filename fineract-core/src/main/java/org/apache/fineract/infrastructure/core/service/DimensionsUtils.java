@@ -34,11 +34,13 @@ public final class DimensionsUtils {
 
     /**
      * Merges two dimension JSON strings. Parses both as JSON objects, then merges so that keys from
-     * {@code overrideDimensions} take precedence over {@code baseDimensions}. Returns the merged
-     * JSON string, or null if both inputs are null/blank.
+     * {@code overrideDimensions} take precedence over {@code baseDimensions}. Returns the merged JSON string, or null
+     * if both inputs are null/blank.
      *
-     * @param baseDimensions     base JSON object (e.g. from loan product); may be null or blank
-     * @param overrideDimensions override JSON object (e.g. from loan application); may be null or blank
+     * @param baseDimensions
+     *            base JSON object (e.g. from loan product); may be null or blank
+     * @param overrideDimensions
+     *            override JSON object (e.g. from loan application); may be null or blank
      * @return merged JSON string, or null if both are null/blank
      */
     public static String appendDimensions(final String baseDimensions, final String overrideDimensions) {

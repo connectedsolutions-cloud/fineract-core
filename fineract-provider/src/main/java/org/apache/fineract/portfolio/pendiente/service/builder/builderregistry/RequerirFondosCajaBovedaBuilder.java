@@ -46,9 +46,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Builder for requerir-fondos-caja-boveda: cashier requests funds from vault; approver completes
- * step requerir-fondos. On completion, ALLOCATE cashier txn and GL (debit cash-at-teller, credit
- * main vault).
+ * Builder for requerir-fondos-caja-boveda: cashier requests funds from vault; approver completes step requerir-fondos.
+ * On completion, ALLOCATE cashier txn and GL (debit cash-at-teller, credit main vault).
  */
 @Component
 public class RequerirFondosCajaBovedaBuilder implements PendingFlowBuilder {
@@ -63,9 +62,8 @@ public class RequerirFondosCajaBovedaBuilder implements PendingFlowBuilder {
     private final TellerVaultTransferAccountingHelper tellerVaultTransferAccountingHelper;
     private final OfficeRepositoryWrapper officeRepositoryWrapper;
 
-    public RequerirFondosCajaBovedaBuilder(CashierRepository cashierRepository,
-            CashierTransactionRepository cashierTransactionRepository, FromJsonHelper fromJsonHelper,
-            TellerVaultTransferAccountingHelper tellerVaultTransferAccountingHelper,
+    public RequerirFondosCajaBovedaBuilder(CashierRepository cashierRepository, CashierTransactionRepository cashierTransactionRepository,
+            FromJsonHelper fromJsonHelper, TellerVaultTransferAccountingHelper tellerVaultTransferAccountingHelper,
             OfficeRepositoryWrapper officeRepositoryWrapper) {
         this.cashierRepository = cashierRepository;
         this.cashierTransactionRepository = cashierTransactionRepository;
@@ -85,8 +83,7 @@ public class RequerirFondosCajaBovedaBuilder implements PendingFlowBuilder {
     }
 
     @Override
-    public PendingFlowBuildResult build(PendingFlowBlueprint blueprint, PendingFlowBuildRequest request,
-            PendingFlowBuildContext context) {
+    public PendingFlowBuildResult build(PendingFlowBlueprint blueprint, PendingFlowBuildRequest request, PendingFlowBuildContext context) {
         AppUser responsable = context.getResponsableUser(request.getResponsableUserId());
         if (responsable == null) {
             throw new IllegalArgumentException("Responsable user not found: " + request.getResponsableUserId());

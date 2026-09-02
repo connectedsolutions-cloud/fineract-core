@@ -562,6 +562,12 @@ public class LoanTransactionsApiResource {
         CommandWrapper commandRequest = null;
         if (CommandParameterUtil.is(commandParam, "repayment")) {
             commandRequest = builder.loanRepaymentTransaction(resolvedLoanId).build();
+        } else if (CommandParameterUtil.is(commandParam, "sourceExactRepayment")) {
+            commandRequest = builder.sourceExactLoanRepaymentTransaction(resolvedLoanId).build();
+        } else if (CommandParameterUtil.is(commandParam, "sourceExactComponentReallocation")) {
+            commandRequest = builder.sourceExactComponentReallocation(resolvedLoanId).build();
+        } else if (CommandParameterUtil.is(commandParam, "sourceExactGoodwillCredit")) {
+            commandRequest = builder.sourceExactLoanGoodwillCreditTransaction(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "merchantIssuedRefund")) {
             commandRequest = builder.loanMerchantIssuedRefundTransaction(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "payoutRefund")) {

@@ -303,4 +303,40 @@
     <include file="parts/0281_add_arissto_membership_archive.xml" relativeToChangelogFile="true" />
     <include file="parts/0282_add_credesal_aml_alerts.xml" relativeToChangelogFile="true" />
     <include file="parts/0283_add_credesal_share_migration_support.xml" relativeToChangelogFile="true" />
+    <include file="parts/0284_add_appuser_password_reset_token.xml" relativeToChangelogFile="true" />
+    <include file="parts/0285_add_role_data_scope.xml" relativeToChangelogFile="true" />
+    <include file="parts/0286_add_can_login_as_user_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0287_add_resend_external_service.xml" relativeToChangelogFile="true" />
+    <include file="parts/0288_add_arissto_savings_migration_support.xml" relativeToChangelogFile="true" />
+    <include file="parts/0289_add_arissto_client_staff_assignments.xml" relativeToChangelogFile="true" />
+    <include file="parts/0290_add_arissto_savings_product_map.xml" relativeToChangelogFile="true" />
+    <include file="parts/0291_add_arissto_mobile_collections.xml" relativeToChangelogFile="true" />
+    <include file="parts/0292_add_explicit_savings_withhold_tax_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0293_add_arissto_loan_product_map.xml" relativeToChangelogFile="true" />
+    <include file="parts/0294_add_loan_installment_ceiling_rounding.xml" relativeToChangelogFile="true" />
+    <include file="parts/0295_seed_native_share_accounting.xml" relativeToChangelogFile="true" />
+    <include file="parts/0296_configure_savings_interest_period_end.xml" relativeToChangelogFile="true" />
+    <include file="parts/0297_seed_normal_fee_income_detail.xml" relativeToChangelogFile="true" />
+    <include file="parts/0298_add_post_due_accrued_interest.xml" relativeToChangelogFile="true" />
+    <include file="parts/0299_add_explicit_savings_interest_posting_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0300_add_arissto_fixed_deposit_cycles.xml" relativeToChangelogFile="true" />
+    <include file="parts/0301_add_targeted_fixed_deposit_maturity_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0302_add_fixed_deposit_migration_link_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0303_add_mobile_collection_account_assignments.xml" relativeToChangelogFile="true" />
+    <include file="parts/0304_expand_arissto_dpf_opening_inference.xml" relativeToChangelogFile="true" />
+    <include file="parts/0305_enable_native_mobile_collection_routes.xml" relativeToChangelogFile="true" />
+    <include file="parts/0306_add_share_transaction_payment_type.xml" relativeToChangelogFile="true" />
+    <include file="parts/0307_add_source_exact_loan_repayment.xml" relativeToChangelogFile="true" />
+    <include file="parts/0308_seed_arissto_historical_penalty_charge.xml" relativeToChangelogFile="true" />
+    <include file="parts/0309_add_source_exact_refinance_permissions.xml" relativeToChangelogFile="true" />
+    <include file="parts/0310_bootstrap_credesal_chart_of_accounts.xml" relativeToChangelogFile="true" />
+    <include file="parts/0311_add_arissto_loan_staff_assignments.xml" relativeToChangelogFile="true" />
+    <include file="parts/0312_add_arissto_loan_legacy_timeline.xml" relativeToChangelogFile="true" />
+    <include file="parts/0313_add_arissto_loan_legacy_timeline_audit_columns.xml" relativeToChangelogFile="true" />
+    <include file="parts/0314_seed_arissto_historical_insurance_charge.xml" relativeToChangelogFile="true" />
+    <include file="parts/0315_add_credesal_naming_sequences.xml" relativeToChangelogFile="true" />
+    <include file="parts/0316_add_source_exact_component_reallocation.xml" relativeToChangelogFile="true" />
+    <include file="parts/0317_add_loan_refinancing_settlements.xml" relativeToChangelogFile="true" />
+    <include file="parts/0318_correct_arissto_office_2_opening_date.xml" relativeToChangelogFile="true" />
+    <include file="parts/0319_add_source_exact_active_schedule_permission.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

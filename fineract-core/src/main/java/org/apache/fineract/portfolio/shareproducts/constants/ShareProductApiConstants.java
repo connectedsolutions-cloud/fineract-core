@@ -30,6 +30,7 @@ public interface ShareProductApiConstants {
     String id_paramname = "id";
     String name_paramname = "name";
     String shortname_paramname = "shortName";
+    String numberingCodeParamName = "numberingCode";
     String description_paramname = "description";
     String externalid_paramname = "externalId";
     String totalshares_paramname = "totalShares";

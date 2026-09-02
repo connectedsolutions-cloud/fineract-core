@@ -12,7 +12,8 @@ public enum MhDteLoanComponent {
             throw new GeneralPlatformDomainRuleException("validation.msg.mh.dte.loan.component.required", "loanComponent is required");
         }
         String v = value.trim().toUpperCase();
-        return Arrays.stream(values()).filter(e -> e.name().equals(v)).findFirst().orElseThrow(
-                () -> new GeneralPlatformDomainRuleException("validation.msg.mh.dte.loan.component.invalid", "Invalid loanComponent: " + value));
+        return Arrays.stream(values()).filter(e -> e.name().equals(v)).findFirst()
+                .orElseThrow(() -> new GeneralPlatformDomainRuleException("validation.msg.mh.dte.loan.component.invalid",
+                        "Invalid loanComponent: " + value));
     }
 }

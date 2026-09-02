@@ -22,7 +22,7 @@ import java.util.Collection;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.infrastructure.core.domain.ExternalId;
-import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.infrastructure.security.datascope.DataScopeService;
 import org.apache.fineract.portfolio.client.exception.ClientNotActiveException;
 import org.apache.fineract.portfolio.client.exception.ClientNotFoundException;
 import org.springframework.stereotype.Service;
@@ -38,7 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ClientRepositoryWrapper {
 
     private final ClientRepository repository;
-    private final PlatformSecurityContext context;
+    private final DataScopeService dataScopeService;
 
     @Transactional(readOnly = true)
     public Client findOneWithNotFoundDetection(final Long id) {
@@ -50,6 +50,9 @@ public class ClientRepositoryWrapper {
         final Client client = this.repository.findById(clientId).orElseThrow(() -> new ClientNotFoundException(clientId));
         if (loadLazyCollections) {
             client.loadLazyCollections();
+        }
+        if (!this.dataScopeService.canAccessClient(client)) {
+            throw new ClientNotFoundException(clientId);
         }
         return client;
     }
@@ -80,13 +83,15 @@ public class ClientRepositoryWrapper {
         if (client.isNotActive()) {
             throw new ClientNotActiveException(client.getId());
         }
-        this.context.validateAccessRights(client.getOffice().getHierarchy());
         return client;
     }
 
     public Client getClientByAccountNumber(String accountNumber) {
         Client client = this.repository.getClientByAccountNumber(accountNumber);
         if (client == null) {
+            throw new ClientNotFoundException(accountNumber, "account.number");
+        }
+        if (!this.dataScopeService.canAccessClient(client)) {
             throw new ClientNotFoundException(accountNumber, "account.number");
         }
         return client;

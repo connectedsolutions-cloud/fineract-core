@@ -26,7 +26,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -42,6 +41,8 @@ import org.apache.fineract.infrastructure.core.service.Page;
 import org.apache.fineract.infrastructure.core.service.PaginationHelper;
 import org.apache.fineract.infrastructure.core.service.SearchParameters;
 import org.apache.fineract.infrastructure.core.service.database.DatabaseSpecificSQLGenerator;
+import org.apache.fineract.infrastructure.security.datascope.DataScopeClause;
+import org.apache.fineract.infrastructure.security.datascope.DataScopeService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.infrastructure.security.utils.ColumnValidator;
 import org.apache.fineract.organisation.monetary.data.CurrencyData;
@@ -104,14 +105,17 @@ public class SavingsAccountReadPlatformServiceImpl implements SavingsAccountRead
     private final SavingsAccountAssembler savingAccountAssembler;
 
     private final SavingsAccountRepositoryWrapper savingsAccountRepositoryWrapper;
+    private final DataScopeService dataScopeService;
 
     public SavingsAccountReadPlatformServiceImpl(final PlatformSecurityContext context, final JdbcTemplate jdbcTemplate,
             final SavingsAccountAssembler savingAccountAssembler, PaginationHelper paginationHelper, ColumnValidator columnValidator,
-            DatabaseSpecificSQLGenerator sqlGenerator, SavingsAccountRepositoryWrapper savingsAccountRepositoryWrapper) {
+            DatabaseSpecificSQLGenerator sqlGenerator, SavingsAccountRepositoryWrapper savingsAccountRepositoryWrapper,
+            final DataScopeService dataScopeService) {
         this.context = context;
         this.jdbcTemplate = jdbcTemplate;
         this.sqlGenerator = sqlGenerator;
         this.savingsAccountRepositoryWrapper = savingsAccountRepositoryWrapper;
+        this.dataScopeService = dataScopeService;
         this.transactionTemplateMapper = new SavingsAccountTransactionTemplateMapper();
         this.transactionsMapper = new SavingsAccountTransactionsMapper();
         this.savingsAccountTransactionsForBatchMapper = new SavingsAccountTransactionsForBatchMapper();
@@ -156,35 +160,30 @@ public class SavingsAccountReadPlatformServiceImpl implements SavingsAccountRead
     public Page<SavingsAccountData> retrieveAll(final SearchParameters searchParameters) {
 
         final AppUser currentUser = this.context.authenticatedUser();
-        final String hierarchy = currentUser.getOffice().getHierarchy();
-        final String hierarchySearchString = hierarchy + "%";
+        final DataScopeClause scopeClause = this.dataScopeService.forSavings(currentUser, "sa", "c");
 
         final StringBuilder sqlBuilder = new StringBuilder(200);
         sqlBuilder.append("select " + sqlGenerator.calcFoundRows() + " ");
         sqlBuilder.append(this.savingAccountMapper.schema());
 
-        sqlBuilder.append(" join m_office o on o.id = c.office_id");
-        sqlBuilder.append(" where o.hierarchy like ?");
+        sqlBuilder.append(" where 1=1 ");
+        final List<Object> params = new ArrayList<>();
+        scopeClause.appendTo(sqlBuilder, params);
 
-        final Object[] objectArray = new Object[3];
-        objectArray[0] = hierarchySearchString;
-        int arrayPos = 1;
         if (searchParameters != null) {
 
             if (StringUtils.isNotBlank(searchParameters.getStatus())) {
                 sqlBuilder.append(" and sa.status_enum = ?");
-                objectArray[arrayPos] = Integer.parseInt(searchParameters.getStatus());
-                arrayPos = arrayPos + 1;
+                params.add(Integer.parseInt(searchParameters.getStatus()));
             }
 
             if (StringUtils.isNotBlank(searchParameters.getExternalId())) {
                 sqlBuilder.append(" and sa.external_id = ?");
-                objectArray[arrayPos] = searchParameters.getExternalId();
-                arrayPos = arrayPos + 1;
+                params.add(searchParameters.getExternalId());
             }
             if (searchParameters.getOfficeId() != null) {
                 sqlBuilder.append(" and c.office_id = ?");
-                objectArray[arrayPos++] = searchParameters.getOfficeId();
+                params.add(searchParameters.getOfficeId());
             }
             if (searchParameters.hasOrderBy()) {
                 sqlBuilder.append(" order by ").append(searchParameters.getOrderBy());
@@ -205,8 +204,7 @@ public class SavingsAccountReadPlatformServiceImpl implements SavingsAccountRead
                 }
             }
         }
-        final Object[] finalObjectArray = Arrays.copyOf(objectArray, arrayPos);
-        return this.paginationHelper.fetchPage(this.jdbcTemplate, sqlBuilder.toString(), finalObjectArray, this.savingAccountMapper);
+        return this.paginationHelper.fetchPage(this.jdbcTemplate, sqlBuilder.toString(), params.toArray(), this.savingAccountMapper);
     }
 
     @Override
@@ -214,8 +212,13 @@ public class SavingsAccountReadPlatformServiceImpl implements SavingsAccountRead
 
         try {
             final String sql = "select " + this.savingAccountMapper.schema() + " where sa.id = ?";
+            final DataScopeClause scopeClause = this.dataScopeService.forSavings("sa", "c");
+            final List<Object> params = new ArrayList<>();
+            params.add(accountId);
+            final String scopedSql = sql + scopeClause.sql();
+            params.addAll(scopeClause.params());
 
-            return this.jdbcTemplate.queryForObject(sql, this.savingAccountMapper, new Object[] { accountId }); // NOSONAR
+            return this.jdbcTemplate.queryForObject(scopedSql, this.savingAccountMapper, params.toArray()); // NOSONAR
         } catch (final EmptyResultDataAccessException e) {
             throw new SavingsAccountNotFoundException(accountId, e);
         }
@@ -301,6 +304,7 @@ public class SavingsAccountReadPlatformServiceImpl implements SavingsAccountRead
             sqlBuilder.append("sa.total_fees_charge_derived as totalFeeCharge, ");
             sqlBuilder.append("sa.total_penalty_charge_derived as totalPenaltyCharge, ");
             sqlBuilder.append("sa.min_balance_for_interest_calculation as minBalanceForInterestCalculation,");
+            sqlBuilder.append("sa.start_interest_calculation_date as startInterestCalculationDate,");
             sqlBuilder.append("sa.min_required_balance as minRequiredBalance, ");
             sqlBuilder.append("sa.enforce_min_required_balance as enforceMinRequiredBalance, ");
             sqlBuilder.append("sa.max_allowed_lien_limit as maxAllowedLienLimit, ");
@@ -328,7 +332,7 @@ public class SavingsAccountReadPlatformServiceImpl implements SavingsAccountRead
             sqlBuilder.append("tr.submitted_on_date as transSubmittedOnDate,tr.cumulative_balance_derived as cumulativeBalance,");
             sqlBuilder.append("tr.running_balance_derived as runningBalance, tr.is_reversed as reversed,");
             sqlBuilder.append("tr.balance_end_date_derived as balanceEndDate, tr.overdraft_amount_derived as overdraftAmount,");
-            sqlBuilder.append("tr.is_manual as manualTransaction,tr.office_id as officeId, ");
+            sqlBuilder.append("tr.is_manual as manualTransaction,tr.ref_no as refNo,tr.office_id as officeId, ");
             sqlBuilder.append("pd.payment_type_id as paymentType,pd.account_number as accountNumber,pd.check_number as checkNumber, ");
             sqlBuilder.append("pd.receipt_number as receiptNumber, pd.bank_number as bankNumber,pd.routing_code as routingCode, ");
             sqlBuilder.append("pt.value as paymentTypeName, ");
@@ -576,6 +580,8 @@ public class SavingsAccountReadPlatformServiceImpl implements SavingsAccountRead
                     savingsAccountData.setClientData(clientData);
                     savingsAccountData.setGroupGeneralData(groupGeneralData);
                     savingsAccountData.setSavingsProduct(savingsProductData);
+                    savingsAccountData.setStartInterestCalculationDate(
+                            JdbcSupport.getLocalDate(rs, "startInterestCalculationDate"));
 
                     savingsAccountData.setGlAccountIdForInterestReceivable(glAccountIdForInterestReceivable);
                     savingsAccountData.setGlAccountIdForOverdraftPorfolio(glAccountIdForOverdraftPorfolio);
@@ -599,6 +605,8 @@ public class SavingsAccountReadPlatformServiceImpl implements SavingsAccountRead
                     final BigDecimal outstandingChargeAmount = null;
                     final BigDecimal runningBalance = JdbcSupport.getBigDecimalDefaultToZeroIfNull(rs, "runningBalance");
                     final boolean reversed = rs.getBoolean("reversed");
+                    final boolean manualTransaction = rs.getBoolean("manualTransaction");
+                    final String refNo = rs.getString("refNo");
                     final Long officeId = rs.getLong("officeId");
                     final BigDecimal cumulativeBalance = JdbcSupport.getBigDecimalDefaultToZeroIfNull(rs, "cumulativeBalance");
 
@@ -615,9 +623,9 @@ public class SavingsAccountReadPlatformServiceImpl implements SavingsAccountRead
                         }
                     }
 
-                    savingsAccountTransactionData = SavingsAccountTransactionData.create(transactionId, transactionType, paymentDetailData,
-                            id, accountNo, date, currency, amount, outstandingChargeAmount, runningBalance, reversed, transSubmittedOnDate,
-                            postInterestAsOn, cumulativeBalance, balanceEndDate);
+                    savingsAccountTransactionData = SavingsAccountTransactionData.createForInterestPosting(transactionId, transactionType,
+                            paymentDetailData, id, accountNo, date, currency, amount, outstandingChargeAmount, runningBalance, reversed,
+                            transSubmittedOnDate, postInterestAsOn, cumulativeBalance, balanceEndDate, manualTransaction, refNo);
                     savingsAccountTransactionData.setOverdraftAmount(overdraftAmount);
 
                     transMap.put("id", transactionId);

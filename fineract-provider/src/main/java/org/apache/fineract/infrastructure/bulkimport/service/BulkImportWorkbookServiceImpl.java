@@ -47,7 +47,6 @@ import org.apache.fineract.infrastructure.documentmanagement.domain.DocumentRepo
 import org.apache.fineract.infrastructure.documentmanagement.service.DocumentWritePlatformService;
 import org.apache.fineract.infrastructure.documentmanagement.service.DocumentWritePlatformServiceJpaRepositoryImpl;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.tika.Tika;
@@ -87,8 +86,8 @@ public class BulkImportWorkbookServiceImpl implements BulkImportWorkbookService 
     @Override
     public Long importWorkbook(String entity, InputStream inputStream, FormDataContentDisposition fileDetail, final String locale,
             final String dateFormat) {
-        LOG.info("importWorkbook called - entity: {}, fileName: {}, locale: {}, dateFormat: {}", 
-                entity, fileDetail != null ? fileDetail.getFileName() : "null", locale, dateFormat);
+        LOG.info("importWorkbook called - entity: {}, fileName: {}, locale: {}, dateFormat: {}", entity,
+                fileDetail != null ? fileDetail.getFileName() : "null", locale, dateFormat);
         try {
             if (entity != null && inputStream != null && fileDetail != null && locale != null && dateFormat != null) {
                 LOG.info("All parameters validated, reading file stream");
@@ -102,7 +101,7 @@ public class BulkImportWorkbookServiceImpl implements BulkImportWorkbookService 
                 final TikaInputStream tikaInputStream = TikaInputStream.get(bis);
                 final String fileType = tika.detect(tikaInputStream);
                 LOG.info("File type detected: {}", fileType);
-                if (!fileType.contains("msoffice") && !fileType.contains("application/vnd.ms-excel") 
+                if (!fileType.contains("msoffice") && !fileType.contains("application/vnd.ms-excel")
                         && !fileType.contains("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
                     // We had a problem where we tried to upload the downloaded
                     // file from the import options, it was somehow changed the
@@ -193,8 +192,8 @@ public class BulkImportWorkbookServiceImpl implements BulkImportWorkbookService 
                 LOG.info("Import event published successfully, documentId: {}", result);
                 return result;
             }
-            LOG.error("One or more parameters are null - entity: {}, inputStream: {}, fileDetail: {}, locale: {}, dateFormat: {}", 
-                    entity, inputStream != null, fileDetail != null, locale, dateFormat);
+            LOG.error("One or more parameters are null - entity: {}, inputStream: {}, fileDetail: {}, locale: {}, dateFormat: {}", entity,
+                    inputStream != null, fileDetail != null, locale, dateFormat);
             throw new GeneralPlatformDomainRuleException("error.msg.null", "One or more of the given parameters not found");
         } catch (IOException e) {
             LOG.error("IO Problem occurred in importWorkbook function", e);

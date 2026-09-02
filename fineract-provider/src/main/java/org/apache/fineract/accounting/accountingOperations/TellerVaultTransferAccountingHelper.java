@@ -33,9 +33,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Creates GL entries for teller/vault cash movements tied to pending-flow approval.
- * From teller: debit main vault, credit cash-at-teller (SETTLE semantics).
- * To teller: debit cash-at-teller, credit main vault (ALLOCATE semantics).
+ * Creates GL entries for teller/vault cash movements tied to pending-flow approval. From teller: debit main vault,
+ * credit cash-at-teller (SETTLE semantics). To teller: debit cash-at-teller, credit main vault (ALLOCATE semantics).
  */
 @Slf4j
 @Service
@@ -49,19 +48,25 @@ public class TellerVaultTransferAccountingHelper {
     private final AccountingProcessorHelper accountingProcessorHelper;
 
     /**
-     * Posts the vault transfer: Debit main vault, Credit cash-at-teller.
-     * Uses the same account logic as SETTLE in TellerWritePlatformServiceJpaImpl.
+     * Posts the vault transfer: Debit main vault, Credit cash-at-teller. Uses the same account logic as SETTLE in
+     * TellerWritePlatformServiceJpaImpl.
      *
-     * @param office           office for the entries
-     * @param amount           amount to transfer
-     * @param currencyCode     currency code
-     * @param transactionDate  business/transaction date
-     * @param transactionId    unique transaction id (e.g. from pending flow/step)
-     * @param description     optional note for the entries
+     * @param office
+     *            office for the entries
+     * @param amount
+     *            amount to transfer
+     * @param currencyCode
+     *            currency code
+     * @param transactionDate
+     *            business/transaction date
+     * @param transactionId
+     *            unique transaction id (e.g. from pending flow/step)
+     * @param description
+     *            optional note for the entries
      */
     @Transactional
-    public void postVaultTransferFromTeller(Office office, BigDecimal amount, String currencyCode,
-            LocalDate transactionDate, String transactionId, String description) {
+    public void postVaultTransferFromTeller(Office office, BigDecimal amount, String currencyCode, LocalDate transactionDate,
+            String transactionId, String description) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             log.warn("TellerVaultTransferAccountingHelper: amount must be positive, got {}", amount);
             return;
@@ -72,24 +77,20 @@ public class TellerVaultTransferAccountingHelper {
         }
 
         GLAccount mainVaultAccount = financialActivityAccountRepository
-                .findByFinancialActivityTypeWithNotFoundDetection(FinancialActivity.CASH_AT_MAINVAULT.getValue())
-                .getGlAccount();
+                .findByFinancialActivityTypeWithNotFoundDetection(FinancialActivity.CASH_AT_MAINVAULT.getValue()).getGlAccount();
         GLAccount cashAtTellerAccount = financialActivityAccountRepository
-                .findByFinancialActivityTypeWithNotFoundDetection(FinancialActivity.CASH_AT_TELLER.getValue())
-                .getGlAccount();
+                .findByFinancialActivityTypeWithNotFoundDetection(FinancialActivity.CASH_AT_TELLER.getValue()).getGlAccount();
 
-        JournalEntry debitEntry = JournalEntry.createNew(office, null, mainVaultAccount, currencyCode,
-                transactionId, false, transactionDate, JournalEntryType.DEBIT, amount, description,
-                null, null, null, null, null, null, null, null);
-        JournalEntry creditEntry = JournalEntry.createNew(office, null, cashAtTellerAccount, currencyCode,
-                transactionId, false, transactionDate, JournalEntryType.CREDIT, amount, description,
-                null, null, null, null, null, null, null, null);
+        JournalEntry debitEntry = JournalEntry.createNew(office, null, mainVaultAccount, currencyCode, transactionId, false,
+                transactionDate, JournalEntryType.DEBIT, amount, description, null, null, null, null, null, null, null, null);
+        JournalEntry creditEntry = JournalEntry.createNew(office, null, cashAtTellerAccount, currencyCode, transactionId, false,
+                transactionDate, JournalEntryType.CREDIT, amount, description, null, null, null, null, null, null, null, null);
 
         accountingProcessorHelper.persistJournalEntry(debitEntry);
         accountingProcessorHelper.persistJournalEntry(creditEntry);
 
-        log.debug("TellerVaultTransferAccountingHelper: posted vault transfer txnId={} amount={} office={}",
-                transactionId, amount, office.getId());
+        log.debug("TellerVaultTransferAccountingHelper: posted vault transfer txnId={} amount={} office={}", transactionId, amount,
+                office.getId());
     }
 
     /**
@@ -108,11 +109,9 @@ public class TellerVaultTransferAccountingHelper {
         }
 
         GLAccount mainVaultAccount = financialActivityAccountRepository
-                .findByFinancialActivityTypeWithNotFoundDetection(FinancialActivity.CASH_AT_MAINVAULT.getValue())
-                .getGlAccount();
+                .findByFinancialActivityTypeWithNotFoundDetection(FinancialActivity.CASH_AT_MAINVAULT.getValue()).getGlAccount();
         GLAccount cashAtTellerAccount = financialActivityAccountRepository
-                .findByFinancialActivityTypeWithNotFoundDetection(FinancialActivity.CASH_AT_TELLER.getValue())
-                .getGlAccount();
+                .findByFinancialActivityTypeWithNotFoundDetection(FinancialActivity.CASH_AT_TELLER.getValue()).getGlAccount();
 
         JournalEntry debitEntry = JournalEntry.createNew(office, null, cashAtTellerAccount, currencyCode, transactionId, false,
                 transactionDate, JournalEntryType.DEBIT, amount, description, null, null, null, null, null, null, null, null);
@@ -131,8 +130,7 @@ public class TellerVaultTransferAccountingHelper {
      */
     public static String generateTransactionId(Long flowId, Long stepId) {
         long time = System.currentTimeMillis();
-        return TXN_PREFIX + (flowId != null ? flowId : "0") + "-" + (stepId != null ? stepId : "0") + "-"
-                + Long.toHexString(time);
+        return TXN_PREFIX + (flowId != null ? flowId : "0") + "-" + (stepId != null ? stepId : "0") + "-" + Long.toHexString(time);
     }
 
     /**
@@ -140,7 +138,6 @@ public class TellerVaultTransferAccountingHelper {
      */
     public static String generateRequestVaultTransactionId(Long flowId, Long stepId) {
         long time = System.currentTimeMillis();
-        return TXN_PREFIX_REQUEST + (flowId != null ? flowId : "0") + "-" + (stepId != null ? stepId : "0") + "-"
-                + Long.toHexString(time);
+        return TXN_PREFIX_REQUEST + (flowId != null ? flowId : "0") + "-" + (stepId != null ? stepId : "0") + "-" + Long.toHexString(time);
     }
 }

@@ -26,10 +26,9 @@ import org.apache.fineract.infrastructure.core.service.database.DatabaseTypeReso
 import org.postgresql.util.PGobject;
 
 /**
- * JPA AttributeConverter for PostgreSQL JSONB columns. Converts between Java String (JSON)
- * and PostgreSQL's JSONB type. On MySQL, the attribute is passed through as String (JSON type).
- * Uses {@link JsonbConverterContext} for {@link DatabaseTypeResolver} because JPA instantiates
- * converters via reflection without dependency injection.
+ * JPA AttributeConverter for PostgreSQL JSONB columns. Converts between Java String (JSON) and PostgreSQL's JSONB type.
+ * On MySQL, the attribute is passed through as String (JSON type). Uses {@link JsonbConverterContext} for
+ * {@link DatabaseTypeResolver} because JPA instantiates converters via reflection without dependency injection.
  */
 @Slf4j
 @Converter

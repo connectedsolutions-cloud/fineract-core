@@ -1898,7 +1898,8 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
      */
     public void validateSimulatedDate(LocalDate newDate) {
         if (newDate != null && this.simulatedDate != null && DateUtils.isBefore(newDate, this.simulatedDate)) {
-            throw new IllegalArgumentException("Simulated date can only move forward. Current: " + this.simulatedDate + ", New: " + newDate);
+            throw new IllegalArgumentException(
+                    "Simulated date can only move forward. Current: " + this.simulatedDate + ", New: " + newDate);
         }
     }
 }

@@ -75,8 +75,8 @@ public class CredesalPenaltiesFeesInterestPrincipalLoanRepaymentScheduleTransact
     }
 
     /**
-     * Allocate the full payment once across the schedule (horizontal by component). Avoids Abstract's
-     * installment-first loop, which would otherwise re-enter these hooks per period.
+     * Allocate the full payment once across the schedule (horizontal by component). Avoids Abstract's installment-first
+     * loop, which would otherwise re-enter these hooks per period.
      */
     @Override
     protected Money processTransaction(final LoanTransaction loanTransaction, final MonetaryCurrency currency,
@@ -171,8 +171,8 @@ public class CredesalPenaltiesFeesInterestPrincipalLoanRepaymentScheduleTransact
             transactionAmountRemaining = transactionAmountRemaining.minus(feePortion);
             if (feePortion.isGreaterThanZero()) {
                 loanTransaction.updateComponents(Money.zero(currency), Money.zero(currency), feePortion, Money.zero(currency));
-                addOrUpdateMapping(transactionMappings, loanTransaction, installment, Money.zero(currency), Money.zero(currency), feePortion,
-                        Money.zero(currency));
+                addOrUpdateMapping(transactionMappings, loanTransaction, installment, Money.zero(currency), Money.zero(currency),
+                        feePortion, Money.zero(currency));
             }
         }
 

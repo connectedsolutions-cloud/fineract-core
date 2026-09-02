@@ -1,6 +1,7 @@
 package org.apache.fineract.portfolio.invoice.data;
 
 public class InvoiceMetadataUpdateRequest {
+
     private String firmaElectronica;
     private String selloRecibido;
     private String authorityStatus;
@@ -164,4 +165,3 @@ public class InvoiceMetadataUpdateRequest {
         this.receptorTelefono = receptorTelefono;
     }
 }
-

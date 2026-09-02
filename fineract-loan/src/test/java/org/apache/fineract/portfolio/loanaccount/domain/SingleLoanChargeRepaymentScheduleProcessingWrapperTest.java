@@ -120,6 +120,21 @@ public class SingleLoanChargeRepaymentScheduleProcessingWrapperTest {
         customVerify(period2, "0.0", "0.0", "0.0", "0.0", "0.0", "0.0");
     }
 
+    @Test
+    public void testRecurringChargeCutoverSkipsHistoricalPeriods() {
+        LocalDate disbursementDate = LocalDate.of(2023, 1, 1);
+        ThreadLocalContextUtil.setBusinessDates(new HashMap<>(new EnumMap<>(Map.of(BusinessDateType.BUSINESS_DATE, disbursementDate))));
+
+        LoanRepaymentScheduleInstallment historical = createPeriod(1, LocalDate.of(2023, 1, 1), LocalDate.of(2023, 1, 31));
+        LoanRepaymentScheduleInstallment future = createPeriod(2, LocalDate.of(2023, 2, 1), LocalDate.of(2023, 2, 28));
+        LoanCharge charge = createInstallmentChargeWithCutover(LocalDate.of(2023, 2, 1));
+
+        underTest.reprocess(currency, disbursementDate, List.of(historical, future), charge);
+
+        customVerify(historical, "0.0", "0.0", "0.0", "0.0", "0.0", "0.0");
+        customVerify(future, "10.0", "0.0", "0.0", "0.0", "0.0", "0.0");
+    }
+
     private void customVerify(LoanRepaymentScheduleInstallment period, String expectedFeeChargesDue, String expectedFeeChargesWaived,
             String expectedFeeChargesWrittenOff, String expectedPenaltyChargesDue, String expectedPenaltyChargesWaived,
             String expectedPenaltyChargesWrittenOff) {
@@ -153,6 +168,19 @@ public class SingleLoanChargeRepaymentScheduleProcessingWrapperTest {
 
         return loanChargeService.create(loan, charge, new BigDecimal(1000), new BigDecimal(10), ChargeTimeType.SPECIFIED_DUE_DATE,
                 ChargeCalculationType.FLAT, LocalDate.of(2023, 1, 15), ChargePaymentMode.REGULAR, 1, null, null);
+    }
+
+    @NonNull
+    private LoanCharge createInstallmentChargeWithCutover(LocalDate cutoverDate) {
+        LoanCharge charge = mock(LoanCharge.class);
+        when(charge.isFeeCharge()).thenReturn(true);
+        when(charge.isDueAtDisbursement()).thenReturn(false);
+        when(charge.isInstalmentFee()).thenReturn(true);
+        when(charge.getChargeCalculation()).thenReturn(ChargeCalculationType.FLAT);
+        when(charge.amountOrPercentage()).thenReturn(new BigDecimal("10.0"));
+        when(charge.isInstallmentChargeApplicable(org.mockito.ArgumentMatchers.any(LocalDate.class)))
+                .thenAnswer(invocation -> !invocation.<LocalDate>getArgument(0).isBefore(cutoverDate));
+        return charge;
     }
 
     @NonNull

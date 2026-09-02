@@ -25,9 +25,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface StaffRepository extends JpaRepository<Staff, Long>, JpaSpecificationExecutor<Staff> {
 
-    String FIND_BY_OFFICE_QUERY = "select distinct s from Staff s " +
-        "left join s.offices o " +
-        "where s.id = :id AND (o.id = :officeId OR s.office.id = :officeId)";
+    String FIND_BY_OFFICE_QUERY = "select distinct s from Staff s " + "left join s.offices o "
+            + "where s.id = :id AND (o.id = :officeId OR s.office.id = :officeId)";
 
     /**
      * Find staff by officeid.

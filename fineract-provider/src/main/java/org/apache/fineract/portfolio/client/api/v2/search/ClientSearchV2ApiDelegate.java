@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.fineract.infrastructure.core.service.PagedRequest;
 import org.apache.fineract.portfolio.client.service.search.ClientSearchService;
 import org.apache.fineract.portfolio.client.service.search.domain.ClientSearchData;
+import org.apache.fineract.portfolio.client.service.search.domain.ClientSearchOptionsData;
 import org.apache.fineract.portfolio.client.service.search.domain.ClientTextSearch;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
@@ -35,5 +36,10 @@ public class ClientSearchV2ApiDelegate implements ClientSearchV2Api {
     @Override
     public Page<ClientSearchData> searchByText(PagedRequest<ClientTextSearch> request) {
         return searchService.searchByText(request);
+    }
+
+    @Override
+    public ClientSearchOptionsData retrieveSearchOptions(Long officeId) {
+        return searchService.retrieveSearchOptions(officeId);
     }
 }

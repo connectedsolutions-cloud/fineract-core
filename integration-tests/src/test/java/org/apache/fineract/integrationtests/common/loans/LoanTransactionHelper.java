@@ -1715,7 +1715,7 @@ public class LoanTransactionHelper {
 
     public GetLoansResponse retrieveAllLoans(final String accountNumber, final String associations, final Long clientId) {
         return Calls.ok(FineractClientHelper.getFineractClient().loans.retrieveAll27(null, 0, 10, null, null, accountNumber, associations,
-                clientId, null));
+                clientId, null, null));
     }
 
     @Deprecated(forRemoval = true)

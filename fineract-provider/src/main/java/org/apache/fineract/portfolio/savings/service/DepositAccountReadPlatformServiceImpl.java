@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -468,18 +469,36 @@ public class DepositAccountReadPlatformServiceImpl implements DepositAccountRead
 
     @Override
     public Collection<AccountTransferDTO> retrieveDataForInterestTransfer() {
+        return retrieveDataForInterestTransfer(null);
+    }
+
+    @Override
+    public Collection<AccountTransferDTO> retrieveDataForInterestTransfer(final Long savingsAccountId) {
         final StringBuilder sqlBuilder = new StringBuilder(300);
         AccountTransferMapper mapper = new AccountTransferMapper();
         sqlBuilder.append("SELECT ");
         sqlBuilder.append(mapper.schema());
+        if (savingsAccountId != null) {
+            sqlBuilder.append(" where da.transfer_interest_to_linked_account = true")
+                    .append(" and aa.association_type_enum = 1 and aa.is_active = true")
+                    .append(" and st.transaction_type_enum = ? and st.is_reversed = false")
+                    .append(" and not exists (select 1 from m_account_transfer_transaction att")
+                    .append(" join m_account_transfer_details atd on atd.id=att.account_transfer_details_id")
+                    .append(" where atd.from_savings_account_id=sa.id and atd.to_savings_account_id=aa.linked_savings_account_id")
+                    .append(" and atd.transfer_type=4 and att.transaction_date=st.transaction_date")
+                    .append(" and att.amount=st.amount and att.is_reversed=false)")
+                    .append(" and sa.id = ?");
+            return this.jdbcTemplate.query(sqlBuilder.toString(), mapper, SavingsAccountTransactionType.INTEREST_POSTING.getValue(),
+                    savingsAccountId);
+        }
         sqlBuilder.append(" where da.transfer_interest_to_linked_account = true and ");
         sqlBuilder.append(
                 "st.transaction_date > (select coalesce(max(sat.transaction_date),sa.activatedon_date) from m_savings_account_transaction sat where sat.transaction_type_enum = ? and sat.savings_account_id = sa.id and sat.is_reversed=false) ");
         sqlBuilder.append(
                 "and st.transaction_type_enum = ? and sa.status_enum = ? and st.is_reversed=false and st.transaction_date > coalesce(sa.lockedin_until_date_derived,sa.activatedon_date)");
-
-        return this.jdbcTemplate.query(sqlBuilder.toString(), mapper, SavingsAccountTransactionType.WITHDRAWAL.getValue(),
-                SavingsAccountTransactionType.INTEREST_POSTING.getValue(), SavingsAccountStatusType.ACTIVE.getValue());
+        final Object[] arguments = new Object[] { SavingsAccountTransactionType.WITHDRAWAL.getValue(),
+                SavingsAccountTransactionType.INTEREST_POSTING.getValue(), SavingsAccountStatusType.ACTIVE.getValue() };
+        return this.jdbcTemplate.query(sqlBuilder.toString(), mapper, arguments);
     }
 
     @Override
@@ -1671,7 +1690,8 @@ public class DepositAccountReadPlatformServiceImpl implements DepositAccountRead
             final boolean isExceptionForBalanceCheck = false;
             final LocalDate transactionDate = JdbcSupport.getLocalDate(rs, TRANSACTION_DATE);
             return new AccountTransferDTO(transactionDate, transactionAmount, PortfolioAccountType.SAVINGS, PortfolioAccountType.SAVINGS,
-                    fromAccountId, toAccountId, TRANSFER_INTEREST_TO_SAVINGS, null, null, null, null, null, null, null,
+                    fromAccountId, toAccountId, TRANSFER_INTEREST_TO_SAVINGS, Locale.US, DateTimeFormatter.ofPattern("yyyy-MM-dd"), null,
+                    null, null, null, null,
                     AccountTransferType.INTEREST_TRANSFER.getValue(), null, null, ExternalId.empty(), null, null, null,
                     isRegularTransaction, isExceptionForBalanceCheck);
         }

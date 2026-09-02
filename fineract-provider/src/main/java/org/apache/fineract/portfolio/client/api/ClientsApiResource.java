@@ -525,8 +525,9 @@ public class ClientsApiResource {
 
         if (commandRequest == null) {
             throw new UnrecognizedQueryParamException("command", commandParam,
-                    new Object[] { "activate", "unassignStaff", "assignStaff", "unassignGestor", "assignGestor", "close", "proposeTransfer", "withdrawTransfer",
-                            "acceptTransfer", "rejectTransfer", "updateSavingsAccount", "reject", "withdraw", "reactivate" });
+                    new Object[] { "activate", "unassignStaff", "assignStaff", "unassignGestor", "assignGestor", "close", "proposeTransfer",
+                            "withdrawTransfer", "acceptTransfer", "rejectTransfer", "updateSavingsAccount", "reject", "withdraw",
+                            "reactivate" });
         }
 
         return commandRequest;

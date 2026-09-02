@@ -41,4 +41,17 @@ final class ExternalServicesConfigurationApiResourceSwagger {
         @Schema(example = "XXXX")
         public String password;
     }
+
+    @Schema(description = "PostSmtpTestConnectionResponse")
+    public static final class PostSmtpTestConnectionResponse {
+
+        private PostSmtpTestConnectionResponse() {
+
+        }
+
+        @Schema(example = "true")
+        public boolean connected;
+        @Schema(example = "Could not connect to SMTP host: smtp.example.com, port: 2525")
+        public String errorMessage;
+    }
 }

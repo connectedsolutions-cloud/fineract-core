@@ -32,23 +32,26 @@ public interface SesionComiteReadPlatformService {
     List<LoanAccountData> retrievePendingLoansForUser(Long currentOfficeId);
 
     /**
-     * Returns the list of loan IDs unanimously approved for the given session. Session is loaded
-     * with office scoping (caller supplies the comite-session's office_id).
+     * Returns the list of loan IDs unanimously approved for the given session. Session is loaded with office scoping
+     * (caller supplies the comite-session's office_id).
      *
-     * @param sessionId session id (from e.g. step references)
-     * @param officeId  office id of the comite-session (for findByIdAndOfficeId)
+     * @param sessionId
+     *            session id (from e.g. step references)
+     * @param officeId
+     *            office id of the comite-session (for findByIdAndOfficeId)
      * @return list of approved loan IDs, or empty list if session not found or no approvals
      */
     List<Long> retrieveApprovedLoanIds(Long sessionId, Long officeId);
 
     /**
-     * Returns the sum of net disbursal amounts for all loans unanimously approved in the given
-     * session, plus currency info for display. Session is loaded with office scoping.
+     * Returns the sum of net disbursal amounts for all loans unanimously approved in the given session, plus currency
+     * info for display. Session is loaded with office scoping.
      *
-     * @param sessionId session id (from e.g. step references)
-     * @param officeId  office id of the comite-session (for findByIdAndOfficeId)
-     * @return sum data (totalDisbursementAmount, currencyCode, currencyDigits), or null if session
-     *         not found
+     * @param sessionId
+     *            session id (from e.g. step references)
+     * @param officeId
+     *            office id of the comite-session (for findByIdAndOfficeId)
+     * @return sum data (totalDisbursementAmount, currencyCode, currencyDigits), or null if session not found
      */
     ApprovedLoansDisbursementSumData retrieveApprovedLoansDisbursementSum(Long sessionId, Long officeId);
 }

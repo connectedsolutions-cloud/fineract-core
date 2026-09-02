@@ -46,6 +46,7 @@ import static org.apache.fineract.portfolio.savings.SavingsApiConstants.nominalA
 import static org.apache.fineract.portfolio.savings.SavingsApiConstants.nominalAnnualInterestRateParamName;
 import static org.apache.fineract.portfolio.savings.SavingsApiConstants.overdraftLimitParamName;
 import static org.apache.fineract.portfolio.savings.SavingsApiConstants.shortNameParamName;
+import static org.apache.fineract.portfolio.savings.SavingsApiConstants.numberingCodeParamName;
 import static org.apache.fineract.portfolio.savings.SavingsApiConstants.taxGroupIdParamName;
 import static org.apache.fineract.portfolio.savings.SavingsApiConstants.withHoldTaxParamName;
 import static org.apache.fineract.portfolio.savings.SavingsApiConstants.withdrawalFeeForTransfersParamName;
@@ -89,6 +90,7 @@ public class SavingsProductDataValidator {
     private final SavingsProductAccountingDataValidator savingsProductAccountingDataValidator;
     private static final Set<String> SAVINGS_PRODUCT_REQUEST_DATA_PARAMETERS = new HashSet<>(Arrays.asList(
             SavingsApiConstants.localeParamName, SavingsApiConstants.monthDayFormatParamName, nameParamName, shortNameParamName,
+            numberingCodeParamName,
             descriptionParamName, currencyCodeParamName, digitsAfterDecimalParamName, inMultiplesOfParamName,
             nominalAnnualInterestRateParamName, interestCompoundingPeriodTypeParamName, interestPostingPeriodTypeParamName,
             interestCalculationTypeParamName, interestCalculationDaysInYearTypeParamName, minRequiredOpeningBalanceParamName,
@@ -344,7 +346,7 @@ public class SavingsProductDataValidator {
             final Integer interestCalculationDaysInYearType = this.fromApiJsonHelper
                     .extractIntegerSansLocaleNamed(interestCalculationDaysInYearTypeParamName, element);
             baseDataValidator.reset().parameter(interestCalculationDaysInYearTypeParamName).value(interestCalculationDaysInYearType)
-                    .notNull().isOneOfTheseValues(360, 365);
+                    .notNull().isOneOfTheseValues(SavingsInterestCalculationDaysInYearType.integerValues());
         }
 
         if (this.fromApiJsonHelper.parameterExists(minRequiredOpeningBalanceParamName, element)) {

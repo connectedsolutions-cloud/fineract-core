@@ -54,6 +54,9 @@ public class ShareProduct extends AbstractAuditableCustom {
     @Column(name = "short_name", nullable = false, unique = true)
     private String shortName;
 
+    @Column(name = "numbering_code", length = 4)
+    private String numberingCode;
+
     @Column(name = "description")
     private String description;
 
@@ -179,6 +182,21 @@ public class ShareProduct extends AbstractAuditableCustom {
             returnValue = true;
         }
         return returnValue;
+    }
+
+    public String getNumberingCode() {
+        return this.numberingCode;
+    }
+
+    public boolean setNumberingCode(final String numberingCode) {
+        if (this.numberingCode == null && numberingCode == null) {
+            return false;
+        }
+        if (this.numberingCode != null && this.numberingCode.equals(numberingCode)) {
+            return false;
+        }
+        this.numberingCode = numberingCode;
+        return true;
     }
 
     public boolean setDescription(String description) {

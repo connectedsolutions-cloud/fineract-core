@@ -21,9 +21,9 @@ package org.apache.fineract.infrastructure.core.persistence.converter;
 import org.apache.fineract.infrastructure.core.service.database.DatabaseTypeResolver;
 
 /**
- * Static holder for {@link DatabaseTypeResolver} so that {@link JsonbStringAttributeConverter}
- * can access it. JPA/EclipseLink instantiates converters via reflection without DI, so we use
- * this context instead of constructor injection. Set by {@link JsonbConverterContextInitializer}.
+ * Static holder for {@link DatabaseTypeResolver} so that {@link JsonbStringAttributeConverter} can access it.
+ * JPA/EclipseLink instantiates converters via reflection without DI, so we use this context instead of constructor
+ * injection. Set by {@link JsonbConverterContextInitializer}.
  */
 public final class JsonbConverterContext {
 

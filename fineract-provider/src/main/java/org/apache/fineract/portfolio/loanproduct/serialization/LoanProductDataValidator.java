@@ -163,6 +163,7 @@ public final class LoanProductDataValidator {
             LoanProductConstants.PRINCIPAL_VARIATIONS_FOR_BORROWER_CYCLE_PARAMETER_NAME,
             LoanProductConstants.INTEREST_RATE_VARIATIONS_FOR_BORROWER_CYCLE_PARAMETER_NAME,
             LoanProductConstants.NUMBER_OF_REPAYMENT_VARIATIONS_FOR_BORROWER_CYCLE_PARAMETER_NAME, LoanProductConstants.SHORT_NAME,
+            LoanProductConstants.NUMBERING_CODE,
             LoanProductConstants.MULTI_DISBURSE_LOAN_PARAMETER_NAME, LoanProductConstants.OUTSTANDING_LOAN_BALANCE_PARAMETER_NAME,
             LoanProductConstants.MAX_TRANCHE_COUNT_PARAMETER_NAME, LoanProductConstants.GRACE_ON_ARREARS_AGEING_PARAMETER_NAME,
             LoanProductConstants.OVERDUE_DAYS_FOR_NPA_PARAMETER_NAME, LoanProductConstants.IS_INTEREST_RECALCULATION_ENABLED_PARAMETER_NAME,
@@ -178,7 +179,8 @@ public final class LoanProductDataValidator {
             LoanProductConstants.holdGuaranteeFundsParamName, LoanProductConstants.minimumGuaranteeFromGuarantorParamName,
             LoanProductConstants.minimumGuaranteeFromOwnFundsParamName, LoanProductConstants.principalThresholdForLastInstallmentParamName,
             LoanProductConstants.ACCOUNT_MOVES_OUT_OF_NPA_ONLY_ON_ARREARS_COMPLETION_PARAM_NAME,
-            LoanProductConstants.canDefineEmiAmountParamName, LoanProductConstants.installmentAmountInMultiplesOfParamName,
+            LoanProductConstants.canDefineEmiAmountParamName, LoanProductConstants.roundCalculatedInstallmentUpParamName,
+            LoanProductConstants.installmentAmountInMultiplesOfParamName,
             LoanProductConstants.preClosureInterestCalculationStrategyParamName, LoanProductConstants.allowAttributeOverridesParamName,
             LoanProductConstants.allowVariableInstallmentsParamName, LoanProductConstants.minimumGapBetweenInstallments,
             LoanProductConstants.maximumGapBetweenInstallments, LoanProductConstants.recalculationCompoundingFrequencyWeekdayParamName,
@@ -209,9 +211,7 @@ public final class LoanProductDataValidator {
             LoanProductConstants.MERCHANT_BUY_DOWN_FEE_PARAM_NAME,
             LoanProductAccountingParams.CAPITALIZED_INCOME_CLASSIFICATION_TO_INCOME_ACCOUNT_MAPPINGS.getValue(), //
             LoanProductAccountingParams.BUYDOWN_FEE_CLASSIFICATION_TO_INCOME_ACCOUNT_MAPPINGS.getValue(), //
-            LoanProductConstants.DIMENSIONS,
-            LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME, LoanProductConstants.ID_SLUS_PARAM_NAME
-    ));
+            LoanProductConstants.DIMENSIONS, LoanProductConstants.ID_TIPO_LINEA_PARAM_NAME, LoanProductConstants.ID_SLUS_PARAM_NAME));
 
     private static final String[] SUPPORTED_LOAN_CONFIGURABLE_ATTRIBUTES = { LoanProductConstants.amortizationTypeParamName,
             LoanProductConstants.interestTypeParamName, LoanProductConstants.transactionProcessingStrategyCodeParamName,
@@ -667,12 +667,27 @@ public final class LoanProductDataValidator {
                     .isOneOfTheseValues(true, false);
         }
 
+        Boolean roundCalculatedInstallmentUp = false;
+        if (this.fromApiJsonHelper.parameterExists(LoanProductConstants.roundCalculatedInstallmentUpParamName, element)) {
+            roundCalculatedInstallmentUp = this.fromApiJsonHelper
+                    .extractBooleanNamed(LoanProductConstants.roundCalculatedInstallmentUpParamName, element);
+            baseDataValidator.reset().parameter(LoanProductConstants.roundCalculatedInstallmentUpParamName)
+                    .value(roundCalculatedInstallmentUp).isOneOfTheseValues(true, false);
+        }
+
+        Integer installmentAmountInMultiplesOf = null;
         if (this.fromApiJsonHelper.parameterExists(LoanProductConstants.installmentAmountInMultiplesOfParamName, element)) {
-            final Integer installmentAmountInMultiplesOf = this.fromApiJsonHelper
+            installmentAmountInMultiplesOf = this.fromApiJsonHelper
                     .extractIntegerWithLocaleNamed(LoanProductConstants.installmentAmountInMultiplesOfParamName, element);
             baseDataValidator.reset().parameter(LoanProductConstants.installmentAmountInMultiplesOfParamName)
                     .value(installmentAmountInMultiplesOf).ignoreIfNull().integerGreaterThanZero();
         }
+
+        final LoanScheduleType loanScheduleType = this.fromApiJsonHelper.parameterExists(LoanProductConstants.LOAN_SCHEDULE_TYPE, element)
+                ? LoanScheduleType.valueOf(this.fromApiJsonHelper.extractStringNamed(LoanProductConstants.LOAN_SCHEDULE_TYPE, element))
+                : LoanScheduleType.CUMULATIVE;
+        validateCalculatedInstallmentRounding(roundCalculatedInstallmentUp, AmortizationMethod.fromInt(amortizationType), loanScheduleType,
+                installmentAmountInMultiplesOf, baseDataValidator);
 
         // accounting related data validation
         final Integer accountingRuleType = this.fromApiJsonHelper.extractIntegerNamed(ACCOUNTING_RULE, element, Locale.getDefault());
@@ -1788,12 +1803,32 @@ public final class LoanProductDataValidator {
                     .isOneOfTheseValues(true, false);
         }
 
+        Boolean roundCalculatedInstallmentUp = loanProduct.getLoanProductRelatedDetail().isRoundCalculatedInstallmentUp();
+        if (this.fromApiJsonHelper.parameterExists(LoanProductConstants.roundCalculatedInstallmentUpParamName, element)) {
+            roundCalculatedInstallmentUp = this.fromApiJsonHelper
+                    .extractBooleanNamed(LoanProductConstants.roundCalculatedInstallmentUpParamName, element);
+            baseDataValidator.reset().parameter(LoanProductConstants.roundCalculatedInstallmentUpParamName)
+                    .value(roundCalculatedInstallmentUp).isOneOfTheseValues(true, false);
+        }
+
+        Integer installmentAmountInMultiplesOf = loanProduct.getLoanProductRelatedDetail().getInstallmentAmountInMultiplesOf();
         if (this.fromApiJsonHelper.parameterExists(LoanProductConstants.installmentAmountInMultiplesOfParamName, element)) {
-            final Integer installmentAmountInMultiplesOf = this.fromApiJsonHelper
+            installmentAmountInMultiplesOf = this.fromApiJsonHelper
                     .extractIntegerWithLocaleNamed(LoanProductConstants.installmentAmountInMultiplesOfParamName, element);
             baseDataValidator.reset().parameter(LoanProductConstants.installmentAmountInMultiplesOfParamName)
                     .value(installmentAmountInMultiplesOf).ignoreIfNull().integerGreaterThanZero();
         }
+
+        final AmortizationMethod effectiveAmortizationMethod = amortizationType == null
+                ? loanProduct.getLoanProductRelatedDetail().getAmortizationMethod()
+                : AmortizationMethod.fromInt(amortizationType);
+        final LoanScheduleType effectiveLoanScheduleType = this.fromApiJsonHelper
+                .parameterExists(LoanProductConstants.LOAN_SCHEDULE_TYPE, element)
+                        ? LoanScheduleType
+                                .valueOf(this.fromApiJsonHelper.extractStringNamed(LoanProductConstants.LOAN_SCHEDULE_TYPE, element))
+                        : loanProduct.getLoanProductRelatedDetail().getLoanScheduleType();
+        validateCalculatedInstallmentRounding(roundCalculatedInstallmentUp, effectiveAmortizationMethod, effectiveLoanScheduleType,
+                installmentAmountInMultiplesOf, baseDataValidator);
 
         final Integer accountingRuleType = this.fromApiJsonHelper.extractIntegerNamed(ACCOUNTING_RULE, element, Locale.getDefault());
         baseDataValidator.reset().parameter(ACCOUNTING_RULE).value(accountingRuleType).ignoreIfNull().inMinMaxRange(1, 4);
@@ -2818,6 +2853,28 @@ public final class LoanProductDataValidator {
             baseDataValidator.reset().parameter(LoanProductConstants.LOAN_SCHEDULE_TYPE).failWithCode(
                     "supported.only.with.advanced.payment.allocation.strategy",
                     loanScheduleType + " loan schedule type is not available with " + transactionProcessingStrategyCode + " strategy");
+        }
+    }
+
+    private void validateCalculatedInstallmentRounding(final Boolean roundCalculatedInstallmentUp,
+            final AmortizationMethod amortizationMethod, final LoanScheduleType loanScheduleType,
+            final Integer installmentAmountInMultiplesOf, final DataValidatorBuilder baseDataValidator) {
+        if (!Boolean.TRUE.equals(roundCalculatedInstallmentUp)) {
+            return;
+        }
+        if (!AmortizationMethod.EQUAL_INSTALLMENTS.equals(amortizationMethod)) {
+            baseDataValidator.reset().parameter(LoanProductConstants.roundCalculatedInstallmentUpParamName).failWithCode(
+                    "supported.only.for.equal.installments", "Calculated installment ceiling is only supported for equal installments");
+        }
+        if (!LoanScheduleType.CUMULATIVE.equals(loanScheduleType)) {
+            baseDataValidator.reset().parameter(LoanProductConstants.roundCalculatedInstallmentUpParamName).failWithCode(
+                    "supported.only.for.cumulative.loan.schedule.type",
+                    "Calculated installment ceiling is only supported for the cumulative loan schedule type");
+        }
+        if (installmentAmountInMultiplesOf != null) {
+            baseDataValidator.reset().parameter(LoanProductConstants.roundCalculatedInstallmentUpParamName).failWithCode(
+                    "not.supported.with.installment.amount.in.multiples.of",
+                    "Calculated installment ceiling cannot be combined with installment amount in multiples of");
         }
     }
 

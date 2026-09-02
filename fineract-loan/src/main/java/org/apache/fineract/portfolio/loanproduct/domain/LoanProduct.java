@@ -92,6 +92,8 @@ import org.apache.fineract.portfolio.rate.domain.Rate;
         @UniqueConstraint(columnNames = { "short_name" }, name = "unq_short_name") })
 public class LoanProduct extends AbstractPersistableCustom<Long> {
 
+    private static final String CREDESAL_ACCRUED_INTEREST_STRATEGY = "credesal-accrued-interest-first-strategy";
+
     @ManyToOne
     @JoinColumn(name = "fund_id")
     private Fund fund;
@@ -101,6 +103,10 @@ public class LoanProduct extends AbstractPersistableCustom<Long> {
 
     @Column(name = "loan_transaction_strategy_name")
     private String transactionProcessingStrategyName;
+
+    public boolean usesCredesalInterestRounding() {
+        return CREDESAL_ACCRUED_INTEREST_STRATEGY.equals(this.transactionProcessingStrategyCode);
+    }
 
     // TODO FINERACT-1932-Fineract modularization: Move to fineract-progressive-loan module after removing association
     // from LoanProduct entity
@@ -117,6 +123,9 @@ public class LoanProduct extends AbstractPersistableCustom<Long> {
 
     @Column(name = "short_name", nullable = false, unique = true)
     private String shortName;
+
+    @Column(name = "numbering_code", length = 4)
+    private String numberingCode;
 
     @Column(name = "description")
     private String description;

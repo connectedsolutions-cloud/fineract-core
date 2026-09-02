@@ -77,7 +77,7 @@ public final class LoanChargeApiJsonValidator {
         }
 
         final Set<String> disbursementParameters = new HashSet<>(
-                Arrays.asList("chargeId", "amount", "dueDate", "locale", "dateFormat", "externalId"));
+                Arrays.asList("chargeId", "amount", "dueDate", "submittedOnDate", "locale", "dateFormat", "externalId"));
 
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {
 
@@ -97,6 +97,11 @@ public final class LoanChargeApiJsonValidator {
         if (this.fromApiJsonHelper.parameterExists("dueDate", element)) {
             final LocalDate dueDate = this.fromApiJsonHelper.extractLocalDateNamed("dueDate", element);
             baseDataValidator.reset().parameter("dueDate").value(dueDate).notBlank();
+        }
+
+        if (this.fromApiJsonHelper.parameterExists("submittedOnDate", element)) {
+            final LocalDate submittedOnDate = this.fromApiJsonHelper.extractLocalDateNamed("submittedOnDate", element);
+            baseDataValidator.reset().parameter("submittedOnDate").value(submittedOnDate).notBlank();
         }
 
         throwExceptionIfValidationWarningsExist(dataValidationErrors);
@@ -426,6 +431,7 @@ public final class LoanChargeApiJsonValidator {
             String errorcode = null;
             switch (chargeCalculationType) {
                 case PERCENT_OF_AMOUNT:
+                case PERCENT_OF_OUTSTANDING_PRINCIPAL:
                     if (chargeTime.isInstalmentFee()) {
                         errorcode = "installment." + LoanApiConstants.LOAN_CHARGE_CAN_NOT_BE_ADDED_WITH_PRINCIPAL_CALCULATION_TYPE;
 

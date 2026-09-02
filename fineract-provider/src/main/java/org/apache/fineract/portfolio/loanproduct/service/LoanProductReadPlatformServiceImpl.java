@@ -116,7 +116,8 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
 
     @Override
     public String getLoanProductDimensions(final Long productId) {
-        final LoanProduct product = loanProductRepository.findById(productId).orElseThrow(() -> new LoanProductNotFoundException(productId));
+        final LoanProduct product = loanProductRepository.findById(productId)
+                .orElseThrow(() -> new LoanProductNotFoundException(productId));
         return product.getDimensions();
     }
 
@@ -257,7 +258,7 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
 
         public String loanProductSchema() {
             return "lp.id as id, lp.fund_id as fundId, f.name as fundName, lp.loan_transaction_strategy_code as transactionStrategyCode, lp.loan_transaction_strategy_name as transactionStrategyName, "
-                    + "lp.name as name, lp.short_name as shortName, lp.description as description, "
+                    + "lp.name as name, lp.short_name as shortName, lp.numbering_code as numberingCode, lp.description as description, "
                     + "lp.id_tipo_linea as idTipoLinea, ctl.nombre_tipo_linea as tipoLineaName, "
                     + "lp.principal_amount as principal, lp.min_principal_amount as minPrincipal, lp.max_principal_amount as maxPrincipal, lp.currency_code as currencyCode, lp.currency_digits as currencyDigits, lp.currency_multiplesof as inMultiplesOf, "
                     + "lp.nominal_interest_rate_per_period as interestRatePerPeriod, lp.min_nominal_interest_rate_per_period as minInterestRatePerPeriod, lp.max_nominal_interest_rate_per_period as maxInterestRatePerPeriod, lp.interest_period_frequency_enum as interestRatePerPeriodFreq, "
@@ -272,6 +273,7 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
                     + "lp.disallow_expected_disbursements as disallowExpectedDisbursements, lp.allow_approved_disbursed_amounts_over_applied as allowApprovedDisbursedAmountsOverApplied, lp.over_applied_calculation_type as overAppliedCalculationType, over_applied_number as overAppliedNumber, "
                     + "lp.days_in_month_enum as daysInMonth, lp.days_in_year_enum as daysInYear, lp.interest_recalculation_enabled as isInterestRecalculationEnabled, "
                     + "lp.can_define_fixed_emi_amount as canDefineInstallmentAmount, lp.installment_amount_in_multiples_of as installmentAmountInMultiplesOf, "
+                    + "lp.round_calculated_installment_up as roundCalculatedInstallmentUp, "
                     + "lp.due_days_for_repayment_event as dueDaysForRepaymentEvent, lp.overdue_days_for_repayment_event as overDueDaysForRepaymentEvent, lp.enable_down_payment as enableDownPayment, lp.disbursed_amount_percentage_for_down_payment as disbursedAmountPercentageForDownPayment, lp.enable_auto_repayment_for_down_payment as enableAutoRepaymentForDownPayment, lp.repayment_start_date_type_enum as repaymentStartDateType, "
                     + "lp.enable_installment_level_delinquency as enableInstallmentLevelDelinquency, "
                     + "lpr.pre_close_interest_calculation_strategy as preCloseInterestCalculationStrategy, "
@@ -316,8 +318,7 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
                     + "lp.capitalized_income_type as capitalizedIncomeType, lp.is_merchant_buy_down_fee as merchantBuyDownFee, " //
                     + "lp.enable_buy_down_fee as enableBuyDownFee, " + "lp.buy_down_fee_calculation_type as buyDownFeeCalculationType, "
                     + "lp.buy_down_fee_strategy as buyDownFeeStrategy, " + "lp.buy_down_fee_income_type as buyDownFeeIncomeType, "
-                    + "lp.dimensions as dimensions "
-                    + " from m_product_loan lp " + " left join m_fund f on f.id = lp.fund_id "
+                    + "lp.dimensions as dimensions " + " from m_product_loan lp " + " left join m_fund f on f.id = lp.fund_id "
                     + " left join crd_tipo_linea ctl on ctl.id_tipo_linea = lp.id_tipo_linea "
                     + " left join m_product_loan_recalculation_details lpr on lpr.product_id=lp.id "
                     + " left join m_product_loan_guarantee_details lpg on lpg.loan_product_id=lp.id "
@@ -336,6 +337,7 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
             final Long id = JdbcSupport.getLong(rs, "id");
             final String name = rs.getString("name");
             final String shortName = rs.getString("shortName");
+            final String numberingCode = rs.getString("numberingCode");
             final String description = rs.getString("description");
             final Long fundId = JdbcSupport.getLong(rs, "fundId");
             final String fundName = rs.getString("fundName");
@@ -464,6 +466,7 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
             final EnumOptionData daysInYearType = CommonEnumerations.daysInYearType(daysInYear);
             final Integer installmentAmountInMultiplesOf = JdbcSupport.getInteger(rs, "installmentAmountInMultiplesOf");
             final boolean canDefineInstallmentAmount = rs.getBoolean("canDefineInstallmentAmount");
+            final boolean roundCalculatedInstallmentUp = rs.getBoolean("roundCalculatedInstallmentUp");
             final boolean isInterestRecalculationEnabled = rs.getBoolean("isInterestRecalculationEnabled");
 
             LoanProductInterestRecalculationData interestRecalculationData = null;
@@ -600,9 +603,9 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
             final String idTipoLinea = rs.getString("idTipoLinea");
             final String tipoLineaName = rs.getString("tipoLineaName");
 
-            final LoanProductData loanProductData = new LoanProductData(id, name, shortName, description, currency, principal, minPrincipal, maxPrincipal, tolerance,
-                    numberOfRepayments, minNumberOfRepayments, maxNumberOfRepayments, repaymentEvery, interestRatePerPeriod,
-                    minInterestRatePerPeriod, maxInterestRatePerPeriod, annualInterestRate, repaymentFrequencyType,
+            final LoanProductData loanProductData = new LoanProductData(id, name, shortName, description, currency, principal, minPrincipal,
+                    maxPrincipal, tolerance, numberOfRepayments, minNumberOfRepayments, maxNumberOfRepayments, repaymentEvery,
+                    interestRatePerPeriod, minInterestRatePerPeriod, maxInterestRatePerPeriod, annualInterestRate, repaymentFrequencyType,
                     interestRateFrequencyType, amortizationType, interestType, interestCalculationPeriodType,
                     allowPartialPeriodInterestCalcualtion, fundId, fundName, transactionStrategyCode, transactionStrategyName,
                     graceOnPrincipalPayment, recurringMoratoriumOnPrincipalPeriods, graceOnInterestPayment, graceOnInterestCharged,
@@ -626,9 +629,11 @@ public class LoanProductReadPlatformServiceImpl implements LoanProductReadPlatfo
                     daysInYearCustomStrategy, enableIncomeCapitalization, capitalizedIncomeCalculationType, capitalizedIncomeStrategy,
                     capitalizedIncome, enableBuyDownFee, buyDownFeeCalculationType, buyDownFeeStrategy, buyDownFeeIncomeType,
                     merchantBuyDownFee, null, null, dimensions);
+            loanProductData.setNumberingCode(numberingCode);
             loanProductData.setIdTipoLinea(idTipoLinea);
             loanProductData.setTipoLineaName(tipoLineaName);
             loanProductData.setSlus(this.slus);
+            loanProductData.setRoundCalculatedInstallmentUp(roundCalculatedInstallmentUp);
             return loanProductData;
         }
     }

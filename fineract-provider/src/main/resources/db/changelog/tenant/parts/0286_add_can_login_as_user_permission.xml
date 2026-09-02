@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0286-1-add-can-login-as-user-permission" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'can_login_as_user'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="special"/>
+            <column name="code" value="can_login_as_user"/>
+            <column name="entity_name" value="USER"/>
+            <column name="action_name" value="LOGINAS"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0286-2-create-user-impersonation-log" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="m_user_impersonation_log"/>
+            </not>
+        </preConditions>
+        <createTable tableName="m_user_impersonation_log">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true"/>
+            </column>
+            <column name="actor_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="started_on_utc" type="DATETIME">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ended_on_utc" type="DATETIME"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_user_impersonation_log"
+                                 baseColumnNames="actor_id"
+                                 constraintName="FK_m_user_impersonation_log_actor"
+                                 referencedTableName="m_appuser"
+                                 referencedColumnNames="id"
+                                 onDelete="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="m_user_impersonation_log"
+                                 baseColumnNames="target_id"
+                                 constraintName="FK_m_user_impersonation_log_target"
+                                 referencedTableName="m_appuser"
+                                 referencedColumnNames="id"
+                                 onDelete="RESTRICT"/>
+        <createIndex tableName="m_user_impersonation_log" indexName="IDX_m_user_impersonation_log_open">
+            <column name="actor_id"/>
+            <column name="target_id"/>
+            <column name="ended_on_utc"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

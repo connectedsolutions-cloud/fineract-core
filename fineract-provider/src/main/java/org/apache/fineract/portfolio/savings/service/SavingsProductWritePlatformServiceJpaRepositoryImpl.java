@@ -50,6 +50,9 @@ import org.apache.fineract.portfolio.savings.domain.SavingsProduct;
 import org.apache.fineract.portfolio.savings.domain.SavingsProductAssembler;
 import org.apache.fineract.portfolio.savings.domain.SavingsProductRepository;
 import org.apache.fineract.portfolio.savings.exception.SavingsProductNotFoundException;
+import org.apache.fineract.portfolio.namingsequence.CredesalNamingCodes;
+import org.apache.fineract.portfolio.namingsequence.CredesalNamingNamespace;
+import org.apache.fineract.portfolio.namingsequence.service.CredesalProductNumberingSupport;
 import org.apache.fineract.portfolio.tax.domain.TaxGroup;
 import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,6 +67,7 @@ public class SavingsProductWritePlatformServiceJpaRepositoryImpl implements Savi
     private final SavingsProductAssembler savingsProductAssembler;
     private final ProductToGLAccountMappingWritePlatformService accountMappingWritePlatformService;
     private final FineractEntityAccessUtil fineractEntityAccessUtil;
+    private final CredesalProductNumberingSupport productNumberingSupport;
 
     /*
      * Guaranteed to throw an exception no matter what the data integrity issue is.
@@ -102,6 +106,8 @@ public class SavingsProductWritePlatformServiceJpaRepositoryImpl implements Savi
             this.fromApiJsonDataValidator.validateForCreate(command.json());
 
             final SavingsProduct product = this.savingsProductAssembler.assemble(command);
+            product.setNumberingCode(
+                    this.productNumberingSupport.assignOnCreate(command, CredesalNamingNamespace.SAVINGS, "m_savings_product"));
 
             this.savingProductRepository.saveAndFlush(product);
 
@@ -139,6 +145,11 @@ public class SavingsProductWritePlatformServiceJpaRepositoryImpl implements Savi
             this.fromApiJsonDataValidator.validateForUpdate(command.json(), product);
 
             final Map<String, Object> changes = product.update(command);
+            changes.putAll(this.productNumberingSupport.applyUpdate(command, CredesalNamingNamespace.SAVINGS, product.getNumberingCode(),
+                    "m_savings_product", product.getId()));
+            if (changes.containsKey(CredesalNamingCodes.PARAM_NAME)) {
+                product.setNumberingCode((String) changes.get(CredesalNamingCodes.PARAM_NAME));
+            }
 
             if (changes.containsKey(chargesParamName)) {
                 final Set<Charge> savingsProductCharges = this.savingsProductAssembler.assembleListOfSavingsProductCharges(command,

@@ -55,6 +55,13 @@ public class SavingsAccountConstant extends SavingsApiConstants {
     protected static final Set<String> SAVINGS_ACCOUNT_TRANSACTION_RESPONSE_DATA_PARAMETERS = new HashSet<>(
             Arrays.asList(idParamName, accountNoParamName));
 
+    protected static final Set<String> EXPLICIT_WITHHOLD_TAX_REQUEST_DATA_PARAMETERS = new HashSet<>(
+            Arrays.asList(localeParamName, dateFormatParamName, transactionDateParamName, transactionAmountParamName,
+                    grossInterestAmountParamName, transactionReferenceParamName, noteParamName));
+
+    protected static final Set<String> EXPLICIT_INTEREST_POSTING_REQUEST_DATA_PARAMETERS = new HashSet<>(Arrays.asList(localeParamName,
+            dateFormatParamName, transactionDateParamName, transactionAmountParamName, transactionReferenceParamName, noteParamName));
+
     protected static final Set<String> SAVINGS_ACCOUNT_ACTIVATION_REQUEST_DATA_PARAMETERS = new HashSet<>(
             Arrays.asList(localeParamName, dateFormatParamName, activatedOnDateParamName));
 

@@ -92,6 +92,8 @@ public class LoanChargeAssembler {
         final Set<LoanCharge> loanCharges = new HashSet<>();
         final BigDecimal principal = this.fromApiJsonHelper.extractBigDecimalWithLocaleNamed("principal", element);
         final Integer numberOfRepayments = this.fromApiJsonHelper.extractIntegerWithLocaleNamed("numberOfRepayments", element);
+        final LocalDate loanSubmittedOnDate = this.fromApiJsonHelper.extractLocalDateNamed(LoanApiConstants.submittedOnDateParameterName,
+                element);
         final Long productId = this.fromApiJsonHelper.extractLongNamed("productId", element);
         final LoanProduct loanProduct = this.loanProductRepository.findById(productId)
                 .orElseThrow(() -> new LoanProductNotFoundException(productId));
@@ -222,6 +224,8 @@ public class LoanChargeAssembler {
             }
         }
 
+        loanCharges.stream().filter(loanCharge -> loanCharge.getId() == null && loanSubmittedOnDate != null)
+                .forEach(loanCharge -> loanCharge.setSubmittedOnDate(loanSubmittedOnDate));
         return loanCharges;
     }
 
@@ -301,6 +305,9 @@ public class LoanChargeAssembler {
             case PERCENT_OF_DELINQUENT_PRINCIPAL:
                 amountPercentageAppliedTo = loanChargeService.determineDelinquentPrincipalBaseForCharge(loan, chargeDefinition);
             break;
+            case PERCENT_OF_OUTSTANDING_PRINCIPAL:
+                amountPercentageAppliedTo = loan.getPrincipal().getAmount();
+            break;
             default:
             break;
         }
@@ -337,8 +344,12 @@ public class LoanChargeAssembler {
         }
 
         ExternalId externalId = externalIdFactory.createFromCommand(command, "externalId");
-        return loanChargeService.create(loan, chargeDefinition, amountPercentageAppliedTo, amount, chargeTime, chargeCalculation, dueDate,
-                chargePaymentMode, null, loanCharge, externalId);
+        final LoanCharge result = loanChargeService.create(loan, chargeDefinition, amountPercentageAppliedTo, amount, chargeTime,
+                chargeCalculation, dueDate, chargePaymentMode, null, loanCharge, externalId);
+        if (command.hasParameter(LoanApiConstants.submittedOnDateParameterName)) {
+            result.setSubmittedOnDate(command.localDateValueOfParameterNamed(LoanApiConstants.submittedOnDateParameterName));
+        }
+        return result;
     }
 
     /*

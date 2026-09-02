@@ -48,6 +48,7 @@ import org.apache.fineract.portfolio.paymenttype.data.PaymentTypeData;
 import org.apache.fineract.portfolio.paymenttype.service.PaymentTypeReadPlatformService;
 import org.apache.fineract.portfolio.savings.DepositAccountType;
 import org.apache.fineract.portfolio.savings.DepositsApiConstants;
+import org.apache.fineract.portfolio.savings.SavingsApiConstants;
 import org.apache.fineract.portfolio.savings.data.SavingsAccountTransactionData;
 import org.apache.fineract.portfolio.savings.service.SavingsAccountReadPlatformService;
 import org.springframework.stereotype.Component;
@@ -130,11 +131,15 @@ public class FixedDepositAccountTransactionsApiResource {
         } else if (is(commandParam, "withdrawal")) {
             final CommandWrapper commandRequest = builder.fixedDepositAccountWithdrawal(fixedDepositAccountId).build();
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        } else if (is(commandParam, SavingsApiConstants.COMMAND_EXPLICIT_INTEREST_POSTING)) {
+            final CommandWrapper commandRequest = builder.savingsAccountExplicitInterestPosting(fixedDepositAccountId).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
         }
 
         if (result == null) {
             //
-            throw new UnrecognizedQueryParamException("command", commandParam, new Object[] { "deposit", "withdrawal" });
+            throw new UnrecognizedQueryParamException("command", commandParam,
+                    new Object[] { "deposit", "withdrawal", SavingsApiConstants.COMMAND_EXPLICIT_INTEREST_POSTING });
         }
 
         return this.toApiJsonSerializer.serialize(result);
@@ -157,7 +162,7 @@ public class FixedDepositAccountTransactionsApiResource {
 
         CommandProcessingResult result = null;
         if (is(commandParam, DepositsApiConstants.COMMAND_UNDO_TRANSACTION)) {
-            final CommandWrapper commandRequest = builder.undoSavingsAccountTransaction(fixedDepositAccountId, transactionId).build();
+            final CommandWrapper commandRequest = builder.undoFixedDepositAccountTransaction(fixedDepositAccountId, transactionId).build();
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
         } else if (is(commandParam, DepositsApiConstants.COMMAND_ADJUST_TRANSACTION)) {
             final CommandWrapper commandRequest = builder.adjustSavingsAccountTransaction(fixedDepositAccountId, transactionId).build();

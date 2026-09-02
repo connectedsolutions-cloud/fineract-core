@@ -33,6 +33,7 @@ import org.apache.fineract.infrastructure.core.data.DataValidatorBuilder;
 import org.apache.fineract.infrastructure.core.exception.InvalidJsonException;
 import org.apache.fineract.infrastructure.core.exception.PlatformApiDataValidationException;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
+import org.apache.fineract.infrastructure.security.datascope.DataScope;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -42,10 +43,11 @@ public final class RoleDataValidator {
     public static final String ID = "id";
     public static final String NAME = "name";
     public static final String DESCRIPTION = "description";
+    public static final String DATA_SCOPE = "dataScope";
     /**
      * The parameters supported for this command.
      */
-    private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList(ID, NAME, DESCRIPTION));
+    private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList(ID, NAME, DESCRIPTION, DATA_SCOPE));
     public static final String ROLE = "role";
 
     private final FromJsonHelper fromApiJsonHelper;
@@ -74,6 +76,8 @@ public final class RoleDataValidator {
         final String description = this.fromApiJsonHelper.extractStringNamed(DESCRIPTION, element);
         baseDataValidator.reset().parameter(DESCRIPTION).value(description).notBlank().notExceedingLengthOf(500);
 
+        validateDataScope(element, baseDataValidator);
+
         throwExceptionIfValidationWarningsExist(dataValidationErrors);
     }
 
@@ -100,7 +104,19 @@ public final class RoleDataValidator {
             baseDataValidator.reset().parameter(DESCRIPTION).value(description).notBlank().notExceedingLengthOf(500);
         }
 
+        if (this.fromApiJsonHelper.parameterExists(DATA_SCOPE, element)) {
+            validateDataScope(element, baseDataValidator);
+        }
+
         throwExceptionIfValidationWarningsExist(dataValidationErrors);
+    }
+
+    private void validateDataScope(final JsonElement element, final DataValidatorBuilder baseDataValidator) {
+        final String dataScope = this.fromApiJsonHelper.extractStringNamed(DATA_SCOPE, element);
+        if (StringUtils.isNotBlank(dataScope) && !DataScope.isValid(dataScope)) {
+            baseDataValidator.reset().parameter(DATA_SCOPE).value(dataScope);
+            baseDataValidator.failWithCode("is.not.one.of.enum.values", "ALL, OFFICE, ASSIGNED");
+        }
     }
 
     private void throwExceptionIfValidationWarningsExist(final List<ApiParameterError> dataValidationErrors) {

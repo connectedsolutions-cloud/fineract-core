@@ -44,4 +44,3 @@ public final class RepaymentScheduledItemData implements Serializable {
     /** "Completado" | "Pendiente". */
     private final String status;
 }
-

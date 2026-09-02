@@ -25,9 +25,9 @@ public interface PendingStepWritePlatformService {
     PendingStepData update(Long id, String json);
 
     /**
-     * Completes the step and optionally creates the next step (lazy creation).
-     * Request JSON may include: "note" (for the completed step), and "nextStep" with optional
-     * responsableUserId, dueDate, references, note for the newly created next step.
+     * Completes the step and optionally creates the next step (lazy creation). Request JSON may include: "note" (for
+     * the completed step), and "nextStep" with optional responsableUserId, dueDate, references, note for the newly
+     * created next step.
      */
     PendingStepData complete(Long id, String json);
 

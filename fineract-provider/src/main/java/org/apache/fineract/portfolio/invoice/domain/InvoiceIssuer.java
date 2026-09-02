@@ -186,4 +186,3 @@ public class InvoiceIssuer extends AbstractPersistableCustom<Long> {
         this.codPuntoVenta = codPuntoVenta;
     }
 }
-

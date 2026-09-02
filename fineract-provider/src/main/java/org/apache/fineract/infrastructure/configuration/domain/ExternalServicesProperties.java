@@ -31,6 +31,7 @@ import lombok.experimental.Accessors;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.configuration.data.ExternalServicesPropertiesData;
 import org.apache.fineract.infrastructure.configuration.service.ExternalServicesConstants.ExternalservicePropertiesJSONinputParams;
+import org.apache.fineract.infrastructure.configuration.service.ExternalServicesConstants.ResendJSONinputParams;
 import org.apache.fineract.infrastructure.configuration.service.ExternalServicesConstants.SMTPJSONinputParams;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
 
@@ -61,16 +62,21 @@ public class ExternalServicesProperties {
         final String valueParamName = ExternalservicePropertiesJSONinputParams.VALUE.getValue();
         if (command.isChangeInStringParameterNamed(paramName, this.value)) {
             final String newValue = command.stringValueOfParameterNamed(paramName);
-            if (paramName.equals(SMTPJSONinputParams.PASSWORD.getValue()) && newValue.equals("XXXX")) {
-                // If Param Name is Password and ParamValue is XXXX that means
-                // the password has not been changed.
-            } else {
-                actualChanges.put(valueParamName, newValue);
+            if (isUnchangedSecret(paramName, newValue)) {
+                return actualChanges;
             }
+            actualChanges.put(valueParamName, newValue);
             this.value = StringUtils.defaultIfEmpty(newValue, null);
         }
 
         return actualChanges;
+    }
+
+    private static boolean isUnchangedSecret(final String paramName, final String newValue) {
+        if (paramName.equals(SMTPJSONinputParams.PASSWORD.getValue()) && "XXXX".equals(newValue)) {
+            return true;
+        }
+        return paramName.equals(ResendJSONinputParams.API_KEY.getValue()) && newValue != null && newValue.contains("*");
     }
 
     public ExternalServicesPropertiesData toData() {

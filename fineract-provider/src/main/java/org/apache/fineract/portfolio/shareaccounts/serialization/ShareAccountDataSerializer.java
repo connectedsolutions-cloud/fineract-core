@@ -105,7 +105,8 @@ public class ShareAccountDataSerializer {
 
     private static final Set<String> addtionalSharesParameters = new HashSet<>(Arrays.asList(ShareAccountApiConstants.locale_paramname,
             ShareAccountApiConstants.requesteddate_paramname, ShareAccountApiConstants.requestedshares_paramname,
-            ShareAccountApiConstants.purchasedprice_paramname, ShareAccountApiConstants.dateformat_paramname));
+            ShareAccountApiConstants.purchasedprice_paramname, ShareAccountApiConstants.paymenttypeid_paramname,
+            ShareAccountApiConstants.dateformat_paramname));
 
     @Autowired
     public ShareAccountDataSerializer(final PlatformSecurityContext platformSecurityContext, final FromJsonHelper fromApiJsonHelper,
@@ -165,6 +166,9 @@ public class ShareAccountDataSerializer {
 
         LocalDate applicationDate = this.fromApiJsonHelper.extractLocalDateNamed(ShareAccountApiConstants.applicationdate_param, element);
         baseDataValidator.reset().parameter(ShareAccountApiConstants.applicationdate_param).value(applicationDate).notNull();
+        final Long paymentTypeId = this.fromApiJsonHelper.extractLongNamed(ShareAccountApiConstants.paymenttypeid_paramname, element);
+        baseDataValidator.reset().parameter(ShareAccountApiConstants.paymenttypeid_paramname).value(paymentTypeId).ignoreIfNull()
+                .longGreaterThanZero();
 
         Boolean allowdividendsForInactiveClients = this.fromApiJsonHelper
                 .extractBooleanNamed(ShareAccountApiConstants.allowdividendcalculationforinactiveclients_paramname, element);
@@ -211,7 +215,7 @@ public class ShareAccountDataSerializer {
         Long approvedShares = null;
         Long pendingShares = requestedShares;
         BigDecimal unitPrice = shareProduct.deriveMarketPrice(applicationDate);
-        ShareAccountTransaction transaction = new ShareAccountTransaction(applicationDate, requestedShares, unitPrice);
+        ShareAccountTransaction transaction = new ShareAccountTransaction(applicationDate, requestedShares, unitPrice, paymentTypeId);
         Set<ShareAccountTransaction> sharesPurchased = new HashSet<>();
         sharesPurchased.add(transaction);
 
@@ -316,6 +320,7 @@ public class ShareAccountDataSerializer {
         }
 
         LocalDate existingApplicationDate = null;
+        Long existingPaymentTypeId = null;
         List<ShareAccountTransaction> purchaseTransactionsList = new ArrayList<>();
         Set<ShareAccountCharge> chargesList = new HashSet<>();
 
@@ -329,8 +334,9 @@ public class ShareAccountDataSerializer {
                     transaction.setActive(false);
                     if (!transaction.isChargeTransaction()) {
                         existingApplicationDate = transaction.getPurchasedDate();
+                        existingPaymentTypeId = transaction.getPaymentTypeId();
                         ShareAccountTransaction newtransaction = new ShareAccountTransaction(transaction.getPurchasedDate(),
-                                transaction.getTotalShares(), transaction.getPurchasePrice());
+                                transaction.getTotalShares(), transaction.getPurchasePrice(), transaction.getPaymentTypeId());
                         purchaseTransactionsList.add(newtransaction);
                     }
                 }
@@ -363,7 +369,13 @@ public class ShareAccountDataSerializer {
                 applicationDate = existingApplicationDate;
             }
             BigDecimal unitPrice = shareProduct.deriveMarketPrice(applicationDate);
-            ShareAccountTransaction transaction = new ShareAccountTransaction(applicationDate, requestedShares, unitPrice);
+            Long paymentTypeId = existingPaymentTypeId;
+            if (this.fromApiJsonHelper.parameterExists(ShareAccountApiConstants.paymenttypeid_paramname, element)) {
+                paymentTypeId = this.fromApiJsonHelper.extractLongNamed(ShareAccountApiConstants.paymenttypeid_paramname, element);
+                baseDataValidator.reset().parameter(ShareAccountApiConstants.paymenttypeid_paramname).value(paymentTypeId).ignoreIfNull()
+                        .longGreaterThanZero();
+            }
+            ShareAccountTransaction transaction = new ShareAccountTransaction(applicationDate, requestedShares, unitPrice, paymentTypeId);
             purchaseTransactionsList.add(transaction);
             actualChanges.put(ShareAccountApiConstants.requestedshares_paramname, "Transaction");
 
@@ -696,6 +708,9 @@ public class ShareAccountDataSerializer {
         baseDataValidator.reset().parameter(ShareAccountApiConstants.requesteddate_paramname).value(requestedDate).notNull();
         final Long sharesRequested = this.fromApiJsonHelper.extractLongNamed(ShareAccountApiConstants.requestedshares_paramname, element);
         baseDataValidator.reset().parameter(ShareAccountApiConstants.requestedshares_paramname).value(sharesRequested).notNull();
+        final Long paymentTypeId = this.fromApiJsonHelper.extractLongNamed(ShareAccountApiConstants.paymenttypeid_paramname, element);
+        baseDataValidator.reset().parameter(ShareAccountApiConstants.paymenttypeid_paramname).value(paymentTypeId).ignoreIfNull()
+                .longGreaterThanZero();
         ShareProduct shareProduct = account.getShareProduct();
         if (sharesRequested != null) {
             Long totalSharesAfterapproval = account.getTotalApprovedShares() + sharesRequested;
@@ -725,7 +740,7 @@ public class ShareAccountDataSerializer {
             throw new PlatformApiDataValidationException(dataValidationErrors);
         }
         final BigDecimal unitPrice = shareProduct.deriveMarketPrice(requestedDate);
-        ShareAccountTransaction purchaseTransaction = new ShareAccountTransaction(requestedDate, sharesRequested, unitPrice);
+        ShareAccountTransaction purchaseTransaction = new ShareAccountTransaction(requestedDate, sharesRequested, unitPrice, paymentTypeId);
         account.addAdditionalPurchasedShares(purchaseTransaction);
         handleAdditionalSharesChargeTransactions(account, purchaseTransaction);
         actualChanges.put(ShareAccountApiConstants.additionalshares_paramname, purchaseTransaction);

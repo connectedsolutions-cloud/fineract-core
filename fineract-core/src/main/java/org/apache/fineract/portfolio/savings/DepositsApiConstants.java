@@ -64,6 +64,7 @@ public final class DepositsApiConstants {
     public static final String COMMAND_WAIVE_CHARGE = "waive";
     public static final String COMMAND_PAY_CHARGE = "paycharge";
     public static final String UPDATE_DEPOSIT_AMOUNT = "updateDepositAmount";
+    public static final String sourceRolloverDateParamName = "sourceRolloverDate";
 
     // general
     public static final String localeParamName = "locale";
@@ -91,6 +92,7 @@ public final class DepositsApiConstants {
     public static final String activeParamName = "active";
     public static final String nameParamName = "name";
     public static final String shortNameParamName = "shortName";
+    public static final String numberingCodeParamName = "numberingCode";
     public static final String descriptionParamName = "description";
     public static final String currencyCodeParamName = "currencyCode";
     public static final String digitsAfterDecimalParamName = "digitsAfterDecimal";
@@ -203,6 +205,7 @@ public final class DepositsApiConstants {
     public static final String toSavingsAccountIdParamName = "toSavingsAccountId";
     public static final String savingsAccounts = "savingsAccounts";
     public static final String maturityInstructionIdParamName = "maturityInstructionId";
+    public static final String postMaturityInterestParamName = "postMaturityInterest";
     public static final String transferToSavingsIdParamName = "transferToSavingsId";
 
     public static final String preMatureCloseOnDateParamName = "preMatureCloseOnDate";
@@ -217,7 +220,7 @@ public final class DepositsApiConstants {
      * Deposit Product Parameters
      */
     private static final Set<String> DEPOSIT_PRODUCT_REQUEST_DATA_PARAMETERS = new HashSet<>(Arrays.asList(localeParamName,
-            monthDayFormatParamName, nameParamName, shortNameParamName, descriptionParamName, currencyCodeParamName,
+            monthDayFormatParamName, nameParamName, shortNameParamName, numberingCodeParamName, descriptionParamName, currencyCodeParamName,
             digitsAfterDecimalParamName, inMultiplesOfParamName, nominalAnnualInterestRateParamName, interestCompoundingPeriodTypeParamName,
             interestPostingPeriodTypeParamName, interestCalculationTypeParamName, interestCalculationDaysInYearTypeParamName,
             lockinPeriodFrequencyParamName, lockinPeriodFrequencyTypeParamName, accountingRuleParamName, chargesParamName,

@@ -64,7 +64,9 @@ public class SavingsAccountInterestPostingServiceImpl implements SavingsAccountI
 
         if (backdatedTxnsAllowedTill && savingsAccountData.getSummary().getInterestPostedTillDate() != null) {
             interestPostedToDate = Money.of(savingsAccountData.getCurrency(), savingsAccountData.getSummary().getTotalInterestPosted());
-            savingsAccountData.setStartInterestCalculationDate(savingsAccountData.getSummary().getInterestPostedTillDate());
+            startInterestDate = effectiveInterestCalculationStart(startInterestDate,
+                    savingsAccountData.getSummary().getInterestPostedTillDate());
+            savingsAccountData.setStartInterestCalculationDate(startInterestDate);
         } else {
             savingsAccountData.setStartInterestCalculationDate(startInterestDate);
         }
@@ -113,12 +115,7 @@ public class SavingsAccountInterestPostingServiceImpl implements SavingsAccountI
                     }
                     recalucateDailyBalanceDetails = true;
                 } else {
-                    boolean correctionRequired = false;
-                    if (postingTransaction.isInterestPostingAndNotReversed()) {
-                        correctionRequired = postingTransaction.hasNotAmount(interestEarnedToBePostedForPeriod);
-                    } else {
-                        correctionRequired = postingTransaction.hasNotAmount(interestEarnedToBePostedForPeriod.negated());
-                    }
+                    final boolean correctionRequired = requiresInterestCorrection(postingTransaction, interestEarnedToBePostedForPeriod);
                     if (correctionRequired) {
                         boolean applyWithHoldTaxForOldTransaction = false;
                         postingTransaction.reverse();
@@ -185,6 +182,29 @@ public class SavingsAccountInterestPostingServiceImpl implements SavingsAccountI
         return savingsAccountData;
     }
 
+    static boolean requiresInterestCorrection(final SavingsAccountTransactionData postingTransaction,
+            final Money interestEarnedToBePostedForPeriod) {
+        if (postingTransaction.isReferencedManualInterestPosting()) {
+            // Referenced manual postings are authoritative imported history. Scheduled recalculation must preserve
+            // their source amount even when the current native calculator derives a different historical value.
+            return false;
+        }
+        if (postingTransaction.isInterestPostingAndNotReversed()) {
+            return postingTransaction.hasNotAmount(interestEarnedToBePostedForPeriod);
+        }
+        return postingTransaction.hasNotAmount(interestEarnedToBePostedForPeriod.negated());
+    }
+
+    static LocalDate effectiveInterestCalculationStart(final LocalDate configuredStart, final LocalDate interestPostedTillDate) {
+        if (configuredStart == null) {
+            return interestPostedTillDate;
+        }
+        if (interestPostedTillDate == null) {
+            return configuredStart;
+        }
+        return configuredStart.isAfter(interestPostedTillDate) ? configuredStart : interestPostedTillDate;
+    }
+
     protected SavingsAccountTransactionData findTransactionFor(final LocalDate postingDate,
             final List<SavingsAccountTransactionData> transactions) {
         SavingsAccountTransactionData transaction = null;
@@ -200,18 +220,19 @@ public class SavingsAccountInterestPostingServiceImpl implements SavingsAccountI
     private Money appendPostingPeriodIfAny(final LocalDateInterval periodInterval, Money periodStartingBalance,
             final List<SavingsAccountTransactionData> txs, final MonetaryCurrency monetaryCurrency,
             final SavingsCompoundingInterestPeriodType compoundingPeriodType, final SavingsInterestCalculationType interestCalculationType,
-            final BigDecimal interestRateAsFraction, final int daysInYear, final LocalDate upToInterestCalculationDate,
-            final Collection<Long> interestPostTransactions, final boolean isInterestTransfer, final Money minBalanceForInterestCalculation,
-            final boolean isSavingsInterestPostingAtCurrentPeriodEnd, final BigDecimal overdraftInterestRateAsFraction,
-            final Money minOverdraftForInterestCalculation, final boolean isUserPosting, final Integer financialYearBeginningMonth,
-            final boolean allowOverdraft, final List<PostingPeriod> allPostingPeriods, Boolean isOverdraftTransacction) {
+            final BigDecimal interestRateAsFraction, final SavingsInterestCalculationDaysInYearType daysInYearType,
+            final LocalDate upToInterestCalculationDate, final Collection<Long> interestPostTransactions, final boolean isInterestTransfer,
+            final Money minBalanceForInterestCalculation, final boolean isSavingsInterestPostingAtCurrentPeriodEnd,
+            final BigDecimal overdraftInterestRateAsFraction, final Money minOverdraftForInterestCalculation, final boolean isUserPosting,
+            final Integer financialYearBeginningMonth, final boolean allowOverdraft, final List<PostingPeriod> allPostingPeriods,
+            Boolean isOverdraftTransacction) {
 
         if (txs == null || txs.isEmpty()) {
             return periodStartingBalance;
         }
 
         final PostingPeriod postingPeriod = PostingPeriod.createFromDTO(periodInterval, periodStartingBalance, txs, monetaryCurrency,
-                compoundingPeriodType, interestCalculationType, interestRateAsFraction, daysInYear, upToInterestCalculationDate,
+                compoundingPeriodType, interestCalculationType, interestRateAsFraction, daysInYearType, upToInterestCalculationDate,
                 interestPostTransactions, isInterestTransfer, minBalanceForInterestCalculation, isSavingsInterestPostingAtCurrentPeriodEnd,
                 overdraftInterestRateAsFraction, minOverdraftForInterestCalculation, isUserPosting, financialYearBeginningMonth,
                 allowOverdraft);
@@ -267,8 +288,8 @@ public class SavingsAccountInterestPostingServiceImpl implements SavingsAccountI
             postedAsOnDates.add(postInterestOnDate);
         }
         final List<LocalDateInterval> postingPeriodIntervals = this.savingsHelper.determineInterestPostingPeriods(
-                savingsAccountData.getStartInterestCalculationDate(), upToInterestCalculationDate, postingPeriodType,
-                financialYearBeginningMonth, postedAsOnDates);
+                savingsAccountData.getStartInterestCalculationDate(), savingsAccountData.getActivationLocalDate(),
+                upToInterestCalculationDate, postingPeriodType, financialYearBeginningMonth, postedAsOnDates);
 
         final List<PostingPeriod> allPostingPeriods = new ArrayList<>();
 
@@ -318,14 +339,14 @@ public class SavingsAccountInterestPostingServiceImpl implements SavingsAccountI
                         : overdraftTxs;
 
                 periodStartingBalance = appendPostingPeriodIfAny(periodInterval, periodStartingBalance, primaryInterestPublication,
-                        monetaryCurrency, compoundingPeriodType, interestCalculationType, interestRateAsFraction, daysInYearType.getValue(),
+                        monetaryCurrency, compoundingPeriodType, interestCalculationType, interestRateAsFraction, daysInYearType,
                         upToInterestCalculationDate, interestPostTransactions, isInterestTransfer, minBalanceForInterestCalculation,
                         isSavingsInterestPostingAtCurrentPeriodEnd, overdraftInterestRateAsFraction, minOverdraftForInterestCalculation,
                         isUserPosting, financialYearBeginningMonth, savingsAccountData.isAllowOverdraft(), allPostingPeriods,
                         isOverdraftAccountType ? true : false);
 
                 periodStartingBalance = appendPostingPeriodIfAny(periodInterval, periodStartingBalance, secondaryInterestPublication,
-                        monetaryCurrency, compoundingPeriodType, interestCalculationType, interestRateAsFraction, daysInYearType.getValue(),
+                        monetaryCurrency, compoundingPeriodType, interestCalculationType, interestRateAsFraction, daysInYearType,
                         upToInterestCalculationDate, interestPostTransactions, isInterestTransfer, minBalanceForInterestCalculation,
                         isSavingsInterestPostingAtCurrentPeriodEnd, overdraftInterestRateAsFraction, minOverdraftForInterestCalculation,
                         isUserPosting, financialYearBeginningMonth, savingsAccountData.isAllowOverdraft(), allPostingPeriods,
@@ -334,7 +355,7 @@ public class SavingsAccountInterestPostingServiceImpl implements SavingsAccountI
             } else {
                 periodStartingBalance = appendPostingPeriodIfAny(periodInterval, periodStartingBalance,
                         retreiveOrderedNonInterestPostingTransactions(savingsAccountData), monetaryCurrency, compoundingPeriodType,
-                        interestCalculationType, interestRateAsFraction, daysInYearType.getValue(), upToInterestCalculationDate,
+                        interestCalculationType, interestRateAsFraction, daysInYearType, upToInterestCalculationDate,
                         interestPostTransactions, isInterestTransfer, minBalanceForInterestCalculation,
                         isSavingsInterestPostingAtCurrentPeriodEnd, overdraftInterestRateAsFraction, minOverdraftForInterestCalculation,
                         isUserPosting, financialYearBeginningMonth, savingsAccountData.isAllowOverdraft(), allPostingPeriods, false);
@@ -573,11 +594,17 @@ public class SavingsAccountInterestPostingServiceImpl implements SavingsAccountI
         final List<SavingsAccountTransactionData> withholdTransactions = new ArrayList<>();
         List<SavingsAccountTransactionData> trans = savingsAccountData.getSavingsAccountTransactionData();
         for (final SavingsAccountTransactionData transaction : trans) {
-            if (transaction.isWithHoldTaxAndNotReversed()) {
+            if (isEligibleWithholdCorrection(transaction)) {
                 withholdTransactions.add(transaction);
             }
         }
         return withholdTransactions;
+    }
+
+    static boolean isEligibleWithholdCorrection(final SavingsAccountTransactionData transaction) {
+        // Imported withholding-tax events have their own source identity and
+        // must never be consumed by a date-only native interest correction.
+        return transaction.isWithHoldTaxAndNotReversed() && !transaction.isReferencedWithHoldTax();
     }
 
     private boolean createWithHoldTransaction(final BigDecimal amount, final LocalDate date, final SavingsAccountData savingsAccountData) {

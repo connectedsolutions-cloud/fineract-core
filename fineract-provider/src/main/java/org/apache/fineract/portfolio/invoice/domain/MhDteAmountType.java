@@ -12,7 +12,8 @@ public enum MhDteAmountType {
             throw new GeneralPlatformDomainRuleException("validation.msg.mh.dte.amount.type.required", "dteAmountType is required");
         }
         String v = value.trim();
-        return Arrays.stream(values()).filter(e -> e.name().equals(v)).findFirst().orElseThrow(
-                () -> new GeneralPlatformDomainRuleException("validation.msg.mh.dte.amount.type.invalid", "Invalid dteAmountType: " + value));
+        return Arrays.stream(values()).filter(e -> e.name().equals(v)).findFirst()
+                .orElseThrow(() -> new GeneralPlatformDomainRuleException("validation.msg.mh.dte.amount.type.invalid",
+                        "Invalid dteAmountType: " + value));
     }
 }

@@ -1,0 +1,16 @@
+{
+  "captured_on": "2026-08-30",
+  "source": "Local Fineract default tenant acc_gl_account",
+  "files": {
+    "chart_of_accounts.csv": {
+      "rows": 2523,
+      "sha256": "c30a38eaceae89edcd56dda4131a2dbdbd767454423a64c22702f541f985bd27"
+    }
+  },
+  "invariants": {
+    "unique_gl_codes": 2523,
+    "root_accounts": 9,
+    "max_level": 9,
+    "all_tags_null": true
+  }
+}

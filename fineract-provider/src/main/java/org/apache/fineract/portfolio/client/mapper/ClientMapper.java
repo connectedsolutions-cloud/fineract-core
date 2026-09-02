@@ -18,6 +18,8 @@
  */
 package org.apache.fineract.portfolio.client.mapper;
 
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.fineract.infrastructure.codes.data.CodeValueData;
 import org.apache.fineract.infrastructure.codes.domain.CodeValue;
 import org.apache.fineract.infrastructure.core.config.MapstructMapperConfig;
@@ -26,8 +28,6 @@ import org.apache.fineract.portfolio.client.data.ClientData;
 import org.apache.fineract.portfolio.client.data.ClientTagData;
 import org.apache.fineract.portfolio.client.data.ClientTimelineData;
 import org.apache.fineract.portfolio.client.domain.Client;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.fineract.portfolio.client.domain.ClientEnumerations;
 import org.apache.fineract.useradministration.domain.AppUser;
 import org.mapstruct.Mapper;

@@ -5,6 +5,7 @@ import java.time.LocalTime;
 import java.util.List;
 
 public class InvoiceCreateRequest {
+
     private Long loanTransactionId;
     private Long savingsTransactionId;
     private Long clientTransactionId;
@@ -168,4 +169,3 @@ public class InvoiceCreateRequest {
         this.lines = lines;
     }
 }
-

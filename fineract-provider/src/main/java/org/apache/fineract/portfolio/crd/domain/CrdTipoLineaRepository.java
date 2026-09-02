@@ -21,5 +21,4 @@ package org.apache.fineract.portfolio.crd.domain;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-public interface CrdTipoLineaRepository extends JpaRepository<CrdTipoLinea, String>, JpaSpecificationExecutor<CrdTipoLinea> {
-}
+public interface CrdTipoLineaRepository extends JpaRepository<CrdTipoLinea, String>, JpaSpecificationExecutor<CrdTipoLinea> {}

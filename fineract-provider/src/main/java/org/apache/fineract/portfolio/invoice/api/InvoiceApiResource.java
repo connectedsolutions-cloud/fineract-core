@@ -92,4 +92,3 @@ public class InvoiceApiResource {
         return invoiceService.toInvoiceData(invoiceMhValidationService.submitMhValidationByClientTransactionId(clientTransactionId));
     }
 }
-

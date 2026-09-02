@@ -57,6 +57,7 @@
         <class>org.apache.fineract.portfolio.client.domain.Client</class>
         <class>org.apache.fineract.portfolio.client.domain.ClientTag</class>
         <class>org.apache.fineract.portfolio.client.domain.ClientTagMapping</class>
+        <class>org.apache.fineract.portfolio.client.domain.CredesalClientStaffAssignment</class>
         <class>org.apache.fineract.infrastructure.event.external.repository.domain.ExternalEventConfiguration</class>
         <class>org.apache.fineract.portfolio.group.domain.GroupRole</class>
         <class>org.apache.fineract.portfolio.paymenttype.domain.PaymentType</class>
@@ -206,6 +207,7 @@
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanStatusChangeHistory</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanTermVariations</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanTopupDetails</class>
+        <class>org.apache.fineract.portfolio.loanaccount.domain.LoanRefinancingSettlement</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanTrancheCharge</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanTrancheDisbursementCharge</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction</class>
@@ -310,6 +312,7 @@
 
         <!-- User Administration -->
         <class>org.apache.fineract.useradministration.domain.AppUserPreviousPassword</class>
+        <class>org.apache.fineract.useradministration.domain.AppUserPasswordResetToken</class>
         <class>org.apache.fineract.useradministration.domain.PasswordValidationPolicy</class>
 
         <!-- SPM (Smart Pilot Module) -->
@@ -377,7 +380,7 @@
         <class>org.apache.fineract.portfolio.pendiente.domain.PendingFlowBlueprint</class>
         <class>org.apache.fineract.portfolio.pendiente.domain.PendingFlow</class>
         <class>org.apache.fineract.portfolio.pendiente.domain.PendingStep</class>
-        
+
         <!-- Invoice Module Entities -->
         <class>org.apache.fineract.portfolio.invoice.domain.Invoice</class>
         <class>org.apache.fineract.portfolio.invoice.domain.InvoiceLine</class>
@@ -387,6 +390,14 @@
         <class>org.apache.fineract.portfolio.invoice.domain.MhCompanyConfig</class>
         <class>org.apache.fineract.portfolio.invoice.domain.InvoiceSummary</class>
         <class>org.apache.fineract.portfolio.invoice.domain.MhDteItemComponent</class>
+
+        <!-- Mobile Collection Routes -->
+        <class>org.apache.fineract.portfolio.mobilecollection.domain.MobileCollectionRoute</class>
+        <class>org.apache.fineract.portfolio.mobilecollection.domain.MobileCollectionAssignment</class>
+
+        <!-- Credesal naming sequences -->
+        <class>org.apache.fineract.portfolio.namingsequence.domain.CredesalNamingSequence</class>
+        <class>org.apache.fineract.portfolio.namingsequence.domain.CredesalNamingReservation</class>
 
         <exclude-unlisted-classes>false</exclude-unlisted-classes>
         <properties>

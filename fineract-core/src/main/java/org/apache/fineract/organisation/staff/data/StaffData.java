@@ -95,8 +95,8 @@ public final class StaffData implements Serializable {
 
     public static StaffData templateData(final StaffData staff, final Collection<OfficeData> allowedOffices) {
         return new StaffData(staff.id, staff.firstname, staff.lastname, staff.displayName, staff.officeId, staff.officeName,
-                staff.officeIds, staff.offices, staff.isLoanOfficer, staff.externalId, staff.mobileNo, staff.emailAddress, allowedOffices, staff.isActive,
-                staff.joiningDate);
+                staff.officeIds, staff.offices, staff.isLoanOfficer, staff.externalId, staff.mobileNo, staff.emailAddress, allowedOffices,
+                staff.isActive, staff.joiningDate);
     }
 
     public static StaffData lookup(final Long id, final String displayName) {
@@ -106,8 +106,7 @@ public final class StaffData implements Serializable {
     // Backward compatibility method - single office
     public static StaffData instance(final Long id, final String firstname, final String lastname, final String displayName,
             final Long officeId, final String officeName, final Boolean isLoanOfficer, final String externalId, final String mobileNo,
-            final String emailAddress,
-            final boolean isActive, final LocalDate joiningDate) {
+            final String emailAddress, final boolean isActive, final LocalDate joiningDate) {
         final List<Long> officeIdsList = officeId != null ? List.of(officeId) : null;
         return new StaffData(id, firstname, lastname, displayName, officeId, officeName, officeIdsList, null, isLoanOfficer, externalId,
                 mobileNo, emailAddress, null, isActive, joiningDate);
@@ -124,8 +123,8 @@ public final class StaffData implements Serializable {
 
     private StaffData(final Long id, final String firstname, final String lastname, final String displayName, final Long officeId,
             final String officeName, final List<Long> officeIds, final Collection<OfficeData> offices, final Boolean isLoanOfficer,
-            final String externalId, final String mobileNo, final String emailAddress, final Collection<OfficeData> allowedOffices, final Boolean isActive,
-            final LocalDate joiningDate) {
+            final String externalId, final String mobileNo, final String emailAddress, final Collection<OfficeData> allowedOffices,
+            final Boolean isActive, final LocalDate joiningDate) {
         this.id = id;
         this.firstname = firstname;
         this.lastname = lastname;

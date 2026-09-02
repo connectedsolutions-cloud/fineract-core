@@ -24,4 +24,10 @@ import lombok.Data;
 public class ClientTextSearch {
 
     private String text;
+    private Long officeId;
+    private String status;
+    private Long tagId;
+    private Long promoterStaffId;
+    private Long accountExecutiveStaffId;
+    private Long collectionsManagerStaffId;
 }

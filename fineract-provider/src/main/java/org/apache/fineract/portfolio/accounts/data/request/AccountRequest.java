@@ -37,6 +37,7 @@ public class AccountRequest implements Serializable {
     private Long productId;
     private Integer digitsAfterDecimal;
     private Long requestedShares;
+    private Long paymentTypeId;
     private String dateFormat;
     private Integer minimumActivePeriod;
     private Long numberOfShares;

@@ -13,8 +13,10 @@ class SqlWritePolicy:
 
     ALLOWED: dict[str, frozenset[str]] = {
         "clients": frozenset(),
+        "loans": frozenset({"upsert_loan_product_crosswalk"}),
         "membership-share-capital": frozenset({"upsert_membership_archive"}),
         "aml-alerts": frozenset({"upsert_aml_alerts"}),
+        "mobile-collections": frozenset({"upsert_mobile_collection_metadata"}),
     }
 
     @classmethod

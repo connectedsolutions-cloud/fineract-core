@@ -186,6 +186,8 @@ final class LoanChargesApiResourceSwagger {
         public String dateFormat;
         @Schema(example = "29 April 2013")
         public String dueDate;
+        @Schema(description = "Optional first eligible installment date for percentage-of-outstanding-principal installment charges", example = "30 April 2013")
+        public String submittedOnDate;
         @Schema(example = "786444UUUYYH7")
         public String externalId;
     }

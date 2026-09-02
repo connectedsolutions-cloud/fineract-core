@@ -58,8 +58,8 @@ public final class StaffCommandFromApiJsonDeserializer {
     /**
      * The parameters supported for this command.
      */
-    private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList(FIRSTNAME, LASTNAME, OFFICE_ID, OFFICE_IDS, EXTERNAL_ID,
-            MOBILE_NO, EMAIL_ADDRESS, IS_LOAN_OFFICER, IS_ACTIVE, JOINING_DATE, DATE_FORMAT, LOCALE, FORCE_STATUS));
+    private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList(FIRSTNAME, LASTNAME, OFFICE_ID, OFFICE_IDS,
+            EXTERNAL_ID, MOBILE_NO, EMAIL_ADDRESS, IS_LOAN_OFFICER, IS_ACTIVE, JOINING_DATE, DATE_FORMAT, LOCALE, FORCE_STATUS));
 
     private final FromJsonHelper fromApiJsonHelper;
 
@@ -112,7 +112,7 @@ public final class StaffCommandFromApiJsonDeserializer {
             final Long officeId = this.fromApiJsonHelper.extractLongNamed(OFFICE_ID, element);
             baseDataValidator.reset().parameter(OFFICE_ID).value(officeId).notNull().integerGreaterThanZero();
         }
-        
+
         if (!officeProvided) {
             baseDataValidator.reset().parameter(OFFICE_IDS).value(null).failWithCode("error.msg.staff.office.required",
                     "At least one office must be assigned to the staff");
@@ -184,7 +184,7 @@ public final class StaffCommandFromApiJsonDeserializer {
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("staff");
 
         final JsonElement element = this.fromApiJsonHelper.parse(json);
-        
+
         // Handle officeIds array (multiple offices) or single officeId for backward compatibility
         if (this.fromApiJsonHelper.parameterExists(OFFICE_IDS, element)) {
             final String[] officeIdsStr = this.fromApiJsonHelper.extractArrayNamed(OFFICE_IDS, element);
@@ -222,7 +222,6 @@ public final class StaffCommandFromApiJsonDeserializer {
             final String mobileNo = this.fromApiJsonHelper.extractStringNamed(ClientApiConstants.mobileNoParamName, element);
             baseDataValidator.reset().parameter(ClientApiConstants.mobileNoParamName).value(mobileNo).notExceedingLengthOf(50);
         }
-
 
         if (this.fromApiJsonHelper.parameterExists(EMAIL_ADDRESS, element)) {
             final String emailAddress = this.fromApiJsonHelper.extractStringNamed(EMAIL_ADDRESS, element);

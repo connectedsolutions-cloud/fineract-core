@@ -37,13 +37,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import org.apache.fineract.accounting.journalentry.data.TaxPaymentDTO;
-import org.apache.fineract.accounting.journalentry.service.AccountingProcessorHelper;
-import org.apache.fineract.portfolio.invoice.service.InvoiceService;
-import org.apache.fineract.portfolio.tax.domain.TaxComponent;
-import org.apache.fineract.portfolio.tax.service.TaxUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.fineract.accounting.journalentry.data.TaxPaymentDTO;
+import org.apache.fineract.accounting.journalentry.service.AccountingProcessorHelper;
 import org.apache.fineract.infrastructure.configuration.service.TemporaryConfigurationServiceContainer;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.domain.ExternalId;
@@ -52,6 +49,7 @@ import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.organisation.monetary.domain.Money;
 import org.apache.fineract.portfolio.charge.domain.Charge;
 import org.apache.fineract.portfolio.charge.domain.ChargeTimeType;
+import org.apache.fineract.portfolio.invoice.service.InvoiceService;
 import org.apache.fineract.portfolio.loanaccount.api.LoanApiConstants;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanCharge;
@@ -64,6 +62,8 @@ import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepositor
 import org.apache.fineract.portfolio.loanaccount.serialization.LoanChargeValidator;
 import org.apache.fineract.portfolio.loanaccount.serialization.LoanDisbursementValidator;
 import org.apache.fineract.portfolio.paymentdetail.domain.PaymentDetail;
+import org.apache.fineract.portfolio.tax.domain.TaxComponent;
+import org.apache.fineract.portfolio.tax.service.TaxUtils;
 import org.springframework.lang.NonNull;
 
 @Slf4j
@@ -279,7 +279,8 @@ public class LoanDisbursementService {
             loan.addLoanTransaction(chargesPayment);
             loanTransactionRepository.saveAndFlush(chargesPayment);
             loanJournalEntryPoster.postJournalEntriesForLoanTransaction(chargesPayment, false, false);
-            // Tax events for due-at-disbursement charges that have a tax group (e.g. percent-of-amount-reduce-disbursal)
+            // Tax events for due-at-disbursement charges that have a tax group (e.g.
+            // percent-of-amount-reduce-disbursal)
             final List<TaxPaymentDTO> taxPayments = new ArrayList<>();
             final int scale = loan.getCurrency().getDigitsAfterDecimal();
             for (final LoanChargePaidBy paidBy : chargesPayment.getLoanChargesPaid()) {
@@ -289,8 +290,7 @@ public class LoanDisbursementService {
                     final Map<TaxComponent, BigDecimal> split = TaxUtils.splitTax(lc.amount(), disbursedOn,
                             lc.getCharge().getTaxGroup().getTaxGroupMappings(), scale);
                     for (final Map.Entry<TaxComponent, BigDecimal> e : split.entrySet()) {
-                        if (e.getValue() != null && e.getValue().compareTo(BigDecimal.ZERO) > 0
-                                && e.getKey().getCreditAcount() != null) {
+                        if (e.getValue() != null && e.getValue().compareTo(BigDecimal.ZERO) > 0 && e.getKey().getCreditAcount() != null) {
                             taxPayments.add(new TaxPaymentDTO(null, e.getKey().getCreditAcount().getId(), e.getValue()));
                         }
                     }
@@ -299,7 +299,8 @@ public class LoanDisbursementService {
             if (!taxPayments.isEmpty()) {
                 final String transactionId = AccountingProcessorHelper.LOAN_TRANSACTION_IDENTIFIER + chargesPayment.getId();
                 final Long paymentTypeId = paymentDetail != null && paymentDetail.getPaymentType() != null
-                        ? paymentDetail.getPaymentType().getId() : null;
+                        ? paymentDetail.getPaymentType().getId()
+                        : null;
                 accountingProcessorHelper.createJournalEntriesForLoanChargeTax(loan.getOffice(), loan.getCurrencyCode(),
                         loan.getLoanProduct().getId(), loan.getId(), paymentTypeId, transactionId, disbursedOn, taxPayments,
                         loan.getDimensions());

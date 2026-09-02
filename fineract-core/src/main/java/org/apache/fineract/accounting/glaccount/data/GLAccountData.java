@@ -84,8 +84,8 @@ public class GLAccountData implements Serializable {
     public static GLAccountData importInstance(String name, Long parentId, String glCode, Boolean manualEntriesAllowed, EnumOptionData type,
             EnumOptionData usage, String description, CodeValueData tagId, Integer rowIndex, Integer accLevel, Integer accLastLevel) {
         return new GLAccountData().setName(name).setParentId(parentId).setGlCode(glCode).setManualEntriesAllowed(manualEntriesAllowed)
-                .setType(type).setUsage(usage).setDescription(description).setTagId(tagId).setRowIndex(rowIndex)
-                .setAccLevel(accLevel).setAccLastLevel(accLastLevel);
+                .setType(type).setUsage(usage).setDescription(description).setTagId(tagId).setRowIndex(rowIndex).setAccLevel(accLevel)
+                .setAccLastLevel(accLastLevel);
     }
 
     public static GLAccountData createFrom(final Long id) {
