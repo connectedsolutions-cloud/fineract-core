@@ -363,6 +363,28 @@ Status meanings:
 | `G5-OPS-002` | `PARTIAL` | Fresh full supported-population execution and reconciliation | 2,493 supported loans plus 19 reviewed no-write quarantines | Full run `7735934d63e54eca9a5dffd920eaae33`, replay `b946bacae2d54fbfa4bdf3610eb77d44`, and repair `7968a558d28747949bded7500bb1eaee` together left no unresolved supported loan: 2,493 supported identities completed and the final two-loan repair reconciled with `ok=true`. Because the successful state is distributed across three runs, it is not the required single accepted full-run baseline. | Build and apply/recover one fresh full plan from the repaired target; require zero failed or dependency-blocked supported loans, strict reconciliation with zero blocking mismatches, and exactly the reviewed 19 quarantines. |
 | `G5-OPS-003` | `BLOCKED` | Full unchanged replay and promotion review | Same plan and target population as `G5-OPS-002` | Idempotency is proved for individual canaries but not yet for the final supported population. | Build/review the second plan or replay the accepted plan as required by the contract; require zero new loans, transactions, charges, paid-by rows, transfers, or journal entries; then review registry promotion. |
 
+#### 2026-09-12 source-exact fee-owner replay regression
+
+Fresh full run `d165c6779b084a5290a721d79b833a56` exposed two related
+Fineract-side replay failures: 475 zero-fee repayments were rejected because a
+historical fee identity survived replay, and 617 fee-bearing repayments could
+not claim an exact historical charge that was already fully paid but had no
+`LoanChargePaidBy` owner. Command-audit evidence confirms that the translator
+omits `feeChargeExternalId` for zero-fee events and sends the exact identity and
+amount for fee-bearing events, so this is not a source-event translation defect.
+
+The Credesal transaction processor now treats a stale fee identity as inert when
+the replayed fee allocation is zero. It may also reclaim an exactly paid charge
+only when that charge has no existing payment-owner row and the requested amount
+matches the charge's paid amount exactly. It continues to fail closed for
+missing charges, amount mismatches, and charges already owned by another
+transaction. The focused processor suite covers all three cases and passes all
+18 tests plus `spotlessJavaCheck`.
+
+The operational gate remains open until a fresh scoped or full loans run on a
+restarted Fineract instance reports zero occurrences of both failure signatures
+and passes strict reconciliation.
+
 #### `G5-SCH-009` clean-run stale-insurance implementation note
 
 The engine now derives `closed-stale-source-insurance-residue` from the full

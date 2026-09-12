@@ -36,6 +36,8 @@ import org.apache.fineract.organisation.monetary.domain.MoneyHelper;
 import org.apache.fineract.organisation.office.domain.Office;
 import org.apache.fineract.portfolio.common.domain.DaysInYearType;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanCharge;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanChargePaidBy;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallment;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
 import org.apache.fineract.portfolio.loanaccount.domain.SourceExactRepaymentAllocation;
@@ -273,6 +275,69 @@ class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest {
 
         assertThrows(RuntimeException.class,
                 () -> processor.processTransaction(repayment, CURRENCY, List.of(installment), new HashSet<>(), null));
+    }
+
+    @Test
+    void sourceExactReplayIgnoresStaleFeeIdentityWhenFeeAllocationIsZero() {
+        final LoanRepaymentScheduleInstallment installment = installment(new BigDecimal("12.01"), new BigDecimal("1.15"));
+        final LoanTransaction repayment = repayment(DUE_DATE, new BigDecimal("13.16"));
+        repayment.markAsSourceExactAllocation(
+                new SourceExactRepaymentAllocation(new BigDecimal("12.01"), new BigDecimal("1.15"), BigDecimal.ZERO, BigDecimal.ZERO),
+                "ARISSTO:CRD-INS:stale");
+
+        processor.processTransaction(repayment, CURRENCY, List.of(installment), new HashSet<>(), null);
+
+        assertMoney("0.00", repayment.getFeeChargesPortion(CURRENCY));
+    }
+
+    @Test
+    void sourceExactReplayReclaimsExactlyPaidChargeWithoutPaymentOwner() {
+        final BigDecimal fee = new BigDecimal("2.18");
+        final LoanRepaymentScheduleInstallment installment = installment(1, LocalDate.of(2026, 5, 28), DUE_DATE, BigDecimal.ZERO,
+                BigDecimal.ZERO, fee);
+        final LoanTransaction repayment = repayment(DUE_DATE, fee);
+        final String chargeExternalId = "ARISSTO:CRD-INS:198057:0000000085:0005";
+        repayment.markAsSourceExactAllocation(new SourceExactRepaymentAllocation(BigDecimal.ZERO, BigDecimal.ZERO, fee, BigDecimal.ZERO),
+                chargeExternalId);
+        final LoanCharge charge = new LoanCharge();
+        charge.setExternalId(new ExternalId(chargeExternalId));
+        charge.setAmount(fee);
+        charge.setAmountPaid(fee);
+        charge.setAmountWaived(BigDecimal.ZERO);
+        charge.setAmountWrittenOff(BigDecimal.ZERO);
+        charge.setAmountOutstanding(BigDecimal.ZERO);
+        charge.setPaid(true);
+
+        processor.processTransaction(repayment, CURRENCY, List.of(installment), new HashSet<>(List.of(charge)), null);
+
+        assertMoney("2.18", repayment.getFeeChargesPortion(CURRENCY));
+        assertMoney("2.18", charge.getAmountPaid(CURRENCY));
+        assertMoney("0.00", charge.getAmountOutstanding(CURRENCY));
+        assertEquals(1, repayment.getLoanChargesPaid().size());
+    }
+
+    @Test
+    void sourceExactReplayDoesNotStealChargeFromExistingPaymentOwner() {
+        final BigDecimal fee = new BigDecimal("2.18");
+        final LoanRepaymentScheduleInstallment installment = installment(1, LocalDate.of(2026, 5, 28), DUE_DATE, BigDecimal.ZERO,
+                BigDecimal.ZERO, fee);
+        final LoanTransaction repayment = repayment(DUE_DATE, fee);
+        final String chargeExternalId = "ARISSTO:CRD-INS:198057:0000000085:0005";
+        repayment.markAsSourceExactAllocation(new SourceExactRepaymentAllocation(BigDecimal.ZERO, BigDecimal.ZERO, fee, BigDecimal.ZERO),
+                chargeExternalId);
+        final LoanCharge charge = new LoanCharge();
+        charge.setExternalId(new ExternalId(chargeExternalId));
+        charge.setAmount(fee);
+        charge.setAmountPaid(fee);
+        charge.setAmountWaived(BigDecimal.ZERO);
+        charge.setAmountWrittenOff(BigDecimal.ZERO);
+        charge.setAmountOutstanding(BigDecimal.ZERO);
+        charge.setPaid(true);
+        final LoanTransaction existingOwner = repayment(DUE_DATE.minusDays(1), fee);
+        charge.getLoanChargePaidBySet().add(new LoanChargePaidBy(existingOwner, charge, fee, null));
+
+        assertThrows(RuntimeException.class,
+                () -> processor.processTransaction(repayment, CURRENCY, List.of(installment), new HashSet<>(List.of(charge)), null));
     }
 
     @Test

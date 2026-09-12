@@ -173,14 +173,23 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
         }
         final Money requested = loanTransaction.getSourceExactFeeChargesPortion(currency);
         if (!requested.isGreaterThanZero()) {
-            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.fee.charge.unexpected",
-                    "A source-exact fee charge identity requires a positive fee allocation");
+            // A replayed migration transaction can retain the historical charge identity even when its source-exact
+            // fee component is zero. The identity has no financial effect in that case and must not block later events.
+            return;
         }
         final LoanCharge target = charges.stream()
                 .filter(charge -> charge.getExternalId() != null && externalId.equals(charge.getExternalId().getValue())).findFirst()
                 .orElseThrow(() -> new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.fee.charge.missing",
                         "The declared source-exact fee charge does not exist on this loan"));
-        final Money paid = target.updatePaidAmountBy(requested, null, requested.zero());
+        Money paid = target.updatePaidAmountBy(requested, null, requested.zero());
+        if (!paid.isEqualTo(requested) && target.getLoanChargePaidBySet().isEmpty() && target.getAmountPaid(currency).isEqualTo(requested)
+                && target.getAmountOutstanding(currency).isZero()) {
+            // Adding a historical charge reprocesses the loan. Fineract can derive the charge as paid from an earlier
+            // schedule-level fee without creating a charge-paid-by owner. Reclaim only that exact orphaned state so the
+            // source transaction named by feeChargeExternalId becomes the authoritative owner.
+            target.resetPaidAmount(currency);
+            paid = target.updatePaidAmountBy(requested, null, requested.zero());
+        }
         if (!paid.isEqualTo(requested)) {
             throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.fee.charge.not.representable",
                     "The declared source-exact fee charge cannot receive the requested fee allocation");
