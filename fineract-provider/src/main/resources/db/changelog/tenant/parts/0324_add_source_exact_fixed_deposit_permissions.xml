@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0324-1-add-source-exact-fixed-deposit-permissions" author="credesal">
+        <preConditions onFail="HALT">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code IN
+                ('SOURCEEXACTACTIVATE_FIXEDDEPOSITACCOUNT',
+                 'SOURCEEXACTPROCESSMATURITY_FIXEDDEPOSITACCOUNT',
+                 'SOURCEEXACTCLOSE_FIXEDDEPOSITACCOUNT')
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="transaction_savings"/>
+            <column name="code" value="SOURCEEXACTACTIVATE_FIXEDDEPOSITACCOUNT"/>
+            <column name="entity_name" value="FIXEDDEPOSITACCOUNT"/>
+            <column name="action_name" value="SOURCEEXACTACTIVATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="transaction_savings"/>
+            <column name="code" value="SOURCEEXACTPROCESSMATURITY_FIXEDDEPOSITACCOUNT"/>
+            <column name="entity_name" value="FIXEDDEPOSITACCOUNT"/>
+            <column name="action_name" value="SOURCEEXACTPROCESSMATURITY"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="transaction_savings"/>
+            <column name="code" value="SOURCEEXACTCLOSE_FIXEDDEPOSITACCOUNT"/>
+            <column name="entity_name" value="FIXEDDEPOSITACCOUNT"/>
+            <column name="action_name" value="SOURCEEXACTCLOSE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <rollback>
+            <delete tableName="m_permission">
+                <where>code IN ('SOURCEEXACTACTIVATE_FIXEDDEPOSITACCOUNT', 'SOURCEEXACTPROCESSMATURITY_FIXEDDEPOSITACCOUNT', 'SOURCEEXACTCLOSE_FIXEDDEPOSITACCOUNT')</where>
+            </delete>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

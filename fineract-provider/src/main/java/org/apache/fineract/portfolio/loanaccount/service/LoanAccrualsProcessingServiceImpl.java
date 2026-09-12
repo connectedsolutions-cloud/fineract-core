@@ -346,10 +346,13 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
         }
 
         final LocalDate lastDueDate = loan.getLastLoanRepaymentScheduleInstallment().getDueDate();
-        log.info("Loan [{}] lastDueDate={}, about to reverse transactions after lastDueDate", loan.getId(), lastDueDate);
-        reverseTransactionsAfter(loan, ACCRUAL_TYPES, lastDueDate, addJournal);
+        final boolean credesalPostMaturityAccrual = isCredesalPostMaturityAccrual(loan, tillDate);
+        if (!isCredesalAccruedInterestStrategy(loan)) {
+            log.info("Loan [{}] lastDueDate={}, about to reverse transactions after lastDueDate", loan.getId(), lastDueDate);
+            reverseTransactionsAfter(loan, ACCRUAL_TYPES, lastDueDate, addJournal);
+        }
         ensureAccrualTransactionMappings(loan, chargeOnDueDate);
-        if (DateUtils.isAfter(tillDate, lastDueDate)) {
+        if (!credesalPostMaturityAccrual && DateUtils.isAfter(tillDate, lastDueDate)) {
             tillDate = lastDueDate;
         }
 
@@ -414,7 +417,8 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
                 if (!isFinal && DateUtils.isAfter(dueDate, tillDate) && DateUtils.isBefore(tillDate, accruedTill)) {
                     continue;
                 }
-                final LocalDate periodAccrualDate = DateUtils.isBefore(dueDate, accrualDate) ? dueDate : accrualDate;
+                final LocalDate periodAccrualDate = credesalPostMaturityAccrual && isLastNormalInstallment(loan, period) ? accrualDate
+                        : (DateUtils.isBefore(dueDate, accrualDate) ? dueDate : accrualDate);
                 final LoanTransaction accrualTransaction = addAccrualTransaction(loan, periodAccrualDate, period, interestPortion,
                         feePortion, penaltyPortion, false);
                 if (accrualTransaction != null) {
@@ -509,6 +513,9 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
         final boolean isInPeriod = isInPeriod(tillDate, installment, false);
         if (isPastPeriod || loan.isClosed() || loanBalanceService.isOverPaid(loan)) {
             interest = installment.getInterestCharged(currency).minus(installment.getCreditedInterest());
+            if (isCredesalPostMaturityAccrual(loan, tillDate) && isLastNormalInstallment(loan, installment)) {
+                interest = interest.plus(calculateUnmaterializedPostMaturityInterest(loan, currency, tillDate));
+            }
         } else {
             if (isInPeriod) { // first period first day is not accrued
                 if (usesActualOutstandingPostDueAccrual(loan, installment, tillDate)) {
@@ -543,10 +550,40 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
 
     private boolean usesActualOutstandingPostDueAccrual(final Loan loan, final LoanRepaymentScheduleInstallment installment,
             final LocalDate tillDate) {
-        return CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor.STRATEGY_CODE.equals(loan.transactionProcessingStrategy())
-                && installment.getDueDate().isAfter(tillDate) && loan.getRepaymentScheduleInstallments().stream()
-                        .filter(candidate -> !candidate.isAdditional() && !candidate.isReAged())
+        return isCredesalAccruedInterestStrategy(loan) && installment.getDueDate().isAfter(tillDate)
+                && loan.getRepaymentScheduleInstallments().stream().filter(candidate -> !candidate.isAdditional() && !candidate.isReAged())
                         .anyMatch(candidate -> candidate.getDueDate().isBefore(tillDate));
+    }
+
+    private Money calculateUnmaterializedPostMaturityInterest(final Loan loan, final MonetaryCurrency currency, final LocalDate tillDate) {
+        return postDueAccruedInterestCalculator.calculateUnmaterializedAccruableThrough(loan, currency,
+                loan.getRepaymentScheduleInstallments(), tillDate);
+    }
+
+    private boolean isCredesalPostMaturityAccrual(final Loan loan, final LocalDate tillDate) {
+        return isCredesalAccruedInterestStrategy(loan) && loan.getRepaymentScheduleInstallments().stream()
+                .filter(installment -> !installment.isAdditional() && !installment.isReAged())
+                .map(LoanRepaymentScheduleInstallment::getDueDate).max(Comparator.naturalOrder())
+                .map(lastDueDate -> lastDueDate.isBefore(tillDate)).orElse(false);
+    }
+
+    private boolean isCredesalAccruedInterestStrategy(final Loan loan) {
+        return CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor.STRATEGY_CODE.equals(loan.transactionProcessingStrategy());
+    }
+
+    private boolean isLastNormalInstallment(final Loan loan, final AccrualPeriodData period) {
+        return loan.getRepaymentScheduleInstallments().stream()
+                .filter(installment -> !installment.isAdditional() && !installment.isReAged())
+                .max(Comparator.comparing(LoanRepaymentScheduleInstallment::getDueDate)
+                        .thenComparing(LoanRepaymentScheduleInstallment::getInstallmentNumber))
+                .map(installment -> installment.getInstallmentNumber().equals(period.getInstallmentNumber())).orElse(false);
+    }
+
+    private boolean isLastNormalInstallment(final Loan loan, final LoanRepaymentScheduleInstallment installment) {
+        return loan.getRepaymentScheduleInstallments().stream().filter(candidate -> !candidate.isAdditional() && !candidate.isReAged())
+                .max(Comparator.comparing(LoanRepaymentScheduleInstallment::getDueDate)
+                        .thenComparing(LoanRepaymentScheduleInstallment::getInstallmentNumber))
+                .map(candidate -> candidate.getInstallmentNumber().equals(installment.getInstallmentNumber())).orElse(false);
     }
 
     @NonNull
@@ -760,8 +797,7 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
             loanCharge.getLoanChargePaidBySet().add(paidBy);
             transaction.getLoanChargesPaid().add(paidBy);
             final Long installmentChargeId = accrualCharge.getLoanInstallmentChargeId();
-            if (installmentChargeId != null
-                    && loanCharge.getInstallmentLoanCharge(installment.getInstallmentNumber()) == null) {
+            if (installmentChargeId != null && loanCharge.getInstallmentLoanCharge(installment.getInstallmentNumber()) == null) {
                 final LoanInstallmentCharge installmentCharge = new LoanInstallmentCharge(chargeAmount, loanCharge, installment);
                 loanCharge.getLoanInstallmentCharge().add(installmentCharge);
                 installment.getInstallmentCharges().add(installmentCharge);
@@ -839,8 +875,10 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
                         addEvent);
             }
         }
-        // reverse accruals after last installment
-        reverseTransactionsAfter(loan, ACCRUAL_TYPES, lastDueDate, addEvent);
+        // Credesal ordinary interest continues after contractual maturity while the loan remains open.
+        if (!isCredesalAccruedInterestStrategy(loan)) {
+            reverseTransactionsAfter(loan, ACCRUAL_TYPES, lastDueDate, addEvent);
+        }
     }
 
     private void reprocessNonPeriodicAccruals(Loan loan, final List<LoanTransaction> accrualTransactions, final boolean addEvent) {
@@ -915,12 +953,15 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
         Money penalty = zero;
         for (LoanTransaction accrualTransaction : accrualTransactions) {
             LocalDate transactionDateForRange = getDateForRangeCalculation(accrualTransaction, isBasedOnSubmittedOnDate);
-            boolean isInPeriod = isInPeriod(transactionDateForRange, installment, installments);
+            boolean isPostMaturityCredesalInterest = isCredesalPostMaturityAccrual(loan, transactionDateForRange)
+                    && isLastNormalInstallment(loan, installment);
+            boolean isInPeriod = isInPeriod(transactionDateForRange, installment, installments) || isPostMaturityCredesalInterest;
             if (isInPeriod) {
                 interest = MathUtil.plus(interest, accrualTransaction.getInterestPortion(currency));
                 fee = MathUtil.plus(fee, accrualTransaction.getFeeChargesPortion(currency));
                 penalty = MathUtil.plus(penalty, accrualTransaction.getPenaltyChargesPortion(currency));
-                if (hasIncomeAmountChangedForInstallment(loan, installment, interest, fee, penalty, accrualTransaction)) {
+                if (hasIncomeAmountChangedForInstallment(loan, installment, interest, fee, penalty, accrualTransaction,
+                        isPostMaturityCredesalInterest)) {
                     interest = interest.minus(accrualTransaction.getInterestPortion(currency));
                     fee = fee.minus(accrualTransaction.getFeeChargesPortion(currency));
                     penalty = penalty.minus(accrualTransaction.getPenaltyChargesPortion(currency));
@@ -938,12 +979,13 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
     }
 
     private boolean hasIncomeAmountChangedForInstallment(Loan loan, LoanRepaymentScheduleInstallment installment, Money interest, Money fee,
-            Money penalty, LoanTransaction loanTransaction) {
+            Money penalty, LoanTransaction loanTransaction, boolean isPostMaturityCredesalInterest) {
         // if installment income amount is changed or if loan is interest bearing and interest income not accrued
         return installment.getFeeChargesCharged(loan.getCurrency()).isLessThan(fee)
-                || installment.getInterestCharged(loan.getCurrency()).isLessThan(interest)
+                || (!isPostMaturityCredesalInterest && installment.getInterestCharged(loan.getCurrency()).isLessThan(interest))
                 || installment.getPenaltyChargesCharged(loan.getCurrency()).isLessThan(penalty)
-                || (loan.isInterestBearing() && DateUtils.isEqual(loan.getAccruedTill(), loanTransaction.getTransactionDate())
+                || (!isPostMaturityCredesalInterest && loan.isInterestBearing()
+                        && DateUtils.isEqual(loan.getAccruedTill(), loanTransaction.getTransactionDate())
                         && !DateUtils.isEqual(loan.getAccruedTill(), installment.getDueDate()));
     }
 

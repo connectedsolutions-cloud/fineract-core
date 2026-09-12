@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.fineract.accounting.cutoff.AccountingCutoffPolicyService;
 import org.apache.fineract.accounting.glaccount.domain.GLAccount;
 import org.apache.fineract.accounting.glaccount.domain.GLAccountRepository;
 import org.apache.fineract.accounting.journalentry.service.JournalEntryWritePlatformService;
@@ -73,6 +74,7 @@ public class ProvisioningEntriesWritePlatformServiceJpaRepositoryImpl implements
     private final PlatformSecurityContext platformSecurityContext;
     private final ProvisioningEntryRepository provisioningEntryRepository;
     private final JournalEntryWritePlatformService journalEntryWritePlatformService;
+    private final AccountingCutoffPolicyService cutoffPolicyService;
     private final ProvisioningEntriesDefinitionJsonDeserializer fromApiJsonDeserializer;
     private final FromJsonHelper fromApiJsonHelper;
 
@@ -88,19 +90,23 @@ public class ProvisioningEntriesWritePlatformServiceJpaRepositoryImpl implements
     }
 
     private void revertAndAddJournalEntries(ProvisioningEntryData existingEntryData, ProvisioningEntry requestedEntry) {
-        if (existingEntryData != null) {
+        final boolean generateAccounting = cutoffPolicyService.shouldGenerateAccounting(requestedEntry.getCreatedDate());
+        if (generateAccounting && existingEntryData != null) {
             validateForCreateJournalEntry(existingEntryData, requestedEntry);
             this.journalEntryWritePlatformService.revertProvisioningJournalEntries(requestedEntry.getCreatedDate(),
                     existingEntryData.getId(), PortfolioProductType.PROVISIONING.getValue());
         }
-        if (requestedEntry.getLoanProductProvisioningEntries() == null || requestedEntry.getLoanProductProvisioningEntries().size() == 0) {
+        if (!generateAccounting || requestedEntry.getLoanProductProvisioningEntries() == null
+                || requestedEntry.getLoanProductProvisioningEntries().size() == 0) {
             requestedEntry.setIsJournalEntryCreated(Boolean.FALSE);
         } else {
             requestedEntry.setIsJournalEntryCreated(Boolean.TRUE);
         }
 
         this.provisioningEntryRepository.saveAndFlush(requestedEntry);
-        this.journalEntryWritePlatformService.createProvisioningJournalEntries(requestedEntry);
+        if (generateAccounting) {
+            this.journalEntryWritePlatformService.createProvisioningJournalEntries(requestedEntry);
+        }
     }
 
     private void validateForCreateJournalEntry(ProvisioningEntryData existingEntry, ProvisioningEntry requested) {

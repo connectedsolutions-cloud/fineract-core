@@ -173,6 +173,7 @@ import org.apache.fineract.portfolio.loanaccount.domain.LoanStatus;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanSubStatus;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTermVariationType;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTermVariations;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanTopupDetails;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRelation;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRelationRepository;
@@ -344,6 +345,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         }
 
         Loan loan = loanAssembler.assembleFrom(loanId);
+        initializeLegacySourceExactRefinancing(loan, command, sourceExactTopup);
 
         if (loan.loanProduct().isDisallowExpectedDisbursements()) {
             List<LoanDisbursementDetails> filteredList = loan.getDisbursementDetails().stream()
@@ -402,17 +404,34 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             final ExternalId txnExternalId = externalIdFactory.createFromCommand(command, LoanApiConstants.externalIdParameterName);
 
             if (loan.isTopup() && loan.getClientId() != null) {
-                final List<Long> predecessorIds = loan.getTopupLoanDetails().getLoanIdsToClose();
+                final Map<Long, SourceExactRefinancingSettlement> sourceExactSettlements = sourceExactTopup
+                        ? sourceExactRefinancingSettlementsFrom(command, loan)
+                        : Map.of();
+                final List<Long> predecessorIds = sourceExactTopup ? sourceExactSettlements.keySet().stream().sorted().toList()
+                        : loan.getTopupLoanDetails().getLoanIdsToClose();
                 final List<Loan> lockedPredecessors = loanRepository.findAllByIdForRefinancingUpdate(predecessorIds);
                 if (lockedPredecessors.size() != predecessorIds.size()) {
                     throw new GeneralPlatformDomainRuleException("error.msg.loan.refinancing.predecessor.missing",
                             "One or more predecessor loans no longer exist");
                 }
-                final Map<Long, BigDecimal> quotedSettlements = loanApplicationValidator.validateRefinancingLoans(loan,
-                        actualDisbursementDate);
-                final Map<Long, SourceExactRefinancingSettlement> sourceExactSettlements = sourceExactTopup
-                        ? sourceExactRefinancingSettlementsFrom(command, loan)
-                        : Map.of();
+                final Set<Long> legacyCrossClientPredecessorIds = sourceExactSettlements.values().stream()
+                        .filter(SourceExactRefinancingSettlement::legacyCrossClient)
+                        .map(SourceExactRefinancingSettlement::predecessorLoanId).collect(java.util.stream.Collectors.toSet());
+                validateLegacyCrossClientMarkers(loan, lockedPredecessors, legacyCrossClientPredecessorIds);
+                final Map<Long, BigDecimal> quotedSettlements = sourceExactTopup
+                        ? loanApplicationValidator.validateSourceExactRefinancingLoans(loan, actualDisbursementDate,
+                                legacyCrossClientPredecessorIds)
+                        : loanApplicationValidator.validateRefinancingLoans(loan, actualDisbursementDate);
+                final Map<Long, Loan> lockedPredecessorsById = lockedPredecessors.stream()
+                        .collect(java.util.stream.Collectors.toMap(Loan::getId, predecessor -> predecessor));
+                if (sourceExactTopup) {
+                    for (SourceExactRefinancingSettlement settlement : sourceExactSettlements.values()) {
+                        if ("PARTIAL_PAYDOWN".equals(settlement.settlementType())) {
+                            loan.getTopupLoanDetails().addSourceExactSettlement(settlement.predecessorLoanId(),
+                                    settlement.settlementType());
+                        }
+                    }
+                }
                 BigDecimal settlementTotal = BigDecimal.ZERO;
                 for (LoanRefinancingSettlement settlement : loan.getTopupLoanDetails().getSettlements()) {
                     final Long predecessorLoanId = settlement.getLoanIdToClose();
@@ -438,6 +457,13 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                     }
                     settlementTotal = settlementTotal.add(settlementAmount);
                     disburseLoanToLoan(loan, command, settlement, settlementAmount, repaymentExternalId, transferExternalId, allocation);
+                    if (sourceExactSettlement != null && sourceExactSettlement.legacyCrossClient()) {
+                        settlement.recordLegacyCrossClientEvidence(sourceExactSettlement.authorizationBasis(),
+                                sourceExactSettlement.sourceSystem(), sourceExactSettlement.sourceLiquidationId(),
+                                sourceExactSettlement.sourcePayoffMovementId(), sourceExactSettlement.sourceOperatorId(),
+                                sourceExactSettlement.sourcePayoffDate(), lockedPredecessorsById.get(predecessorLoanId).getClientId(),
+                                loan.getClientId());
+                    }
                 }
                 if (settlementTotal.compareTo(disburseAmount.getAmount()) > 0) {
                     throw new GeneralPlatformDomainRuleException("error.msg.loan.refinancing.settlements.must.not.exceed.disbursement",
@@ -1235,34 +1261,34 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     }
 
     private record SourceExactActiveScheduleRow(Integer installmentNumber, LocalDate fromDate, LocalDate dueDate, BigDecimal principal,
-            BigDecimal interest) {}
+            BigDecimal interest) {
+    }
 
     @Transactional
     @Override
     public CommandProcessingResult importSourceExactActiveSchedule(final Long loanId, final JsonCommand command) {
         final Loan loan = this.loanAssembler.assembleFrom(loanId);
-        if (!loan.isActive() || !CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor.STRATEGY_CODE
+        if (!loan.isOpen() || !CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor.STRATEGY_CODE
                 .equals(loan.transactionProcessingStrategy()) || !loan.isPeriodicAccrualAccountingEnabledOnLoanProduct()) {
             throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.active.schedule.not.supported",
                     "Source-exact active schedule import requires an active Credesal periodic-accrual loan");
         }
-        final String sourceSystem = command
-                .stringValueOfParameterNamed(LoanApiConstants.sourceExactScheduleSourceSystemParamName);
+        final String sourceSystem = command.stringValueOfParameterNamed(LoanApiConstants.sourceExactScheduleSourceSystemParamName);
         final String sourceLoanExternalId = command
                 .stringValueOfParameterNamed(LoanApiConstants.sourceExactScheduleLoanExternalIdParamName);
         if (!"ARISSTO".equals(sourceSystem) || loan.getExternalId().isEmpty()
                 || !Objects.equals(loan.getExternalId().getValue(), sourceLoanExternalId)
-                || sourceLoanExternalId == null || !sourceLoanExternalId.startsWith("ARISSTO:CRD:")) {
+                || !isSourceExactScheduleExternalId(sourceLoanExternalId)) {
             throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.active.schedule.identity.invalid",
                     "Source-exact active schedule import requires the matching Arissto loan identity");
         }
-        final long activeDisbursements = loan.getLoanTransactions().stream()
-                .filter(LoanTransaction::isNotReversed).filter(LoanTransaction::isDisbursement).count();
+        final long activeDisbursements = loan.getLoanTransactions().stream().filter(LoanTransaction::isNotReversed)
+                .filter(LoanTransaction::isDisbursement).count();
         final long laterFinancialTransactions = loan.getLoanTransactions().stream().filter(LoanTransaction::isNotReversed)
                 .filter(transaction -> !transaction.isDisbursement()).count();
-        if (activeDisbursements != 1 || laterFinancialTransactions != 0) {
+        if (activeDisbursements < 1 || laterFinancialTransactions != 0) {
             throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.active.schedule.servicing.started",
-                    "Source-exact active schedule must be imported after the sole disbursement and before servicing starts");
+                    "Source-exact active schedule must be imported after disbursement and before servicing starts");
         }
 
         final String dateFormat = command.stringValueOfParameterNamed("dateFormat");
@@ -1278,7 +1304,9 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                     this.fromApiJsonHelper.extractBigDecimalNamed(LoanApiConstants.sourceExactSchedulePrincipalParamName, row, locale),
                     this.fromApiJsonHelper.extractBigDecimalNamed(LoanApiConstants.sourceExactScheduleInterestParamName, row, locale)));
         }
-        applySourceExactActiveSchedule(loan, sourceRows);
+        final boolean allowTerminalInstallmentAggregation = Boolean.TRUE.equals(command
+                .booleanObjectValueOfParameterNamed(LoanApiConstants.sourceExactScheduleAllowTerminalAggregationParamName));
+        applySourceExactActiveSchedule(loan, sourceRows, allowTerminalInstallmentAggregation);
         this.loanRepaymentScheduleInstallmentRepository.saveAll(loan.getRepaymentScheduleInstallments());
         this.loanBalanceService.updateLoanSummaryDerivedFields(loan);
         this.loanRepositoryWrapper.saveAndFlush(loan);
@@ -1292,10 +1320,18 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                 .withGroupId(loan.getGroupId()).with(changes).build();
     }
 
-    static void applySourceExactActiveSchedule(final Loan loan, final List<SourceExactActiveScheduleRow> sourceRows) {
-        final List<LoanRepaymentScheduleInstallment> targetRows = loan.getRepaymentScheduleInstallments().stream()
+    static void applySourceExactActiveSchedule(final Loan loan, final List<SourceExactActiveScheduleRow> sourceRows,
+            final boolean allowTerminalInstallmentAggregation) {
+        List<LoanRepaymentScheduleInstallment> targetRows = loan.getRepaymentScheduleInstallments().stream()
                 .filter(installment -> !installment.isDownPayment() && !installment.isAdditional())
                 .sorted(Comparator.comparing(LoanRepaymentScheduleInstallment::getInstallmentNumber)).toList();
+        if (allowTerminalInstallmentAggregation && targetRows.size() == sourceRows.size() + 1) {
+            final LoanRepaymentScheduleInstallment terminalInstallment = targetRows.get(targetRows.size() - 1);
+            loan.getRepaymentScheduleInstallments().remove(terminalInstallment);
+            targetRows = loan.getRepaymentScheduleInstallments().stream()
+                    .filter(installment -> !installment.isDownPayment() && !installment.isAdditional())
+                    .sorted(Comparator.comparing(LoanRepaymentScheduleInstallment::getInstallmentNumber)).toList();
+        }
         if (sourceRows.isEmpty() || sourceRows.size() != targetRows.size()) {
             throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.active.schedule.cardinality.invalid",
                     "Source-exact active schedule must match the native installment cardinality");
@@ -1338,6 +1374,11 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         loan.setExpectedMaturityDate(sourceRows.getLast().dueDate());
     }
 
+    static boolean isSourceExactScheduleExternalId(final String externalId) {
+        return externalId != null
+                && (externalId.matches("ARISSTO:CRD:[0-9]+") || externalId.matches("PROOF:[a-z0-9][a-z0-9-]{0,23}:ARISSTO:CRD:[0-9]+"));
+    }
+
     private static boolean hasFinancialProgress(final LoanRepaymentScheduleInstallment installment) {
         return hasAmount(installment.getPrincipalCompleted()) || hasAmount(installment.getPrincipalWrittenOff())
                 || hasAmount(installment.getInterestPaid()) || hasAmount(installment.getInterestWaived())
@@ -1365,6 +1406,8 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         final LocalDate transactionDate = command.localDateValueOfParameterNamed(LoanApiConstants.transactionDateParamName);
         final BigDecimal transactionAmount = command.bigDecimalValueOfParameterNamed(LoanApiConstants.TRANSACTION_AMOUNT_PARAMNAME);
         final SourceExactRepaymentAllocation allocation = sourceExactAllocationFrom(command);
+        final String feeChargeExternalId = command
+                .stringValueOfParameterNamed(LoanApiConstants.sourceExactFeeChargeExternalIdParameterName);
         final ExternalId txnExternalId = externalIdFactory.createFromCommand(command, LoanApiConstants.externalIdParameterName);
         final Loan loan = this.loanAssembler.assembleFrom(loanId);
         if (!CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor.STRATEGY_CODE.equals(loan.transactionProcessingStrategy())) {
@@ -1381,6 +1424,13 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         changes.put(LoanApiConstants.sourceExactInterestPortionParameterName, allocation.interest());
         changes.put(LoanApiConstants.sourceExactFeeChargesPortionParameterName, allocation.feeCharges());
         changes.put(LoanApiConstants.sourceExactPenaltyChargesPortionParameterName, allocation.penaltyCharges());
+        if (StringUtils.isNotBlank(feeChargeExternalId)) {
+            if (!hasAmount(allocation.feeCharges())) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.fee.charge.unexpected",
+                        "A source-exact fee charge identity requires a positive fee allocation");
+            }
+            changes.put(LoanApiConstants.sourceExactFeeChargeExternalIdParameterName, feeChargeExternalId);
+        }
         changes.put(LoanApiConstants.localeParameterName, command.locale());
         changes.put(LoanApiConstants.dateFormatParameterName, command.dateFormat());
         changes.put(LoanApiConstants.PAYMENT_TYPE_PARAMNAME, command.longValueOfParameterNamed(LoanApiConstants.PAYMENT_TYPE_PARAMNAME));
@@ -1392,7 +1442,8 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         }
         final PaymentDetail paymentDetail = this.paymentDetailWritePlatformService.createAndPersistPaymentDetail(command, changes);
         final LoanTransaction loanTransaction = this.loanAccountDomainService.makeSourceExactTransaction(transactionType, loan,
-                transactionDate, transactionAmount, paymentDetail, noteText, txnExternalId, allocation, null, false, false, false);
+                transactionDate, transactionAmount, paymentDetail, noteText, txnExternalId, allocation, null, false, false, false,
+                feeChargeExternalId);
         if (command.parameterExists("cashierId")) {
             loanTransaction.setCashierId(command.longValueOfParameterNamed("cashierId"));
         }
@@ -1971,16 +2022,54 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         }
     }
 
+    private void initializeLegacySourceExactRefinancing(final Loan loan, final JsonCommand command, final boolean sourceExactTopup) {
+        if (!sourceExactTopup || loan.isTopup()) {
+            return;
+        }
+        final JsonArray rows = command.arrayOfParameterNamed(LoanApiConstants.refinancingSettlements);
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        final List<Long> predecessorIds = new ArrayList<>();
+        boolean hasLegacyCrossClientEvidence = false;
+        for (JsonElement rowElement : rows) {
+            final JsonObject row = rowElement.getAsJsonObject();
+            final String settlementType = optionalString(row, LoanApiConstants.refinancingSettlementType);
+            if (!"PARTIAL_PAYDOWN".equals(settlementType)) {
+                predecessorIds.add(row.get(LoanApiConstants.loanIdToClose).getAsLong());
+            }
+            hasLegacyCrossClientEvidence |= optionalBoolean(row, LoanApiConstants.legacyCrossClientSettlement);
+        }
+        if (hasLegacyCrossClientEvidence) {
+            loan.setIsTopup(true);
+            loan.setTopupLoanDetails(new LoanTopupDetails(loan, predecessorIds));
+        }
+    }
+
+    private void validateLegacyCrossClientMarkers(final Loan successor, final List<Loan> predecessors,
+            final Set<Long> legacyCrossClientPredecessorIds) {
+        for (Loan predecessor : predecessors) {
+            final boolean crossClient = !Objects.equals(predecessor.getClientId(), successor.getClientId());
+            final boolean markedLegacy = legacyCrossClientPredecessorIds.contains(predecessor.getId());
+            if (crossClient != markedLegacy) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.legacy.cross.client.marker.invalid",
+                        "Legacy cross-client evidence must be supplied exactly for cross-client predecessor loan %s", predecessor.getId());
+            }
+        }
+    }
+
     private Map<Long, SourceExactRefinancingSettlement> sourceExactRefinancingSettlementsFrom(final JsonCommand command, final Loan loan) {
         final Map<Long, SourceExactRefinancingSettlement> result = new LinkedHashMap<>();
         final JsonArray rows = command.arrayOfParameterNamed(LoanApiConstants.refinancingSettlements);
         if (rows == null || rows.isEmpty()) {
             final Long predecessorLoanId = loan.getTopupLoanDetails().getLoanIdToClose();
-            result.put(predecessorLoanId, new SourceExactRefinancingSettlement(predecessorLoanId, sourceExactAllocationFrom(command),
-                    ExternalIdFactory.produce(
-                            command.stringValueOfParameterNamed(LoanApiConstants.sourceExactTopupRepaymentExternalIdParameterName)),
-                    ExternalIdFactory.produce(
-                            command.stringValueOfParameterNamed(LoanApiConstants.sourceExactTopupTransferExternalIdParameterName))));
+            result.put(predecessorLoanId,
+                    new SourceExactRefinancingSettlement(predecessorLoanId, sourceExactAllocationFrom(command),
+                            ExternalIdFactory.produce(
+                                    command.stringValueOfParameterNamed(LoanApiConstants.sourceExactTopupRepaymentExternalIdParameterName)),
+                            ExternalIdFactory.produce(
+                                    command.stringValueOfParameterNamed(LoanApiConstants.sourceExactTopupTransferExternalIdParameterName)),
+                            false, null, null, null, null, null, null, "FULL_CLOSE"));
             return result;
         }
         for (JsonElement rowElement : rows) {
@@ -1991,16 +2080,27 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                     row.get(LoanApiConstants.sourceExactInterestPortionParameterName).getAsBigDecimal(),
                     row.get(LoanApiConstants.sourceExactFeeChargesPortionParameterName).getAsBigDecimal(),
                     row.get(LoanApiConstants.sourceExactPenaltyChargesPortionParameterName).getAsBigDecimal());
+            final String settlementType = Optional.ofNullable(optionalString(row, LoanApiConstants.refinancingSettlementType))
+                    .orElse("FULL_CLOSE");
             final SourceExactRefinancingSettlement previous = result.put(predecessorLoanId,
                     new SourceExactRefinancingSettlement(predecessorLoanId, allocation,
                             ExternalIdFactory.produce(row.get(LoanApiConstants.refinancingRepaymentExternalId).getAsString()),
-                            ExternalIdFactory.produce(row.get(LoanApiConstants.refinancingTransferExternalId).getAsString())));
+                            ExternalIdFactory.produce(row.get(LoanApiConstants.refinancingTransferExternalId).getAsString()),
+                            optionalBoolean(row, LoanApiConstants.legacyCrossClientSettlement),
+                            optionalString(row, LoanApiConstants.refinancingAuthorizationBasis),
+                            optionalString(row, LoanApiConstants.refinancingSourceSystem),
+                            optionalString(row, LoanApiConstants.refinancingSourceLiquidationId),
+                            optionalString(row, LoanApiConstants.refinancingSourcePayoffMovementId),
+                            optionalString(row, LoanApiConstants.refinancingSourceOperatorId),
+                            optionalDate(row, LoanApiConstants.refinancingSourcePayoffDate), settlementType));
             if (previous != null) {
                 throw new GeneralPlatformDomainRuleException("error.msg.loan.refinancing.predecessor.duplicate",
                         "Predecessor loan %s appears more than once", predecessorLoanId);
             }
         }
-        if (!result.keySet().equals(Set.copyOf(loan.getTopupLoanDetails().getLoanIdsToClose()))) {
+        final Set<Long> fullCloseIds = result.values().stream().filter(settlement -> "FULL_CLOSE".equals(settlement.settlementType()))
+                .map(SourceExactRefinancingSettlement::predecessorLoanId).collect(java.util.stream.Collectors.toSet());
+        if (!fullCloseIds.equals(Set.copyOf(loan.getTopupLoanDetails().getLoanIdsToClose()))) {
             throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.refinancing.predecessors.must.match",
                     "Source-exact settlement predecessors must exactly match the refinancing application");
         }
@@ -2008,7 +2108,34 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     }
 
     private record SourceExactRefinancingSettlement(Long predecessorLoanId, SourceExactRepaymentAllocation allocation,
-            ExternalId repaymentExternalId, ExternalId transferExternalId) {
+            ExternalId repaymentExternalId, ExternalId transferExternalId, boolean legacyCrossClient, String authorizationBasis,
+            String sourceSystem, String sourceLiquidationId, String sourcePayoffMovementId, String sourceOperatorId,
+            LocalDate sourcePayoffDate, String settlementType) {
+
+        private SourceExactRefinancingSettlement {
+            if (legacyCrossClient && (!"LEGACY_SOURCE_LIQUIDATION".equals(authorizationBasis) || !"ARISSTO".equals(sourceSystem)
+                    || StringUtils.isAnyBlank(sourceLiquidationId, sourcePayoffMovementId, sourceOperatorId) || sourcePayoffDate == null)) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.legacy.cross.client.evidence.invalid",
+                        "Legacy cross-client settlement evidence is incomplete or uses an unsupported authorization basis");
+            }
+            if (!Set.of("FULL_CLOSE", "PARTIAL_PAYDOWN").contains(settlementType)) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.refinancing.settlement.type.invalid",
+                        "Settlement type must be FULL_CLOSE or PARTIAL_PAYDOWN");
+            }
+        }
+    }
+
+    private static boolean optionalBoolean(final JsonObject row, final String parameter) {
+        return row.has(parameter) && !row.get(parameter).isJsonNull() && row.get(parameter).getAsBoolean();
+    }
+
+    private static String optionalString(final JsonObject row, final String parameter) {
+        return row.has(parameter) && !row.get(parameter).isJsonNull() ? row.get(parameter).getAsString() : null;
+    }
+
+    private static LocalDate optionalDate(final JsonObject row, final String parameter) {
+        final String value = optionalString(row, parameter);
+        return value == null ? null : LocalDate.parse(value);
     }
 
     private SourceExactRepaymentAllocation sourceExactAllocationFrom(final JsonCommand command) {

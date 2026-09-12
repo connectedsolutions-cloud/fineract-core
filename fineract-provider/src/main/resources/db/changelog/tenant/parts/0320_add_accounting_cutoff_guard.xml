@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+    KIND, either express or implied. See the License for the
+    specific language governing permissions and limitations
+    under the License.
+
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0320-1-add-accounting-cutoff-configuration" author="credesal">
+        <createTable tableName="acc_accounting_cutoff_configuration">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" primaryKeyName="pk_acc_accounting_cutoff_configuration" nullable="false"/>
+            </column>
+            <column name="cutoff_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="timezone_id" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="lifecycle_state" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="configuration_revision" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="configuration_hash" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="activated_at" type="TIMESTAMP"/>
+            <column name="activated_by" type="BIGINT"/>
+            <column name="sealed_at" type="TIMESTAMP"/>
+            <column name="sealed_by" type="BIGINT"/>
+            <column name="version" type="BIGINT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="acc_accounting_cutoff_configuration" baseColumnNames="activated_by"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 constraintName="fk_acc_cutoff_activated_by"/>
+        <addForeignKeyConstraint baseTableName="acc_accounting_cutoff_configuration" baseColumnNames="sealed_by"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 constraintName="fk_acc_cutoff_sealed_by"/>
+    </changeSet>
+
+    <changeSet id="0320-2-add-accounting-cutoff-permissions" author="credesal">
+        <insert tableName="m_permission">
+            <column name="grouping" value="accounting"/>
+            <column name="code" value="READ_ACCOUNTINGCUTOFF"/>
+            <column name="entity_name" value="ACCOUNTINGCUTOFF"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="accounting"/>
+            <column name="code" value="CONFIGURE_ACCOUNTINGCUTOFF"/>
+            <column name="entity_name" value="ACCOUNTINGCUTOFF"/>
+            <column name="action_name" value="CONFIGURE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="accounting"/>
+            <column name="code" value="ACTIVATE_ACCOUNTINGCUTOFF"/>
+            <column name="entity_name" value="ACCOUNTINGCUTOFF"/>
+            <column name="action_name" value="ACTIVATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="accounting"/>
+            <column name="code" value="SEAL_ACCOUNTINGCUTOFF"/>
+            <column name="entity_name" value="ACCOUNTINGCUTOFF"/>
+            <column name="action_name" value="SEAL"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="accounting"/>
+            <column name="code" value="USE_ARISSTO_OPERATIONAL_MIGRATION"/>
+            <column name="entity_name" value="ACCOUNTINGCUTOFF"/>
+            <column name="action_name" value="USE_ARISSTO_OPERATIONAL_MIGRATION"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="accounting"/>
+            <column name="code" value="IMPORT_ARISSTO_HISTORICAL_GL"/>
+            <column name="entity_name" value="ACCOUNTINGCUTOFF"/>
+            <column name="action_name" value="IMPORT_ARISSTO_HISTORICAL_GL"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0320-3-add-source-exact-disbursement-permission" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'SOURCEEXACTDISBURSE_LOAN'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="transaction_loan"/>
+            <column name="code" value="SOURCEEXACTDISBURSE_LOAN"/>
+            <column name="entity_name" value="LOAN"/>
+            <column name="action_name" value="SOURCEEXACTDISBURSE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0320-4-add-source-exact-reversal-permission" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'SOURCEEXACTADJUST_LOAN'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="transaction_loan"/>
+            <column name="code" value="SOURCEEXACTADJUST_LOAN"/>
+            <column name="entity_name" value="LOAN"/>
+            <column name="action_name" value="SOURCEEXACTADJUST"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0320-5-add-source-exact-undo-disbursement-permission" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'SOURCEEXACTDISBURSALUNDO_LOAN'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="transaction_loan"/>
+            <column name="code" value="SOURCEEXACTDISBURSALUNDO_LOAN"/>
+            <column name="entity_name" value="LOAN"/>
+            <column name="action_name" value="SOURCEEXACTDISBURSALUNDO"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0320-6-add-source-exact-terminal-adjustment-permission" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'SOURCEEXACTTERMINALADJUSTMENT_LOAN'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="transaction_loan"/>
+            <column name="code" value="SOURCEEXACTTERMINALADJUSTMENT_LOAN"/>
+            <column name="entity_name" value="LOAN"/>
+            <column name="action_name" value="SOURCEEXACTTERMINALADJUSTMENT"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0320-7-add-source-exact-charge-permission" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'SOURCEEXACTCREATE_LOANCHARGE'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="transaction_loan"/>
+            <column name="code" value="SOURCEEXACTCREATE_LOANCHARGE"/>
+            <column name="entity_name" value="LOANCHARGE"/>
+            <column name="action_name" value="SOURCEEXACTCREATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

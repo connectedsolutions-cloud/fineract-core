@@ -19,6 +19,7 @@
 package org.apache.fineract.portfolio.loanaccount.handler;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.fineract.accounting.cutoff.AccountingOperationalMigrationService;
 import org.apache.fineract.commands.annotation.CommandType;
 import org.apache.fineract.commands.handler.NewCommandSourceHandler;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
@@ -33,10 +34,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class SourceExactLoanGoodwillCreditCommandHandler implements NewCommandSourceHandler {
 
     private final LoanWritePlatformService writePlatformService;
+    private final AccountingOperationalMigrationService operationalMigrationService;
 
     @Transactional
     @Override
     public CommandProcessingResult processCommand(final JsonCommand command) {
-        return writePlatformService.makeSourceExactLoanGoodwillCredit(command.getLoanId(), command);
+        return operationalMigrationService
+                .execute(() -> writePlatformService.makeSourceExactLoanGoodwillCredit(command.getLoanId(), command));
     }
 }

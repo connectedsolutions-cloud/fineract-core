@@ -26,6 +26,8 @@ public interface DepositApplicationProcessWritePlatformService {
 
     CommandProcessingResult submitFDApplication(JsonCommand command);
 
+    CommandProcessingResult submitSourceExactUnfundedFDApplication(JsonCommand command);
+
     CommandProcessingResult submitRDApplication(JsonCommand command);
 
     CommandProcessingResult modifyFDApplication(Long accountId, JsonCommand command);

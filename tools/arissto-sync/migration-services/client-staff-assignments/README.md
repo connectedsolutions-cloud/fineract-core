@@ -2,13 +2,26 @@
 
 ## Status
 
-- Registry status: `blocked`
-- Executable: `true` for a reviewed local acceptance pass
+- Registry status: `available`
+- Executable: `true`
 - Acceptance boundary: the revised lossless assignment contract no longer
   derives or modifies native Fineract loan-officer eligibility
 
-Return this service to `available` only after the expanded contract completes a
-controlled local apply, exact reconciliation, and unchanged second plan.
+The expanded contract completed controlled local acceptance on 2026-09-03:
+
+- original assignment plan `098dd8444a9840d5b6ecb3ce0006a64c` and run
+  `0cff393448eb4a86bbb0675cbbe0d58e` created all 1,035 relationship rows;
+- exact bulk reconciliation returned `matched: 1035`, `ok: true`;
+- unchanged replay workflow `aa0c73b9e64d440983e55e21830d7402`
+  produced assignment plan `b5c418ecdcac45e38af5e5ed58cc0079` and run
+  `f184cb0f133b4a01bd3076ff6ee6edb1`, with `unchanged: 1035`,
+  `matched: 1035`, and `ok: true`; and
+- no client or employee dependency was missing and no assignment was
+  quarantined.
+
+Apply and reconciliation bulk-load the source assignment population once per
+phase. This retains source-hash drift protection without opening or querying
+Arissto once per client.
 
 This dependent block preserves the three employee relationships stored directly on `AFI_SOCIO` for every Arissto party:
 
@@ -21,6 +34,16 @@ It depends on successful `clients` and `employees` synchronization. Client ident
 The three roles remain independent. This service does not choose one as a
 generic Fineract loan officer and never changes `m_staff.is_loan_officer` or
 employee active status.
+
+## Client and loan assignment boundary
+
+This service owns only the party-level relationships recorded on `AFI_SOCIO`.
+The `loans` service independently preserves the same three role types from
+`CRD_CARTERA` in `credesal_loan_staff_assignment`. Neither layer is copied to,
+derived from, or used as a fallback for the other: a client's current staff
+relationship and a particular loan's staff relationship may legitimately
+differ. Both services resolve employee identity through the `employees`
+service, and the composed credit workflow runs both layers explicitly.
 
 ## Destination
 

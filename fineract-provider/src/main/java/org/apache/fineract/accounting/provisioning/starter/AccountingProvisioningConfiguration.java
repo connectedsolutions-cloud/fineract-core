@@ -18,6 +18,7 @@
  */
 package org.apache.fineract.accounting.provisioning.starter;
 
+import org.apache.fineract.accounting.cutoff.AccountingCutoffPolicyService;
 import org.apache.fineract.accounting.glaccount.domain.GLAccountRepository;
 import org.apache.fineract.accounting.journalentry.service.JournalEntryWritePlatformService;
 import org.apache.fineract.accounting.provisioning.domain.ProvisioningEntryRepository;
@@ -59,11 +60,12 @@ public class AccountingProvisioningConfiguration {
             GLAccountRepository glAccountRepository, OfficeRepositoryWrapper officeRepositoryWrapper,
             ProvisioningCategoryRepository provisioningCategoryRepository, PlatformSecurityContext platformSecurityContext,
             ProvisioningEntryRepository provisioningEntryRepository, JournalEntryWritePlatformService journalEntryWritePlatformService,
-            ProvisioningEntriesDefinitionJsonDeserializer fromApiJsonDeserializer, FromJsonHelper fromApiJsonHelper) {
+            AccountingCutoffPolicyService cutoffPolicyService, ProvisioningEntriesDefinitionJsonDeserializer fromApiJsonDeserializer,
+            FromJsonHelper fromApiJsonHelper) {
         return new ProvisioningEntriesWritePlatformServiceJpaRepositoryImpl(provisioningEntriesReadPlatformService,
                 provisioningCriteriaReadPlatformService, loanProductRepository, glAccountRepository, officeRepositoryWrapper,
                 provisioningCategoryRepository, platformSecurityContext, provisioningEntryRepository, journalEntryWritePlatformService,
-                fromApiJsonDeserializer, fromApiJsonHelper) {};
+                cutoffPolicyService, fromApiJsonDeserializer, fromApiJsonHelper) {};
     }
 
 }

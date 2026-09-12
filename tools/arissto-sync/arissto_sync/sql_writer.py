@@ -17,6 +17,7 @@ class SqlWritePolicy:
         "membership-share-capital": frozenset({"upsert_membership_archive"}),
         "aml-alerts": frozenset({"upsert_aml_alerts"}),
         "mobile-collections": frozenset({"upsert_mobile_collection_metadata"}),
+        "dte-history": frozenset({"create_historical_dte"}),
     }
 
     @classmethod

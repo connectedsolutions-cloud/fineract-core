@@ -19,7 +19,10 @@
 package org.apache.fineract.portfolio.loanaccount.data;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
-public record LoanRefinancingSettlementData(Long loanId, String accountNo, BigDecimal amount, BigDecimal principal, BigDecimal interest,
-        BigDecimal fees, BigDecimal penalties) {
+public record LoanRefinancingSettlementData(Long loanId, String accountNo, String settlementType, BigDecimal amount, BigDecimal principal,
+        BigDecimal interest, BigDecimal fees, BigDecimal penalties, boolean legacyCrossClient, String authorizationBasis,
+        String sourceSystem, String sourceLiquidationId, String sourcePayoffMovementId, String sourceOperatorId, LocalDate sourcePayoffDate,
+        Long predecessorClientId, Long successorClientId) {
 }

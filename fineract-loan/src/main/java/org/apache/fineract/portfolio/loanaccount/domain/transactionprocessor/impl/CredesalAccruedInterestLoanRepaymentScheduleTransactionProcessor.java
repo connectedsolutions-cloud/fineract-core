@@ -27,6 +27,7 @@ import org.apache.fineract.infrastructure.core.service.ExternalIdFactory;
 import org.apache.fineract.organisation.monetary.domain.MonetaryCurrency;
 import org.apache.fineract.organisation.monetary.domain.Money;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanCharge;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanChargePaidBy;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallment;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionToRepaymentScheduleMapping;
@@ -68,7 +69,7 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
         }
         if (loanTransaction.isSourceExactAllocation()) {
             materializeSourceExactPostDueInterest(loanTransaction, currency, installments);
-            return processSourceExactRepayment(loanTransaction, currency, installments);
+            return processSourceExactRepayment(loanTransaction, currency, installments, charges);
         }
         return super.processTransaction(loanTransaction, currency, installments, charges, amountToProcess);
     }
@@ -128,7 +129,7 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
     }
 
     private Money processSourceExactRepayment(final LoanTransaction loanTransaction, final MonetaryCurrency currency,
-            final List<LoanRepaymentScheduleInstallment> installments) {
+            final List<LoanRepaymentScheduleInstallment> installments, final Set<LoanCharge> charges) {
         final LocalDate transactionDate = loanTransaction.getTransactionDate();
         Money principalRemaining = loanTransaction.getSourceExactPrincipalPortion(currency);
         Money interestRemaining = loanTransaction.getSourceExactInterestPortion(currency);
@@ -154,6 +155,7 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
         }
 
         loanTransaction.updateLoanTransactionToRepaymentScheduleMappings(transactionMappings);
+        settleSourceExactFeeCharge(loanTransaction, currency, charges);
         if (principalRemaining.isGreaterThanZero() || interestRemaining.isGreaterThanZero() || feeRemaining.isGreaterThanZero()
                 || penaltyRemaining.isGreaterThanZero()) {
             throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.allocation.not.representable",
@@ -161,6 +163,29 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
                     principalRemaining.getAmount(), interestRemaining.getAmount(), feeRemaining.getAmount(), penaltyRemaining.getAmount());
         }
         return Money.zero(currency);
+    }
+
+    private void settleSourceExactFeeCharge(final LoanTransaction loanTransaction, final MonetaryCurrency currency,
+            final Set<LoanCharge> charges) {
+        final String externalId = loanTransaction.getSourceExactFeeChargeExternalId();
+        if (externalId == null) {
+            return; // Legacy source-exact transactions did not carry a charge identity.
+        }
+        final Money requested = loanTransaction.getSourceExactFeeChargesPortion(currency);
+        if (!requested.isGreaterThanZero()) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.fee.charge.unexpected",
+                    "A source-exact fee charge identity requires a positive fee allocation");
+        }
+        final LoanCharge target = charges.stream()
+                .filter(charge -> charge.getExternalId() != null && externalId.equals(charge.getExternalId().getValue())).findFirst()
+                .orElseThrow(() -> new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.fee.charge.missing",
+                        "The declared source-exact fee charge does not exist on this loan"));
+        final Money paid = target.updatePaidAmountBy(requested, null, requested.zero());
+        if (!paid.isEqualTo(requested)) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.fee.charge.not.representable",
+                    "The declared source-exact fee charge cannot receive the requested fee allocation");
+        }
+        loanTransaction.updateLoanChargePaidMappings(List.of(new LoanChargePaidBy(loanTransaction, target, paid.getAmount(), null)));
     }
 
     @Override

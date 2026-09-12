@@ -97,7 +97,7 @@ enabled in the local target.
   tax design.
 
 The shared roles use the convention already common to both local target deposit
-products: savings reference `1110040202`, transfer suspense `213005`,
+products: savings reference `1110040202`, transfer suspense `2130050101`,
 fee/penalty income `6420`/`6430`, and fee/penalty receivables `1530`/`1540`.
 The sync contract stores these as GL codes and resolves their target IDs at run
 time; inspection rejects missing, disabled, or misclassified accounts.

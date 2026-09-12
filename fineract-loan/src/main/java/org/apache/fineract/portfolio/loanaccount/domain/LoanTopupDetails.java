@@ -84,7 +84,8 @@ public class LoanTopupDetails extends AbstractPersistableCustom<Long> {
         if (settlements == null || settlements.isEmpty()) {
             return List.of(closureLoanId);
         }
-        return settlements.stream().map(LoanRefinancingSettlement::getLoanIdToClose).sorted().toList();
+        return settlements.stream().filter(settlement -> "FULL_CLOSE".equals(settlement.getSettlementType()))
+                .map(LoanRefinancingSettlement::getLoanIdToClose).sorted().toList();
     }
 
     public List<LoanRefinancingSettlement> getSettlements() {
@@ -95,8 +96,21 @@ public class LoanTopupDetails extends AbstractPersistableCustom<Long> {
         return settlements;
     }
 
+    public void addSourceExactSettlement(final Long predecessorLoanId, final String settlementType) {
+        final LoanRefinancingSettlement existing = getSettlements().stream()
+                .filter(settlement -> settlement.getLoanIdToClose().equals(predecessorLoanId)).findFirst().orElse(null);
+        if (existing != null) {
+            if (!existing.getSettlementType().equals(settlementType)) {
+                throw new IllegalArgumentException("A refinancing predecessor cannot change settlement type");
+            }
+            return;
+        }
+        settlements.add(new LoanRefinancingSettlement(this, predecessorLoanId, settlementType));
+        operationType = settlements.size() == 1 ? "SINGLE_REFINANCE" : "CONSOLIDATION";
+    }
+
     public boolean isConsolidation() {
-        return getLoanIdsToClose().size() > 1;
+        return getSettlements().size() > 1;
     }
 
     public String getOperationType() {

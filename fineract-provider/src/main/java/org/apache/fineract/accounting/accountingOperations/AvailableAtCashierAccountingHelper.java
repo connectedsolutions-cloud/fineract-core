@@ -25,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.fineract.accounting.common.AccountingConstants.CashAccountsForLoan;
 import org.apache.fineract.accounting.common.AccountingConstants.FinancialActivity;
+import org.apache.fineract.accounting.cutoff.AccountingCutoffPolicyService;
 import org.apache.fineract.accounting.financialactivityaccount.domain.FinancialActivityAccountRepositoryWrapper;
 import org.apache.fineract.accounting.glaccount.domain.GLAccount;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntry;
@@ -53,6 +54,7 @@ public class AvailableAtCashierAccountingHelper {
 
     private final AccountingProcessorHelper accountingProcessorHelper;
     private final FinancialActivityAccountRepositoryWrapper financialActivityAccountRepository;
+    private final AccountingCutoffPolicyService cutoffPolicyService;
 
     /**
      * Returns the sum of {@link Loan#getNetDisbursalAmount()} for all loans in the list (nulls treated as zero).
@@ -80,6 +82,9 @@ public class AvailableAtCashierAccountingHelper {
      */
     @Transactional
     public void vaultReceptionFromBank(SesionComite session, List<Loan> processedLoans, LocalDate businessDate) {
+        if (!cutoffPolicyService.shouldGenerateAccounting(businessDate)) {
+            return;
+        }
         AtCashierContext ctx = buildContext(session, processedLoans);
         if (ctx == null) {
             return;
@@ -99,6 +104,9 @@ public class AvailableAtCashierAccountingHelper {
      */
     @Transactional
     public void cashierCashReception(SesionComite session, List<Loan> processedLoans, LocalDate businessDate) {
+        if (!cutoffPolicyService.shouldGenerateAccounting(businessDate)) {
+            return;
+        }
         AtCashierContext ctx = buildContext(session, processedLoans);
         if (ctx == null) {
             return;
@@ -118,6 +126,9 @@ public class AvailableAtCashierAccountingHelper {
      */
     @Transactional
     public void disbursementPayableClearing(SesionComite session, List<Loan> processedLoans, LocalDate businessDate) {
+        if (!cutoffPolicyService.shouldGenerateAccounting(businessDate)) {
+            return;
+        }
         AtCashierContext ctx = buildContext(session, processedLoans);
         if (ctx == null) {
             return;

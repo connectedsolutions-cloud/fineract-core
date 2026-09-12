@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0332-1-add-source-exact-share-create-permission" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'SOURCEEXACTCREATE_SHAREACCOUNT'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="transaction_share"/>
+            <column name="code" value="SOURCEEXACTCREATE_SHAREACCOUNT"/>
+            <column name="entity_name" value="SHAREACCOUNT"/>
+            <column name="action_name" value="SOURCEEXACTCREATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <rollback>
+            <delete tableName="m_permission">
+                <where>code = 'SOURCEEXACTCREATE_SHAREACCOUNT'</where>
+            </delete>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

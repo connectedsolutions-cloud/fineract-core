@@ -115,6 +115,17 @@ class InvoiceServiceImplTest {
     }
 
     @Test
+    void updateMetadataRejectsImportedArisstoHistory() {
+        Invoice invoice = Invoice.draft(10L, null, null, 1, "01", "01", "DTE-01-00010001-000000000000001",
+                UUID.randomUUID().toString(), 1, 1, LocalDate.now(), LocalTime.NOON, "USD");
+        invoice.markImportedHistory("source-hash", "{}");
+        when(invoiceRepository.findById(1L)).thenReturn(Optional.of(invoice));
+
+        assertThrows(PlatformDataIntegrityException.class,
+                () -> service.updateMetadata(1L, new InvoiceMetadataUpdateRequest()));
+    }
+
+    @Test
     void updateMetadataMapsExtendedReceptorFieldsAndDefaultsTipoDocumento() {
         InvoiceCreateRequest request = validRequest();
         when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> inv.getArgument(0));

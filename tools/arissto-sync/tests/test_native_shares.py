@@ -8,13 +8,61 @@ from arissto_sync.native_shares import (
     project_source,
     validate_approved_limits,
 )
-from arissto_sync.native_share_engine import _idempotency_key, _product_contracts, _product_payload, account_external_id
+from arissto_sync.native_share_engine import (
+    _empty_vista_payload, _ensure_payment_types, _idempotency_key, _product_contracts, _product_payload,
+    account_external_id, native_share_execution_blockers, prerequisite_vista_external_id,
+)
 
 
 CONFIG = Path(__file__).resolve().parents[1] / "config" / "native_share_capital.json"
 
 
 class NativeShareContractTests(unittest.TestCase):
+    def test_payment_type_bootstrap_creates_missing_cash_and_reuses_existing_channels(self):
+        contract = NativeShareContract.load(CONFIG)
+
+        class Api:
+            def __init__(self):
+                self.rows = [
+                    {"id": 4, "name": "Cheque ajeno", "codeName": "CREDESAL_CHEQUE_AJENO", "isCashPayment": False},
+                    {"id": 5, "name": "Banco Atlántida", "codeName": "CREDESAL_BANCO_ATLANTIDA", "isCashPayment": False},
+                    {"id": 6, "name": "Banco Cuscatlán", "codeName": "CREDESAL_BANCO_CUSCATLAN", "isCashPayment": False},
+                ]
+                self.posts = []
+
+            def request(self, method, path, payload=None, query=None, idempotency_key=None):
+                if method == "GET" and path == "paymenttypes":
+                    return list(self.rows)
+                if method == "POST" and path == "paymenttypes":
+                    self.posts.append((payload, idempotency_key))
+                    self.rows.append({"id": 7, **payload})
+                    return {"resourceId": 7}
+                raise AssertionError((method, path))
+
+        api = Api()
+        actions = _ensure_payment_types(api, contract)
+
+        self.assertEqual(len(api.posts), 1)
+        self.assertEqual(api.posts[0][0]["name"], "Cash Payment")
+        self.assertTrue(api.posts[0][0]["isCashPayment"])
+        self.assertEqual(actions[0], {"source_payment_type_id": 1, "action": "created"})
+        self.assertTrue(all(item["action"] == "unchanged" for item in actions[1:]))
+
+    def test_execution_readiness_ignores_only_bootstrap_and_satisfied_savings_gates(self):
+        inspection = {
+            "blockers": [
+                "native_share_products_not_provisioned",
+                "controlled_native_share_lifecycle_proof",
+                "reconciled_native_savings_prerequisite",
+                "share_payment_channel_unresolved:1",
+            ],
+            "target": {"eligible_reconciled_vista_clients": 34},
+        }
+        self.assertEqual(
+            native_share_execution_blockers(inspection),
+            ["share_payment_channel_unresolved:1"],
+        )
+
     def test_idempotency_keys_are_stable_distinct_and_fit_fineract(self):
         identity = "f" * 64
         account_key = _idempotency_key("account", identity)
@@ -23,9 +71,11 @@ class NativeShareContractTests(unittest.TestCase):
         self.assertNotEqual(_idempotency_key("product-map", f"2|{identity}"),
                             _idempotency_key("product-map", f"3|{identity}"))
         self.assertLessEqual(len(_idempotency_key("approve-additional", identity)), 50)
+        self.assertLessEqual(len(_idempotency_key("source-exact-apply-additional", identity)), 50)
 
     def test_contract_keeps_two_classes_and_all_release_gates(self):
         contract = NativeShareContract.load(CONFIG)
+        self.assertEqual(contract.raw["version"], 2)
         self.assertEqual(set(contract.raw["share_classes"]), {"1", "2"})
         self.assertEqual(contract.raw["expected"]["accounts"], 57)
         self.assertIn("reconciled_native_savings_prerequisite", contract.raw["release_gates"])
@@ -40,6 +90,15 @@ class NativeShareContractTests(unittest.TestCase):
         self.assertTrue(contract.raw["accounting_candidates"]["PREFERRED"]["shareEquityId"]["source_purchase_journal_supported"])
         self.assertEqual(contract.raw["source_journal_evidence"]["distinct_journals"], 26)
         self.assertFalse(contract.raw["source_journal_evidence"]["yield_used_by_purchase_journals"])
+        self.assertIn("SOURCEEXACTCREATE_SHAREACCOUNT", contract.raw["required_permissions"])
+        self.assertIn("SOURCEEXACTAPPROVE_SHAREACCOUNT", contract.raw["required_permissions"])
+        self.assertIn("SOURCEEXACTAPPROVEADDITIONALSHARES_SHAREACCOUNT", contract.raw["required_permissions"])
+        self.assertIn("USE_ARISSTO_OPERATIONAL_MIGRATION", contract.raw["required_permissions"])
+        self.assertEqual(
+            contract.raw["target"]["missing_vista_policy"]["disposition"],
+            "create_target_only_empty_account",
+        )
+        self.assertFalse(contract.raw["target"]["missing_vista_policy"]["allow_transactions"])
 
         products = _product_contracts(contract)
         payload = _product_payload(products["1"], {
@@ -60,7 +119,10 @@ class NativeShareContractTests(unittest.TestCase):
             for definition in mappings.values()
         ))
         strategy = contract.raw["accounting_strategy"]
-        self.assertEqual(strategy["office_dimension"], "acc_gl_journal_entry.office_id")
+        self.assertEqual(strategy["posting_owner"], "split_by_accounting_cutoff")
+        self.assertEqual(strategy["historical_posting_owner"], "arissto_historical_gl_import")
+        self.assertEqual(strategy["current_posting_owner"], "native_fineract_share_transactions")
+        self.assertEqual(strategy["office_dimension"], "acc_gl_journal_entry.dimensions.office")
         self.assertEqual(strategy["canonical_cash_gl_code"], "1110010199")
         mappings = {item["source_payment_type_id"]: item for item in strategy["payment_channel_mappings"]}
         self.assertEqual(mappings[1]["gl_code"], "1110010199")
@@ -141,6 +203,25 @@ class NativeShareContractTests(unittest.TestCase):
         self.assertEqual(account_external_id("AFI_ACCION|42"), "arissto:share:42")
         with self.assertRaisesRegex(ValueError, "Invalid native share account source key"):
             account_external_id("42")
+
+    def test_share_prerequisite_vista_identity_and_payload_are_target_only_and_empty(self):
+        external_id = prerequisite_vista_external_id("0000000002")
+        self.assertEqual(external_id, "arissto:share-vista:0000000002")
+        action = {
+            "client_id": 272,
+            "savings_provisioning": {
+                "kind": "target_only_empty_vista", "external_id": external_id,
+                "product_id": 1, "currency": "USD", "annual_rate": "3.000000",
+                "activation_date": "2023-02-01",
+            },
+        }
+        payload = _empty_vista_payload(action)
+        self.assertEqual(payload["externalId"], external_id)
+        self.assertEqual(payload["clientId"], 272)
+        self.assertEqual(payload["productId"], 1)
+        self.assertEqual(payload["submittedOnDate"], "2023-02-01")
+        self.assertEqual(payload["minRequiredOpeningBalance"], "0")
+        self.assertNotIn("transactionAmount", payload)
 
     def test_product_payload_freezes_limits_accounting_and_payment_channels(self):
         contract = NativeShareContract.load(CONFIG)

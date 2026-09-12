@@ -12,6 +12,16 @@ from arissto_sync.family_references import (
 
 
 CONFIG = Path(__file__).resolve().parents[1] / "config" / "client_family_references.json"
+FINERACT_ROOT = Path(__file__).resolve().parents[3]
+BASE_MIGRATION = (
+    FINERACT_ROOT
+    / "fineract-provider/src/main/resources/db/changelog/tenant/parts/0277_extend_family_members_for_arissto_references.xml"
+)
+MIGRATION = (
+    FINERACT_ROOT
+    / "fineract-provider/src/main/resources/db/changelog/tenant/parts/0321_ensure_arissto_family_relationship_values.xml"
+)
+TENANT_CHANGELOG = MIGRATION.parent.parent / "changelog-tenant.xml"
 
 
 class FamilyReferenceContractTests(unittest.TestCase):
@@ -69,6 +79,14 @@ class FamilyReferenceContractTests(unittest.TestCase):
             path.write_text(raw, encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "Duplicate relationship mapping"):
                 FamilyReferenceContract.load(path)
+
+    def test_liquibase_seeds_every_relationship_required_by_contract(self):
+        migrations = BASE_MIGRATION.read_text(encoding="utf-8") + MIGRATION.read_text(encoding="utf-8")
+        changelog = TENANT_CHANGELOG.read_text(encoding="utf-8")
+
+        for relationship in set(self.contract.relationships.values()):
+            self.assertIn(f"'{relationship}'", migrations)
+        self.assertIn(MIGRATION.name, changelog)
 
 
 if __name__ == "__main__":

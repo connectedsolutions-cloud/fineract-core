@@ -136,10 +136,12 @@ public class GuarantorsApiResource {
     @POST
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
-    public CommandProcessingResult createGuarantor(@PathParam("loanId") final Long loanId, final GuarantorsRequest guarantorsRequest) {
+    public CommandProcessingResult createGuarantor(@PathParam("loanId") final Long loanId, @QueryParam("command") final String command,
+            final GuarantorsRequest guarantorsRequest) {
 
-        final CommandWrapper commandRequest = new CommandWrapperBuilder().createGuarantor(loanId)
-                .withJson(apiJsonSerializerService.serialize(guarantorsRequest)).build();
+        final CommandWrapperBuilder builder = new CommandWrapperBuilder();
+        final CommandWrapper commandRequest = ("sourceExactCreate".equals(command) ? builder.sourceExactCreateGuarantor(loanId)
+                : builder.createGuarantor(loanId)).withJson(apiJsonSerializerService.serialize(guarantorsRequest)).build();
 
         return this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
     }

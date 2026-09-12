@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <!--
+        Lossless provenance for historical Arissto general-ledger imports.
+        The complete source key is the idempotency authority. transaction_id
+        and ref_num remain searchable evidence, never source identity.
+    -->
+    <changeSet id="0336-1-create-arissto-gl-journal-provenance" author="credesal">
+        <createTable tableName="credesal_arissto_gl_journal">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_cr_gl_journal_prov"/>
+            </column>
+            <column name="provenance_schema_version" type="VARCHAR(32)" defaultValue="arissto-gl-v1">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_system" type="VARCHAR(32)" defaultValue="ARISSTO">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_company_id" type="VARCHAR(32)"><constraints nullable="false"/></column>
+            <column name="source_branch_id" type="VARCHAR(32)"><constraints nullable="false"/></column>
+            <column name="source_period_id" type="VARCHAR(32)"><constraints nullable="false"/></column>
+            <column name="source_journal_id" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="source_journal_number" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="source_journal_date" type="DATE"><constraints nullable="false"/></column>
+            <column name="source_journal_type" type="VARCHAR(32)"><constraints nullable="false"/></column>
+            <column name="source_module_code" type="VARCHAR(32)"/>
+            <column name="source_status" type="VARCHAR(16)"><constraints nullable="false"/></column>
+            <column name="source_liquidation_flag" type="VARCHAR(8)"/>
+            <column name="source_opening_flag" type="VARCHAR(8)"/>
+            <column name="source_header_concept" type="TEXT"/>
+            <column name="source_header_concept_sha256" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="source_header_description" type="TEXT"/>
+            <column name="source_header_description_sha256" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="source_hash" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="planned_hash" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="contract_hash" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="source_schema_signature" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="coa_mapping_version" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="coa_mapping_hash" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="office_mapping_version" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="office_mapping_hash" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="policy_version" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="policy_hash" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="description_policy_version" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="source_fingerprint" type="VARCHAR(128)"><constraints nullable="false"/></column>
+            <column name="target_fingerprint" type="VARCHAR(128)"><constraints nullable="false"/></column>
+            <column name="target_baseline_hash" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="cutoff_date" type="DATE"><constraints nullable="false"/></column>
+            <column name="cutoff_timezone_id" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="cutoff_configuration_revision" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="cutoff_configuration_hash" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="plan_id" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="run_id" type="VARCHAR(64)"/>
+            <column name="target_transaction_id" type="VARCHAR(50)"/>
+            <column name="target_ref_num" type="VARCHAR(100)"/>
+            <column name="result" type="VARCHAR(32)"><constraints nullable="false"/></column>
+            <column name="reason_code" type="VARCHAR(128)"/>
+            <column name="known_transferred_loan_office_mismatch" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="known_anomaly_codes" type="TEXT"/>
+            <column name="retry_count" type="INTEGER" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="last_retry_at" type="DATETIME"/>
+            <column name="applied_at" type="DATETIME"/>
+            <column name="reconciled_at" type="DATETIME"/>
+            <column name="created_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="DATETIME"/>
+        </createTable>
+
+        <addUniqueConstraint tableName="credesal_arissto_gl_journal"
+                             columnNames="source_system,source_company_id,source_branch_id,source_period_id,source_journal_id"
+                             constraintName="uk_cr_gl_journal_prov_source"/>
+        <addUniqueConstraint tableName="credesal_arissto_gl_journal" columnNames="target_transaction_id"
+                             constraintName="uk_cr_gl_journal_prov_target"/>
+        <createIndex tableName="credesal_arissto_gl_journal" indexName="ix_cr_gl_journal_prov_lookup">
+            <column name="source_journal_number"/><column name="source_journal_date"/>
+        </createIndex>
+        <createIndex tableName="credesal_arissto_gl_journal" indexName="ix_cr_gl_journal_prov_report">
+            <column name="source_journal_type"/><column name="target_transaction_id"/>
+        </createIndex>
+        <createIndex tableName="credesal_arissto_gl_journal" indexName="ix_cr_gl_journal_prov_reconcile">
+            <column name="result"/><column name="source_journal_date"/><column name="reconciled_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0336-2-create-arissto-gl-journal-line-provenance" author="credesal">
+        <createTable tableName="credesal_arissto_gl_journal_line">
+            <column autoIncrement="true" name="id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_cr_gl_journal_line_prov"/>
+            </column>
+            <column name="journal_provenance_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="source_line_id" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="source_line_sequence" type="INTEGER"><constraints nullable="false"/></column>
+            <column name="source_line_hash" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="source_account_id" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="source_account_code" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="target_gl_account_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="source_debit_amount" type="DECIMAL(18,2)"/>
+            <column name="source_credit_amount" type="DECIMAL(18,2)"/>
+            <column name="source_side" type="VARCHAR(8)"><constraints nullable="false"/></column>
+            <column name="source_amount" type="DECIMAL(18,2)"><constraints nullable="false"/></column>
+            <column name="target_side" type="VARCHAR(8)"><constraints nullable="false"/></column>
+            <column name="target_type_enum" type="SMALLINT"><constraints nullable="false"/></column>
+            <column name="target_amount" type="DECIMAL(19,6)"><constraints nullable="false"/></column>
+            <column name="target_entry_date" type="DATE"><constraints nullable="false"/></column>
+            <column name="source_movement_reference" type="VARCHAR(128)"/>
+            <column name="source_document_reference" type="VARCHAR(128)"/>
+            <column name="source_destination_branch_id" type="VARCHAR(32)"><constraints nullable="false"/></column>
+            <column name="target_office_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="target_office_external_id" type="VARCHAR(100)"><constraints nullable="false"/></column>
+            <column name="target_dimensions" type="TEXT"><constraints nullable="false"/></column>
+            <column name="source_line_concept" type="TEXT"/>
+            <column name="source_line_concept_sha256" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="source_line_aux_concept" type="TEXT"/>
+            <column name="source_line_aux_concept_sha256" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="target_description_sha256" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="description_truncated" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_journal_entry_id" type="BIGINT"/>
+            <column name="result" type="VARCHAR(32)"><constraints nullable="false"/></column>
+            <column name="reason_code" type="VARCHAR(128)"/>
+            <column name="known_transferred_loan_office_mismatch" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="known_anomaly_codes" type="TEXT"/>
+            <column name="created_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="credesal_arissto_gl_journal_line" baseColumnNames="journal_provenance_id"
+                                 constraintName="fk_cr_gl_line_prov_header" referencedTableName="credesal_arissto_gl_journal"
+                                 referencedColumnNames="id" onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_arissto_gl_journal_line" baseColumnNames="target_gl_account_id"
+                                 constraintName="fk_cr_gl_line_prov_account" referencedTableName="acc_gl_account"
+                                 referencedColumnNames="id" onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_arissto_gl_journal_line" baseColumnNames="target_office_id"
+                                 constraintName="fk_cr_gl_line_prov_office" referencedTableName="m_office"
+                                 referencedColumnNames="id" onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addForeignKeyConstraint baseTableName="credesal_arissto_gl_journal_line" baseColumnNames="target_journal_entry_id"
+                                 constraintName="fk_cr_gl_line_prov_entry" referencedTableName="acc_gl_journal_entry"
+                                 referencedColumnNames="id" onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addUniqueConstraint tableName="credesal_arissto_gl_journal_line"
+                             columnNames="journal_provenance_id,source_line_id" constraintName="uk_cr_gl_line_prov_source"/>
+        <addUniqueConstraint tableName="credesal_arissto_gl_journal_line"
+                             columnNames="journal_provenance_id,source_line_sequence" constraintName="uk_cr_gl_line_prov_sequence"/>
+        <addUniqueConstraint tableName="credesal_arissto_gl_journal_line" columnNames="target_journal_entry_id"
+                             constraintName="uk_cr_gl_line_prov_target"/>
+        <createIndex tableName="credesal_arissto_gl_journal_line" indexName="ix_cr_gl_line_prov_account">
+            <column name="target_gl_account_id"/><column name="target_entry_date"/>
+        </createIndex>
+        <createIndex tableName="credesal_arissto_gl_journal_line" indexName="ix_cr_gl_line_prov_reconcile">
+            <column name="result"/><column name="target_journal_entry_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0336-3-add-arissto-gl-provenance-read-permission" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'READ_ARISSTO_GL_PROVENANCE'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="accounting"/>
+            <column name="code" value="READ_ARISSTO_GL_PROVENANCE"/>
+            <column name="entity_name" value="ACCOUNTINGCUTOFF"/>
+            <column name="action_name" value="READ_ARISSTO_GL_PROVENANCE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

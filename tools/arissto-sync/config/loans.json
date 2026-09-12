@@ -4,7 +4,10 @@
     "product_table": "CRD_LINEA_CREDITO",
     "loan_table": "CRD_CARTERA",
     "application_table": "CRD_SOLICITUD_CREDITO",
+    "guarantor_table": "CRD_SOLICITUD_FIADOR",
+    "guarantor_party_table": "AFI_SOCIO",
     "schedule_table": "CRD_PLAN_PAGO",
+    "schedule_adjustment_table": "CRD_REESTRUCTURACION",
     "movement_table": "CRD_MOVIMIENTOS_CARTERA",
     "charge_table": "CRD_CARGOS_CARTERA",
     "charge_detail_table": "CRD_DETALLE_CARGOS",
@@ -76,7 +79,7 @@
       "00001": {
         "principal": "500.00",
         "minPrincipal": "500.00",
-        "maxPrincipal": "3300.00",
+        "maxPrincipal": "4905.60",
         "numberOfRepayments": 6,
         "minNumberOfRepayments": 6,
         "maxNumberOfRepayments": 60,
@@ -157,7 +160,7 @@
     },
     "00010": {
       "classification": "manual-adjustment",
-      "source_loan_ids": [23, 90, 317, 340, 359, 1117, 1484, 1743, 1748, 2069, 2241, 2254, 2355],
+      "source_loan_ids": [23, 90, 301, 317, 340, 359, 1117, 1182, 1484, 1743, 1748, 2069, 2241, 2254, 2355],
       "plan_behavior": "accept-native-schedule",
       "blocking": false,
       "synthesize_missing_installments": false,
@@ -168,6 +171,73 @@
         "cutover-balances",
         "terminal-status"
       ]
+    }
+  },
+  "native_creation_overrides": {
+    "24": {
+      "classification": "reviewed-manual-adjustment-header-installment-count",
+      "number_of_repayments_source": "approved-header",
+      "expected_header_repayments": 6,
+      "expected_schedule_rows": 5
+    },
+    "301": {
+      "classification": "reviewed-manual-adjustment-stale-header-rate",
+      "interest_rate_source": "portfolio-approved"
+    },
+    "805": {
+      "classification": "reviewed-early-payoff-future-interest-cutover",
+      "terminal_adjustment_maximum_source": "source-schedule-total"
+    },
+    "1117": {
+      "classification": "reviewed-manual-adjustment-stale-header-rate",
+      "interest_rate_source": "portfolio-approved"
+    },
+    "1182": {
+      "classification": "reviewed-manual-adjustment-stale-header-rate",
+      "interest_rate_source": "portfolio-approved",
+      "terminal_adjustment_maximum_source": "source-schedule-total"
+    },
+    "1441": {
+      "classification": "source-exact-initial-emi-floor",
+      "fixed_emi_source": "reviewed-active-import-cardinality-amount",
+      "fixed_emi_amount": "205.31",
+      "expected_first_source_core_installment": "205.29",
+      "schedule_writer": "fineract-source-exact-active-schedule-v1"
+    }
+  },
+  "active_manual_schedule_imports": {
+    "479": {
+      "classification": "reviewed-active-manual-schedule-import",
+      "expected_line_id": "00010",
+      "expected_source_state": "1",
+      "expected_adjustment_count": 2,
+      "expected_schedule_rows": 5,
+      "schedule_writer": "fineract-source-exact-active-schedule-v1"
+    },
+    "1738": {
+      "classification": "reviewed-active-manual-schedule-import",
+      "expected_line_id": "00010",
+      "expected_source_state": "1",
+      "expected_adjustment_count": 2,
+      "expected_schedule_rows": 19,
+      "terminal_zero_core_charge_only_row": true,
+      "schedule_writer": "fineract-source-exact-active-schedule-v1"
+    },
+    "1841": {
+      "classification": "reviewed-active-manual-schedule-import",
+      "expected_line_id": "00010",
+      "expected_source_state": "1",
+      "expected_adjustment_count": 1,
+      "expected_schedule_rows": 15,
+      "schedule_writer": "fineract-source-exact-active-schedule-v1"
+    },
+    "1869": {
+      "classification": "reviewed-active-manual-schedule-import",
+      "expected_line_id": "00010",
+      "expected_source_state": "1",
+      "expected_adjustment_count": 1,
+      "expected_schedule_rows": 28,
+      "schedule_writer": "fineract-source-exact-active-schedule-v1"
     }
   },
   "historical_reference_only_schedules": {
@@ -224,6 +294,19 @@
       ]
     },
     "1871": {
+      "classification": "terminal-zero-core-charge-only-row",
+      "plan_behavior": "accept-native-schedule",
+      "blocking": false,
+      "synthesize_missing_installments": false,
+      "synthesize_adjustment_transactions": false,
+      "required_reconciliation": [
+        "source-movement-identities",
+        "source-movement-component-totals",
+        "cutover-balances",
+        "terminal-status"
+      ]
+    },
+    "1926": {
       "classification": "terminal-zero-core-charge-only-row",
       "plan_behavior": "accept-native-schedule",
       "blocking": false,
@@ -329,6 +412,20 @@
     },
     "2482": {
       "classification": "trailing-zero-core-schedule-rows",
+      "plan_behavior": "accept-native-schedule",
+      "blocking": false,
+      "synthesize_missing_installments": false,
+      "synthesize_adjustment_transactions": false,
+      "required_reconciliation": [
+        "source-movement-identities",
+        "source-movement-component-totals",
+        "cutover-balances",
+        "terminal-status"
+      ]
+    },
+    "closed-refinance-predecessors": {
+      "classification": "closed-refinance-predecessor-historical-schedule",
+      "source_loan_ids": [281, 283, 284, 285, 286, 315, 331, 632, 634, 635, 636, 639, 640, 641, 648, 971, 983, 992, 995, 998],
       "plan_behavior": "accept-native-schedule",
       "blocking": false,
       "synthesize_missing_installments": false,

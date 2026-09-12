@@ -18,8 +18,9 @@
  */
 package org.apache.fineract.organisation.teller.starter;
 
+import org.apache.fineract.accounting.cutoff.AccountingCutoffPolicyService;
 import org.apache.fineract.accounting.financialactivityaccount.domain.FinancialActivityAccountRepositoryWrapper;
-import org.apache.fineract.accounting.journalentry.domain.JournalEntryRepository;
+import org.apache.fineract.accounting.journalentry.service.JournalEntryPersistenceService;
 import org.apache.fineract.infrastructure.core.service.PaginationHelper;
 import org.apache.fineract.infrastructure.core.service.database.DatabaseSpecificSQLGenerator;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
@@ -61,11 +62,12 @@ public class OrganisationTellerConfiguration {
     public TellerWritePlatformService tellerWritePlatformService(PlatformSecurityContext context,
             TellerCommandFromApiJsonDeserializer fromApiJsonDeserializer, TellerRepositoryWrapper tellerRepositoryWrapper,
             OfficeRepositoryWrapper officeRepositoryWrapper, StaffRepository staffRepository, CashierRepository cashierRepository,
-            CashierTransactionRepository cashierTxnRepository, JournalEntryRepository glJournalEntryRepository,
+            CashierTransactionRepository cashierTxnRepository, JournalEntryPersistenceService journalEntryPersistenceService,
+            AccountingCutoffPolicyService cutoffPolicyService,
             FinancialActivityAccountRepositoryWrapper financialActivityAccountRepositoryWrapper,
             CashierTransactionDataValidator cashierTransactionDataValidator, CurrencyReadPlatformService currencyReadPlatformService) {
         return new TellerWritePlatformServiceJpaImpl(context, fromApiJsonDeserializer, tellerRepositoryWrapper, officeRepositoryWrapper,
-                staffRepository, cashierRepository, cashierTxnRepository, glJournalEntryRepository,
+                staffRepository, cashierRepository, cashierTxnRepository, journalEntryPersistenceService, cutoffPolicyService,
                 financialActivityAccountRepositoryWrapper, cashierTransactionDataValidator, currencyReadPlatformService);
     }
 }

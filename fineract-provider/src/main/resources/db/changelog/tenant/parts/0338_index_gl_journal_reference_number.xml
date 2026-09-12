@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0338-1-index-gl-journal-reference-number" author="credesal">
+        <comment>
+            Support exact ref_num lookup from Fineract and Mifos without
+            changing the existing journal-number ownership contract.
+        </comment>
+        <createIndex tableName="acc_gl_journal_entry" indexName="idx_acc_gl_journal_entry_ref_num">
+            <column name="ref_num"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

@@ -53,4 +53,17 @@ class LoanTopupDetailsTest {
         assertThatIllegalArgumentException().isThrownBy(() -> new LoanTopupDetails(loan, List.of()));
         assertThatIllegalArgumentException().isThrownBy(() -> new LoanTopupDetails(loan, List.of(12L, 12L)));
     }
+
+    @Test
+    void shouldRepresentMixedFullAndPartialConsolidationWithoutClosingPartialPredecessor() {
+        final LoanTopupDetails refinancing = new LoanTopupDetails(mock(Loan.class), 31L);
+
+        refinancing.addSourceExactSettlement(44L, "PARTIAL_PAYDOWN");
+
+        assertThat(refinancing.getOperationType()).isEqualTo("CONSOLIDATION");
+        assertThat(refinancing.isConsolidation()).isTrue();
+        assertThat(refinancing.getLoanIdsToClose()).containsExactly(31L);
+        assertThat(refinancing.getSettlements()).extracting(LoanRefinancingSettlement::getSettlementType).containsExactly("FULL_CLOSE",
+                "PARTIAL_PAYDOWN");
+    }
 }

@@ -192,7 +192,12 @@ public class LoanTransactionValidatorImpl implements LoanTransactionValidator {
                                 baseDataValidator.reset().parameter(path + LoanApiConstants.loanIdToClose).value(predecessorLoanId)
                                         .failWithCode("duplicate", "A predecessor loan cannot appear more than once");
                             }
+                            final String settlementType = this.fromApiJsonHelper
+                                    .extractStringNamed(LoanApiConstants.refinancingSettlementType, settlement);
+                            baseDataValidator.reset().parameter(path + LoanApiConstants.refinancingSettlementType).value(settlementType)
+                                    .ignoreIfNull().isOneOfTheseValues("FULL_CLOSE", "PARTIAL_PAYDOWN");
                             validateSourceExactSettlement(baseDataValidator, settlement, path);
+                            validateLegacyCrossClientEvidence(baseDataValidator, settlement, path);
                         }
                         index++;
                     }
@@ -305,6 +310,28 @@ public class LoanTransactionValidatorImpl implements LoanTransactionValidator {
         baseDataValidator.reset().parameter(path + repaymentParameter).value(repaymentExternalId).notBlank().notExceedingLengthOf(100);
         final String transferExternalId = this.fromApiJsonHelper.extractStringNamed(transferParameter, element);
         baseDataValidator.reset().parameter(path + transferParameter).value(transferExternalId).notBlank().notExceedingLengthOf(100);
+    }
+
+    private void validateLegacyCrossClientEvidence(final DataValidatorBuilder baseDataValidator, final JsonElement element,
+            final String path) {
+        final Boolean legacyCrossClient = this.fromApiJsonHelper.extractBooleanNamed(LoanApiConstants.legacyCrossClientSettlement, element);
+        if (!Boolean.TRUE.equals(legacyCrossClient)) {
+            return;
+        }
+        validateRequiredLegacyEvidenceString(baseDataValidator, element, path, LoanApiConstants.refinancingAuthorizationBasis, 50);
+        validateRequiredLegacyEvidenceString(baseDataValidator, element, path, LoanApiConstants.refinancingSourceSystem, 30);
+        validateRequiredLegacyEvidenceString(baseDataValidator, element, path, LoanApiConstants.refinancingSourceLiquidationId, 100);
+        validateRequiredLegacyEvidenceString(baseDataValidator, element, path, LoanApiConstants.refinancingSourcePayoffMovementId, 100);
+        validateRequiredLegacyEvidenceString(baseDataValidator, element, path, LoanApiConstants.refinancingSourceOperatorId, 100);
+        final LocalDate sourcePayoffDate = this.fromApiJsonHelper.extractLocalDateNamed(LoanApiConstants.refinancingSourcePayoffDate,
+                element);
+        baseDataValidator.reset().parameter(path + LoanApiConstants.refinancingSourcePayoffDate).value(sourcePayoffDate).notNull();
+    }
+
+    private void validateRequiredLegacyEvidenceString(final DataValidatorBuilder baseDataValidator, final JsonElement element,
+            final String path, final String parameter, final int maximumLength) {
+        final String value = this.fromApiJsonHelper.extractStringNamed(parameter, element);
+        baseDataValidator.reset().parameter(path + parameter).value(value).notBlank().notExceedingLengthOf(maximumLength);
     }
 
     protected void validateDisbursementWithPostDatedChecks(final String json, final Long loanId) {
@@ -474,6 +501,7 @@ public class LoanTransactionValidatorImpl implements LoanTransactionValidator {
         final Set<String> transactionParameters = new HashSet<>(getRepaymentParameters());
         transactionParameters.addAll(Arrays.asList(LoanApiConstants.sourceExactPrincipalPortionParameterName,
                 LoanApiConstants.sourceExactInterestPortionParameterName, LoanApiConstants.sourceExactFeeChargesPortionParameterName,
+                LoanApiConstants.sourceExactFeeChargeExternalIdParameterName,
                 LoanApiConstants.sourceExactPenaltyChargesPortionParameterName, "cashierId"));
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, transactionParameters);
@@ -505,6 +533,10 @@ public class LoanTransactionValidatorImpl implements LoanTransactionValidator {
 
         final String externalId = this.fromApiJsonHelper.extractStringNamed(LoanApiConstants.externalIdParameterName, element);
         baseDataValidator.reset().parameter(LoanApiConstants.externalIdParameterName).value(externalId).notBlank()
+                .notExceedingLengthOf(100);
+        final String feeChargeExternalId = this.fromApiJsonHelper
+                .extractStringNamed(LoanApiConstants.sourceExactFeeChargeExternalIdParameterName, element);
+        baseDataValidator.reset().parameter(LoanApiConstants.sourceExactFeeChargeExternalIdParameterName).value(feeChargeExternalId)
                 .notExceedingLengthOf(100);
         final String note = this.fromApiJsonHelper.extractStringNamed(LoanApiConstants.noteParameterName, element);
         baseDataValidator.reset().parameter(LoanApiConstants.noteParameterName).value(note).notExceedingLengthOf(1000);

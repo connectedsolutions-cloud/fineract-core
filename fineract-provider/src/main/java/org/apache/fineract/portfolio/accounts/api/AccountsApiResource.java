@@ -129,10 +129,13 @@ public class AccountsApiResource {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = AccountsApiResourceSwagger.PostAccountsTypeResponse.class))) })
     public CommandProcessingResult createAccount(@PathParam("type") @Parameter(description = "type") final String accountType,
+            @QueryParam("command") @Parameter(description = "command") final String commandParam,
             @Parameter(hidden = true) AccountRequest accountRequest) {
         this.platformSecurityContext.authenticatedUser();
-        CommandWrapper commandWrapper = new CommandWrapperBuilder().createAccount(accountType)
-                .withJson(toApiJsonSerializer.serialize(accountRequest)).build();
+        CommandWrapperBuilder builder = "sourceexactcreate".equalsIgnoreCase(commandParam)
+                ? new CommandWrapperBuilder().sourceExactCreateAccount(accountType)
+                : new CommandWrapperBuilder().createAccount(accountType);
+        CommandWrapper commandWrapper = builder.withJson(toApiJsonSerializer.serialize(accountRequest)).build();
         return this.commandsSourceWritePlatformService.logCommandSource(commandWrapper);
     }
 

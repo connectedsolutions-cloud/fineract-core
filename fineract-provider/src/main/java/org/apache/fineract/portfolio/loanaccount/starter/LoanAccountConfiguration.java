@@ -513,9 +513,9 @@ public class LoanAccountConfiguration {
             LoanDisbursementValidator loanDisbursementValidator, LoanChargeService loanChargeService, LoanBalanceService loanBalanceService,
             LoanJournalEntryPoster journalEntryPoster, LoanTransactionRepository loanTransactionRepository,
             org.apache.fineract.accounting.journalentry.service.AccountingProcessorHelper accountingProcessorHelper,
-            InvoiceService invoiceService) {
+            InvoiceService invoiceService, org.apache.fineract.accounting.cutoff.AccountingCutoffPolicyService cutoffPolicyService) {
         return new LoanDisbursementService(loanChargeValidator, loanDisbursementValidator, loanChargeService, loanBalanceService,
-                journalEntryPoster, loanTransactionRepository, accountingProcessorHelper, invoiceService);
+                journalEntryPoster, loanTransactionRepository, accountingProcessorHelper, invoiceService, cutoffPolicyService);
     }
 
     @Bean

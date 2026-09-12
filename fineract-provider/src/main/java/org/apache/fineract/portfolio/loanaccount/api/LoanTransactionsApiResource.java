@@ -568,6 +568,8 @@ public class LoanTransactionsApiResource {
             commandRequest = builder.sourceExactComponentReallocation(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "sourceExactGoodwillCredit")) {
             commandRequest = builder.sourceExactLoanGoodwillCreditTransaction(resolvedLoanId).build();
+        } else if (CommandParameterUtil.is(commandParam, "sourceExactTerminalAdjustment")) {
+            commandRequest = builder.sourceExactTerminalAdjustment(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "merchantIssuedRefund")) {
             commandRequest = builder.loanMerchantIssuedRefundTransaction(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "payoutRefund")) {
@@ -740,6 +742,8 @@ public class LoanTransactionsApiResource {
             commandRequest = builder.buyDownFeeAdjustment(resolvedLoanId, resolvedTransactionId).build();
         } else if (CommandParameterUtil.is(commandParam, INTEREST_REFUND_COMMAND_VALUE)) {
             commandRequest = builder.manualInterestRefund(resolvedLoanId, resolvedTransactionId).build();
+        } else if (CommandParameterUtil.is(commandParam, "sourceExactReversal")) {
+            commandRequest = builder.sourceExactAdjustTransaction(resolvedLoanId, resolvedTransactionId).build();
         } else { // Default to adjust the Loan Transaction
             commandRequest = builder.adjustTransaction(resolvedLoanId, resolvedTransactionId).build();
         }

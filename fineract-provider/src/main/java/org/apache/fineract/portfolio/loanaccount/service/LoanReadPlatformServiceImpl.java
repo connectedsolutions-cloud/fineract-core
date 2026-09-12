@@ -223,21 +223,30 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
 
             final LoanAccountData loan = this.jdbcTemplate.queryForObject(sqlBuilder.toString(), rm, params.toArray());
             if (loan != null && loan.isTopup()) {
-                final List<LoanRefinancingSettlementData> settlements = this.jdbcTemplate
-                        .query("select topup.operation_type, settlement.closure_loan_id, closed.account_no, settlement.settlement_amount, "
+                final List<LoanRefinancingSettlementData> settlements = this.jdbcTemplate.query(
+                        "select topup.operation_type, settlement.closure_loan_id, closed.account_no, settlement.settlement_type, settlement.settlement_amount, "
                                 + "settlement.principal_portion, settlement.interest_portion, settlement.fee_charges_portion, "
-                                + "settlement.penalty_charges_portion from m_loan_topup topup "
+                                + "settlement.penalty_charges_portion, settlement.legacy_cross_client, settlement.authorization_basis, "
+                                + "settlement.source_system, settlement.source_liquidation_id, settlement.source_payoff_movement_id, "
+                                + "settlement.source_operator_id, settlement.source_payoff_date, settlement.predecessor_client_id, "
+                                + "settlement.successor_client_id from m_loan_topup topup "
                                 + "join m_loan_refinancing_settlement settlement on settlement.refinancing_id = topup.id "
                                 + "join m_loan closed on closed.id = settlement.closure_loan_id where topup.loan_id = ? "
-                                + "order by settlement.closure_loan_id", (rs, rowNum) -> {
-                                    if (rowNum == 0) {
-                                        loan.setRefinancingOperationType(rs.getString("operation_type"));
-                                    }
-                                    return new LoanRefinancingSettlementData(rs.getLong("closure_loan_id"), rs.getString("account_no"),
-                                            rs.getBigDecimal("settlement_amount"), rs.getBigDecimal("principal_portion"),
-                                            rs.getBigDecimal("interest_portion"), rs.getBigDecimal("fee_charges_portion"),
-                                            rs.getBigDecimal("penalty_charges_portion"));
-                                }, loanId);
+                                + "order by settlement.closure_loan_id",
+                        (rs, rowNum) -> {
+                            if (rowNum == 0) {
+                                loan.setRefinancingOperationType(rs.getString("operation_type"));
+                            }
+                            return new LoanRefinancingSettlementData(rs.getLong("closure_loan_id"), rs.getString("account_no"),
+                                    rs.getString("settlement_type"), rs.getBigDecimal("settlement_amount"),
+                                    rs.getBigDecimal("principal_portion"), rs.getBigDecimal("interest_portion"),
+                                    rs.getBigDecimal("fee_charges_portion"), rs.getBigDecimal("penalty_charges_portion"),
+                                    rs.getBoolean("legacy_cross_client"), rs.getString("authorization_basis"),
+                                    rs.getString("source_system"), rs.getString("source_liquidation_id"),
+                                    rs.getString("source_payoff_movement_id"), rs.getString("source_operator_id"),
+                                    rs.getObject("source_payoff_date", LocalDate.class), rs.getObject("predecessor_client_id", Long.class),
+                                    rs.getObject("successor_client_id", Long.class));
+                        }, loanId);
                 loan.setRefinancingSettlements(settlements);
             }
             return loan;

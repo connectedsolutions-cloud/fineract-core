@@ -467,6 +467,10 @@ public class LoanChargesApiResource {
             final CommandWrapper commandRequest = new CommandWrapperBuilder().deactivateOverdueLoanCharges(resolvedLoanId, null)
                     .withJson(apiRequestBodyAsJson).build();
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        } else if (CommandParameterUtil.is(commandParam, "sourceExactAddCharge")) {
+            final CommandWrapper commandRequest = new CommandWrapperBuilder().sourceExactCreateLoanCharge(resolvedLoanId)
+                    .withJson(apiRequestBodyAsJson).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
         } else {
             final CommandWrapper commandRequest = new CommandWrapperBuilder().createLoanCharge(resolvedLoanId)
                     .withJson(apiRequestBodyAsJson).build();

@@ -149,7 +149,7 @@
   },
   "target_shared_gl": {
     "savingsReferenceAccountId": {"gl_code": "1110040202", "classification_enum": 1},
-    "transfersInSuspenseAccountId": {"gl_code": "213005", "classification_enum": 2},
+    "transfersInSuspenseAccountId": {"gl_code": "2130050101", "classification_enum": 2},
     "incomeFromFeeAccountId": {"gl_code": "6420", "classification_enum": 4},
     "incomeFromPenaltyAccountId": {"gl_code": "6430", "classification_enum": 4},
     "feesReceivableAccountId": {"gl_code": "1530", "classification_enum": 1},

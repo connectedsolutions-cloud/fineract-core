@@ -6,6 +6,7 @@ from pathlib import Path
 from arissto_sync.client_staff_assignments import (
     ClientStaffAssignmentContract,
     ClientStaffAssignmentDataIssue,
+    _source_rows_by_key,
 )
 
 
@@ -68,6 +69,15 @@ class ClientStaffAssignmentContractTests(unittest.TestCase):
             self.contract().source_key(self.row(source_key=""))
         with self.assertRaises(ClientStaffAssignmentDataIssue):
             self.contract().company(self.row(company_id=None))
+
+    def test_bulk_source_index_reports_duplicate_keys_and_skips_invalid_keys(self):
+        indexed, duplicates = _source_rows_by_key(
+            [self.row(), self.row(promoter="99"), self.row(source_key="")],
+            self.contract(),
+        )
+        self.assertEqual(set(indexed), {"100"})
+        self.assertEqual(duplicates, {"100"})
+        self.assertEqual(indexed["100"]["promoter"], "99")
 
     def test_contract_rejects_missing_role(self):
         source = Path(__file__).parents[1] / "config" / "client_staff_assignments.json"

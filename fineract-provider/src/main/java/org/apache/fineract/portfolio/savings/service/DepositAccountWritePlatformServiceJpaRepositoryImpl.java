@@ -1396,6 +1396,14 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
     @Override
     public Long updateMaturityDetails(Long depositAccountId, DepositAccountType depositAccountType,
             final boolean applyMaturityInstruction, final boolean postMaturityInterest, final LocalDate sourceRolloverDate) {
+        return updateMaturityDetails(depositAccountId, depositAccountType, applyMaturityInstruction, postMaturityInterest,
+                sourceRolloverDate, false);
+    }
+
+    @Override
+    public Long updateMaturityDetails(Long depositAccountId, DepositAccountType depositAccountType,
+            final boolean applyMaturityInstruction, final boolean postMaturityInterest, final LocalDate sourceRolloverDate,
+            final boolean forceSourceMaturity) {
         final boolean isSavingsInterestPostingAtCurrentPeriodEnd = this.configurationDomainService
                 .isSavingsInterestPostingAtCurrentPeriodEnd();
         final Integer financialYearBeginningMonth = this.configurationDomainService.retrieveFinancialYearBeginningMonth();
@@ -1414,8 +1422,12 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
                 fdAccount.configureSourceAuthoritativePrincipalRollover();
             }
             if (!fdAccount.isMatured()) {
-                fdAccount.updateMaturityStatus(isSavingsInterestPostingAtCurrentPeriodEnd, financialYearBeginningMonth,
-                        postMaturityInterest);
+                if (forceSourceMaturity) {
+                    fdAccount.updateMaturityStatusFromSource();
+                } else {
+                    fdAccount.updateMaturityStatus(isSavingsInterestPostingAtCurrentPeriodEnd, financialYearBeginningMonth,
+                            postMaturityInterest);
+                }
             }
             // handle maturity instructions
 

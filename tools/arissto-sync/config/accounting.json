@@ -1,0 +1,481 @@
+{
+  "contract_version": 14,
+  "category": "accounting",
+  "cutoff": {
+    "date": null,
+    "default_date": "sync_run_date",
+    "freeze_boundary": "plan_creation",
+    "timezone": "America/El_Salvador",
+    "historical_boundary": "before_cutoff",
+    "pre_cutoff_owner": "arissto_sync_accounting",
+    "native_boundary": "on_or_after_cutoff",
+    "post_cutoff_owner": "fineract"
+  },
+  "historical_origin": {
+    "policy_version": "arissto-journal-inception-v1",
+    "source_company": "001",
+    "first_period_id": "00028",
+    "first_eligible_journal_date": "2022-11-18",
+    "opening_balance_basis": "demonstrated_zero_at_first_journal_bearing_period",
+    "import_scope": "all_eligible_status_3_journals_on_or_after_origin_and_before_cutoff",
+    "synthetic_opening_journal_allowed": false,
+    "residual_balance_journal_allowed": false,
+    "cnt_mayor_role": "secondary_reconciliation_control_not_transaction_source"
+  },
+  "source": {
+    "header_table": "dbo.CNT_PARTIDAS",
+    "detail_table": "dbo.CNT_DETALLE_PARTIDAS",
+    "source_key": [
+      "ID_EMPRESA",
+      "ID_SUCURSAL",
+      "ID_PERIODO",
+      "ID_PARTIDA"
+    ],
+    "line_key": "ID_DETALLE_PARTIDA"
+  },
+  "account_mapping": {
+    "version": "arissto-to-fineract-coa-v1",
+    "default": "exact_code",
+    "overrides": {
+      "1110010101": "1110010199",
+      "1110010102": "1110010199",
+      "222099940101": "222099910101",
+      "222099940102": "222099910201",
+      "222099940103": "222099910201"
+    },
+    "reviewed_exact_codes": [
+      "2220070302",
+      "222099940104",
+      "222099940105"
+    ],
+    "plan_binding": "freeze_version_hash_and_resolved_target_code_per_line"
+  },
+  "source_eligibility": {
+    "importable_journal_statuses": [
+      "3"
+    ],
+    "journal_status_dispositions": {
+      "1": {
+        "disposition": "QUARANTINED",
+        "reason_code": "SOURCE_JOURNAL_NOT_MAYORIZED"
+      },
+      "2": {
+        "disposition": "QUARANTINED",
+        "reason_code": "SOURCE_JOURNAL_EXCLUDED_FROM_LEDGER"
+      }
+    },
+    "unexpected_status": {
+      "disposition": "QUARANTINED",
+      "reason_code": "SOURCE_JOURNAL_STATUS_UNSUPPORTED"
+    },
+    "empty_journal": {
+      "disposition": "QUARANTINED",
+      "reason_code": "SOURCE_JOURNAL_EMPTY"
+    },
+    "unbalanced_journal": {
+      "disposition": "QUARANTINED",
+      "reason_code": "SOURCE_JOURNAL_UNBALANCED"
+    }
+  },
+  "reversal_policy": {
+    "reporting_requirement": "preserve_posted_gl_effects",
+    "historical_representation": "import_each_eligible_source_journal_as_ordinary_journal",
+    "pairing_required": false,
+    "classification_required": false,
+    "native_reversal_operation": "never_for_historical_import",
+    "native_reversal_columns": "leave_defaults_unlinked",
+    "opposite_posting_behavior": "import_independently_when_eligible",
+    "reversal_signals": "optional_audit_metadata_only",
+    "cross_cutoff": "apply_standard_journal_date_ownership_without_pair_dependency"
+  },
+  "annual_liquidation_policy": {
+    "source_journal_type_column": "ID_TIPO_PARTIDA",
+    "source_journal_type": "003",
+    "source_liquidation_flag_column": "LIQ_ING_EGR",
+    "source_liquidation_flag": "1",
+    "source_opening_flag_column": "PARTIDA_INICIAL",
+    "expected_opening_flag": "0",
+    "shape_validation": "type_and_liquidation_flag_must_agree_and_journal_date_must_be_december_31",
+    "unsupported_shape": {
+      "disposition": "QUARANTINED",
+      "reason_code": "SOURCE_ANNUAL_LIQUIDATION_SHAPE_UNSUPPORTED"
+    },
+    "unexpected_opening_journal": {
+      "disposition": "QUARANTINED",
+      "reason_code": "SOURCE_OPENING_JOURNAL_REQUIRES_REVIEW"
+    },
+    "historical_representation": "import_complete_posted_closing_journal_on_source_date",
+    "generate_fineract_year_end_journal": false,
+    "import_cnt_mayor_carry_forward": false,
+    "generate_opening_or_residual_journal": false,
+    "native_gl_closure_role": "posting_date_lock_only_not_annual_close",
+    "native_annual_summary_role": "product_asset_owner_optimization_not_import_target",
+    "provenance_fields_required": [
+      "source_journal_type",
+      "source_liquidation_flag",
+      "source_opening_flag"
+    ],
+    "report_filters": {
+      "general_ledger": "include",
+      "balance_sheet": "include",
+      "post_closing_trial_balance": "include",
+      "income_statement": "exclude_imported_journals_with_source_journal_type_003",
+      "pre_closing_trial_balance": "exclude_imported_journals_with_source_journal_type_003",
+      "filter_authority": "immutable_header_provenance_transaction_id",
+      "forbidden_inference_fields": [
+        "entry_date",
+        "ref_num",
+        "description",
+        "manual_entry"
+      ]
+    }
+  },
+  "legacy_text_policy": {
+    "preservation": "verbatim_decoded_unicode_in_separate_provenance_columns",
+    "core_journal_description_role": "display_projection_only",
+    "core_journal_description_limit": 500,
+    "header_provenance_columns": {
+      "CNT_PARTIDAS.CONCEPTO": {
+        "target_column": "source_header_concept",
+        "target_type": "TEXT",
+        "hash_column": "source_header_concept_sha256"
+      },
+      "CNT_PARTIDAS.DESCRIPCION": {
+        "target_column": "source_header_description",
+        "target_type": "TEXT",
+        "hash_column": "source_header_description_sha256"
+      }
+    },
+    "line_provenance_columns": {
+      "CNT_DETALLE_PARTIDAS.CONCEPTO": {
+        "target_column": "source_line_concept",
+        "target_type": "TEXT",
+        "hash_column": "source_line_concept_sha256"
+      },
+      "CNT_DETALLE_PARTIDAS.CONCEPTO_AUX": {
+        "target_column": "source_line_aux_concept",
+        "target_type": "TEXT",
+        "hash_column": "source_line_aux_concept_sha256"
+      }
+    },
+    "raw_value_semantics": {
+      "preserve_null_empty_and_whitespace_distinction": true,
+      "normalization_before_provenance_storage": "none",
+      "hash_serialization": "field_name_plus_null_marker_or_utf8_value",
+      "hash_algorithm": "SHA-256"
+    },
+    "display_projection": {
+      "line_precedence": [
+        "CNT_DETALLE_PARTIDAS.CONCEPTO",
+        "CNT_PARTIDAS.DESCRIPCION",
+        "CNT_PARTIDAS.CONCEPTO"
+      ],
+      "exclude_from_display": [
+        "CNT_DETALLE_PARTIDAS.CONCEPTO_AUX"
+      ],
+      "unicode_normalization": "NFC",
+      "line_breaks_and_whitespace": "collapse_to_single_spaces_and_trim",
+      "unsupported_controls": "remove",
+      "blank_result": "NULL",
+      "truncation": "first_499_characters_plus_unicode_ellipsis",
+      "truncation_flag_column": "description_truncated",
+      "display_hash_column": "target_description_sha256",
+      "policy_version_column": "description_policy_version"
+    },
+    "privacy": {
+      "full_legacy_fields_in_standard_journal_api": false,
+      "display_projection_in_standard_journal_api": true,
+      "raw_text_in_plan_status_error_or_reconciliation_logs": false,
+      "raw_text_access": "dedicated_restricted_provenance_permission"
+    }
+  },
+  "agency_dimension": {
+    "mapping_version": "fineract-office-external-id-v1",
+    "source_company_column": "ID_EMPRESA",
+    "source_company": "001",
+    "source_column": "ID_SUCURSAL_DESTINO",
+    "target_json_column": "acc_gl_journal_entry.dimensions",
+    "target_key": "office",
+    "target_value_authority": "m_office.external_id",
+    "target_value_json_type": "string",
+    "line_value_overrides_transaction_value": true,
+    "mapping_selection_required": true,
+    "mapping": {
+      "001": {
+        "source_name": "AGENCIA CENTRAL",
+        "target_office_id": 1,
+        "target_office_external_id": "1",
+        "dimension_value": "1"
+      },
+      "002": {
+        "source_name": "USULUTAN",
+        "target_office_id": 2,
+        "target_office_external_id": "2",
+        "dimension_value": "2"
+      }
+    },
+    "unmapped_source": {
+      "disposition": "QUARANTINED",
+      "reason_code": "SOURCE_DESTINATION_BRANCH_UNMAPPED"
+    },
+    "forbidden_fallbacks": [
+      "header_branch",
+      "single_fixed_office_id",
+      "office_name_or_display_label"
+    ],
+    "target_preflight": "require_unique_matching_office_id_and_external_id_for_every_mapping",
+    "plan_binding": "freeze_mapping_version_hash_and_resolved_value_per_line",
+    "historical_date_rule": "dimension_attribution_may_precede_target_office_opening_date",
+    "native_post_cutoff_requirement": "derive_same_dimension_value_from_posting_m_office_external_id",
+    "native_office_id_policy": "per_line_from_destination_branch_mapping",
+    "native_office_id_authority": "mapping.target_office_id",
+    "transaction_balance_scope": "complete_source_journal_across_all_offices",
+    "per_office_balance_required": false,
+    "closure_validation": "all_distinct_mapped_line_offices_before_atomic_write",
+    "closure_rule": "journal_date_must_be_strictly_after_latest_closure_for_each_mapped_office",
+    "closure_bypass": false,
+    "authorization": "dedicated_historical_import_permission_and_user_access_to_every_mapped_office"
+  },
+  "currency_precision": {
+    "policy_version": "usd-numeric-18-2-v1",
+    "source_company": "001",
+    "source_multicurrency_flag": "0",
+    "source_base_currency_type": "1",
+    "source_base_currency_iso": "USD",
+    "source_amount_columns": {
+      "DEBE": "NUMERIC(18,2)",
+      "HABER": "NUMERIC(18,2)"
+    },
+    "target_currency_code": "USD",
+    "target_currency_decimal_places": 2,
+    "target_amount_column": "DECIMAL(19,6)",
+    "canonical_plan_amount": "plain_decimal_string_with_exactly_two_fractional_digits",
+    "binary_float_allowed": false,
+    "rounding_allowed": false,
+    "recomputation_allowed": false,
+    "target_representation": "exact_source_cents_with_four_zero_fractional_digits",
+    "target_scale_guard": "amount_equals_round_amount_to_two_decimals",
+    "target_range_max_integer_digits": 13,
+    "unsupported_scale": {
+      "disposition": "QUARANTINED",
+      "reason_code": "SOURCE_AMOUNT_SCALE_UNSUPPORTED"
+    },
+    "target_overflow": {
+      "disposition": "QUARANTINED",
+      "reason_code": "SOURCE_AMOUNT_TARGET_OVERFLOW"
+    },
+    "currency_mismatch": {
+      "disposition": "QUARANTINED",
+      "reason_code": "SOURCE_OR_TARGET_CURRENCY_UNSUPPORTED"
+    },
+    "target_preflight": "require_enabled_usd_currency_with_two_decimal_places"
+  },
+  "report_presentation": {
+    "policy_version": "arissto-coa-presentation-v1",
+    "ledger_authority": "acc_gl_journal_entry",
+    "amount_mutation_allowed": false,
+    "source_metadata": {
+      "table": "dbo.CNT_CATALOGO_CUENTAS",
+      "fields": [
+        "CODIGO_CUENTA",
+        "NOMBRE_CUENTA",
+        "ID_CUENTA_PADRE",
+        "ID_CLASIFICADOR",
+        "ORDEN",
+        "TIPO_SALDO",
+        "BC",
+        "BG"
+      ],
+      "target_table": "credesal_gl_account_presentation",
+      "target_key": "acc_gl_account.id",
+      "bootstrap": "versioned_liquibase_snapshot",
+      "parent_graph_authoritative_over_ultimo_nivel": true
+    },
+    "balance_orientation": {
+      "D": "debits_minus_credits",
+      "A": "credits_minus_debits",
+      "preserve_negative_balances": true,
+      "absolute_value_allowed": false,
+      "contra_account_rule": "keep_same_statement_section_and_natural_negative_sign"
+    },
+    "rollup": {
+      "source_selected_accounts_are_presentation_rows": true,
+      "target_amount_source": "recursive_sum_of_posting_descendants",
+      "post_to_rollup_accounts": false,
+      "count_each_posting_account_once_per_report_section": true
+    },
+    "reports": {
+      "trial_balance": {
+        "selector": "BC=1",
+        "selected_row_count_at_audit": 101,
+        "section_authority": "CNT_CLASIFICADOR_CUENTAS.GRUPO1_COMPROBACION_and_ORDEN_COMPROBACION",
+        "debtor_classifiers": ["001", "004", "007"],
+        "creditor_classifiers": ["002", "003", "005", "006"],
+        "columns": ["opening_balance", "debits", "credits", "closing_balance"],
+        "post_closing_view": "include_all_eligible_journals",
+        "pre_closing_view": "exclude_source_type_003_by_immutable_transaction_provenance"
+      },
+      "balance_sheet": {
+        "selector": "BG=1_and_classifier_in_001_002_003",
+        "selected_row_count_at_audit": 64,
+        "asset_classifier": "001",
+        "liability_classifier": "002",
+        "equity_classifier": "003",
+        "current_period_result": "income_classifier_005_minus_expense_classifier_004",
+        "equation": "assets=liabilities_plus_equity_plus_current_period_result",
+        "annual_closing_journals": "include",
+        "memorandum_accounts": "BG=1_and_classifier_in_006_007_display_separately_outside_equation"
+      },
+      "income_statement": {
+        "selector": "BC=1_and_BG=0_and_classifier_in_004_005",
+        "selected_row_count_at_audit": 26,
+        "income_classifier": "005",
+        "expense_classifier": "004",
+        "net_result": "income_minus_expense",
+        "period_scope": "fiscal_year_start_through_report_date",
+        "annual_closing_journals": "exclude_source_type_003_by_immutable_transaction_provenance"
+      },
+      "general_ledger": {
+        "selector": "all_mapped_posting_accounts",
+        "presentation_flags_filter_entries": false
+      }
+    },
+    "scope": {
+      "agency": "filter_each_line_by_dimensions.office",
+      "consolidated": "sum_all_office_dimensions_without_elimination",
+      "agency_imbalance_allowed": true,
+      "comparatives": "recompute_each_column_with_the_same_selector_and_formula"
+    },
+    "rows": {
+      "label_authority": "frozen_source_account_name_and_explicit_contract_section_labels",
+      "subtotal_authority": "classifier_and_selector_formulas_not_CNT_REPORTES_group_numbers",
+      "machine_output_includes_zero_rows": true,
+      "display_default": "suppress_row_only_when_all_requested_measures_are_zero",
+      "include_zero_option": true,
+      "money_scale": 2
+    },
+    "legacy_templates": {
+      "tables": [
+        "dbo.CNT_REPORTES",
+        "dbo.CNT_REPORTES_DETALLE_FILAS",
+        "dbo.CNT_REPORTES_DETALLE_DATOS"
+      ],
+      "authoritative_for_target_reports": false,
+      "migration_behavior": "retain_hashed_read_only_audit_export_only",
+      "populated_but_rejected": {
+        "00009": "does_not_reproduce_current_trial_balance_and_has_two_unresolved_mappings",
+        "00010": "twenty_eight_of_twenty_nine_mappings_resolve_to_assets_and_one_is_unresolved",
+        "00014": "all_nineteen_mappings_resolve_to_balance_accounts_not_result_accounts"
+      },
+      "row_type_semantics": {
+        "1": "data",
+        "2": "label_ignored_for_amount_calculation",
+        "3": "subtotal"
+      },
+      "sign_semantics": "SIGNO_multiplies_member_rows_only_when_computing_LISTA_GRUPOS_subtotals",
+      "reason_not_replayed": "current_mapping_identity_drift_and_obsolete_output"
+    },
+    "acceptance": {
+      "consolidated_trial_balance_sides_must_match": true,
+      "balance_sheet_equation_must_equal_zero": true,
+      "report_to_direct_journal_variance": "0.00",
+      "metadata_drift_reason_code": "SOURCE_REPORT_PRESENTATION_DRIFT"
+    }
+  },
+  "transferred_loan_accrual_correction": {
+    "policy_version": "explicit-cross-office-reclassification-v1",
+    "historical_import_behavior": "preserve_source_accounts_sides_amounts_and_posted_office",
+    "candidate_detection_authorizes_posting": false,
+    "automatic_correction_allowed": false,
+    "loan_838_evidence_status": "verified_office_mismatch_but_no_physical_loan_to_gl_line_allocation",
+    "approval_input": {
+      "type": "immutable_accounting_approved_correction_manifest",
+      "required_fields": [
+        "correction_id",
+        "approval_reference",
+        "approved_by",
+        "approved_at",
+        "posting_date",
+        "economic_period_start",
+        "economic_period_end",
+        "wrong_office_id",
+        "correct_office_id",
+        "source_transaction_ids",
+        "account_lines",
+        "reason",
+        "supporting_evidence_sha256"
+      ],
+      "account_line_fields": [
+        "source_provenance_line_ids",
+        "gl_account_id",
+        "source_side",
+        "amount",
+        "approved_allocation_basis"
+      ],
+      "amount_format": "plain_usd_decimal_string_with_exactly_two_fractional_digits"
+    },
+    "journal": {
+      "origin": "native_accounting_correction_not_migration",
+      "command": "dedicated_cross_office_correction_command",
+      "permission": "CREATE_CREDESAL_GL_CORRECTION",
+      "office_access": "authenticated_user_must_have_access_to_every_involved_office",
+      "posting_date_rule": "on_or_after_cutoff_and_strictly_after_latest_closure_for_every_involved_office",
+      "backdating_before_cutoff_allowed": false,
+      "manual_entry": true,
+      "currency": "USD",
+      "atomic": true,
+      "core_direct_sql_allowed": false,
+      "idempotency_key": "correction_id",
+      "provenance_table": "credesal_gl_correction"
+    },
+    "line_generation": {
+      "source_debit": "credit_same_account_wrong_office_and_debit_same_account_correct_office",
+      "source_credit": "debit_same_account_wrong_office_and_credit_same_account_correct_office",
+      "account_substitution_allowed": false,
+      "amount_recomputation_allowed": false,
+      "currency_conversion_allowed": false,
+      "plug_or_suspense_allowed": false
+    },
+    "invariants": {
+      "complete_journal_debits_equal_credits": true,
+      "consolidated_net_change_per_gl_account": "0.00",
+      "consolidated_financial_statements_change": "0.00",
+      "only_office_distribution_changes": true,
+      "product_or_customer_subledger_changes": false,
+      "imported_journal_or_provenance_mutation": false
+    },
+    "reporting": {
+      "historical_as_imported": "correction_appears_only_on_its_actual_posting_date",
+      "corrected_agency_view": "may_use_correction_provenance_economic_period_without_backdating_the_ledger",
+      "general_ledger": "show_original_and_correction_as_separate_linked_transactions"
+    },
+    "failure_reasons": {
+      "unapproved_or_incomplete_manifest": "GL_CORRECTION_APPROVAL_REQUIRED",
+      "unproven_allocation": "GL_CORRECTION_ALLOCATION_UNPROVEN",
+      "non_neutral_accounts": "GL_CORRECTION_NOT_ACCOUNT_NEUTRAL",
+      "cutoff_or_closure_conflict": "GL_CORRECTION_DATE_NOT_OPEN",
+      "target_or_source_drift": "GL_CORRECTION_PROVENANCE_DRIFT"
+    }
+  },
+  "dispositions": [
+    "IMPORTED",
+    "QUARANTINED",
+    "UNCHANGED"
+  ],
+  "native_accounting_guard": {
+    "required": true,
+    "pre_cutoff_migration_behavior": "suppress_native_gl",
+    "pre_cutoff_ordinary_behavior": "reject",
+    "historical_import_behavior": "allow_before_cutoff_only"
+  },
+  "target": {
+    "writer": "pending-reviewed-journal-api-extension",
+    "provenance_parent_table": "credesal_arissto_gl_journal",
+    "provenance_line_table": "credesal_arissto_gl_journal_line",
+    "allow_core_gl_direct_sql": false
+  },
+  "test_reset": {
+    "strategy": "whole-disposable-tenant-snapshot-restore",
+    "allow_row_level_accounting_wipe": false
+  }
+}

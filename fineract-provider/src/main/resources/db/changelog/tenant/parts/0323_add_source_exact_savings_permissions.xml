@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0323-1-add-source-exact-savings-permissions" author="credesal">
+        <preConditions onFail="HALT">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission
+                WHERE code IN ('SOURCEEXACTDEPOSIT_SAVINGSACCOUNT', 'SOURCEEXACTWITHDRAWAL_SAVINGSACCOUNT')
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="transaction_savings"/>
+            <column name="code" value="SOURCEEXACTDEPOSIT_SAVINGSACCOUNT"/>
+            <column name="entity_name" value="SAVINGSACCOUNT"/>
+            <column name="action_name" value="SOURCEEXACTDEPOSIT"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="transaction_savings"/>
+            <column name="code" value="SOURCEEXACTWITHDRAWAL_SAVINGSACCOUNT"/>
+            <column name="entity_name" value="SAVINGSACCOUNT"/>
+            <column name="action_name" value="SOURCEEXACTWITHDRAWAL"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <rollback>
+            <delete tableName="m_permission">
+                <where>code IN ('SOURCEEXACTDEPOSIT_SAVINGSACCOUNT', 'SOURCEEXACTWITHDRAWAL_SAVINGSACCOUNT')</where>
+            </delete>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

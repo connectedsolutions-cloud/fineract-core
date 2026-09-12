@@ -39,6 +39,8 @@ public class InvoiceSummary extends AbstractPersistableCustom<Long> {
     private String tributosJson;
     @Column(name = "sub_total", precision = 19, scale = 6)
     private BigDecimal subTotal;
+    @Column(name = "total_iva", precision = 19, scale = 6)
+    private BigDecimal totalIva;
     @Column(name = "iva_percibido", precision = 19, scale = 6)
     private BigDecimal ivaPercibido;
     @Column(name = "iva_retenido", precision = 19, scale = 6)

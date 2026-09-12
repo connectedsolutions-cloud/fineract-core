@@ -101,5 +101,8 @@ public interface DepositAccountWritePlatformService {
     Long updateMaturityDetails(Long depositAccountId, DepositAccountType depositAccountType, boolean applyMaturityInstruction,
             boolean postMaturityInterest, LocalDate sourceRolloverDate);
 
+    Long updateMaturityDetails(Long depositAccountId, DepositAccountType depositAccountType, boolean applyMaturityInstruction,
+            boolean postMaturityInterest, LocalDate sourceRolloverDate, boolean forceSourceMaturity);
+
     SavingsAccountTransaction mandatorySavingsAccountDeposit(SavingsAccountTransactionDTO accountTransactionDTO);
 }

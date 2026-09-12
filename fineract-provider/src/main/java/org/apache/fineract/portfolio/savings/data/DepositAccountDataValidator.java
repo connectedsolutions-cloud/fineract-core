@@ -112,6 +112,14 @@ public class DepositAccountDataValidator {
     }
 
     public void validateFixedDepositForSubmit(final String json) {
+        validateFixedDepositForSubmit(json, false);
+    }
+
+    public void validateSourceExactUnfundedFixedDepositForSubmit(final String json) {
+        validateFixedDepositForSubmit(json, true);
+    }
+
+    private void validateFixedDepositForSubmit(final String json, final boolean requireZeroDepositAmount) {
         if (StringUtils.isBlank(json)) {
             throw new InvalidJsonException();
         }
@@ -127,7 +135,7 @@ public class DepositAccountDataValidator {
 
         validateDepositDetailsForSubmit(element, baseDataValidator);
         validatePreClosureDetailForSubmit(element, baseDataValidator);
-        validateDepositTermDeatilForSubmit(element, baseDataValidator, DepositAccountType.FIXED_DEPOSIT);
+        validateDepositTermDeatilForSubmit(element, baseDataValidator, DepositAccountType.FIXED_DEPOSIT, requireZeroDepositAmount);
         validateSavingsCharges(element, baseDataValidator);
         validateWithHoldTax(element, baseDataValidator);
 
@@ -173,7 +181,7 @@ public class DepositAccountDataValidator {
 
         validateDepositDetailsForSubmit(element, baseDataValidator);
         validatePreClosureDetailForSubmit(element, baseDataValidator);
-        validateDepositTermDeatilForSubmit(element, baseDataValidator, DepositAccountType.RECURRING_DEPOSIT);
+        validateDepositTermDeatilForSubmit(element, baseDataValidator, DepositAccountType.RECURRING_DEPOSIT, false);
         validateRecurringDetailForSubmit(element, baseDataValidator);
         validateSavingsCharges(element, baseDataValidator);
         validateWithHoldTax(element, baseDataValidator);
@@ -524,7 +532,7 @@ public class DepositAccountDataValidator {
     }
 
     private void validateDepositTermDeatilForSubmit(final JsonElement element, final DataValidatorBuilder baseDataValidator,
-            final DepositAccountType depositType) {
+            final DepositAccountType depositType, final boolean requireZeroDepositAmount) {
 
         Integer minTerm = null;
         if (fromApiJsonHelper.parameterExists(minDepositTermParamName, element)) {
@@ -564,7 +572,15 @@ public class DepositAccountDataValidator {
         // recurring deposit amount * number of deposits.
         if (depositType.isFixedDeposit()) {
             final BigDecimal depositAmount = fromApiJsonHelper.extractBigDecimalWithLocaleNamed(depositAmountParamName, element);
-            baseDataValidator.reset().parameter(depositAmountParamName).value(depositAmount).notNull().positiveAmount();
+            final DataValidatorBuilder depositAmountValidator = baseDataValidator.reset().parameter(depositAmountParamName)
+                    .value(depositAmount).notNull();
+            if (requireZeroDepositAmount) {
+                if (depositAmount != null && depositAmount.compareTo(BigDecimal.ZERO) != 0) {
+                    depositAmountValidator.failWithCode("must.be.zero.for.source.exact.unfunded");
+                }
+            } else {
+                depositAmountValidator.positiveAmount();
+            }
         }
 
         if (depositType.isFixedDeposit() || fromApiJsonHelper.parameterExists(depositPeriodParamName, element)) {

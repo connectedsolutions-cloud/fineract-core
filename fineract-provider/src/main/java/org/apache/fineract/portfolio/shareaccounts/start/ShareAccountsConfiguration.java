@@ -18,6 +18,7 @@
  */
 package org.apache.fineract.portfolio.shareaccounts.start;
 
+import org.apache.fineract.accounting.cutoff.AccountingCutoffPolicyService;
 import org.apache.fineract.accounting.journalentry.service.JournalEntryWritePlatformService;
 import org.apache.fineract.infrastructure.accountnumberformat.domain.AccountNumberFormatRepositoryWrapper;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
@@ -117,9 +118,9 @@ public class ShareAccountsConfiguration {
             ShareAccountRepositoryWrapper shareAccountRepository, ShareProductRepositoryWrapper shareProductRepository,
             AccountNumberGenerator accountNumberGenerator, AccountNumberFormatRepositoryWrapper accountNumberFormatRepository,
             JournalEntryWritePlatformService journalEntryWritePlatformService, NoteRepository noteRepository,
-            BusinessEventNotifierService businessEventNotifierService) {
+            BusinessEventNotifierService businessEventNotifierService, AccountingCutoffPolicyService cutoffPolicyService) {
         return new ShareAccountWritePlatformServiceJpaRepositoryImpl(accountDataSerializer, shareAccountRepository, shareProductRepository,
-                accountNumberGenerator, accountNumberFormatRepository, journalEntryWritePlatformService, noteRepository,
+                accountNumberGenerator, accountNumberFormatRepository, journalEntryWritePlatformService, cutoffPolicyService, noteRepository,
                 businessEventNotifierService);
     }
 }

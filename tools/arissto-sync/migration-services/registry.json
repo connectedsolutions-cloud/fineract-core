@@ -98,11 +98,11 @@
       "id": "client-staff-assignments",
       "name": "Client staff assignments",
       "kind": "sync-block",
-      "status": "blocked",
+      "status": "available",
       "executable": true,
       "cli_block": "client-staff-assignments",
       "depends_on": ["clients", "employees"],
-      "description": "Synchronizes AFI_SOCIO promoter, account-executive, and collections-manager relationships independently into a lossless one-to-one Fineract client extension after both clients and employees exist. It does not derive or modify Fineract's native loan-officer field. A controlled local apply, exact reconciliation, and unchanged replay of the revised contract are pending.",
+      "description": "Synchronizes AFI_SOCIO promoter, account-executive, and collections-manager relationships independently into a lossless one-to-one Fineract client extension after both clients and employees exist. It does not derive or modify Fineract's native loan-officer field. The revised contract is locally accepted for all 1,035 clients with exact reconciliation and unchanged replay.",
       "documentation": "migration-services/client-staff-assignments/README.md",
       "detail_documents": ["migration-services/client-staff-assignments/contract.md"],
       "configuration": "config/client_staff_assignments.json",
@@ -146,7 +146,7 @@
       "executable": true,
       "cli_block": "savings-deposits",
       "depends_on": ["clients"],
-      "description": "Migrates Arissto VISTA savings and PLAZO fixed-term deposits into native Fineract products, accounts, transactions, interest/accrual, tax, transfer, closure, and accounting lifecycles; the deterministic plan/apply/retry/reconcile engine is locally accepted for all 157 source accounts, with 155 reconciled native positions and 2 reviewed zero-principal placeholders quarantined.",
+      "description": "Migrates Arissto VISTA savings and PLAZO fixed-term deposits into native Fineract products, accounts, transactions, interest/accrual, tax, transfer, closure, and accounting lifecycles; zero-principal submitted/unfunded DPFs are created as pending-approval account records without deposit postings or other financial side effects.",
       "documentation": "migration-services/savings-deposits/README.md",
       "detail_documents": [
         "migration-services/savings-deposits/contract.md",
@@ -155,7 +155,7 @@
       "configuration": "config/savings_deposits.json",
       "commands": {
         "inspect": "./arissto-sync inspect --block savings-deposits --target TARGET",
-        "plan": "./arissto-sync plan --block savings-deposits --target TARGET",
+        "plan": "./arissto-sync plan --block savings-deposits --target TARGET [--cutoff-date YYYY-MM-DD]",
         "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
         "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
         "status": "./arissto-sync status --block savings-deposits --target TARGET"
@@ -178,7 +178,7 @@
       "configuration": "config/native_share_capital.json",
       "commands": {
         "inspect": "./arissto-sync inspect --block native-share-capital --target TARGET [--source-key 'AFI_ACCION|ID']",
-        "plan": "./arissto-sync plan --block native-share-capital --target TARGET [--source-key 'AFI_ACCION|ID']",
+        "plan": "./arissto-sync plan --block native-share-capital --target TARGET [--source-key 'AFI_ACCION|ID'] [--cutoff-date YYYY-MM-DD]",
         "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
         "retry": "./arissto-sync retry --run RUN_ID --failed-only --target TARGET",
         "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
@@ -217,9 +217,10 @@
         "employees"
       ],
       "post_sync_services": [
-        "mobile-collections"
+        "mobile-collections",
+        "dte-history"
       ],
-      "description": "Implements reviewed Arissto loan products and native loan lifecycles, including source-exact schedules and transaction allocations, reversals, Cobro Movil payment routing, terminal cutover adjustments, single-loan refinancing, multi-loan consolidation pending its financial canary and replay, and independent per-loan promoter, account-executive, and collections-manager assignments. Native loan officer remains optional. Gate 5 remains open for schedule/API edge cases, a clean full supported-population reconciliation, and unchanged replay.",
+      "description": "Implements reviewed Arissto loan products and native loan lifecycles, including source-exact schedules and transaction allocations, reversals, personal-guarantor relationships with source multiplicity preserved, Cobro Movil payment routing, terminal cutover adjustments, single-loan refinancing, multi-loan consolidation, reviewed cross-client and partial-paydown settlements, and independent per-loan promoter, account-executive, and collections-manager assignments. Native loan officer remains optional. A clean local cycle populated all 2,493 supported loans with 19 reviewed no-write quarantines. Gate 5 remains open only for one fresh zero-failure full-population reconciliation and its unchanged zero-write replay.",
       "documentation": "migration-services/loans/README.md",
       "detail_documents": [
         "migration-services/loans/contract.md",
@@ -228,12 +229,33 @@
       "configuration": "config/loans.json",
       "commands": {
         "inspect": "./arissto-sync inspect --block loans [--target TARGET] [--source-key ID_CREDITO]",
-        "plan": "./arissto-sync plan --block loans --target TARGET [--source-key ID_CREDITO]",
+        "plan": "./arissto-sync plan --block loans --target TARGET [--source-key ID_CREDITO] [--cutoff-date YYYY-MM-DD]",
         "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
         "retry": "./arissto-sync retry --run RUN_ID --failed-only --target TARGET",
         "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
         "status": "./arissto-sync status --block loans --target TARGET",
         "schedule_proof": "./arissto-sync prove-loan-schedule --target local --source-key ID_CREDITO --product-id PRODUCT_ID --client-id CLIENT_ID"
+      }
+    },
+    {
+      "id": "dte-history",
+      "name": "Fiscal DTE history",
+      "kind": "sync-block",
+      "status": "blocked",
+      "executable": true,
+      "cli_block": "dte-history",
+      "depends_on": ["clients", "loans"],
+      "description": "Imports the reviewed ordinary fiscal DTE cohort as immutable terminal-state native Fineract invoices, linked through the exact migrated loan transaction and loan to the client. Only an import marker, source hash, and raw lifecycle flags remain as migration metadata; no Arissto history shadow table is created. The implementation is blocked from available status until the configured production environment value and a controlled full local reconciliation plus unchanged replay are accepted.",
+      "documentation": "migration-services/dte-history/README.md",
+      "detail_documents": ["migration-services/dte-history/contract.md"],
+      "configuration": "config/dte_history.json",
+      "commands": {
+        "inspect": "./arissto-sync inspect --block dte-history --target TARGET",
+        "plan": "./arissto-sync plan --block dte-history --target TARGET [--source-key CODIGO_GENERACION]",
+        "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET [--dte-workers 1..4] [--dte-batch-size 1..2000]",
+        "retry": "./arissto-sync retry --run RUN_ID --failed-only --target TARGET [--dte-workers 1..4] [--dte-batch-size 1..2000]",
+        "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
+        "status": "./arissto-sync status --block dte-history --target TARGET"
       }
     },
     {
@@ -269,14 +291,39 @@
       "id": "accounting-journal-entries",
       "name": "Accounting journal entries",
       "kind": "sync-block",
+      "category": "accounting",
       "status": "planned",
-      "executable": false,
-      "depends_on": [],
-      "description": "Planned migration of reviewed Arissto general-ledger journal headers and debit/credit lines into Fineract journal entries, preserving the exact monthly Arissto journal number in ref_num while preventing duplicate accounting already generated by native product migrations.",
+      "executable": true,
+      "cli_block": "accounting",
+      "commands": [
+        "inspect",
+        "plan",
+        "apply",
+        "retry",
+        "reconcile",
+        "status"
+      ],
+      "depends_on": [
+        "savings-deposits",
+        "native-share-capital",
+        "loans",
+        "mobile-collections"
+      ],
+      "description": "Explicit-key, reviewed-period, and bounded full-workflow accounting planning, atomic apply, idempotent retry, direct-journal reconciliation, and status are implemented. The service remains planned while Gate 11 clean-cycle acceptance is pending, but is executable in local sandbox acceptance runs with a readiness warning.",
       "documentation": "migration-services/accounting-journal-entries/README.md",
       "detail_documents": [
-        "migration-services/accounting-journal-entries/contract.md"
-      ]
+        "migration-services/accounting-journal-entries/contract.md",
+        "migration-services/accounting-journal-entries/implementation-sequence.md"
+      ],
+      "configuration": "config/accounting.json",
+      "command_templates": {
+        "inspect": "./arissto-sync inspect --block accounting [--target TARGET] --cutoff-date YYYY-MM-DD [--source-key COMPANY:BRANCH:PERIOD:JOURNAL]",
+        "plan": "./arissto-sync plan --block accounting --target TARGET (--source-key COMPANY:BRANCH:PERIOD:JOURNAL | --period PERIOD) [--cutoff-date YYYY-MM-DD]",
+        "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
+        "retry": "./arissto-sync retry --run RUN_ID --failed-only --target TARGET",
+        "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
+        "status": "./arissto-sync status --block accounting --target TARGET"
+      }
     }
   ]
 }

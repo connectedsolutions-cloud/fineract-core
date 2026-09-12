@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0335-1" author="fineract">
+        <addColumn tableName="m_invoice">
+            <column name="source_origin" type="VARCHAR(40)"/>
+            <column name="source_hash" type="VARCHAR(64)"/>
+            <column name="source_lifecycle_json" type="TEXT"/>
+        </addColumn>
+        <addColumn tableName="m_invoice_summary">
+            <column name="total_iva" type="DECIMAL(19,6)"/>
+        </addColumn>
+        <createIndex indexName="idx_m_invoice_source_origin" tableName="m_invoice">
+            <column name="source_origin"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

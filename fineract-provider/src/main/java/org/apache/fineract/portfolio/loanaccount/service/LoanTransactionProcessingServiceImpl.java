@@ -21,6 +21,7 @@ package org.apache.fineract.portfolio.loanaccount.service;
 import jakarta.persistence.FlushModeType;
 import java.math.MathContext;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -43,8 +44,10 @@ import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.LoanRepaymentScheduleTransactionProcessor;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.MoneyHolder;
+import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.PostDueAccruedInterestCalculator;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.TransactionCtx;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.AdvancedPaymentScheduleTransactionProcessor;
+import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.ProgressiveTransactionCtx;
 import org.apache.fineract.portfolio.loanaccount.loanschedule.data.LoanScheduleDTO;
 import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.LoanApplicationTerms;
@@ -65,6 +68,7 @@ public class LoanTransactionProcessingServiceImpl implements LoanTransactionProc
     private final LoanTermVariationsMapper loanMapper;
     private final InterestScheduleModelRepositoryWrapper modelRepository;
     private final LoanTransactionService loanTransactionService;
+    private final PostDueAccruedInterestCalculator postDueAccruedInterestCalculator;
 
     @Override
     public boolean canProcessLatestTransactionOnly(Loan loan, LoanTransaction loanTransaction,
@@ -168,7 +172,19 @@ public class LoanTransactionProcessingServiceImpl implements LoanTransactionProc
         } else {
             outstandingAmounts = getTotalOutstandingOnLoan(loan);
         }
+        if (loan.isOpen() && isCredesalPostMaturity(loan, onDate)) {
+            outstandingAmounts.plusInterest(postDueAccruedInterestCalculator.calculateUnmaterializedAccruableThrough(loan,
+                    loan.getCurrency(), loan.getRepaymentScheduleInstallments(), onDate));
+        }
         return outstandingAmounts;
+    }
+
+    private boolean isCredesalPostMaturity(final Loan loan, final LocalDate onDate) {
+        return CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor.STRATEGY_CODE.equals(loan.transactionProcessingStrategy())
+                && loan.getRepaymentScheduleInstallments().stream()
+                        .filter(installment -> !installment.isAdditional() && !installment.isReAged())
+                        .map(LoanRepaymentScheduleInstallment::getDueDate).max(Comparator.naturalOrder())
+                        .map(lastDueDate -> lastDueDate.isBefore(onDate)).orElse(false);
     }
 
     private OutstandingAmountsDTO getTotalOutstandingOnLoan(Loan loan) {

@@ -51,7 +51,6 @@ import org.apache.fineract.accounting.journalentry.data.SharesDTO;
 import org.apache.fineract.accounting.journalentry.data.SharesTransactionDTO;
 import org.apache.fineract.accounting.journalentry.data.TaxPaymentDTO;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntry;
-import org.apache.fineract.accounting.journalentry.domain.JournalEntryRepository;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntryType;
 import org.apache.fineract.accounting.journalentry.exception.JournalEntryInvalidException;
 import org.apache.fineract.accounting.journalentry.exception.JournalEntryInvalidException.GlJournalEntryInvalidReason;
@@ -62,8 +61,6 @@ import org.apache.fineract.infrastructure.core.data.EnumOptionData;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.service.MathUtil;
-import org.apache.fineract.infrastructure.event.business.domain.journalentry.LoanJournalEntryCreatedBusinessEvent;
-import org.apache.fineract.infrastructure.event.business.service.BusinessEventNotifierService;
 import org.apache.fineract.organisation.office.domain.Office;
 import org.apache.fineract.organisation.office.domain.OfficeRepository;
 import org.apache.fineract.portfolio.PortfolioProductType;
@@ -88,7 +85,7 @@ public class AccountingProcessorHelper {
     public static final String PROVISIONING_TRANSACTION_IDENTIFIER = "P";
     public static final String SHARE_TRANSACTION_IDENTIFIER = "SH";
 
-    private final JournalEntryRepository glJournalEntryRepository;
+    private final JournalEntryPersistenceService journalEntryPersistenceService;
     private final ProductToGLAccountMappingRepository accountMappingRepository;
     private final FinancialActivityAccountRepositoryWrapper financialActivityAccountRepository;
     private final GLClosureRepository closureRepository;
@@ -96,7 +93,6 @@ public class AccountingProcessorHelper {
     private final OfficeRepository officeRepository;
     private final AccountTransfersReadPlatformService accountTransfersReadPlatformService;
     private final ChargeRepositoryWrapper chargeRepositoryWrapper;
-    private final BusinessEventNotifierService businessEventNotifierService;
 
     public LoanDTO populateLoanDtoFromDTO(
             final org.apache.fineract.portfolio.loanaccount.data.AccountingBridgeDataDTO accountingBridgeData) {
@@ -1398,12 +1394,7 @@ public class AccountingProcessorHelper {
     }
 
     public JournalEntry persistJournalEntry(JournalEntry journalEntry) {
-        boolean isNew = journalEntry.isNew();
-        JournalEntry savedJournalEntry = this.glJournalEntryRepository.saveAndFlush(journalEntry);
-        if (isNew && journalEntry.getLoanTransactionId() != null) {
-            businessEventNotifierService.notifyPostBusinessEvent(new LoanJournalEntryCreatedBusinessEvent(savedJournalEntry));
-        }
-        return savedJournalEntry;
+        return journalEntryPersistenceService.saveAndFlush(journalEntry);
     }
 
     private void createJournalEntriesForLoanChargesInternal(final Office office, final String currencyCode, final int accountMappingTypeId,

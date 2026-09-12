@@ -25,6 +25,13 @@ service therefore preserves promoter, account executive, and collections
 manager independently and leaves native loan-officer assignment and
 `m_staff.is_loan_officer` unchanged.
 
+This contract applies only to the current client relationships sourced from
+`AFI_SOCIO`. Loan-specific relationships are sourced independently from
+`CRD_CARTERA` by the `loans` service and stored in
+`credesal_loan_staff_assignment`. The client relationship must never be used
+to fill a missing loan relationship, and a loan relationship must never
+overwrite the client relationship.
+
 ## Ownership and safety
 
 All extension columns are legacy-owned. Each plan hashes the normalized relationship values and the contract. Apply re-reads the source row and revalidates the client and staff identities before writing through the datatable API.

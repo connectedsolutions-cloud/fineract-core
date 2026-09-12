@@ -68,6 +68,10 @@ public class InvoiceMhValidationServiceImpl implements InvoiceMhValidationServic
     }
 
     private Invoice submitInternal(Invoice invoice) {
+        if (invoice.isImportedHistory()) {
+            throw new PlatformDataIntegrityException("error.msg.invoice.historical.mh.forbidden",
+                    "Imported Arissto invoice history cannot be submitted to MH", invoice.getId());
+        }
         Long officeId = invoiceOfficeResolver.resolveOfficeId(invoice);
         MhFirmaCredentials credentials = mhFirmaCredentialResolver.resolve(officeId);
         prepareInvoiceForMhSubmit(invoice, credentials);

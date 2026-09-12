@@ -1,7 +1,9 @@
 # Arissto → Fineract local sync
 
-Local, manual, one-way migration tooling. It is not a web application, server,
-scheduler, or Fineract runtime component.
+Local, manually started, one-way migration tooling. It is not a web application,
+hosted service, scheduler, or Fineract runtime component. Dependency-driven local
+workflows can run in a detached one-shot process and persist their progress in the
+same local SQLite state store.
 
 For the verified client mapping, operator workflow, expected output, and current
 limitations, see the
@@ -22,7 +24,7 @@ Service operating guides and the reusable service template live in
 [`migration-services/`](migration-services/README.md).
 The proposed dependency-driven daily workflow is defined separately in
 [`migration-services/orchestration.md`](migration-services/orchestration.md);
-it is a design contract, not yet an executable scheduler.
+machine-readable local workflow definitions live under [`workflows/`](workflows/).
 
 ### Documentation ownership
 
@@ -82,6 +84,162 @@ write-capable roles. Passwords containing `$` are preserved literally; quote the
 ./arissto-sync reconcile --run RUN_ID --target local
 ./arissto-sync status --block clients --target local
 ```
+
+### Dependency-driven local workflows
+
+Inspect a workflow definition without connecting to either database:
+
+```bash
+./arissto-sync workflow list
+./arissto-sync workflow inspect --workflow local-party-profile
+```
+
+## Sync run modes
+
+Use one explicit run mode when discussing or planning a workflow:
+
+- **Fresh/clean run** restores the entire disposable tenant from the approved
+  baseline, creates a new cycle, verifies the target is clean, and performs the
+  initial migration from one frozen cutoff.
+- **Full re-sync** keeps an already reconciled database and applies only source
+  deltas after the last accepted checkpoints. It never cleans the target or
+  replays already mapped history. This mode must remain unavailable for any
+  service that does not yet implement a reviewed incremental contract.
+- **Resumed sync** continues an incomplete migration in the same cycle and
+  target lifetime. It skips already completed and still-valid service groups
+  and continues pending, failed, blocked, or newly selected downstream groups.
+
+The definitive cross-project contract is
+[`ARISSTO_SYNC_RUN_MODES.md`](../../../docs/ARISSTO_SYNC_RUN_MODES.md). Avoid the
+ambiguous terms **new run**, **full sync**, and **rerun** without naming one of
+these modes.
+
+The commands below describe the currently implemented fresh/clean workflow.
+Create an immutable local workflow plan after target preflight, then start it in
+a detached process:
+
+```bash
+./arissto-sync workflow cycle create \
+  --cycle sandbox-2026-09-02-a \
+  --baseline-ref sandbox-clean-baseline-2026-09-02 \
+  --target local
+
+./arissto-sync workflow plan \
+  --workflow local-party-profile \
+  --cycle sandbox-2026-09-02-a \
+  --target local
+
+./arissto-sync workflow start \
+  --workflow-plan WORKFLOW_PLAN_ID \
+  --cycle sandbox-2026-09-02-a \
+  --target local
+```
+
+To run only selected services, repeat `--include-service`. The planner adds and
+freezes every registry prerequisite. For example, this selection runs Clients,
+Employees, and Loans, but not Savings Deposits or Mobile Collections:
+
+```bash
+./arissto-sync workflow plan \
+  --workflow local-credit-collections \
+  --include-service loans \
+  --cycle sandbox-2026-09-02-a \
+  --target local
+```
+
+The workflow plan freezes an accounting cutoff equal to its creation date in
+`America/El_Salvador`. Add `--cutoff-date YYYY-MM-DD` when an explicit boundary
+is required; child plans, apply, retry, and reconciliation retain that value.
+
+`start` returns a workflow run ID immediately. The process continues after the
+terminal command returns. Progress, child plan/run IDs, item failures, dependency
+failure links, and crash state remain queryable:
+
+```bash
+./arissto-sync workflow status --workflow-run WORKFLOW_RUN_ID --cycle sandbox-2026-09-02-a --target local
+./arissto-sync workflow history --workflow local-party-profile --target local
+./arissto-sync workflow resume --workflow-run WORKFLOW_RUN_ID --cycle sandbox-2026-09-02-a --target local
+./arissto-sync workflow stop --workflow-run WORKFLOW_RUN_ID --cycle sandbox-2026-09-02-a --target local
+```
+
+Pass `--cycle sandbox-2026-09-02-a` to `status`, `resume`, and `stop`. Omitting
+`--cycle` from `history` compares the workflow across every preserved cycle;
+supplying it limits the report to one cycle.
+
+For a visual view of preserved workflow runs and their failure records, start
+the local dashboard:
+
+```bash
+.venv/bin/python sync-dashboard/server.py
+```
+
+Open <http://127.0.0.1:8787>. The dashboard reads the same per-cycle SQLite
+state, defaults to the latest service attempts, and can also show the full retry
+history. Reporting is read-only. Its guarded **Fresh/clean run** flow creates a
+fresh cycle after the operator confirms local Fineract was reset or restored. An
+optional guarded step can stop local Fineract, restore a captured disposable
+tenant baseline, restart it, and verify readiness first. The flow then lets the
+operator check desired services, visibly adds and locks their prerequisites,
+and prepares an immutable plan. Approving the reviewed plan immediately starts
+the existing orchestrator against local Fineract. The cycle record itself only
+tracks state; the optional pre-step is what performs the reset. The dashboard
+never offers a production target and Arissto remains read-only.
+
+Every tenant reset or recreation must be followed by a new `workflow cycle
+create`. Each cycle gets a separate SQLite file under `.arissto-sync/cycles/`,
+so mappings and run statuses from an older target lifetime cannot be reused.
+Close a finished cycle without deleting its evidence:
+
+```bash
+./arissto-sync workflow cycle close --cycle sandbox-2026-09-02-a
+```
+
+Inspect disk consumption and retention risks without loading source or target
+credentials:
+
+```bash
+./arissto-sync health
+```
+
+The command is read-only. It reports SQLite and runner-log bytes, unusually
+large logs, repeated local TLS warnings, and inactive cycles that may have been
+left open. It exits with status `2` when it finds a warning so it can serve as a
+local or CI health gate. Use `--max-total-mb`, `--max-run-log-mb`, and
+`--stale-open-days` to adjust its local thresholds.
+
+Preview and then explicitly apply the retention policy without loading database
+credentials:
+
+```bash
+./arissto-sync retention plan --scope all
+./arissto-sync retention apply --scope all --confirm APPLY-RETENTION
+```
+
+For local workflows, only the newest cycle is retained. Creating a new cycle
+automatically runs local retention after the replacement baseline is established:
+every older cycle database, runner log, summary, failure archive, and catalog entry
+is removed. The newest cycle remains complete, including every plan, run, item,
+mapping, and log. Cycle replacement is refused while any cataloged workflow is
+queued or running. Legacy local rows in the shared pre-cycle state database are
+also removed once no legacy run is marked active; production rows are isolated by
+their recorded target fingerprint and remain untouched.
+
+Production is handled separately inside the shared legacy state database. It
+retains durable operational mappings and links, plus only the single latest run
+globally and that run's plan and items. All older and unexecuted production plans,
+run history, items, and inspections are removed except for the newest inspection.
+The policy runs automatically after every production apply, leaving the completed
+or failed run available for reconciliation and retry until the next run. Use
+`--scope prod` to apply only that policy manually. Production
+fingerprints are discovered from recorded inspections; `--prod-fingerprint` can
+be repeated when an older fingerprint lacks inspection history.
+
+Workflow orchestration accepts only `--target local`. Individual block commands
+retain their existing explicit local/production behavior. A per-target file lock
+prevents overlapping workflow writers, and a missing runner process converts a
+queued/running workflow into `interrupted` when status is inspected. Resume keeps
+completed steps and creates a new attempt only for failed, blocked, or interrupted
+steps.
 
 To run the reviewed clients plan and then automatically scope PEP to the
 successfully reconciled parent clients:

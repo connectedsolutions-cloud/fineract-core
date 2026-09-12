@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "id": "local-party-profile",
+  "description": "Synchronize clients, employees, current client-level staff assignments, PEP, and family-reference extensions.",
+  "services": [
+    "clients",
+    "employees",
+    "client-staff-assignments",
+    "client-pep",
+    "client-family-references"
+  ],
+  "ordering": "registry-topological",
+  "scope": {"mode": "full-block"},
+  "stop_policy": "dependency-gated",
+  "retry_policy": "resume-failed-step",
+  "unavailable_services": "reject"
+}

@@ -485,7 +485,8 @@ def _post_interest_and_transfer(settings: Settings, api: FineractApi, canary: Dp
     transfer_result = ({"resourceId": dpf_account_id, "savingsId": dpf_account_id,
                         "changes": {"transferredInterestCount": 0, "alreadyTransferred": True}}
                        if existing_transfer is not None else
-                       api.request("POST", f"fixeddepositaccounts/{dpf_account_id}", {}, {"command": "transferInterest"},
+                       api.request("POST", f"fixeddepositaccounts/{dpf_account_id}", {},
+                                   {"command": "sourceExactTransferInterest"},
                                    idempotency_key=_command_key("transfer-v4", dpf_account_id, reference)))
     if interest.taxed:
         tax_reference = (_general_tax_reference(canary, interest) if general_migration

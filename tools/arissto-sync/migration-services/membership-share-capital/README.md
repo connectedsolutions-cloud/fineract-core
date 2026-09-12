@@ -92,22 +92,22 @@ certificate projection and native-event mappings are owned by the separate
 ## Native Fineract shares
 
 Native share-account creation is implemented by the separate, available
-`native-share-capital` service. Fineract requires a
-real, active savings-deposit account owned by the same client for each share
-account. This requirement remains unchanged even though individual Arissto
-dividends are not migrable. Creating dummy savings accounts, attaching
-unrelated accounts, using fixed-term deposits, or making the native
-relationship optional would corrupt Fineract product meaning.
+`native-share-capital` service. Fineract requires an active savings-deposit
+account owned by the same client for each share account. A reconciled Arissto
+VISTA is preferred. For the six shareholders proven to have no Arissto savings
+account, movement, or deposit, the approved fallback is a deterministic,
+target-only VISTA with zero balance and no transactions. Attaching unrelated
+accounts, using fixed-term deposits, or making the native relationship optional
+remains prohibited.
 
 The savings domain is therefore a hard prerequisite, not a convenience for
 shares. It must first migrate the real Arissto savings products, ownership,
 accounts, movements, interest postings, and accrual state through Fineract's
 native savings logic and reconcile them independently. The source audit finds
-active `VISTA` accounts for 34 of the 40 shareholders. They can support 45 of
+active `VISTA` accounts for 34 of the 40 shareholders. They support 45 of the
 57 current share accounts after savings reconciliation. The other six
-shareholders account for 12 share accounts and remain blocked until the
-business legitimately opens an eligible savings account. The share service
-must never create that account implicitly.
+shareholders account for 12 share accounts and use the approved empty-VISTA
+fallback.
 
 The source lifecycle has now been separated into institutional membership,
 share-class position, certificate document, and financial transaction events.

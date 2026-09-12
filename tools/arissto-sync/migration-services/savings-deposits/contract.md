@@ -43,7 +43,7 @@ Native account lifecycle mapping is intentionally command-based:
 
 | Source state | Native target behavior |
 |---|---|
-| `APERTURADA` and zero funded balance | Apply/approve without inventing a deposit; activation behavior requires product validation |
+| `APERTURADA` / `SUBMITTED_UNFUNDED` with zero principal and no financial history | Create a native fixed-deposit application in `Submitted and pending approval`; do not approve, activate, link a funding account, or post a deposit |
 | `ACTIVA` | Apply, approve, activate, and replay eligible financial history |
 | `VENCIDA` | Reconstruct fixed-deposit maturity state through the supported lifecycle |
 | `CERRADA` | Replay history and close only after principal reaches zero and the source closure movement reconciles |
@@ -240,6 +240,11 @@ Every native journal transaction in those proofs balances.
 - Products, accounts, deposits, withdrawals, reversals, closures, transfers,
   calculated or explicit historical interest posting, tax, and accounting use
   supported Fineract APIs/jobs/domain commands.
+- Zero-principal `SUBMITTED_UNFUNDED` DPFs use the permission-gated
+  `sourceExactCreateUnfunded` creation command. The command requires an exact
+  zero `depositAmount`; ordinary fixed-deposit creation continues to require a
+  positive amount. Creation stops at status `100` and produces no financial
+  transaction or journal.
 - Controlled SQL is limited to the versioned Credesal migration-support and
   product/cycle crosswalk tables created by migrations 0288, 0290, and 0300.
 - The engine never updates derived balances, native transactions, or journals

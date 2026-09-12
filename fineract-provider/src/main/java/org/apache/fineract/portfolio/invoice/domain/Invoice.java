@@ -21,6 +21,8 @@ import org.apache.fineract.infrastructure.core.persistence.converter.JsonbString
 @Table(name = "m_invoice")
 public class Invoice extends AbstractAuditableCustom {
 
+    public static final String ARISSTO_HISTORY_ORIGIN = "ARISSTO_HISTORY";
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 40)
     private InvoiceStatus status;
@@ -33,6 +35,15 @@ public class Invoice extends AbstractAuditableCustom {
 
     @Column(name = "client_transaction_id")
     private Long clientTransactionId;
+
+    @Column(name = "source_origin", length = 40)
+    private String sourceOrigin;
+
+    @Column(name = "source_hash", length = 64)
+    private String sourceHash;
+
+    @Column(name = "source_lifecycle_json", columnDefinition = "text")
+    private String sourceLifecycleJson;
 
     @Column(name = "version", nullable = false)
     private Integer version;
@@ -175,6 +186,28 @@ public class Invoice extends AbstractAuditableCustom {
 
     public Long getClientTransactionId() {
         return clientTransactionId;
+    }
+
+    public String getSourceOrigin() {
+        return sourceOrigin;
+    }
+
+    public String getSourceHash() {
+        return sourceHash;
+    }
+
+    public String getSourceLifecycleJson() {
+        return sourceLifecycleJson;
+    }
+
+    public boolean isImportedHistory() {
+        return ARISSTO_HISTORY_ORIGIN.equals(sourceOrigin);
+    }
+
+    public void markImportedHistory(String sourceHash, String sourceLifecycleJson) {
+        this.sourceOrigin = ARISSTO_HISTORY_ORIGIN;
+        this.sourceHash = sourceHash;
+        this.sourceLifecycleJson = sourceLifecycleJson;
     }
 
     public String getCodigoGeneracion() {

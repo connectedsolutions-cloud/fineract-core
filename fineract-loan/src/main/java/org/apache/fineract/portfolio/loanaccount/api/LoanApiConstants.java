@@ -145,6 +145,7 @@ public interface LoanApiConstants {
     String sourceExactScheduleFromDateParamName = "fromDate";
     String sourceExactSchedulePrincipalParamName = "principal";
     String sourceExactScheduleInterestParamName = "interest";
+    String sourceExactScheduleAllowTerminalAggregationParamName = "allowTerminalInstallmentAggregation";
     // loan write off
     String WRITEOFFREASONS = "WriteOffReasons";
     // loan charge-off
@@ -163,8 +164,16 @@ public interface LoanApiConstants {
     String loanIdToClose = "loanIdToClose";
     String loanIdsToClose = "loanIdsToClose";
     String refinancingSettlements = "refinancingSettlements";
+    String refinancingSettlementType = "settlementType";
     String refinancingRepaymentExternalId = "repaymentExternalId";
     String refinancingTransferExternalId = "transferExternalId";
+    String legacyCrossClientSettlement = "legacyCrossClientSettlement";
+    String refinancingAuthorizationBasis = "authorizationBasis";
+    String refinancingSourceSystem = "sourceSystem";
+    String refinancingSourceLiquidationId = "sourceLiquidationId";
+    String refinancingSourcePayoffMovementId = "sourcePayoffMovementId";
+    String refinancingSourceOperatorId = "sourceOperatorId";
+    String refinancingSourcePayoffDate = "sourcePayoffDate";
     String topupAmount = "topupAmount";
 
     String statusAttributeName = "status";
@@ -192,6 +201,7 @@ public interface LoanApiConstants {
     String sourceExactPrincipalPortionParameterName = "principalPortion";
     String sourceExactInterestPortionParameterName = "interestPortion";
     String sourceExactFeeChargesPortionParameterName = "feeChargesPortion";
+    String sourceExactFeeChargeExternalIdParameterName = "feeChargeExternalId";
     String sourceExactPenaltyChargesPortionParameterName = "penaltyChargesPortion";
     String sourceSystemParameterName = "sourceSystem";
     String sourceReversalMovementIdsParameterName = "sourceReversalMovementIds";

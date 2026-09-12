@@ -101,14 +101,30 @@ public class GuarantorWritePlatformServiceJpaRepositoryIImpl implements Guaranto
         final GuarantorCommand guarantorCommand = this.fromApiJsonDeserializer.commandFromApiJson(command.json());
         final Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId, true);
         final List<Guarantor> existGuarantorList = this.guarantorRepository.findByLoan(loan);
-        return createGuarantor(loan, command, guarantorCommand, existGuarantorList);
+        return createGuarantor(loan, command, guarantorCommand, existGuarantorList, false);
+    }
+
+    @Override
+    @Transactional
+    public CommandProcessingResult sourceExactCreateGuarantor(final Long loanId, final JsonCommand command) {
+        final GuarantorCommand guarantorCommand = this.fromApiJsonDeserializer.commandFromApiJson(command.json());
+        if (!GuarantorType.CUSTOMER.getValue().equals(guarantorCommand.getGuarantorTypeId())
+                || guarantorCommand.getClientRelationshipTypeId() != null || guarantorCommand.getSavingsId() != null) {
+            throw new GeneralPlatformDomainRuleException("error.msg.guarantor.source.exact.invalid",
+                    "Source-exact guarantors must reference an existing customer without relationship or funding details");
+        }
+        final Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId, true);
+        final List<Guarantor> existGuarantorList = this.guarantorRepository.findByLoan(loan);
+        return createGuarantor(loan, command, guarantorCommand, existGuarantorList, true);
     }
 
     private CommandProcessingResult createGuarantor(final Loan loan, final JsonCommand command, final GuarantorCommand guarantorCommand,
-            final Collection<Guarantor> existGuarantorList) {
+            final Collection<Guarantor> existGuarantorList, final boolean sourceExact) {
         try {
             guarantorCommand.validateForCreate();
-            validateLoanStatus(loan);
+            if (!sourceExact) {
+                validateLoanStatus(loan);
+            }
             final List<GuarantorFundingDetails> guarantorFundingDetails = new ArrayList<>();
             final boolean backdatedTxnsAllowedTill = false;
             AccountAssociations accountAssociations = null;
@@ -140,7 +156,7 @@ public class GuarantorWritePlatformServiceJpaRepositoryIImpl implements Guaranto
             final Long entityId = guarantorCommand.getEntityId();
             final Integer guarantorTypeId = guarantorCommand.getGuarantorTypeId();
             Guarantor guarantor = null;
-            for (final Guarantor avilableGuarantor : existGuarantorList) {
+            for (final Guarantor avilableGuarantor : sourceExact ? List.<Guarantor>of() : existGuarantorList) {
                 if (entityId != null && avilableGuarantor.getEntityId() != null && avilableGuarantor.getEntityId().equals(entityId)
                         && avilableGuarantor.getGurantorType().equals(guarantorTypeId) && avilableGuarantor.isActive()) {
                     if (guarantorCommand.getSavingsId() == null || avilableGuarantor.hasGuarantor(guarantorCommand.getSavingsId())) {

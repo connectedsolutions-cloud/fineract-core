@@ -28,7 +28,7 @@ class LoansContractTests(unittest.TestCase):
         self.assertEqual(set(loans["commands"]), {
             "inspect", "plan", "apply", "retry", "reconcile", "status", "schedule_proof"
         })
-        self.assertEqual(loans["post_sync_services"], ["mobile-collections"])
+        self.assertEqual(loans["post_sync_services"], ["mobile-collections", "dte-history"])
         self.assertIn("loans", mobile["depends_on"])
         self.assertIn(
             "migration-services/loans/implementation-sequence.md",
@@ -126,7 +126,7 @@ class LoansContractTests(unittest.TestCase):
         self.assertEqual(exception["classification"], "manual-adjustment")
         self.assertEqual(
             exception["source_loan_ids"],
-            [23, 90, 317, 340, 359, 1117, 1484, 1743, 1748, 2069, 2241, 2254, 2355],
+            [23, 90, 301, 317, 340, 359, 1117, 1182, 1484, 1743, 1748, 2069, 2241, 2254, 2355],
         )
         self.assertEqual(exception["plan_behavior"], "accept-native-schedule")
         self.assertFalse(exception["blocking"])
@@ -145,6 +145,68 @@ class LoansContractTests(unittest.TestCase):
         self.assertIn("two archived edits", contract)
         self.assertIn("Closed loans `23`, `90`, `317`, `340`, and `359`", contract)
 
+    def test_native_creation_overrides_are_entity_scoped(self):
+        config = json.loads((ROOT / "tools/arissto-sync/config/loans.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(set(config["native_creation_overrides"]), {"24", "301", "805", "1117", "1182", "1441"})
+        self.assertEqual(
+            config["native_creation_overrides"]["24"],
+            {
+                "classification": "reviewed-manual-adjustment-header-installment-count",
+                "number_of_repayments_source": "approved-header",
+                "expected_header_repayments": 6,
+                "expected_schedule_rows": 5,
+            },
+        )
+        for loan_id in ("301", "1117", "1182"):
+            expected = {
+                "classification": "reviewed-manual-adjustment-stale-header-rate",
+                "interest_rate_source": "portfolio-approved",
+            }
+            if loan_id == "1182":
+                expected["terminal_adjustment_maximum_source"] = "source-schedule-total"
+            self.assertEqual(config["native_creation_overrides"][loan_id], expected)
+        self.assertEqual(
+            config["native_creation_overrides"]["805"],
+            {
+                "classification": "reviewed-early-payoff-future-interest-cutover",
+                "terminal_adjustment_maximum_source": "source-schedule-total",
+            },
+        )
+        self.assertEqual(
+            config["native_creation_overrides"]["1441"],
+            {
+                "classification": "source-exact-initial-emi-floor",
+                "fixed_emi_source": "reviewed-active-import-cardinality-amount",
+                "fixed_emi_amount": "205.31",
+                "expected_first_source_core_installment": "205.29",
+                "schedule_writer": "fineract-source-exact-active-schedule-v1",
+            },
+        )
+
+    def test_active_manual_schedule_imports_are_entity_and_signature_scoped(self):
+        config = json.loads((ROOT / "tools/arissto-sync/config/loans.json").read_text(encoding="utf-8"))
+
+        expected = {
+            "479": (2, 5),
+            "1738": (2, 19),
+            "1841": (1, 15),
+            "1869": (1, 28),
+        }
+        self.assertEqual(set(config["active_manual_schedule_imports"]), set(expected))
+        for loan_id, (adjustment_count, schedule_rows) in expected.items():
+            expected_policy = {
+                "classification": "reviewed-active-manual-schedule-import",
+                "expected_line_id": "00010",
+                "expected_source_state": "1",
+                "expected_adjustment_count": adjustment_count,
+                "expected_schedule_rows": schedule_rows,
+                "schedule_writer": "fineract-source-exact-active-schedule-v1",
+            }
+            if loan_id == "1738":
+                expected_policy["terminal_zero_core_charge_only_row"] = True
+            self.assertEqual(config["active_manual_schedule_imports"][loan_id], expected_policy)
+
     def test_loan_83_incomplete_schedule_is_reference_only_not_manual(self):
         config = json.loads((ROOT / "tools/arissto-sync/config/loans.json").read_text(encoding="utf-8"))
         contract = CONTRACT.read_text(encoding="utf-8")
@@ -154,7 +216,8 @@ class LoansContractTests(unittest.TestCase):
             set(exception),
             {
                 "26", "83", "8", "381", "1739", "1775", "1795", "1871",
-                "1893", "2006", "2063", "2111", "2482",
+                "1893", "1926", "2006", "2063", "2111", "2482",
+                "closed-refinance-predecessors",
             },
         )
         self.assertEqual(
@@ -166,6 +229,20 @@ class LoansContractTests(unittest.TestCase):
         self.assertEqual(exception["83"]["classification"], "incomplete-source-contractual-schedule")
         self.assertEqual(exception["83"]["plan_behavior"], "accept-native-schedule")
         self.assertFalse(exception["83"]["blocking"])
+        closed_refinance = exception["closed-refinance-predecessors"]
+        self.assertEqual(
+            closed_refinance["classification"],
+            "closed-refinance-predecessor-historical-schedule",
+        )
+        self.assertEqual(
+            closed_refinance["source_loan_ids"],
+            [
+                281, 283, 284, 285, 286, 315, 331, 632, 634, 635,
+                636, 639, 640, 641, 648, 971, 983, 992, 995, 998,
+            ],
+        )
+        self.assertEqual(closed_refinance["plan_behavior"], "accept-native-schedule")
+        self.assertFalse(closed_refinance["blocking"])
         for loan_id in (8, 1739, 1795, 1893, 2063, 2111, 2482):
             reviewed = exception[str(loan_id)]
             self.assertEqual(reviewed["classification"], "trailing-zero-core-schedule-rows")
@@ -173,7 +250,7 @@ class LoansContractTests(unittest.TestCase):
             self.assertFalse(reviewed["blocking"])
             self.assertFalse(reviewed["synthesize_missing_installments"])
             self.assertFalse(reviewed["synthesize_adjustment_transactions"])
-        for loan_id in (381, 1775, 1871, 2006):
+        for loan_id in (381, 1775, 1871, 1926, 2006):
             reviewed = exception[str(loan_id)]
             self.assertEqual(reviewed["classification"], "terminal-zero-core-charge-only-row")
             self.assertEqual(reviewed["plan_behavior"], "accept-native-schedule")
@@ -184,7 +261,7 @@ class LoansContractTests(unittest.TestCase):
         self.assertIn("not classified as a manual adjustment", contract)
         self.assertIn("Loans `8`, `1739`, `1795`, `1893`, `2063`, `2111`, and `2482`", contract)
         self.assertIn("trailing zero-core", contract)
-        self.assertIn("Loans `381`, `1775`, `1871`, and `2006`", contract)
+        self.assertIn("Loans `381`, `1775`, `1871`, `1926`, and `2006`", contract)
         self.assertIn("single terminal", contract)
         self.assertIn("charge-only cohort", contract)
         self.assertIn("Loan `2374` is not covered", contract)

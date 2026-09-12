@@ -34,6 +34,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -1963,13 +1964,29 @@ public final class LoanApplicationValidator {
     }
 
     public Map<Long, BigDecimal> validateRefinancingLoans(final Loan loan, final LocalDate disbursementDate) {
+        return validateRefinancingLoans(loan, disbursementDate, Set.of());
+    }
+
+    public Map<Long, BigDecimal> validateSourceExactRefinancingLoans(final Loan loan, final LocalDate disbursementDate,
+            final Set<Long> legacyCrossClientPredecessorIds) {
+        return validateRefinancingLoans(loan, disbursementDate, legacyCrossClientPredecessorIds);
+    }
+
+    private Map<Long, BigDecimal> validateRefinancingLoans(final Loan loan, final LocalDate disbursementDate,
+            final Set<Long> legacyCrossClientPredecessorIds) {
         final Map<Long, BigDecimal> settlements = new LinkedHashMap<>();
         for (Long loanIdToClose : loan.getTopupLoanDetails().getLoanIdsToClose()) {
             if (loan.getId() != null && loan.getId().equals(loanIdToClose)) {
                 throw new GeneralPlatformDomainRuleException("error.msg.loan.refinancing.cannot.close.itself",
                         "A refinancing loan cannot settle itself.");
             }
-            final Loan loanToClose = loanRepositoryWrapper.findNonClosedLoanThatBelongsToClient(loanIdToClose, loan.getClientId());
+            Loan loanToClose = loanRepositoryWrapper.findNonClosedLoanThatBelongsToClient(loanIdToClose, loan.getClientId());
+            if (loanToClose == null && legacyCrossClientPredecessorIds.contains(loanIdToClose)) {
+                loanToClose = loanRepositoryWrapper.findOneWithNotFoundDetection(loanIdToClose, true);
+                if (!loanToClose.isOpen() || Objects.equals(loanToClose.getClientId(), loan.getClientId())) {
+                    loanToClose = null;
+                }
+            }
             if (loanToClose == null) {
                 throw new GeneralPlatformDomainRuleException("error.msg.loan.to.be.closed.with.refinancing.is.not.active",
                         "Loan %s to be closed with this refinancing is not active", loanIdToClose);

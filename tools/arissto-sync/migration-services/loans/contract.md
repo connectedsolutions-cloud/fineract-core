@@ -13,6 +13,14 @@ The service includes only originated rows in `CRD_CARTERA`. Applications in
 to a future application-history service. Daily and period snapshots are
 reconciliation evidence, not transactions to replay.
 
+For each originated loan, the service also owns the personal-guarantor rows in
+`CRD_SOLICITUD_FIADOR`. Each source guarantor resolves through its declared
+`AFI_SOCIO` relationship and then through the clients service's
+`m_client.external_id = AFI_SOCIO.NUMERO_AFILIACION` contract. The target is
+one active `m_guarantor` row with `type_enum=1` and
+`entity_id=m_client.id` for every source row. Relationship code values and
+guarantor-funded savings details are intentionally out of scope.
+
 No downstream service may create a second financial transaction for an Arissto
 loan movement. In particular, `mobile-collections` may link to repayments
 created here but cannot call a repayment, adjustment, reversal, teller, or
@@ -23,6 +31,7 @@ journal endpoint.
 ```text
 AFI_SOCIO
   -> CRD_SOLICITUD_CREDITO
+      -> CRD_SOLICITUD_FIADOR -> AFI_SOCIO (guarantor)
       -> CRD_CARTERA
           -> CRD_PLAN_PAGO
           -> CRD_MOVIMIENTOS_CARTERA
@@ -47,6 +56,27 @@ Source meaning and population evidence remain in the exploration repository:
 - `docs/learnings/seguro-de-deuda.md`;
 - `docs/learnings/prestamos-inconsistencia-base-360-365.md`; and
 - `docs/learnings/prestamo-2120-plan-cero.md`.
+
+### Guarantor multiplicity and historical insertion
+
+Guarantors have no separate migration service and no synthetic relationship
+external ID. The frozen loan plan retains one entry per source row, including
+repeated occurrences of the same guarantor client. Apply compares the desired
+and target active-row counts by `(loan_id, type_enum=1, entity_id)`, creates
+only the missing count, and fails closed if the target count exceeds the
+source. It never deletes a target guarantor.
+
+Normal Fineract guarantor creation continues to reject a duplicate active
+customer and a closed loan. Migration uses only the separately authorized
+`POST /loans/{loanId}/guarantors?command=sourceExactCreate` command, protected
+by `SOURCEEXACTCREATE_GUARANTOR`. That path accepts only an existing customer
+guarantor, no relationship code, and no savings/funding details. It may add
+repeated rows and may attach historical evidence to a closed loan. Reconcile
+requires the exact source multiplicity for every loan with source guarantors.
+
+The four current guarantor rows attached to applications without
+`CRD_CARTERA` remain outside this service and belong to the future
+application-history service.
 
 ## Deterministic identities
 
@@ -442,9 +472,23 @@ interest. Dates must be strictly increasing and current rows must carry no
 restructuring or deferred-installment marker. A partial signature is a blocking
 `ambiguous_first_accrual_day_signature` quarantine. A complete signature sets
 the native loan-level `interestChargedFromDate` to one day before the source
-origin and `daysInYearType` to `365`; normal loans inherit the product's
-Actual/Actual behavior and receive neither override. The ordinary source-exact
-variable-installment preview and persisted-schedule guards remain mandatory.
+origin and `daysInYearType` to `365`, while retaining the actual financial
+disbursement date independently. The financial disbursement may precede the
+contractual origin; that difference does not invalidate an otherwise complete
+source-derived signature. Normal loans inherit the product's Actual/Actual
+behavior and receive neither override. The ordinary source-exact variable-
+installment preview and persisted-schedule guards remain mandatory.
+
+Loan `3` is a separate line-`00001` signature, not a member of that line-`00010`
+legacy cohort. Its effective disbursement is exactly one day before source
+origination, its first interest matches fixed-365 accrual from that effective
+date, and every later period matches fixed-365 exclusive counting. Only the
+complete monthly, monotonic, non-restructured, non-deferred signature sets
+`interestChargedFromDate` to the effective disbursement and `daysInYearType` to
+`365`; a near-match remains blocking. If a closed loan reversed an earlier
+disbursement but later reissued an effective disbursement, that paired reversal
+does not suppress the bounded terminal cutover adjustment. A loan whose only
+disbursement was terminally reversed remains excluded from that adjustment.
 
 Loan `2068` remains the known diagnostic for Arissto's mixed 360/365 schedule
 formula. The dedicated transaction strategy makes its actual late repayment
@@ -462,7 +506,11 @@ Arissto installments remain source-exact.
 Source loans `24`, `435`, and `945` are entity-level historical exceptions,
 not product-generation requirements. Loan `24` is an early closed loan whose
 five stored installments contain the full approved principal despite a
-six-installment header. Loan `435` is a closed refinancing loan whose truncated
+six-installment header. Its native Fineract shell is created with the reviewed
+six-installment header, not the five-row manual plan; the migrator then replays
+the authoritative source movements and reconciles the closed terminal state.
+This is an identity-scoped migration override and does not change Fineract's
+product or schedule-generation rules. Loan `435` is a closed refinancing loan whose truncated
 plan belongs to the refinance lifecycle. Loan `945` is active and has a
 modified stored plan whose first-payment date, maturity, and scheduled
 principal no longer agree uniformly with its header.
@@ -488,8 +536,8 @@ native schedule differs. New exceptions require their own reviewed evidence
 and contract change. The source evidence is documented in
 `docs/learnings/prestamos.md` in the exploration repository.
 
-Line `00010` loans `1117`, `1484`, `1743`, `1748`, `2069`, `2241`, `2254`,
-and `2355` are separately reviewed manual-adjustment exceptions. Loan `1484`
+Line `00010` loans `301`, `1117`, `1182`, `1484`, `1743`, `1748`, `2069`,
+`2241`, `2254`, and `2355` are separately reviewed manual-adjustment exceptions. Loan `1484`
 has two archived edits before its current 18-installment monthly plan. The
 other seven have operator-created `CRD_REESTRUCTURACION` rows and archived
 plans followed by a final installment pinned to the contractual maturity date
@@ -505,23 +553,128 @@ migration accepts Fineract's native schedule as a visible, non-blocking
 variance and does not replay archived edits, synthesize installments, reproduce
 negative interest, or create adjustment transactions. Source movement
 identities and component totals, cutover balances, and terminal status remain
-blocking and exact. Loan `2374` is not covered: it has no adjustment row or
-archived plan and remains quarantined for its duplicate final date.
+blocking and exact. Loan `2374` is not covered by the manual-adjustment policy:
+it has no adjustment row or archived plan. Its separate guarded source-exact
+rule combines only the exact duplicate-date terminal pair into one 99th period;
+after a later refinance closes the loan, the rule also requires one
+disbursement, one final payoff with a named successor, full principal
+settlement, and zero terminal source balances. Any changed or partial signature
+remains quarantined. Full replay
+`b946bacae2d54fbfa4bdf3610eb77d44` recovered it successfully after that
+cardinality fix.
 
 Closed loans `23`, `90`, `317`, `340`, and `359` are an additional reviewed
 line `00010` manual-adjustment cohort. Every loan has operator adjustment
 history and one or more archived schedule versions. Their current schedules
-are retained as historical provenance under the same
-`accept-native-schedule` policy: archived edits are not replayed, no missing
+are retained as historical provenance under planner policy
+`reviewed-manual-adjustment`. This policy has historical-reference-only
+behavior: archived edits are not replayed, no missing
 installments or adjustment transactions are synthesized, and no calculator
 rule is inferred from the edited shape. Exact source movements and component
 allocations, charges, cutover balances, terminal status, and accounting remain
 blocking. This exception is limited to these closed source identities.
 
-Active loans `479`, `1738`, `1841`, and `1869` are not covered by this
-historical-only extension. Their adjusted schedules still define future
-obligations, so they remain fail-closed until an explicit future-servicing
-policy is approved and canary-proved.
+A separate source-derived terminal classifier covers a closed loan whose
+header retains only stale debt-insurance residue. It applies when source state
+is `3`, `SALDO_TOTAL`, `ULTIMO_SALDO`, both interest balances, mora, recargos,
+and CxC are all exactly zero, while `SALDO_SEGURO` alone remains positive. The
+planner freezes the exact residue and authoritative zero terminal total,
+requires a non-empty source-exact event reconstruction, and expects Fineract to
+remain closed with zero native fee balance. Every actual disbursement, charge,
+payment, reversal, allocation, terminal adjustment, and journal remains strict;
+the header residue is never synthesized as collectible debt. This rule is not
+limited to `23`, `317`, and `359`: any future loan receives the same treatment
+only when the complete signature matches. A partial signature uses ordinary
+strict reconciliation, and a matching header without reconstructable events is
+quarantined.
+
+Active loans `479`, `1738`, `1841`, and `1869` are not covered by the
+historical-only extension because their current adjusted schedules still define
+obligations. They use a reviewed source-exact active-schedule import instead:
+create, approve, and disburse the native loan; install the current frozen
+Arissto principal/interest schedule before any servicing; then replay movements,
+charges, balances, status, and accounting normally. Archived adjustment
+operations and archived schedule versions remain provenance and are never
+replayed or generalized into a calculator rule. The import is identity-scoped
+and requires the reviewed source state, line, adjustment count, schedule row
+count, sequential monotonic dates, no deferred rows, and exact full-principal
+allocation. Any signature drift quarantines the loan.
+
+`G5-SCH-009` acceptance is enforced by
+`check-loan-adjusted-schedule-cohort`. The checker requires both state-specific
+planner contracts, a completed or recovered run, strict reconciliation, and an
+independently reconciled unchanged same-plan replay. Only
+`reviewed_manual_adjustment_schedule_variance` is permitted, and only for the
+five closed loans. Active-loan schedule variances, any other reviewed variance,
+or any blocking movement, allocation, charge, cutover-balance, status,
+accounting, or journal finding rejects acceptance. This replaces the obsolete
+requirement for a separate closed-subgroup apply.
+
+Loan `1738` has one additional bounded representation detail: its 19th source
+row has zero principal and interest and retains only `MONTO_OTROS`. The full
+19-row source plan remains frozen as provenance, while the source-exact active
+schedule imports the 18 financial rows. The charge is migrated and reconciled
+through its native charge identity rather than synthesized as an empty loan
+installment.
+
+The 20 closed refinance predecessors `281`, `283`-`286`, `315`, `331`, `632`,
+`634`-`636`, `639`-`641`, `648`, `971`, `983`, `992`, `995`, and `998` are a
+separate historical-reference cohort. They are not manual-adjustment
+exceptions: their current schedules are monotonic, allocate the complete
+approved principal, and have no restructuring or deferred-installment marker.
+Fineract may retain its native closed-loan schedule because the source schedule
+no longer defines future servicing. The source schedule stays frozen in the
+plan as provenance and any target difference remains a visible
+`historical_reference_only_schedule_variance`.
+
+This exception is accepted only when the source identity still has state `3`,
+positive principal, sequential installments with increasing due dates, one
+disbursement, exactly one native refinance payoff, exact full-principal
+allocation outside disbursement, and zero `ULTIMO_SALDO` and `SALDO_TOTAL`.
+Any signature drift returns the loan and its refinance component to quarantine.
+Movement identities, repayment components, refinance transfers, charges,
+cutover balances, terminal status, and balanced journals remain strict.
+
+The closed-refinance historical-schedule regression canary is fixed at these
+20 roots plus their 57 known refinance descendants. It is not the separate
+`G5-SCH-014` contractual-anchor cohort. `check-loan-reference-canary` rejects a
+plan if any expected identity is missing, any root lacks the historical-
+reference policy, or any of the 77 loans is quarantined. With `--run`, it
+additionally requires every affected item to be succeeded, recovered, or
+unchanged and performs strict reconciliation with no blocking finding.
+
+Loans `301`, `1117`, and `1182` have a narrower creation rule in addition to
+their historical-schedule classification. Their current approved
+`CRD_CARTERA.INTERES_MONTO_APROBADO` rate is lower than the stale
+`CRD_CARTERA.PORC_INTERES_APROBADO` value retained after operator
+restructuring. The current portfolio rate is therefore used only to
+create Fineract's native staging schedule for these three identities. The
+source schedules and archived versions remain provenance; movements,
+allocations, charges, balances, status, and accounting remain exact. A partial
+pending application created by the older payload may be updated to the frozen
+staging rate before lifecycle recovery. The engine must fail on a conflicting
+approved, active, or completed loan rather than rewrite it.
+
+Loan `805` has a separate reviewed early-payoff cutover rule. Its `3,500.00`
+principal is within line `00010`'s `6,800.00` product maximum, but its frozen
+36-month source schedule carries `4,312.62` of contractual interest. Arissto
+closed the loan after collecting `396.78` of interest, leaving `3,915.84` of
+unearned future interest for Fineract's migration-only terminal goodwill
+credit. For this identity only, the adjustment safety ceiling is derived from
+the frozen source-schedule total instead of approved principal. Exact source
+payments, component allocations, zero terminal balances, closed status,
+balanced journals, and idempotent replay remain mandatory.
+
+Loan `1441` is explicitly not a manual-adjustment exception. Its first source
+installment (`principal + interest`) remains `205.29`. Non-posting Fineract
+calculator proofs established that `205.29` produces 76 native periods and
+`205.31` produces exactly 75. Loan `1441` therefore uses `205.31` only for
+native creation cardinality. After its sole disbursement and before any
+servicing, the identity-guarded `sourceExactActiveSchedule` command installs
+the exact 75 source rows and the engine re-reads every date, principal, interest,
+and total. The source value is checked as a fail-closed precondition before the
+staging override is used. This override is limited to `1441`; it neither changes
+the product calculator nor weakens exact schedule reconciliation.
 
 Loan `83` is a separate, entity-level historical-reference exception and is
 not classified as a manual adjustment. Its six stored rows carry only
@@ -565,7 +718,7 @@ balances, terminal status, and accounting remain exact blocking checks. This
 exception is an entity allowlist for the seven reviewed loans, not a general
 rule for every zero-valued row or line `00010` schedule.
 
-Loans `381`, `1775`, `1871`, and `2006` are the narrower single terminal
+Loans `381`, `1775`, `1871`, `1926`, and `2006` are the narrower single terminal
 charge-only cohort. Their preceding installments allocate the full approved
 principal, then exactly one final monotonic row carries zero principal, zero
 interest, positive `MONTO_OTROS`, zero contribution, no restructuring link,
@@ -581,6 +734,13 @@ allocations, cutover insurance balance, the native future recurring charge for
 active loans, source movement components, terminal state, and accounting remain
 independently blocking. No installment, zero payment, schedule edit, charge, or
 adjustment transaction is synthesized from `CRD_PLAN_PAGO.MONTO_OTROS`.
+
+Loan `1926` also closes through the independently reconstructed refinance into
+loan `2135`. Its terminal row falls on `2028-04-18`, after the source payoff on
+`2026-06-24`, so it cannot be interpreted as an additional realized repayment
+or charge. The same terminal-row runtime predicate applies, while the payoff,
+historical insurance paid-by allocations, successor dependency, balances, and
+terminal state remain exact blocking reconciliation facts.
 
 ### 3. Disburse from the effective movement
 
@@ -608,7 +768,7 @@ Initial transaction mapping:
 | `4/00002 DESEMBOLSO` | Disbursement | Native mapping and reversal pairing accepted |
 | `4/00001 PAGO CREDITO` | Repayment | Native mapping identified |
 | `14/00011 CD-PAGO CREDITO` | Repayment with Cobro Movil payment type | Native clearing mapping and reversal accepted for line `00010` |
-| `4/00019 PAGO CREDITO-REFINANCIAMIENTO` | Prior-loan payoff funded by new loan | Native Fineract top-up accepted for one predecessor; unsupported graph shapes quarantine the whole chain |
+| `4/00019 PAGO CREDITO-REFINANCIAMIENTO` | Prior-loan payoff funded by new loan | Native single-predecessor refinancing and atomic multi-predecessor settlement accepted, including reviewed cross-client and partial-paydown evidence; unknown graph shapes quarantine the whole chain |
 | `4/00013 PAGO CREDITO (AJUSTADO)` | Repayment using its stored component allocation | Active rows are independent repayment facts; a marked reversal pairs like other repayments |
 | `4/00004 NOTA DE CARGO (REVERSION)` | Reverse an earlier repayment | Exact deterministic pairing accepted |
 | `4/00030 DESEMBOLSO (REVERSION)` | Reverse an earlier disbursement | Exact deterministic pairing accepted |
@@ -713,13 +873,25 @@ new definitive liquidation detail
 writer preserves the explicit definitive-liquidation relationship and expands
 any selected scope to include the complete predecessor/successor chain. For one
 predecessor it submits the successor through the native refinancing aggregate
-with one settlement; for a consolidation it submits the complete
-`loanIdsToClose` set and one source-exact settlement row per predecessor.
-Fineract atomically creates every loan-to-loan transfer and payoff before
-disbursing the exact remaining net cash. Because Fineract recalculates each
-predecessor at the historical payoff date, deterministic goodwill-credit
-bridges separately capture each dated prepayment-quote difference and any
-post-settlement residual; no bridge is represented as customer cash.
+with one settlement. For a consolidation it classifies each verified source
+settlement as `FULL_CLOSE` or `PARTIAL_PAYDOWN`, submits only the full-close
+predecessors in `loanIdsToClose`, and submits one source-exact settlement row
+for every predecessor. Fineract atomically creates every loan-to-loan transfer
+before disbursing the exact remaining net cash. Full-close predecessors must
+end closed without a material balance; partial-paydown predecessors must remain
+active with a positive residual and retain any later source transactions.
+Because Fineract recalculates each full-close predecessor at the historical
+payoff date, deterministic goodwill-credit bridges separately capture each
+dated prepayment-quote difference and any post-settlement residual; no bridge
+is represented as customer cash. Partial paydowns use their exact source
+allocation and never receive a closure bridge.
+
+The fail-closed partial classifier requires all three facts: the source
+predecessor is currently active, its current balance is material, and it has an
+unreversed posted payment after the consolidation date. Otherwise the
+settlement remains `FULL_CLOSE`. A mixed consolidation must contain at least
+one full-close settlement; an all-partial group is quarantined rather than
+invented as refinancing.
 
 A fully reversed refinance attempt is omitted only when the predecessor
 payoff has an exact compensating reversal, the abandoned successor contains
@@ -791,7 +963,14 @@ A scoped plan is non-applicable when any selected loan has:
 
 Quarantine is entity-scoped where possible. A transaction failure cannot leave
 later movements applied to an invalid earlier balance; the loan and all of its
-remaining movements must stop together.
+remaining movements must stop together. Refinancing is the exception to the
+single-loan boundary: if any predecessor or successor has an intrinsic source
+quarantine, the planner marks the entire connected refinancing component with
+`refinance_chain_quarantined:<root>:<reason>`. It must not import a predecessor
+whose terminal payoff can only be produced by a quarantined successor. Missing
+target prerequisites such as a client or employee do not become permanent
+chain quarantines because a new plan can resolve them after prerequisite
+services run.
 
 ## Idempotency and recovery
 
@@ -802,11 +981,18 @@ remaining movements must stop together.
   create call. If an exact contract match proves that creation succeeded before
   a crash, repair the missing `credesal_loan_product_map` row and do not create
   a duplicate. Write the crosswalk only after the native product exists.
-- The sequential writer records dependent loans as `blocked` when the product
-  fails. After product resolution, it submits, approves, disburses, and replays
-  each supported loan lifecycle in source order only after the non-posting
-  native schedule matches the frozen source schedule. A hard-crash retry includes
-  plan actions with no journal row, not only explicit failures.
+- The bounded worker pool records dependent loans as `blocked` when the product
+  fails. After product resolution, it may run independent loans concurrently,
+  but it submits, approves, disburses, and replays each individual lifecycle in
+  source order only after the non-posting native schedule matches the frozen
+  source schedule. Refinance successors wait for their predecessor outcomes.
+  A hard-crash retry includes plan actions with no journal row, not only
+  explicit failures.
+- Each worker owns its Fineract HTTP session and never writes SQLite state.
+  The main thread journals completed outcomes. A transient connection/time-out
+  or HTTP 429/5xx failure opens a shared pause gate; one lifecycle probes
+  recovery after the configured delay before the remaining workers resume.
+  Non-transient validation failures are not automatically retried.
 - Failed-only retry starts from explicit failures and unjournaled crash gaps,
   then adds only blocked descendants of those actions. A healthy product added
   solely as a failed loan's prerequisite does not select every sibling loan on

@@ -156,8 +156,22 @@ public class DepositApplicationProcessWritePlatformServiceJpaRepositoryImpl impl
     @Transactional
     @Override
     public CommandProcessingResult submitFDApplication(final JsonCommand command) {
+        return submitFDApplication(command, false);
+    }
+
+    @Transactional
+    @Override
+    public CommandProcessingResult submitSourceExactUnfundedFDApplication(final JsonCommand command) {
+        return submitFDApplication(command, true);
+    }
+
+    private CommandProcessingResult submitFDApplication(final JsonCommand command, final boolean sourceExactUnfunded) {
         try {
-            this.depositAccountDataValidator.validateFixedDepositForSubmit(command.json());
+            if (sourceExactUnfunded) {
+                this.depositAccountDataValidator.validateSourceExactUnfundedFixedDepositForSubmit(command.json());
+            } else {
+                this.depositAccountDataValidator.validateFixedDepositForSubmit(command.json());
+            }
             final AppUser submittedBy = this.context.authenticatedUser();
 
             final boolean isSavingsInterestPostingAtCurrentPeriodEnd = this.configurationDomainService

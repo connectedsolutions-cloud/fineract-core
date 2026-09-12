@@ -21,10 +21,10 @@ from .fixed_deposit_lifecycle_proof import (
     _general_interest_reference,
     _general_tax_reference,
     _post_interest_and_transfer,
-    fetch_dpf_canary,
 )
-from .savings import BLOCK, SavingsContract, inspect_savings
-from .savings_lifecycle_proof import VistaCanary, VistaEvent, fetch_vista_canary
+from .savings import BLOCK, SavingsContract, clean_text, inspect_savings
+from .savings_bulk import build_dpf_canary, build_vista_canary, extract_savings_lifecycles
+from .savings_lifecycle_proof import VistaCanary, VistaEvent
 from .state import State
 
 
@@ -42,8 +42,8 @@ PRODUCT_NUMBERING_CODES = {
     "00011": "5D9",
 }
 SUPPORTED_VISTA_NATIVE_ROLES = {
-    "DEPOSIT": ("deposit", 1),
-    "WITHDRAWAL": ("withdrawal", 2),
+    "DEPOSIT": ("sourceExactDeposit", 1),
+    "WITHDRAWAL": ("sourceExactWithdrawal", 2),
     "SAVINGS_INTEREST_POSTING": ("explicitInterestPosting", 3),
     "WITHHOLDING_TAX": ("explicitWithholdTax", 18),
 }
@@ -131,18 +131,20 @@ def compact_account_key(contract: SavingsContract, canonical_key: str) -> str:
 
 
 def _source_accounts(settings: Settings, contract: SavingsContract,
-                     source_keys: list[str] | None) -> list[tuple[str, str]]:
+                     source_keys: list[str] | None, conn: Any | None = None) -> list[tuple[str, str]]:
+    if conn is None:
+        with source_connection(settings.source) as source_conn:
+            return _source_accounts(settings, contract, source_keys, source_conn)
     source = contract.raw["source"]
     wanted = set(source_keys or [])
-    with source_connection(settings.source) as conn:
-        rows = select_rows(conn, f"""
-            SELECT RTRIM(a.ID_EMPRESA) company_id,RTRIM(a.ID_SUCURSAL) branch_id,
-                   RTRIM(a.ID_CUENTA_AHORRO) account_id,RTRIM(l.ID_TIPO_CUENTA_AHORRO) account_type
-            FROM dbo.{source['account_table']} a
-            JOIN dbo.{source['product_table']} l
-              ON l.ID_EMPRESA=a.ID_EMPRESA AND l.ID_LINEA_AHORRO=a.ID_LINEA_AHORRO
-            ORDER BY a.ID_EMPRESA,a.ID_SUCURSAL,a.ID_CUENTA_AHORRO
-        """)
+    rows = select_rows(conn, f"""
+        SELECT RTRIM(a.ID_EMPRESA) company_id,RTRIM(a.ID_SUCURSAL) branch_id,
+               RTRIM(a.ID_CUENTA_AHORRO) account_id,RTRIM(l.ID_TIPO_CUENTA_AHORRO) account_type
+        FROM dbo.{source['account_table']} a
+        JOIN dbo.{source['product_table']} l
+          ON l.ID_EMPRESA=a.ID_EMPRESA AND l.ID_LINEA_AHORRO=a.ID_LINEA_AHORRO
+        ORDER BY a.ID_EMPRESA,a.ID_SUCURSAL,a.ID_CUENTA_AHORRO
+    """)
     values: list[tuple[str, str]] = []
     seen: set[str] = set()
     for row in rows:
@@ -165,15 +167,38 @@ def _source_accounts(settings: Settings, contract: SavingsContract,
 def extract_savings_accounts(settings: Settings, contract: SavingsContract,
                              source_keys: list[str] | None = None) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
-    for canonical, account_type in _source_accounts(settings, contract, source_keys):
-        compact = compact_account_key(contract, canonical)
+    with source_connection(settings.source) as conn:
+        accounts = _source_accounts(settings, contract, source_keys, conn)
+        compact_keys = [compact_account_key(contract, canonical) for canonical, _account_type in accounts]
+        lifecycles = extract_savings_lifecycles(
+            settings, contract, [tuple(key.split(":")) for key in compact_keys], conn  # type: ignore[list-item]
+        )
+    for (canonical, account_type), compact in zip(accounts, compact_keys, strict=True):
         try:
+            lifecycle = lifecycles[tuple(compact.split(":"))]
             value: VistaCanary | DpfCanary
-            value = fetch_vista_canary(settings, contract, compact) if account_type == "001" else fetch_dpf_canary(
-                settings, contract, compact
-            )
-            cutoff_date = (_vista_support_snapshot(settings, value)["cutoff_date"]
-                           if isinstance(value, VistaCanary) else value.cutoff_date)
+            vista_support = None
+            if account_type == "001":
+                value = build_vista_canary(
+                    contract, compact, lifecycle["account"], lifecycle["movements"], lifecycle["history"]
+                )
+                owners, cutoff = lifecycle["owners"], lifecycle["cutoff"]
+                if len(owners) != 1 or len(cutoff) != 1 or (
+                    clean_text(owners[0].get("client_external_id")) != value.client_external_id
+                ):
+                    raise RuntimeError(f"VISTA ownership/cutoff support is not unique for {value.source_key}")
+                vista_support = {
+                    "cutoff_date": cutoff[0]["cutoff_date"],
+                    "cutoff_accrual": Decimal(str(cutoff[0]["INTERESES_PROVISIONADOS"])),
+                    "owner_id": clean_text(owners[0].get("owner_id")) or "",
+                }
+                cutoff_date = vista_support["cutoff_date"]
+            else:
+                value = build_dpf_canary(
+                    contract, compact, lifecycle["account"], lifecycle["movements"], lifecycle["history"],
+                    lifecycle["owners"], lifecycle["cutoff"],
+                )
+                cutoff_date = value.cutoff_date
             record = {
                 "source_key": canonical,
                 "compact_key": compact,
@@ -197,12 +222,8 @@ def extract_savings_accounts(settings: Settings, contract: SavingsContract,
                 "cutoff_date": cutoff_date,
                 "payload": value,
             }
-            if isinstance(value, DpfCanary) and value.state == "SUBMITTED_UNFUNDED" and value.principal <= 0:
-                # Fineract correctly requires a positive fixed-deposit amount.
-                # These Arissto placeholders have no funding or financial
-                # events, so creating an artificial native position would be
-                # misleading. Preserve the reviewed exclusion in the plan.
-                record["quarantine_reason"] = "submitted_unfunded_zero_principal"
+            if vista_support is not None:
+                record["vista_support"] = vista_support
             records.append(record)
         except Exception as exc:
             records.append({
@@ -370,7 +391,9 @@ def build_savings_plan(settings: Settings, state: State, contract: SavingsContra
             action, reason = "quarantine", "client_dependency_missing"
         elif client["status"] != 300:
             action, reason = "quarantine", "client_dependency_inactive"
-        elif record["deposit_type"] == "DPF" and record["linked_vista_source_key"] not in by_key:
+        elif (record["deposit_type"] == "DPF"
+              and record["source_state"] != "SUBMITTED_UNFUNDED"
+              and record["linked_vista_source_key"] not in by_key):
             action, reason = "quarantine", "linked_vista_not_in_plan_scope"
         elif existing:
             native = target["native"].get(existing["target_id"])
@@ -1147,11 +1170,12 @@ def _replacement_reference(settings: Settings, reference: str,
 
 
 def _prepare_vista(settings: Settings, contract: SavingsContract, api: FineractApi, plan_id: str, run_id: str,
-                   action: dict[str, Any], canary: VistaCanary, product_id: int) -> int:
+                   action: dict[str, Any], canary: VistaCanary, product_id: int,
+                   support: dict[str, Any] | None = None) -> int:
     source_key, source_hash = action["source_key"], action["source_hash"]
     client_id = int(action["client_id"])
     account_id = _ensure_vista_account(settings, api, canary, client_id, product_id, source_key)
-    support = _vista_support_snapshot(settings, canary)
+    support = support or _vista_support_snapshot(settings, canary)
     with _postgres_write_connection(settings.target.pg_url or "") as conn:
         migration_id = _upsert_migration_account(
             conn, contract, plan_id, run_id, source_key, source_hash, client_id, account_id, canary,
@@ -1163,8 +1187,9 @@ def _prepare_vista(settings: Settings, contract: SavingsContract, api: FineractA
 
 
 def _apply_vista(settings: Settings, contract: SavingsContract, api: FineractApi, plan_id: str, run_id: str,
-                 action: dict[str, Any], canary: VistaCanary, product_id: int) -> int:
-    account_id = _prepare_vista(settings, contract, api, plan_id, run_id, action, canary, product_id)
+                 action: dict[str, Any], canary: VistaCanary, product_id: int,
+                 support: dict[str, Any] | None = None) -> int:
+    account_id = _prepare_vista(settings, contract, api, plan_id, run_id, action, canary, product_id, support)
     source_key = action["source_key"]
     with postgres_connection(settings.target.pg_url or "") as conn:
         migration = conn.execute("""
@@ -1191,7 +1216,7 @@ def _apply_vista(settings: Settings, contract: SavingsContract, api: FineractApi
                     **_lifecycle_payload("transactionDate", canary.opening_date),
                     "transactionAmount": format(opening_balance, "f"), "paymentTypeId": 4,
                 },
-                {"command": "deposit"},
+                {"command": "sourceExactDeposit"},
                 idempotency_key=f"sav:{sha256(f'opening|{account_id}|{source_key}'.encode()).hexdigest()[:32]}",
             )
             opening_tx = _resolve_transaction(
@@ -1319,6 +1344,11 @@ def _ensure_dpf_account(settings: Settings, api: FineractApi, canary: DpfCanary,
     if not isinstance(opened_on, date):
         opened_on = date.fromisoformat(str(opened_on)[:10])
     if existing is None:
+        create_query = (
+            {"command": "sourceExactCreateUnfunded"}
+            if canary.state == "SUBMITTED_UNFUNDED" and canary.principal == 0
+            else None
+        )
         account_id = _resource_id(api.request("POST", "fixeddepositaccounts", {
             "clientId": client_id, "productId": product_id, "externalId": external_id,
             "submittedOnDate": opened_on.isoformat(), "dateFormat": "yyyy-MM-dd", "locale": "en",
@@ -1330,7 +1360,7 @@ def _ensure_dpf_account(settings: Settings, api: FineractApi, canary: DpfCanary,
             "interestCalculationType": 1, "transferInterestToSavings": False,
             "maturityInstructionId": 400, "preClosurePenalApplicable": False,
             "withHoldTax": False, "charges": [],
-        }), "savingsId")
+        }, query=create_query), "savingsId")
         status = 100
     else:
         account_id, status = existing
@@ -1344,7 +1374,7 @@ def _ensure_dpf_account(settings: Settings, api: FineractApi, canary: DpfCanary,
         status = 200
     if status == 200:
         api.request("POST", f"fixeddepositaccounts/{account_id}",
-                    _lifecycle_payload("activatedOnDate", opened_on), {"command": "activate"})
+                    _lifecycle_payload("activatedOnDate", opened_on), {"command": "sourceExactActivate"})
         status = 300
     if status == 300:
         api.request(
@@ -1421,6 +1451,7 @@ def _apply_dpf(settings: Settings, contract: SavingsContract, api: FineractApi, 
                                        canary.cycles[0], first_id)
         conn.commit()
     if canary.state == "SUBMITTED_UNFUNDED":
+        _set_migration_interest_start(api, "fixeddepositaccounts", first_id, canary.cutoff_date)
         return first_id
 
     dpf_ids = [first_id]
@@ -1547,7 +1578,7 @@ def _apply_dpf(settings: Settings, contract: SavingsContract, api: FineractApi, 
                         "applyMaturityInstruction": True, "postMaturityInterest": False,
                         "sourceRolloverDate": next_opening.isoformat(), "dateFormat": "yyyy-MM-dd", "locale": "en",
                     },
-                    {"command": "processMaturity"},
+                    {"command": "sourceExactProcessMaturity"},
                     idempotency_key=_command_key("migration-maturity", current_id, source_key, sequence),
                 )
                 preferred_rollover_id = maturity_result.get("subResourceId")
@@ -1577,11 +1608,22 @@ def _apply_dpf(settings: Settings, contract: SavingsContract, api: FineractApi, 
     _reverse_unmapped_dpf_interest(settings, api, dpf_ids)
     _set_migration_interest_start(api, "fixeddepositaccounts", current_id, canary.cutoff_date)
     final_status = _account_status(settings, current_id)
-    if canary.state in {"MATURED", "CLOSED"} and final_status not in {600, 800}:
+    if canary.state == "MATURED" and final_status not in {600, 800}:
+        api.request(
+            "POST", f"fixeddepositaccounts/{current_id}",
+            _dpf_source_maturity_payload(canary),
+            {"command": "sourceExactProcessMaturity"},
+            idempotency_key=_command_key("migration-final-maturity", current_id, source_key),
+        )
+        final_status = _account_status(settings, current_id)
+    elif (canary.state == "CLOSED"
+          and (_dpf_current_maturity_date(canary) is None
+               or _dpf_current_maturity_date(canary) <= canary.cutoff_date)
+          and final_status not in {600, 800}):
         api.request(
             "POST", f"fixeddepositaccounts/{current_id}",
             {"applyMaturityInstruction": False, "postMaturityInterest": False},
-            {"command": "processMaturity"},
+            {"command": "sourceExactProcessMaturity"},
             idempotency_key=_command_key("migration-final-maturity", current_id, source_key),
         )
         final_status = _account_status(settings, current_id)
@@ -1592,7 +1634,7 @@ def _apply_dpf(settings: Settings, contract: SavingsContract, api: FineractApi, 
             "POST", f"fixeddepositaccounts/{current_id}", {
                 **_lifecycle_payload("closedOnDate", canary.cancellation_date),
                 "onAccountClosureId": 100, "paymentTypeId": 4, "postMaturityInterest": False,
-            }, {"command": "close"},
+            }, {"command": "sourceExactClose"},
             idempotency_key=_command_key("migration-close", current_id, source_key),
         )
     # Do not invoke calculateInterest at the historical cutoff. On an
@@ -1709,6 +1751,7 @@ def apply_savings_plan(settings: Settings, state: State, contract: SavingsContra
             _prepare_vista(
                 settings, contract, api, plan_id, run_id, action, canary,
                 product_ids[_product_source_key(canary)],
+                record.get("vista_support"),
             )
         except Exception as exc:
             preparation_failures[action["source_key"]] = exc
@@ -1736,7 +1779,10 @@ def apply_savings_plan(settings: Settings, state: State, contract: SavingsContra
                 raise preparation_failures[key]
             product_id = product_ids[_product_source_key(canary)]
             if isinstance(canary, VistaCanary):
-                target_id = _apply_vista(settings, contract, api, plan_id, run_id, action, canary, product_id)
+                target_id = _apply_vista(
+                    settings, contract, api, plan_id, run_id, action, canary, product_id,
+                    record.get("vista_support"),
+                )
             elif isinstance(canary, DpfCanary):
                 target_id = _apply_dpf(settings, contract, api, plan_id, run_id, action, canary, product_id)
             else:  # pragma: no cover - extractor owns the closed union
@@ -1768,6 +1814,58 @@ def _unbalanced_journals(conn: Any, account_ids: list[int]) -> int:
           HAVING SUM(CASE WHEN je.type_enum=1 THEN je.amount ELSE -je.amount END)<>0
         ) x
     """, (account_ids,)).fetchone()[0])
+
+
+def _dpf_current_maturity_date(canary: DpfCanary) -> date | None:
+    if not canary.cycles:
+        return None
+    value = canary.cycles[-1].get("source_matures_on")
+    if value is None:
+        return None
+    return value if isinstance(value, date) else date.fromisoformat(str(value)[:10])
+
+
+def _dpf_source_maturity_payload(canary: DpfCanary) -> dict[str, Any]:
+    maturity_date = _dpf_current_maturity_date(canary)
+    if canary.state != "MATURED" or maturity_date is None:
+        raise RuntimeError("Source maturity override requires a MATURED DPF and maturity-date evidence")
+    return {
+        "applyMaturityInstruction": False,
+        "postMaturityInterest": False,
+        "forceSourceMaturity": True,
+        "sourceState": "MATURED",
+        "sourceMaturityDate": maturity_date.isoformat(),
+        "sourceCutoffDate": canary.cutoff_date.isoformat(),
+        "dateFormat": "yyyy-MM-dd",
+        "locale": "en",
+    }
+
+
+def _dpf_expected_statuses_at_cutoff(canary: DpfCanary, _expected_cutoff: date) -> set[int]:
+    # Arissto's MATURED state is authoritative even when Fineract's business
+    # date has not reached the contractual maturity date. CLOSED remains on
+    # the existing native, date-gated path.
+    return {
+        "SUBMITTED_UNFUNDED": {100}, "ACTIVE": {300}, "MATURED": {800, 600}, "CLOSED": {600},
+    }[canary.state]
+
+
+def _dpf_replay_counts(conn: Any, account_ids: list[int], expected_cutoff: date) -> tuple[int, int]:
+    # Reconciliation proves the frozen migration snapshot. Native target
+    # activity after that cutoff is legitimate post-cutover activity and must
+    # not be misclassified as duplicated historical replay.
+    interest_count = int(conn.execute("""
+        SELECT COUNT(*) FROM m_savings_account_transaction
+        WHERE savings_account_id=ANY(%s) AND transaction_type_enum=3
+          AND is_reversed=false AND transaction_date<=%s
+    """, (account_ids, expected_cutoff)).fetchone()[0]) if account_ids else 0
+    transfers = int(conn.execute("""
+        SELECT COUNT(*) FROM m_account_transfer_transaction att
+        JOIN m_account_transfer_details atd ON atd.id=att.account_transfer_details_id
+        WHERE atd.from_savings_account_id=ANY(%s) AND atd.transfer_type=4
+          AND att.is_reversed=false AND att.transaction_date<=%s
+    """, (account_ids, expected_cutoff)).fetchone()[0]) if account_ids else 0
+    return interest_count, transfers
 
 
 def _reconcile_vista(settings: Settings, canary: VistaCanary, migration: dict[str, Any],
@@ -1916,14 +2014,10 @@ def _reconcile_dpf(settings: Settings, contract: SavingsContract, canary: DpfCan
             SELECT COUNT(*) FROM m_portfolio_account_associations
             WHERE savings_account_id=ANY(%s) AND association_type_enum=1 AND is_active=true
         """, (account_ids,)).fetchone()[0]) if account_ids else 0
-        interest_count = int(conn.execute("""
+        interest_count, transfers = _dpf_replay_counts(conn, account_ids, expected_cutoff)
+        transaction_count = int(conn.execute("""
             SELECT COUNT(*) FROM m_savings_account_transaction
-            WHERE savings_account_id=ANY(%s) AND transaction_type_enum=3 AND is_reversed=false
-        """, (account_ids,)).fetchone()[0]) if account_ids else 0
-        transfers = int(conn.execute("""
-            SELECT COUNT(*) FROM m_account_transfer_transaction att
-            JOIN m_account_transfer_details atd ON atd.id=att.account_transfer_details_id
-            WHERE atd.from_savings_account_id=ANY(%s) AND atd.transfer_type=4 AND att.is_reversed=false
+            WHERE savings_account_id=ANY(%s)
         """, (account_ids,)).fetchone()[0]) if account_ids else 0
     if len(cycles) != len(canary.cycles):
         mismatches.append("cycle_count")
@@ -1936,15 +2030,15 @@ def _reconcile_dpf(settings: Settings, contract: SavingsContract, canary: DpfCan
         mismatches.append("linked_vista_associations")
     if interest_count != len(canary.interests) or transfers != len(canary.interests):
         mismatches.append("interest_replay")
+    if canary.state == "SUBMITTED_UNFUNDED" and transaction_count != 0:
+        mismatches.append("unexpected_unfunded_transactions")
     period = 9 if canary.capitalization_period == "06" else 7
     for row in cycles:
         if (int(row[6]), int(row[7]), int(row[8])) != (1, period, period):
             mismatches.append(f"interest_configuration:cycle:{row[2]}")
     if cycles:
         current = cycles[-1]
-        expected_statuses = {
-            "SUBMITTED_UNFUNDED": {100}, "ACTIVE": {300}, "MATURED": {800, 600}, "CLOSED": {600},
-        }[canary.state]
+        expected_statuses = _dpf_expected_statuses_at_cutoff(canary, expected_cutoff)
         if int(current[4]) not in expected_statuses:
             mismatches.append("native_status")
         if int(migration["account_id"]) != int(current[1]):

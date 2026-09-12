@@ -3,7 +3,7 @@ import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -20,7 +20,12 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from arissto_sync.savings_engine import (
+    _apply_dpf,
+    _dpf_expected_statuses_at_cutoff,
     _dpf_product_payload,
+    _dpf_replay_counts,
+    _dpf_source_maturity_payload,
+    _ensure_dpf_account,
     _can_repair_existing_drift,
     _planning_drift_reasons,
     _reconcile_record,
@@ -32,6 +37,7 @@ from arissto_sync.savings_engine import (
     _reverse_unmapped_dpf_transfers,
     _reverse_unmapped_vista_interest_tax,
 )
+from arissto_sync.savings_bulk import extract_savings_lifecycles
 from arissto_sync.savings_lifecycle_proof import VistaCanary
 
 
@@ -92,6 +98,51 @@ class SavingsContractTests(unittest.TestCase):
         self.assertNotIn("native_opening_day_interest_schedule", self.contract.raw["blockers"])
         self.assertNotIn("deterministic_plan_apply_reconcile_and_full_population", self.contract.raw["blockers"])
 
+    def test_matured_dpf_after_cutoff_must_not_remain_active(self):
+        canary = SimpleNamespace(
+            state="MATURED",
+            cycles=({"source_matures_on": date(2026, 9, 5)},),
+        )
+
+        self.assertEqual(
+            _dpf_expected_statuses_at_cutoff(canary, date(2026, 9, 4)), {600, 800}
+        )
+        self.assertEqual(
+            _dpf_expected_statuses_at_cutoff(canary, date(2026, 9, 5)), {600, 800}
+        )
+
+    def test_source_maturity_override_payload_is_status_only_and_auditable(self):
+        canary = SimpleNamespace(
+            state="MATURED",
+            cutoff_date=date(2026, 9, 4),
+            cycles=({"source_matures_on": date(2026, 9, 5)},),
+        )
+
+        self.assertEqual(_dpf_source_maturity_payload(canary), {
+            "applyMaturityInstruction": False,
+            "postMaturityInterest": False,
+            "forceSourceMaturity": True,
+            "sourceState": "MATURED",
+            "sourceMaturityDate": "2026-09-05",
+            "sourceCutoffDate": "2026-09-04",
+            "dateFormat": "yyyy-MM-dd",
+            "locale": "en",
+        })
+
+    def test_dpf_replay_counts_exclude_post_cutoff_native_activity(self):
+        conn = MagicMock()
+        conn.execute.side_effect = [
+            MagicMock(fetchone=MagicMock(return_value=(21,))),
+            MagicMock(fetchone=MagicMock(return_value=(21,))),
+        ]
+
+        self.assertEqual(
+            _dpf_replay_counts(conn, [336, 337], date(2026, 9, 4)), (21, 21)
+        )
+        for call_args in conn.execute.call_args_list:
+            self.assertIn("transaction_date<=%s", call_args.args[0])
+            self.assertEqual(call_args.args[1], ([336, 337], date(2026, 9, 4)))
+
     def test_product_payloads_include_approved_numbering_codes(self):
         gl = {
             key: index
@@ -114,6 +165,34 @@ class SavingsContractTests(unittest.TestCase):
         key = self.contract.source_key(ACCOUNT_SOURCE, row)
         self.assertEqual(key, "AHO_CUENTA_AHORRO|001|002|A%7C10%25")
         self.assertEqual(self.contract.parse_account_source_key(key), ("001", "002", "A|10%"))
+
+    def test_bulk_lifecycle_extraction_uses_five_queries_per_500_accounts(self):
+        keys = [("001", "001", f"{value:010d}") for value in range(501)]
+        source_context = MagicMock()
+        source_context.__enter__.return_value = object()
+        calls = []
+
+        def source_rows(_connection, sql, params=()):
+            calls.append(sql)
+            requested = [params[offset:offset + 3] for offset in range(0, len(params), 3)]
+            if "SELECT a.*" in sql:
+                return [{
+                    "ID_EMPRESA": company,
+                    "ID_SUCURSAL": branch,
+                    "ID_CUENTA_AHORRO": account,
+                } for company, branch, account in requested]
+            return []
+
+        settings = SimpleNamespace(source=object())
+        with (
+            patch("arissto_sync.savings_bulk.source_connection", return_value=source_context),
+            patch("arissto_sync.savings_bulk.select_rows", side_effect=source_rows),
+        ):
+            result = extract_savings_lifecycles(settings, self.contract, keys)
+
+        self.assertEqual(len(result), 501)
+        self.assertEqual(len(calls), 10)
+        self.assertEqual(source_context.__enter__.call_count, 1)
 
     def test_unmapped_native_interest_tax_is_undone_and_verified(self):
         select_connection = MagicMock()
@@ -183,6 +262,73 @@ class SavingsContractTests(unittest.TestCase):
             "POST", "fixeddepositaccounts/36/transactions/12175",
             {"sourceAuthoritativeCleanup": True}, {"command": "undo"}
         ))
+
+    def test_submitted_unfunded_dpf_sets_migration_interest_start_before_return(self):
+        cutoff = datetime(2026, 9, 3).date()
+        canary = SimpleNamespace(
+            state="SUBMITTED_UNFUNDED",
+            linked_vista_key="001:001:0000000100",
+            owners=({
+                "client_external_id": "client-1", "owner_id": "owner-1", "primary_match": True,
+            },),
+            cycles=({"source_key": "cycle-1"},),
+            cutoff_date=cutoff,
+        )
+        action = {"source_key": "account-1", "source_hash": "source-hash", "client_id": 42}
+        connection_mock = MagicMock()
+
+        @contextmanager
+        def write_connection(_url):
+            yield connection_mock
+
+        settings = SimpleNamespace(target=SimpleNamespace(pg_url="postgresql://local"))
+        api = MagicMock()
+        with (
+            patch("arissto_sync.savings_engine.canonical_account_key", return_value="linked-vista"),
+            patch("arissto_sync.savings_engine._linked_vista_target", return_value=(10, 20)),
+            patch("arissto_sync.savings_engine._owner_clients", return_value={"client-1": 42}),
+            patch("arissto_sync.savings_engine._ensure_dpf_account", return_value=(372, 100)),
+            patch("arissto_sync.savings_engine._postgres_write_connection", write_connection),
+            patch("arissto_sync.savings_engine._upsert_migration_account", return_value=114),
+            patch("arissto_sync.savings_engine._upsert_cycle", return_value=115),
+            patch("arissto_sync.savings_engine._upsert_owner"),
+        ):
+            account_id = _apply_dpf(settings, MagicMock(), api, "plan-1", "run-1", action, canary, 5)
+
+        self.assertEqual(account_id, 372)
+        self.assertEqual(api.request.call_count, 1)
+        self.assertEqual(api.request.call_args.args[:4], (
+            "POST", "fixeddepositaccounts/372",
+            {"startInterestCalculationDate": "2026-09-03", "dateFormat": "yyyy-MM-dd", "locale": "en"},
+            {"command": "migrationInterestStart"},
+        ))
+
+    def test_zero_principal_unfunded_dpf_uses_pending_only_creation_command(self):
+        opened_on = datetime(2026, 6, 13).date()
+        canary = SimpleNamespace(
+            state="SUBMITTED_UNFUNDED",
+            principal=Decimal("0.00"),
+            term_days=90,
+            annual_rate=Decimal("8.00"),
+            capitalization_period="03",
+            cycles=({"source_opened_on": opened_on},),
+        )
+        api = MagicMock()
+        api.request.return_value = {"savingsId": 372}
+        settings = SimpleNamespace(target=SimpleNamespace(pg_url="postgresql://local"))
+
+        with patch("arissto_sync.savings_engine._recover_account", return_value=None):
+            account_id, status = _ensure_dpf_account(
+                settings, api, canary, 42, 5, "AHO_CUENTA_AHORRO|001|001|0000000146", 20
+            )
+
+        self.assertEqual((account_id, status), (372, 100))
+        self.assertEqual(api.request.call_count, 1)
+        method, endpoint, payload = api.request.call_args.args[:3]
+        self.assertEqual(method, "POST")
+        self.assertEqual(endpoint, "fixeddepositaccounts")
+        self.assertEqual(payload["depositAmount"], "0.00")
+        self.assertEqual(api.request.call_args.kwargs["query"], {"command": "sourceExactCreateUnfunded"})
 
     def test_planning_blocks_contract_and_native_drift(self):
         vista = VistaCanary(

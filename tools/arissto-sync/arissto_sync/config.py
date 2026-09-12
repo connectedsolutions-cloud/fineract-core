@@ -31,6 +31,12 @@ def required(name: str) -> str:
     return value
 
 
+def configured_state_path(env_file: str | None = None) -> Path:
+    load_env(Path(env_file) if env_file else ROOT / ".env")
+    state = Path(os.getenv("ARISSTO_SYNC_STATE", ".arissto-sync/state.sqlite3"))
+    return state if state.is_absolute() else ROOT / state
+
+
 @dataclass(frozen=True)
 class SourceConfig:
     server: str
@@ -86,6 +92,7 @@ class Settings:
     aml_alert_mapping_path: Path
     savings_mapping_path: Path
     mobile_collection_mapping_path: Path
+    dte_history_mapping_path: Path
 
 
 def load_source_config(env_file: str | None = None) -> SourceConfig:
@@ -117,7 +124,7 @@ def load_settings(target: str, env_file: str | None = None) -> Settings:
         expected_host=required(prefix + "EXPECTED_HOST"), tls_verify=tls_verify,
     )
     target_config.assert_expected_host()
-    state = Path(os.getenv("ARISSTO_SYNC_STATE", ".arissto-sync/state.sqlite3"))
+    state = configured_state_path(env_file)
     mapping = Path(os.getenv("ARISSTO_SYNC_CLIENT_MAPPING", "config/clients.json"))
     family_mapping = Path(os.getenv("ARISSTO_SYNC_FAMILY_REFERENCE_MAPPING", "config/client_family_references.json"))
     pep_mapping = Path(os.getenv("ARISSTO_SYNC_CLIENT_PEP_MAPPING", "config/client_pep.json"))
@@ -136,7 +143,8 @@ def load_settings(target: str, env_file: str | None = None) -> Settings:
     mobile_collection_mapping = Path(os.getenv(
         "ARISSTO_SYNC_MOBILE_COLLECTION_MAPPING", "config/mobile_collections.json"
     ))
-    return Settings(source, target_config, state if state.is_absolute() else ROOT / state,
+    dte_history_mapping = Path(os.getenv("ARISSTO_SYNC_DTE_HISTORY_MAPPING", "config/dte_history.json"))
+    return Settings(source, target_config, state,
                     mapping if mapping.is_absolute() else ROOT / mapping,
                     family_mapping if family_mapping.is_absolute() else ROOT / family_mapping,
                     pep_mapping if pep_mapping.is_absolute() else ROOT / pep_mapping,
@@ -148,4 +156,5 @@ def load_settings(target: str, env_file: str | None = None) -> Settings:
                     aml_alert_mapping if aml_alert_mapping.is_absolute() else ROOT / aml_alert_mapping,
                     savings_mapping if savings_mapping.is_absolute() else ROOT / savings_mapping,
                     mobile_collection_mapping if mobile_collection_mapping.is_absolute()
-                    else ROOT / mobile_collection_mapping)
+                    else ROOT / mobile_collection_mapping,
+                    dte_history_mapping if dte_history_mapping.is_absolute() else ROOT / dte_history_mapping)

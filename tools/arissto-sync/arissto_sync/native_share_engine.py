@@ -17,6 +17,8 @@ from .state import State
 
 SOURCE_SYSTEM = "arissto"
 ACCOUNT_EXTERNAL_PREFIX = "arissto:share:"
+PREREQUISITE_VISTA_EXTERNAL_PREFIX = "arissto:share-vista:"
+VISTA_PRODUCT_SOURCE_KEY = "AHO_LINEA_AHORRO|001|00001"
 PRODUCT_NAME_PREFIX = "Arissto Credesal"
 PLANNING_PROVISIONING_BLOCKERS = {
     "native_share_products_not_provisioned",
@@ -49,7 +51,7 @@ def _stable_hash(value: Any) -> str:
 def _idempotency_key(operation: str, identity: str) -> str:
     """Return a stable key that fits Fineract's varchar(50) command column."""
     digest = sha256(f"{operation}|{identity}".encode("utf-8")).hexdigest()[:24]
-    return f"sh2:{operation}:{digest}"
+    return f"sh4:{operation[:20]}:{digest}"
 
 
 def _decimal(value: Any) -> Decimal:
@@ -61,6 +63,12 @@ def account_external_id(source_key: str) -> str:
     if len(parts) != 2 or parts[0] != "AFI_ACCION" or not parts[1]:
         raise ValueError(f"Invalid native share account source key: {source_key}")
     return f"{ACCOUNT_EXTERNAL_PREFIX}{parts[1]}"
+
+
+def prerequisite_vista_external_id(client_external_id: str) -> str:
+    if not client_external_id or "|" in client_external_id:
+        raise ValueError(f"Invalid client external ID for share VISTA prerequisite: {client_external_id}")
+    return f"{PREREQUISITE_VISTA_EXTERNAL_PREFIX}{client_external_id}"
 
 
 def movement_source_key(row: dict[str, Any]) -> str:
@@ -190,10 +198,12 @@ def _target_context(settings: Settings, contract: NativeShareContract,
         raise RuntimeError("Native share planning requires target PostgreSQL inspection")
     external_ids = sorted({record["client_external_id"] for record in records})
     account_external_ids = sorted({record["account_external_id"] for record in records})
+    prerequisite_external_ids = sorted(prerequisite_vista_external_id(value) for value in external_ids)
     product_external_ids = sorted(item["product_external_id"] for item in contract.raw["share_classes"].values())
     with postgres_connection(settings.target.pg_url) as conn:
         clients = conn.execute(
-            "SELECT external_id,id,status_enum FROM m_client WHERE external_id=ANY(%s)", (external_ids,),
+            "SELECT external_id,id,status_enum,activation_date FROM m_client WHERE external_id=ANY(%s)",
+            (external_ids,),
         ).fetchall()
         savings = conn.execute("""
             SELECT sma.client_id,sma.savings_account_id,sma.source_key,sma.source_opened_on
@@ -214,6 +224,20 @@ def _target_context(settings: Settings, contract: NativeShareContract,
             "SELECT id,external_id,client_id,product_id,savings_account_id,status_enum,total_approved_shares,currency_code "
             "FROM m_share_account WHERE external_id=ANY(%s)", (account_external_ids,),
         ).fetchall()
+        vista_products = conn.execute("""
+            SELECT sp.id,sp.currency_code,sp.deposit_type_enum,sp.nominal_annual_interest_rate
+            FROM credesal_savings_product_map pm
+            JOIN m_savings_product sp ON sp.id=pm.savings_product_id
+            WHERE pm.source_system=%s AND pm.source_key=%s AND pm.deposit_type='VISTA'
+              AND pm.mapping_status='ACTIVE'
+        """, (SOURCE_SYSTEM, VISTA_PRODUCT_SOURCE_KEY)).fetchall()
+        prerequisite_accounts = conn.execute("""
+            SELECT sa.id,sa.external_id,sa.client_id,sa.product_id,sa.status_enum,sa.currency_code,
+                   sa.account_balance_derived,
+                   (SELECT COUNT(*) FROM m_savings_account_transaction st
+                    WHERE st.savings_account_id=sa.id AND st.is_reversed=false)
+            FROM m_savings_account sa WHERE sa.external_id=ANY(%s)
+        """, (prerequisite_external_ids,)).fetchall()
         event_maps = conn.execute(
             "SELECT source_key,source_hash,contract_hash,share_account_id,share_transaction_id,event_status "
             "FROM credesal_share_native_event_map WHERE source_system=%s",
@@ -227,8 +251,21 @@ def _target_context(settings: Settings, contract: NativeShareContract,
             "opened_on": _date_string(opened_on) if opened_on else None,
         })
     return {
-        "clients": {str(row[0]): {"id": int(row[1]), "status": int(row[2])} for row in clients},
+        "clients": {str(row[0]): {
+            "id": int(row[1]), "status": int(row[2]),
+            "activation_date": _date_string(row[3]) if row[3] else None,
+        } for row in clients},
         "savings": dict(savings_by_client),
+        "vista_product": ({
+            "id": int(vista_products[0][0]), "currency": str(vista_products[0][1]),
+            "deposit_type": int(vista_products[0][2]),
+            "annual_rate": format(_decimal(vista_products[0][3]), "f"),
+        } if len(vista_products) == 1 else None),
+        "prerequisite_savings": {str(row[1]): {
+            "id": int(row[0]), "external_id": str(row[1]), "client_id": int(row[2]),
+            "product_id": int(row[3]), "status": int(row[4]), "currency": str(row[5]),
+            "balance": format(_decimal(row[6]), "f"), "transaction_count": int(row[7]),
+        } for row in prerequisite_accounts},
         "products": {str(row[1]): {
             "id": int(row[0]), "currency": str(row[2]), "total": int(row[3]),
             "unit_price": format(_decimal(row[4]), "f"), "minimum": int(row[5]),
@@ -262,13 +299,18 @@ def _product_contracts(contract: NativeShareContract) -> dict[str, dict[str, Any
     }
 
 
-def build_native_share_plan(settings: Settings, state: State, contract: NativeShareContract,
-                            source_keys: list[str] | None = None) -> tuple[str, dict[str, Any]]:
-    inspection = inspect_native_shares(settings, contract)
+def native_share_execution_blockers(inspection: dict[str, Any]) -> list[str]:
+    """Return blockers that must stop planning/apply, excluding bootstrap gates."""
     ignored = set(PLANNING_PROVISIONING_BLOCKERS)
     if int(inspection["target"].get("eligible_reconciled_vista_clients", 0)) >= 34:
         ignored.add("reconciled_native_savings_prerequisite")
-    blockers = [item for item in inspection["blockers"] if item not in ignored]
+    return [item for item in inspection["blockers"] if item not in ignored]
+
+
+def build_native_share_plan(settings: Settings, state: State, contract: NativeShareContract,
+                            source_keys: list[str] | None = None) -> tuple[str, dict[str, Any]]:
+    inspection = inspect_native_shares(settings, contract)
+    blockers = native_share_execution_blockers(inspection)
     records = extract_native_share_records(settings, contract, source_keys)
     target = _target_context(settings, contract, records)
     products = _product_contracts(contract)
@@ -277,6 +319,8 @@ def build_native_share_plan(settings: Settings, state: State, contract: NativeSh
     for record in records:
         client = target["clients"].get(record["client_external_id"])
         savings_options = target["savings"].get(client["id"], []) if client else []
+        selected_savings = savings_options[0] if savings_options else None
+        savings_provisioning = None
         existing = target["accounts"].get(record["account_external_id"])
         mapped_events = [target["event_maps"].get(event["source_key"]) for event in record["events"]]
         reason = None
@@ -286,8 +330,42 @@ def build_native_share_plan(settings: Settings, state: State, contract: NativeSh
         elif client["status"] != 300:
             action, reason = "quarantine", "client_dependency_inactive"
         elif not savings_options:
-            action, reason = "quarantine", "eligible_same_client_vista_missing"
-        elif existing:
+            vista_product = target["vista_product"]
+            external_id = prerequisite_vista_external_id(record["client_external_id"])
+            prerequisite_account = target["prerequisite_savings"].get(external_id)
+            if vista_product is None:
+                action, reason = "quarantine", "share_prerequisite_vista_product_missing"
+            elif (vista_product["currency"] != contract.raw["target"]["currency"]
+                  or vista_product["deposit_type"] != 100):
+                action, reason = "quarantine", "share_prerequisite_vista_product_invalid"
+            elif not client["activation_date"]:
+                action, reason = "quarantine", "share_prerequisite_vista_activation_date_missing"
+            elif prerequisite_account and (
+                    prerequisite_account["client_id"] != client["id"]
+                    or prerequisite_account["product_id"] != vista_product["id"]
+                    or prerequisite_account["currency"] != contract.raw["target"]["currency"]):
+                action, reason = "quarantine", "share_prerequisite_vista_identity_collision"
+            elif prerequisite_account and (
+                    _decimal(prerequisite_account["balance"]) != 0
+                    or prerequisite_account["transaction_count"] != 0):
+                action, reason = "quarantine", "share_prerequisite_vista_not_empty"
+            elif prerequisite_account and prerequisite_account["status"] not in {100, 200, 300}:
+                action, reason = "quarantine", "share_prerequisite_vista_status_unsupported"
+            else:
+                savings_provisioning = {
+                    "kind": "target_only_empty_vista",
+                    "external_id": external_id,
+                    "product_id": vista_product["id"],
+                    "currency": contract.raw["target"]["currency"],
+                    "annual_rate": vista_product["annual_rate"],
+                    "activation_date": client["activation_date"],
+                }
+                selected_savings = {
+                    "id": prerequisite_account["id"] if prerequisite_account else None,
+                    "source_key": f"TARGET_ONLY_SHARE_VISTA|{record['client_external_id']}",
+                    "opened_on": client["activation_date"],
+                }
+        if reason is None and existing:
             exact_maps = all(item and item["source_hash"] == event["source_hash"]
                              and item["contract_hash"] == contract.contract_hash
                              and item["account_id"] == existing["id"] and item["status"] == "RECONCILED"
@@ -299,11 +377,11 @@ def build_native_share_plan(settings: Settings, state: State, contract: NativeSh
                 action = "resume"
         counts[action] += 1
         product = products[record["share_type"]]
-        selected_savings = savings_options[0] if savings_options else None
         prerequisite = {
             "client_id": client["id"] if client else None,
             "savings_account_id": selected_savings["id"] if selected_savings else None,
             "savings_source_key": selected_savings["source_key"] if selected_savings else None,
+            "savings_provisioning": savings_provisioning,
             "product_external_id": product["external_id"], "product_contract": product,
         }
         actions.append({
@@ -412,6 +490,52 @@ def _product_payload(item: dict[str, Any], resources: dict[str, Any]) -> dict[st
     }
 
 
+def _ensure_payment_types(api: FineractApi, contract: NativeShareContract) -> list[dict[str, Any]]:
+    """Create missing reviewed native-share payment channels through the API."""
+    actions: list[dict[str, Any]] = []
+    for mapping in contract.raw["accounting_strategy"]["payment_channel_mappings"]:
+        source_id = int(mapping["source_payment_type_id"])
+        name = str(mapping["target_payment_type_value"])
+        code = mapping.get("target_payment_type_code")
+        value = api.request("GET", "paymenttypes")
+        rows = value if isinstance(value, list) else value.get("pageItems", [])
+        matches = [row for row in rows if (
+            (code and str(row.get("codeName") or row.get("code_name") or "") == code)
+            or (not code and str(row.get("name") or row.get("value") or "") == name)
+        )]
+        if len(matches) > 1:
+            raise RuntimeError(f"Native share payment type is not unique: {source_id}")
+        if matches:
+            if source_id == 1 and not bool(matches[0].get("isCashPayment")):
+                raise RuntimeError("Native share cash payment type is not marked as cash")
+            actions.append({"source_payment_type_id": source_id, "action": "unchanged"})
+            continue
+        payload = {
+            "name": name,
+            "description": f"Arissto native share payment channel: {mapping['source_name']}",
+            "isCashPayment": source_id == 1,
+            "position": 10 + source_id,
+        }
+        if code:
+            payload["codeName"] = code
+        api.request(
+            "POST", "paymenttypes", payload,
+            idempotency_key=_idempotency_key(
+                "payment-type", f"{code or name}|{_stable_hash(payload)}"
+            ),
+        )
+        refreshed = api.request("GET", "paymenttypes")
+        refreshed_rows = refreshed if isinstance(refreshed, list) else refreshed.get("pageItems", [])
+        created = [row for row in refreshed_rows if (
+            (code and str(row.get("codeName") or row.get("code_name") or "") == code)
+            or (not code and str(row.get("name") or row.get("value") or "") == name)
+        )]
+        if len(created) != 1 or (source_id == 1 and not bool(created[0].get("isCashPayment"))):
+            raise RuntimeError(f"Native share payment type failed post-bootstrap verification: {source_id}")
+        actions.append({"source_payment_type_id": source_id, "action": "created"})
+    return actions
+
+
 def _ensure_products(settings: Settings, contract: NativeShareContract,
                      planned: dict[str, dict[str, Any]]) -> tuple[dict[str, int], dict[str, Any]]:
     resources = _product_resources(settings, contract)
@@ -474,6 +598,21 @@ def _ensure_products(settings: Settings, contract: NativeShareContract,
     return product_ids, resources
 
 
+def prepare_native_share_target(settings: Settings, contract: NativeShareContract) -> dict[str, Any]:
+    """Provision the reviewed payment channels and share products before inspection."""
+    api = FineractApi(settings.target)
+    payment_actions = _ensure_payment_types(api, contract)
+    product_ids, _resources = _ensure_products(settings, contract, _product_contracts(contract))
+    return {
+        "performed": True,
+        "payment_types": payment_actions,
+        "products": [
+            {"share_type": share_type, "product_id": product_id}
+            for share_type, product_id in sorted(product_ids.items())
+        ],
+    }
+
+
 def _account_row(settings: Settings, external_id: str) -> dict[str, Any] | None:
     with postgres_connection(settings.target.pg_url or "") as conn:
         rows = conn.execute(
@@ -488,6 +627,88 @@ def _account_row(settings: Settings, external_id: str) -> dict[str, Any] | None:
     return {"id": int(row[0]), "client_id": int(row[1]), "product_id": int(row[2]),
             "savings_account_id": int(row[3]), "status": int(row[4]),
             "approved_shares": int(row[5] or 0), "currency": str(row[6])}
+
+
+def _prerequisite_vista_row(settings: Settings, external_id: str) -> dict[str, Any] | None:
+    with postgres_connection(settings.target.pg_url or "") as conn:
+        rows = conn.execute("""
+            SELECT sa.id,sa.external_id,sa.client_id,sa.product_id,sa.status_enum,sa.currency_code,
+                   sa.account_balance_derived,
+                   (SELECT COUNT(*) FROM m_savings_account_transaction st
+                    WHERE st.savings_account_id=sa.id AND st.is_reversed=false)
+            FROM m_savings_account sa WHERE sa.external_id=%s
+        """, (external_id,)).fetchall()
+    if len(rows) > 1:
+        raise RuntimeError(f"Duplicate share-prerequisite VISTA external ID: {external_id}")
+    if not rows:
+        return None
+    row = rows[0]
+    return {
+        "id": int(row[0]), "external_id": str(row[1]), "client_id": int(row[2]),
+        "product_id": int(row[3]), "status": int(row[4]), "currency": str(row[5]),
+        "balance": _decimal(row[6]), "transaction_count": int(row[7]),
+    }
+
+
+def _empty_vista_payload(action: dict[str, Any]) -> dict[str, Any]:
+    provisioning = action["savings_provisioning"]
+    return {
+        "clientId": action["client_id"], "productId": provisioning["product_id"],
+        "externalId": provisioning["external_id"],
+        "submittedOnDate": provisioning["activation_date"],
+        "dateFormat": "yyyy-MM-dd", "locale": "en",
+        "nominalAnnualInterestRate": provisioning["annual_rate"],
+        "withdrawalFeeForTransfers": False, "minRequiredOpeningBalance": "0",
+    }
+
+
+def _ensure_empty_vista_prerequisite(settings: Settings, api: FineractApi,
+                                     action: dict[str, Any]) -> int:
+    provisioning = action.get("savings_provisioning")
+    if not provisioning or provisioning.get("kind") != "target_only_empty_vista":
+        if action.get("savings_account_id") is None:
+            raise RuntimeError("Native share action has no usable VISTA prerequisite")
+        return int(action["savings_account_id"])
+    external_id = provisioning["external_id"]
+    account = _prerequisite_vista_row(settings, external_id)
+    if account is None:
+        result = api.request(
+            "POST", "savingsaccounts", _empty_vista_payload(action),
+            idempotency_key=_idempotency_key("empty-vista-create", external_id),
+        )
+        expected_id = _resource_id(result)
+        account = _prerequisite_vista_row(settings, external_id)
+        if account is None or account["id"] != expected_id:
+            raise RuntimeError(f"Unable to recover share-prerequisite VISTA: {external_id}")
+    expected_identity = (int(action["client_id"]), int(provisioning["product_id"]), provisioning["currency"])
+    if (account["client_id"], account["product_id"], account["currency"]) != expected_identity:
+        raise RuntimeError(f"Share-prerequisite VISTA identity collision: {external_id}")
+    if account["balance"] != 0 or account["transaction_count"] != 0:
+        raise RuntimeError(f"Share-prerequisite VISTA is not empty: {external_id}")
+    lifecycle = {
+        "dateFormat": "yyyy-MM-dd", "locale": "en",
+    }
+    if account["status"] == 100:
+        api.request(
+            "POST", f"savingsaccounts/{account['id']}",
+            {**lifecycle, "approvedOnDate": provisioning["activation_date"]},
+            {"command": "approve"},
+            idempotency_key=_idempotency_key("empty-vista-approve", external_id),
+        )
+        account = _prerequisite_vista_row(settings, external_id)
+    if account and account["status"] == 200:
+        api.request(
+            "POST", f"savingsaccounts/{account['id']}",
+            {**lifecycle, "activatedOnDate": provisioning["activation_date"]},
+            {"command": "activate"},
+            idempotency_key=_idempotency_key("empty-vista-activate", external_id),
+        )
+        account = _prerequisite_vista_row(settings, external_id)
+    if account is None or account["status"] != 300:
+        raise RuntimeError(f"Share-prerequisite VISTA is not active: {external_id}")
+    if account["balance"] != 0 or account["transaction_count"] != 0:
+        raise RuntimeError(f"Share-prerequisite VISTA gained financial activity: {external_id}")
+    return account["id"]
 
 
 def _transaction_rows(settings: Settings, account_id: int) -> list[dict[str, Any]]:
@@ -535,7 +756,8 @@ def _ensure_account_and_events(settings: Settings, contract: NativeShareContract
             "requestedShares": first["shares"], "paymentTypeId": first_payment_type,
             "allowDividendCalculationForInactiveClients": False,
             "dateFormat": "yyyy-MM-dd", "locale": "en",
-        }, idempotency_key=_idempotency_key("account", record["source_hash"]))
+        }, query={"command": "sourceexactcreate"},
+            idempotency_key=_idempotency_key("source-exact-account", record["source_hash"]))
         account_id = _resource_id(result)
         account = _account_row(settings, action["account_external_id"])
         if account is None or account["id"] != account_id:
@@ -570,12 +792,14 @@ def _ensure_account_and_events(settings: Settings, contract: NativeShareContract
         api.request("POST", f"accounts/share/{account_id}", {
             "approvedDate": first["event_date"], "dateFormat": "yyyy-MM-dd", "locale": "en",
             "note": f"Arissto {first['source_key']}",
-        }, query={"command": "approve"}, idempotency_key=_idempotency_key("approve", first["source_hash"]))
+        }, query={"command": "sourceexactapprove"},
+            idempotency_key=_idempotency_key("source-exact-approve", first["source_hash"]))
     account = _account_row(settings, action["account_external_id"])
     if account and account["status"] == 200:
         api.request("POST", f"accounts/share/{account_id}", {
             "activatedDate": first["event_date"], "dateFormat": "yyyy-MM-dd", "locale": "en",
-        }, query={"command": "activate"}, idempotency_key=_idempotency_key("activate", record["source_hash"]))
+        }, query={"command": "sourceexactactivate"},
+            idempotency_key=_idempotency_key("source-exact-activate", record["source_hash"]))
     rows = _transaction_rows(settings, account_id)
     initial = _matching_transaction(rows, first, first_payment_type)
     if initial is None or initial["status"] != 300:
@@ -590,16 +814,16 @@ def _ensure_account_and_events(settings: Settings, contract: NativeShareContract
             api.request("POST", f"accounts/share/{account_id}", {
                 "requestedDate": event["event_date"], "requestedShares": event["shares"],
                 "paymentTypeId": payment_type_id, "dateFormat": "yyyy-MM-dd", "locale": "en",
-            }, query={"command": "applyadditionalshares"},
-                idempotency_key=_idempotency_key("apply-additional", event["source_hash"]))
+            }, query={"command": "sourceexactapplyadditionalshares"},
+                idempotency_key=_idempotency_key("source-exact-apply-additional", event["source_hash"]))
             transaction = _matching_transaction(_transaction_rows(settings, account_id), event, payment_type_id)
         if transaction is None:
             raise RuntimeError(f"Unable to recover additional native share purchase: {event['source_key']}")
         if transaction["status"] == 100:
             api.request("POST", f"accounts/share/{account_id}", {
                 "requestedShares": [{"id": transaction["id"]}],
-            }, query={"command": "approveadditionalshares"},
-                idempotency_key=_idempotency_key("approve-additional", event["source_hash"]))
+            }, query={"command": "sourceexactapproveadditionalshares"},
+                idempotency_key=_idempotency_key("source-exact-approve-additional", event["source_hash"]))
             transaction = _matching_transaction(_transaction_rows(settings, account_id), event, payment_type_id)
         if transaction is None or transaction["status"] != 300:
             raise RuntimeError(f"Additional native share purchase did not approve: {event['source_key']}")
@@ -678,10 +902,7 @@ def _apply_guard(settings: Settings, state: State, contract: NativeShareContract
     if settings.target.name == "prod" and production_confirmation != settings.target.fingerprint:
         raise RuntimeError(f"Production apply requires --confirm-production {settings.target.fingerprint}")
     inspection = inspect_native_shares(settings, contract)
-    ignored = set(PLANNING_PROVISIONING_BLOCKERS)
-    if int(inspection["target"].get("eligible_reconciled_vista_clients", 0)) >= 34:
-        ignored.add("reconciled_native_savings_prerequisite")
-    blockers = [item for item in inspection["blockers"] if item not in ignored]
+    blockers = native_share_execution_blockers(inspection)
     if blockers:
         raise RuntimeError(f"Native share readiness changed: {blockers}")
     if inspection["schema_signature"] != plan["document"]["schema_signature"]:
@@ -723,10 +944,14 @@ def apply_native_share_plan(settings: Settings, state: State, contract: NativeSh
         try:
             record = records[key]
             product_id = product_ids[action["share_type"]]
-            account_id, transaction_ids = _ensure_account_and_events(
-                settings, contract, api, action, record, product_id, resources["paymentTypeIds"],
+            execution_action = dict(action)
+            execution_action["savings_account_id"] = _ensure_empty_vista_prerequisite(
+                settings, api, action,
             )
-            _persist_projection(settings, contract, plan_id, run_id, action, record, account_id,
+            account_id, transaction_ids = _ensure_account_and_events(
+                settings, contract, api, execution_action, record, product_id, resources["paymentTypeIds"],
+            )
+            _persist_projection(settings, contract, plan_id, run_id, execution_action, record, account_id,
                                 product_id, transaction_ids)
             state.save_mapping(settings.target.fingerprint, BLOCK, key, str(account_id), action["source_hash"])
             state.record_item(run_id, key, action["action"], action["source_hash"], "succeeded", str(account_id))
@@ -751,6 +976,7 @@ def reconcile_native_shares(settings: Settings, state: State, contract: NativeSh
     records = {record["source_key"]: record for record in extract_native_share_records(settings, contract, keys)}
     plan = state.plan(run["plan_id"])
     actions = {action["source_key"]: action for action in plan["document"]["actions"] if action["source_key"] in keys}
+    accounting_cutoff = date.fromisoformat(plan["document"]["accounting_cutoff"]["date"])
     event_keys = sorted(event["source_key"] for record in records.values() for event in record["events"])
     certificate_keys = sorted(item["source_key"] for record in records.values() for item in record["certificates"])
     with postgres_connection(settings.target.pg_url or "") as conn:
@@ -832,6 +1058,23 @@ def reconcile_native_shares(settings: Settings, state: State, contract: NativeSh
             reasons.append("source_or_plan_missing")
         else:
             account = accounts.get(record["account_external_id"])
+            expected_savings_id = action["savings_account_id"]
+            provisioning = action.get("savings_provisioning")
+            if provisioning:
+                prerequisite_account = _prerequisite_vista_row(settings, provisioning["external_id"])
+                if prerequisite_account is None:
+                    reasons.append("share_prerequisite_vista_missing")
+                else:
+                    expected_savings_id = prerequisite_account["id"]
+                    if (prerequisite_account["client_id"] != action["client_id"]
+                            or prerequisite_account["product_id"] != provisioning["product_id"]
+                            or prerequisite_account["currency"] != provisioning["currency"]):
+                        reasons.append("share_prerequisite_vista_identity_mismatch")
+                    if prerequisite_account["status"] != 300:
+                        reasons.append("share_prerequisite_vista_not_active")
+                    if (prerequisite_account["balance"] != 0
+                            or prerequisite_account["transaction_count"] != 0):
+                        reasons.append("share_prerequisite_vista_not_empty")
             if account is None:
                 reasons.append("share_account_missing")
             else:
@@ -839,7 +1082,7 @@ def reconcile_native_shares(settings: Settings, state: State, contract: NativeSh
                     reasons.append("client_mismatch")
                 if account["product_external_id"] != action["product_external_id"]:
                     reasons.append("product_mismatch")
-                if account["savings_account_id"] != action["savings_account_id"]:
+                if account["savings_account_id"] != expected_savings_id:
                     reasons.append("savings_account_mismatch")
                 if account["status"] != 300:
                     reasons.append("share_account_not_active")
@@ -868,6 +1111,10 @@ def reconcile_native_shares(settings: Settings, state: State, contract: NativeSh
                             or mapped["payment_type_id"] != expected_payment):
                         reasons.append(f"native_transaction_mismatch:{event['source_key']}")
                     entries = journals.get(event["source_key"], [])
+                    if date.fromisoformat(event["event_date"]) < accounting_cutoff:
+                        if entries:
+                            reasons.append(f"unexpected_native_journal_before_cutoff:{event['source_key']}")
+                        continue
                     signed = sum((entry["amount"] if entry["type"] == 2 else -entry["amount"] for entry in entries), Decimal("0"))
                     debits = Counter()
                     credits = Counter()

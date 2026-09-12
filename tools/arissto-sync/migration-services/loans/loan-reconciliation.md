@@ -14,6 +14,51 @@ evidence from the full local `default`-tenant exercise on 2026-08-30,
 distinguishes fixed engine defects from open portfolio-wide migration defects,
 and gives the next investigation a bounded order.
 
+## G5-SCH-009 acceptance check
+
+The manually adjusted schedule cohort has one executable acceptance check:
+
+```bash
+./arissto-sync check-loan-adjusted-schedule-cohort \
+  --target local \
+  --cycle CYCLE \
+  --plan PLAN_ID \
+  --run RUN_ID \
+  --replay-run REPLAY_RUN_ID
+```
+
+The five closed loans (`23`, `90`, `317`, `340`, `359`) must use
+`reviewed-manual-adjustment`; this is the planner's exact name for their
+historical-reference-only behavior. The four active loans (`479`, `1738`,
+`1841`, `1869`) must use `exact-source-schedule` and
+`fineract-source-exact-active-schedule-v1`. The checker accepts only reviewed
+manual-schedule variances on the closed loans and requires exact active
+schedules, zero blocking reconciliation findings, and an unchanged,
+independently reconciled same-plan replay. Archived schedule versions are never
+replayed. A dedicated closed-subgroup apply is not part of acceptance.
+
+The 2026-09-09 combined-cohort proof is recorded under plan
+`cfd5f875dbae4ef4bf30aa7da04ea055`. Initial run
+`7e471a3392ff47b6a6898e4d03352a49` succeeded for all 19 dependency-complete
+loans and reconciled with `ok=true`. Same-plan replay
+`f7b7235a42684e96bfb5227a9348873a` recovered all 19 and reconciled identically.
+The acceptance checker nevertheless returned `accepted=false`: active schedules
+are exact, closed schedule differences are reviewed, and replay is idempotent,
+but 20 unexpected non-schedule balance variances remain in each reconciliation.
+The active members carry component, total-outstanding, or cutover-total
+differences; closed loans `23`, `317`, and `359` carry fee-balance differences.
+This is the current closure blocker.
+
+The sync engine now derives `closed-stale-source-insurance-residue` for those
+three closed-loan symptoms and any future exact match. It freezes the
+contradictory source residue, requires complete source-exact event
+reconstruction, and expects the closed Fineract loan to retain zero native fee
+debt. Near-matches remain strict and a matching header without events is
+quarantined. This removes no historical event check and does not repair the
+existing sandbox identities. A fresh clean cohort run and unchanged replay are
+still required before the historical three fee variances can be replaced with
+accepted evidence.
+
 ## Safety and operating boundary
 
 - Arissto is strictly read-only. Use only `SELECT` and catalog/metadata reads.
@@ -773,9 +818,12 @@ settles both frozen payoffs and disburses the remaining net cash.
 
 Ownership divides this cohort. Successors `2252`, `2402`, and `2406` have two
 predecessors owned by the successor client. The other nine each contain one
-predecessor owned by a different client. The latter are not eligible for the
-same-client native contract without an explicit authorization/participant
-model.
+predecessor owned by a different client. Ordinary refinancing remains governed
+by the same-client native contract. For completed Arissto history, Credesal has
+approved a migration-only exception: the finalized liquidation plus the
+persisted predecessor/successor lifecycle is sufficient authorization evidence.
+The source-exact command must persist the liquidation, payoff movement, date,
+operator, and both clients; missing or mismatched evidence fails closed.
 
 Full plan `8567fd648ada4edc99cc6aa769ecf946` classified all 18 attempts,
 produced 18 provenance-only omitted successors, and left zero reversed or
@@ -791,10 +839,14 @@ same-client shape. Namespaced plan `fe97d37686904e1bbc75e1904ca1e3fa` proved
 `2042 + 2205 -> 2406`; run `3b2e253daee3432dafd03e66a178957e`
 and unchanged replay `4f8cb9a347a645b98ebc0814d717f891` both reconciled
 with `ok=true`, zero failed or quarantined items, and zero blocking mismatches.
-Replay recovered all six chain loans without duplicate financial state. The
-full 12-successor cohort remains `PENDING` until the nine cross-client cases
-receive an approved ownership/authorization design and equivalent canary.
-Consolidations are never flattened through the legacy single-predecessor input.
+Replay recovered all six chain loans without duplicate financial state.
+Cross-client plan `3aa9523256434f1eaf4d974b946b205a` and unchanged replay
+`709cd5eda5bb463caf5e62ab299847ad` proved the migration-only authorization
+path. Mixed full-close/partial-paydown successor `2402` was proved by run
+`0b17c12ffbe64b92bac7e7b3cf1d15ea` and replay
+`cdf43c654c484160a235ce3343230379`. The full 12-successor cohort is no longer
+an open implementation item. Consolidations are never flattened through the
+legacy single-predecessor input.
 
 ## P1 — pre-writer local identities
 
@@ -828,19 +880,20 @@ retained as provenance and are not the current acceptance baseline:
 | Unpaired reversal | 2 |
 | Orphan repayment reversal | 1 |
 
-Treat these as separate workstreams:
+These were the historical dispositions; they are not current open counts:
 
-- **Staff prerequisites:** verify employee sync coverage, active status, office,
-  and native loan-officer eligibility. Do not drop the officer assignment just
-  to increase migration counts without a business decision.
+- **Staff prerequisites:** replaced by the lossless promoter, account-executive,
+  and collections-manager assignment contract. Native loan-officer eligibility
+  is not an Arissto prerequisite.
 - **Missing clients:** repair the upstream client sync/mapping before retry.
 - **Component residuals:** completed by `G5-DAT-001`; the current 55-row cohort
   is fully classified through returned cash, independently proven pre-detail
   insurance, or one net-zero reversed manual adjustment pair.
 - **Date order:** completed by `G5-DAT-002`; the bounded legacy stamp is
   preserved as provenance without silently reordering financial events.
-- **Refinance/reversal graph anomalies:** retain explicit quarantines until a
-  dedicated supported lifecycle exists.
+- **Refinance/reversal graph anomalies:** the 18 complete net-zero attempts are
+  reviewed no-write quarantines; consolidation and partial-paydown shapes are
+  implemented. Only a future unknown or partial signature fails closed.
 
 The historical staff reasons dominated that plan and could hide loan-engine
 progress. Current plans must use the lossless three-role staff-assignment
@@ -926,7 +979,7 @@ Fineract schedule handling.
 
 ## Terminal charge-only schedule rows — 2026-09-01
 
-`G5-SCH-010` is complete for loans `381`, `1775`, `1871`, and `2006`. The
+`G5-SCH-010` was originally proved for loans `381`, `1775`, `1871`, and `2006`. The
 planner now treats the source schedule as historical reference only when its
 complete bounded signature is present: exactly one terminal row has zero
 principal and interest with positive `MONTO_OTROS`; contribution,
@@ -961,7 +1014,30 @@ produced run `39a2022411cb42ae82e0fad855a79fd0` with `loans_recovered: 8` and
 zero failures, quarantines, or mismatches. Both runs used tenant `sandbox`
 backed by `fineract_sandbox`; the local default database was not targeted.
 
-## Current completion boundary and remaining sequence — 2026-09-01
+The 2026-09-04 review added loan `1926` to the same signature-checked cohort.
+Its first 47 rows allocate the complete `$1,500.00` principal; row 48 contains
+zero principal, zero interest, and only `$0.46` of scheduled other charge on
+`2028-04-18`. The source loan was already closed by its exact refinance payoff
+on `2026-06-24`, and actual historical insurance allocations remain separate
+facts. Dependency-complete plan `01a804f466784ea2a9bc598ad157056c`
+expanded the requested `3` and `1926` roots to four loans, including the
+`995 -> 1926 -> 2135` refinance chain. Apply run
+`1d9c9fbd63a746edbded07736bbf3cee` completed all four and reconciled with
+`ok=true`, zero failed/quarantined items, and zero blocking mismatches. Same-plan
+replay `bb21edbc3df245c9a1238f6d3f5240ea` recovered all four identities and
+independently produced the same clean result. The reviewed native schedule
+differences remain visible only as non-blocking variances.
+
+The same proof closes loan `3`'s separate line-`00001` case. Its first accrual is
+anchored to the effective `2023-03-22` disbursement, exactly one day before the
+source origination date, with fixed-365 counting; later periods remain
+exclusive. Because its first disbursement was reversed and then reissued on the
+same day, the engine now distinguishes that effective disbursement from a loan
+whose only disbursement was terminally reversed. It preserves every source cash
+movement and posts a separate bounded `$121.01` migration cutover adjustment,
+leaving the target closed at zero as required by the source.
+
+## Current completion boundary and remaining sequence — 2026-09-08
 
 The compact reconciliation report, source-exact historical repayment
 allocation, normal/adjusted/Cobro Movil/reversal handling, penalty
@@ -970,36 +1046,38 @@ are implemented and canary-proved. The high target-outstanding and source
 payoff-shortfall classes are also fixed for the supported one-predecessor path.
 Do not continue to report those mechanisms as unimplemented.
 
-Loans is nevertheless **not complete**. Gate 5 remains open until this remaining
-sequence is finished:
+Loans is nevertheless **not complete**. The active clean-cycle ledger shows
+that the implementation backlog listed here previously is stale:
 
-1. Resolve the remaining structurally distinct source-exact schedule-preview
-   and variable-installment API/modification failures. The exact-half-cent,
-   full-leap-year Actual/Actual, and legacy inclusive-first-accrual classes are
-   complete; this does not clear unrelated redistribution or duplicate-date
-   classes. The all-zero loan `2120` is separately classified and quarantined.
-2. Re-run the previously failing schedule/API and post-lifecycle cases,
-   including the closed-loan population, and require exact movement, terminal,
-   cutover-balance, and journal reconciliation.
-3. Complete clients and employees on the selected target, verify active native
-   loan-officer eligibility, and re-plan. Do not bypass staff prerequisites by
-   omitting the source loan officer.
-4. Review the remaining portfolio quarantine classes. Movement-component
-   residuals and invalid application-date ordering are complete and should not
-   be counted as open classes; missing clients must be repaired upstream.
-5. Retain reviewed provenance for fully voided refinance attempts without
-   replaying their net-zero financial pairs; quarantine any partial signature.
-   Allow the proved same-client consolidation lifecycle. Keep cross-client
-   consolidations quarantined until an explicit participant/authorization
-   contract is approved and proved.
-6. Run the strict matrix on a clean local tenant or never-migrated identities;
-   old approved/active proof loans with pre-writer schedules are not an
-   acceptance baseline and must not be rewritten.
-7. Run a fresh full supported-population plan, apply, and reconciliation. Zero
-   failed supported loans and every acceptance criterion below are required.
-8. Build a second full plan and require zero unintended loan, transaction,
-   charge, paid-by, transfer, or journal writes.
-9. Only after Loans passes may Mobile Collections be planned and applied for
+- plan `0d7a06d33d8e4504824092f62aaba75d` ran as
+  `7735934d63e54eca9a5dffd920eaae33`, succeeding for 2,492 loans and two
+  products, with 19 reviewed no-write quarantines and only loan `2374` failed;
+- full replay plan `9995d2e755894af897cfbe133888d0c3` ran as
+  `b946bacae2d54fbfa4bdf3610eb77d44`, recovered loan `2374` and the rest of
+  the previously written population, retained the same 19 quarantines, and
+  failed only loan `1663` on an insurance-recovery mismatch; and
+- scoped run `7968a558d28747949bded7500bb1eaee` recovered loans `1507` and
+  `1663` and reconciled them with `ok=true`, zero failed/quarantined items, and
+  zero mismatches.
+
+The selected clean-cycle target therefore contains all 2,493 supported loans.
+The 19 quarantines are exactly the reviewed no-write population: 18 fully
+reversed refinance attempts and superseded source-error shell `2120`. Loan
+`2374`, contractual-origin schedules, active/manual source-exact schedules,
+multi-predecessor consolidation, cross-client settlements, partial paydown,
+and refinance dependency closure are no longer open implementation classes.
+
+Gate 5 remains open for only this acceptance sequence:
+
+1. Build one fresh full plan from the repaired target and confirm that its only
+   quarantines are the same reviewed 19.
+2. Apply or recover the full supported population in one run with zero failed
+   or dependency-blocked supported loans.
+3. Run strict full-population reconciliation and meet every criterion below.
+4. Replay the accepted full plan unchanged, reconcile it independently, and
+   prove zero unintended loan, transaction, charge, paid-by, schedule,
+   transfer, or journal writes.
+5. Only after Loans passes may Mobile Collections be planned and applied for
    final repayment-link coverage. It must link by deterministic transaction
    identity and create no second repayment or other financial row.
 
@@ -1034,13 +1112,15 @@ From `tools/arissto-sync`:
 ./arissto-sync inspect --block loans --target local
 ./arissto-sync inspect --block loans --target local --source-key 1254
 ./arissto-sync plan --block loans --target local --source-key 1254
-./arissto-sync reconcile \
-  --run e8bbff21f3bf42e2abdaf1496eb73c7b --target local
-./arissto-sync status --block loans --target local
+./arissto-sync workflow status \
+  --workflow-run WORKFLOW_RUN_ID --cycle sandbox-2026-09-05-clean-a \
+  --target local
 ```
 
-The persisted plan/run state is local and ignored at
-`.arissto-sync/state.sqlite3`. It is diagnostic evidence, not a portable or
+The current clean-cycle evidence is local and ignored at
+`.arissto-sync/cycles/sandbox-2026-09-05-clean-a/state.sqlite3`; the older
+`.arissto-sync/state.sqlite3` is a separate legacy state journal and does not
+contain these loan runs. Cycle state is diagnostic evidence, not a portable or
 committed source of truth. Promote durable conclusions back into this document,
 the loan contract, or the implementation sequence.
 
@@ -1052,13 +1132,14 @@ Work from tools/arissto-sync and read:
 - migration-services/loans/contract.md
 - migration-services/loans/implementation-sequence.md
 
-Goal: close the P0 historical loan transaction-allocation gap using a bounded
-local proof before broad portfolio work. Start with source loan 1254 and trace
-movement 0000010987 through source components, Fineract charge/accrual state,
-native transaction allocation, balances, paid-by records, and journals. Treat
-Arissto as read-only. Do not modify or delete existing active loans, do not
-weaken strict reconciliation, and do not run Mobile Collections apply. Propose
-and implement the smallest migration-only source-exact allocation mechanism
-that preserves Fineract domain/accounting invariants, add tests, run the bounded
-canary, reconcile it exactly, and update the handoff document with evidence.
+Goal: close Loans Gate 5 from clean cycle sandbox-2026-09-05-clean-a. The
+target already contains all 2,493 supported loans; the 19 quarantines are the
+reviewed 18 voided refinance successors plus source-error shell 2120. Build one
+fresh full plan after the loan-2374 and loan-1663 recovery fixes, require zero
+failed or dependency-blocked supported loans, run strict full-population
+reconciliation, then replay the accepted plan unchanged and prove zero new
+loan, transaction, charge, paid-by, schedule, transfer, or journal rows. Treat
+Arissto as read-only, do not modify or delete existing loans, do not weaken
+strict reconciliation, and do not run Mobile Collections apply before Loans
+passes.
 ```

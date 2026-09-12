@@ -344,7 +344,7 @@ class SavingsContract:
             raise ValueError("Savings GL roles must preserve the reviewed Arissto line mappings")
         if value["target_shared_gl"] != {
             "savingsReferenceAccountId": {"gl_code": "1110040202", "classification_enum": 1},
-            "transfersInSuspenseAccountId": {"gl_code": "213005", "classification_enum": 2},
+            "transfersInSuspenseAccountId": {"gl_code": "2130050101", "classification_enum": 2},
             "incomeFromFeeAccountId": {"gl_code": "6420", "classification_enum": 4},
             "incomeFromPenaltyAccountId": {"gl_code": "6430", "classification_enum": 4},
             "feesReceivableAccountId": {"gl_code": "1530", "classification_enum": 1},
@@ -1005,6 +1005,34 @@ def inspect_savings(settings: Settings, contract: SavingsContract) -> dict[str, 
                 """).fetchone()[0])
                 if migration_link_permission_count != 1:
                     blockers.append("target_fixed_deposit_migration_link_permission_missing")
+                isr_tax_rows = conn.execute("""
+                    SELECT tg.id,tg.name,tc.id,tc.name,tc.percentage::text,
+                           debit.gl_code,credit.gl_code,tgm.start_date::text,tgm.end_date::text
+                    FROM m_tax_group tg
+                    JOIN m_tax_group_mappings tgm ON tgm.tax_group_id=tg.id
+                    JOIN m_tax_component tc ON tc.id=tgm.tax_component_id
+                    LEFT JOIN acc_gl_account debit ON debit.id=tc.debit_account_id
+                    LEFT JOIN acc_gl_account credit ON credit.id=tc.credit_account_id
+                    WHERE tg.id=2 AND tc.id=3
+                """).fetchall()
+                isr_tax_group = None
+                if len(isr_tax_rows) == 1:
+                    row = isr_tax_rows[0]
+                    isr_tax_group = {
+                        "group_id": int(row[0]), "group_name": row[1],
+                        "component_id": int(row[2]), "component_name": row[3],
+                        "percentage": row[4], "debit_gl": row[5], "credit_gl": row[6],
+                        "start_date": row[7], "end_date": row[8],
+                    }
+                expected_isr_tax_group = {
+                    "group_id": 2, "group_name": "Credesal ISR",
+                    "component_id": 3, "component_name": "Credesal ISR 10%",
+                    "percentage": "10.000000", "debit_gl": "211201",
+                    "credit_gl": "2230000100", "start_date": "2000-01-01",
+                    "end_date": None,
+                }
+                if isr_tax_group != expected_isr_tax_group:
+                    blockers.append("target_credesal_isr_tax_group_missing_or_invalid")
                 period_end_rows = conn.execute("""
                     SELECT enabled FROM c_configuration
                     WHERE name='savings-interest-posting-current-period-end'
@@ -1105,6 +1133,7 @@ def inspect_savings(settings: Settings, contract: SavingsContract) -> dict[str, 
                         "permission_count": migration_link_permission_count,
                         "principal_transfer": False,
                     },
+                    "historical_isr_tax_group": isr_tax_group,
                     "interest_basis": {
                         "required_api_parameter": contract.raw["interest_basis"]["target_api_parameter"],
                         "required_enum_value": actual_basis_value,
@@ -1156,7 +1185,7 @@ def inspect_savings(settings: Settings, contract: SavingsContract) -> dict[str, 
     signature = _schema_signature(source_schema, target_schema)
     return {
         "block": BLOCK,
-        "ready": False,
+        "ready": not blockers,
         "read_ready": not any(item.startswith("missing_source_") for item in blockers),
         "contract_hash": contract.contract_hash,
         "schema_signature": signature,

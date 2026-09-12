@@ -81,9 +81,10 @@ the CLI executes the documented synchronous chain and stops if the parent
 reconciliation fails. Registry loading rejects missing, self-referential, and
 cyclic dependencies.
 
-The planned generic composition model, including the first
+The generic composition model, including the first
 `clients → employees → client-staff-assignments` flow, is documented in
-[`orchestration.md`](orchestration.md). It also owns the currently required
+[`orchestration.md`](orchestration.md). Machine-readable local workflow selections
+live under [`../workflows/`](../workflows/). The orchestration document also owns the currently required
 [manual loans-to-mobile-collections sequence](orchestration.md#current-manual-loans-to-mobile-collections-flow).
 Individual service guides continue to own their block-specific behavior.
 

@@ -113,6 +113,16 @@ public class LoanTransaction extends AbstractAuditableWithUTCDateTimeCustom<Long
     @Column(name = "source_exact_fee_charges_portion", scale = 6, precision = 19)
     private BigDecimal sourceExactFeeChargesPortion;
 
+    /**
+     * The source charge that must receive a source-exact fee allocation.
+     *
+     * A component amount alone is not sufficient when multiple Fineract fees have the same due date: normal schedule
+     * reprocessing can otherwise move the payment to a later migration cutover charge.
+     */
+    @Getter
+    @Column(name = "source_exact_fee_charge_external_id", length = 100)
+    private String sourceExactFeeChargeExternalId;
+
     @Column(name = "source_exact_penalty_charges_portion", scale = 6, precision = 19)
     private BigDecimal sourceExactPenaltyChargesPortion;
 
@@ -380,6 +390,7 @@ public class LoanTransaction extends AbstractAuditableWithUTCDateTimeCustom<Long
         newTransaction.sourceExactPrincipalPortion = loanTransaction.sourceExactPrincipalPortion;
         newTransaction.sourceExactInterestPortion = loanTransaction.sourceExactInterestPortion;
         newTransaction.sourceExactFeeChargesPortion = loanTransaction.sourceExactFeeChargesPortion;
+        newTransaction.sourceExactFeeChargeExternalId = loanTransaction.sourceExactFeeChargeExternalId;
         newTransaction.sourceExactPenaltyChargesPortion = loanTransaction.sourceExactPenaltyChargesPortion;
         newTransaction.sourceExactReallocationSystem = loanTransaction.sourceExactReallocationSystem;
         newTransaction.sourceExactReversalMovementIds = loanTransaction.sourceExactReversalMovementIds;
@@ -693,11 +704,16 @@ public class LoanTransaction extends AbstractAuditableWithUTCDateTimeCustom<Long
     }
 
     public void markAsSourceExactAllocation(final SourceExactRepaymentAllocation allocation) {
+        markAsSourceExactAllocation(allocation, null);
+    }
+
+    public void markAsSourceExactAllocation(final SourceExactRepaymentAllocation allocation, final String feeChargeExternalId) {
         this.sourceExactAllocation = true;
         this.sourceExactPrincipalPortion = allocation.principal();
         this.sourceExactInterestPortion = allocation.interest();
         this.sourceExactFeeChargesPortion = allocation.feeCharges();
         this.sourceExactPenaltyChargesPortion = allocation.penaltyCharges();
+        this.sourceExactFeeChargeExternalId = feeChargeExternalId;
     }
 
     public void markAsSourceExactComponentReallocation(final String sourceSystem, final String reversalMovementIds,

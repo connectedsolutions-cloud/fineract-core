@@ -90,6 +90,10 @@ public class InvoiceServiceImpl implements InvoiceService {
     public Invoice updateMetadata(Long invoiceId, InvoiceMetadataUpdateRequest request) {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new PlatformDataIntegrityException("error.msg.invoice.not.found", "Invoice not found", invoiceId));
+        if (invoice.isImportedHistory()) {
+            throw new PlatformDataIntegrityException("error.msg.invoice.historical.immutable",
+                    "Imported Arissto invoice history is immutable", invoiceId);
+        }
         if (StringUtils.isNotBlank(request.getFirmaElectronica())) {
             invoice.setFirmaElectronica(request.getFirmaElectronica());
         }

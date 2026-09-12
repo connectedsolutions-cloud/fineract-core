@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0322-1-seed-credesal-isr-tax-component" author="credesal">
+        <preConditions onFail="HALT">
+            <sqlCheck expectedResult="1">
+                SELECT COUNT(1) FROM acc_gl_account WHERE gl_code = '211201' AND disabled = false
+            </sqlCheck>
+            <sqlCheck expectedResult="1">
+                SELECT COUNT(1) FROM acc_gl_account WHERE gl_code = '2230000100' AND disabled = false
+            </sqlCheck>
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_tax_component
+                WHERE (id = 3 AND name &lt;&gt; 'Credesal ISR 10%')
+                   OR (name = 'Credesal ISR 10%' AND id &lt;&gt; 3)
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO m_tax_component
+                (id, name, percentage, debit_account_type_enum, debit_account_id,
+                 credit_account_type_enum, credit_account_id, start_date,
+                 createdby_id, created_date, lastmodifiedby_id, lastmodified_date)
+            SELECT 3, 'Credesal ISR 10%', 10.000000, 2,
+                   (SELECT id FROM acc_gl_account WHERE gl_code = '211201' AND disabled = false),
+                   2,
+                   (SELECT id FROM acc_gl_account WHERE gl_code = '2230000100' AND disabled = false),
+                   '2000-01-01', 1, CURRENT_TIMESTAMP, 1, CURRENT_TIMESTAMP
+            WHERE NOT EXISTS (SELECT 1 FROM m_tax_component WHERE id = 3)
+        </sql>
+        <rollback>
+            <delete tableName="m_tax_component">
+                <where>id = 3 AND name = 'Credesal ISR 10%'</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0322-2-seed-credesal-isr-tax-group" author="credesal">
+        <preConditions onFail="HALT">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_tax_group
+                WHERE (id = 2 AND name &lt;&gt; 'Credesal ISR')
+                   OR (name = 'Credesal ISR' AND id &lt;&gt; 2)
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO m_tax_group
+                (id, name, createdby_id, created_date, lastmodifiedby_id, lastmodified_date)
+            SELECT 2, 'Credesal ISR', 1, CURRENT_TIMESTAMP, 1, CURRENT_TIMESTAMP
+            WHERE NOT EXISTS (SELECT 1 FROM m_tax_group WHERE id = 2)
+        </sql>
+        <rollback>
+            <delete tableName="m_tax_group">
+                <where>id = 2 AND name = 'Credesal ISR'</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="0322-3-link-credesal-isr-tax-group" author="credesal">
+        <preConditions onFail="HALT">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_tax_group_mappings
+                WHERE (tax_group_id = 2 OR tax_component_id = 3)
+                  AND NOT (tax_group_id = 2 AND tax_component_id = 3
+                           AND start_date = '2000-01-01' AND end_date IS NULL)
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            INSERT INTO m_tax_group_mappings
+                (id, tax_group_id, tax_component_id, start_date, end_date,
+                 createdby_id, created_date, lastmodifiedby_id, lastmodified_date)
+            SELECT 14, 2, 3, '2000-01-01', NULL, 1, CURRENT_TIMESTAMP, 1, CURRENT_TIMESTAMP
+            WHERE NOT EXISTS (
+                SELECT 1 FROM m_tax_group_mappings
+                WHERE tax_group_id = 2 AND tax_component_id = 3
+                  AND start_date = '2000-01-01' AND end_date IS NULL
+            )
+        </sql>
+        <sql dbms="postgresql">
+            SELECT setval(pg_get_serial_sequence('m_tax_component', 'id'),
+                          GREATEST((SELECT MAX(id) FROM m_tax_component), 1), true);
+            SELECT setval(pg_get_serial_sequence('m_tax_group', 'id'),
+                          GREATEST((SELECT MAX(id) FROM m_tax_group), 1), true);
+            SELECT setval(pg_get_serial_sequence('m_tax_group_mappings', 'id'),
+                          GREATEST((SELECT MAX(id) FROM m_tax_group_mappings), 1), true);
+        </sql>
+        <rollback>
+            <delete tableName="m_tax_group_mappings">
+                <where>tax_group_id = 2 AND tax_component_id = 3 AND start_date = '2000-01-01'</where>
+            </delete>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

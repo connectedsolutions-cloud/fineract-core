@@ -5,8 +5,8 @@
 The completed service must cover the 38 `VISTA` accounts and 119 current
 master `PLAZO` accounts with exact financial reconciliation. Eligible funded
 positions migrate into native Fineract deposit lifecycles; reviewed
-zero-principal submitted/unfunded placeholders remain quarantined rather than
-becoming artificial positions. A result is unacceptable if it only matches ending
+zero-principal submitted/unfunded applications migrate as pending-approval
+account records with no deposit posting or other financial side effect. A result is unacceptable if it only matches ending
 balances, duplicates accrued interest, taxes an historically untaxed event,
 duplicates the joint DPF, or requires direct writes to native financial tables.
 
@@ -27,6 +27,8 @@ movement roles, unsafe identifiers, and missing cutoff decisions.
 1. Bulk-read product lines, accounts, owners, clients, movements, type-1/type-2
    history, latest daily state, retained provisions, and accounting references.
 2. Build canonical identities and account-local chronological event streams.
+   Normal population extraction must use bounded bulk reads and one reusable
+   source connection; per-account proof readers are diagnostic-only.
 3. Verify the known population and expose changes without PII.
 4. Bulk-inspect target clients, products, accounts, migration tables, tax
    groups, GL accounts, permissions, backdating settings, and closed periods.
@@ -148,5 +150,10 @@ Next:
 
 Local acceptance completed on 2026-08-29. All 157 source accounts were covered:
 155 eligible accounts reconciled, 2 zero-principal submitted/unfunded
-placeholders were reviewed and quarantined, and the final second plan contained
-no create or update actions. The registry service is now `available`.
+applications were reviewed and quarantined, and the final second plan contained
+no create or update actions. The later pending-only account path makes those two
+applications eligible without fabricating deposits. Sandbox plan
+`7fd6d5121f5f4609aabe7962b25a5f63` and run
+`3dd22a3514354308a01b66d46b0368c5` created and reconciled both at status `100`
+with zero transactions, journals, or funding associations. The registry service
+remains `available`.

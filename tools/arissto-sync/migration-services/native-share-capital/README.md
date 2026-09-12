@@ -34,10 +34,19 @@ redemption from an inferred former position.
 Planning has no financial side effects. It deterministically selects the
 earliest-opened reconciled active same-client VISTA account, then freezes its
 client, savings, product, source, contract, target, and schema prerequisites.
-Positions without an eligible real savings account are quarantined; this never
-causes the service to create a dummy savings account.
+When an active shareholding client has no Arissto savings account or savings
+movements, the approved fallback creates one target-only, zero-balance VISTA
+account under the reviewed `00001` product. Its deterministic external ID is
+`arissto:share-vista:CLIENT_EXTERNAL_ID`, its lifecycle begins on the client's
+activation date, and it must contain no transactions. Existing real,
+reconciled same-client VISTA accounts always take precedence. Identity drift,
+nonzero balance, or transaction activity on a fallback account fails closed.
 
-Apply provisions the two reviewed products through the Fineract API, creates
+The workflow orchestrator provisions missing reviewed payment channels and the
+two reviewed products through the Fineract API before strict inspection. This
+bootstrap is idempotent and fails closed if an existing product has drifted from
+the frozen limits or accounting contract. Standalone apply retains the same
+provisioning guard. Apply creates
 and approves purchase-only share lifecycles through native commands, and writes
 only provenance/certificate extensions directly. Account external IDs and
 event maps are read before every command so interrupted runs resume without
@@ -58,9 +67,10 @@ The first live local inspection passed source acceptance on 2026-08-26:
 - 36,115.00 total paid capital; and
 - 61 current certificates.
 
-All seven required native share permissions exist locally. The savings service
-currently supplies 38 reconciled active VISTA accounts for 34 shareholding
-clients. The remaining six shareholders are expected quarantines.
+The savings service supplies 38 reconciled active VISTA accounts. Six additional
+shareholding clients have no Arissto savings account, movement, or deposit; the
+native-share service creates empty target-only VISTA prerequisites for them
+before creating their share accounts.
 
 Credesal approved the native accounting policy on 2026-08-27. Tenant migration
 `0295_seed_native_share_accounting.xml` provisions the target-only controls and
@@ -166,9 +176,9 @@ before treating this gate as satisfied.
 - controlled product/account/purchase/retry/reconciliation lifecycle proof —
   satisfied for both classes 2026-08-29.
 
-The six shareholders without a real eligible savings account remain blocked.
-The service must not create dummy savings accounts or weaken Fineract's native
-same-client savings relationship.
+Shareholders without a source VISTA remain eligible only under the approved
+target-only empty-account rule. The engine preserves Fineract's native
+same-client savings relationship and never fabricates a balance or transaction.
 
 Detailed lifecycle and implementation rules remain in the membership service's
 [`lifecycle.md`](../membership-share-capital/lifecycle.md) and

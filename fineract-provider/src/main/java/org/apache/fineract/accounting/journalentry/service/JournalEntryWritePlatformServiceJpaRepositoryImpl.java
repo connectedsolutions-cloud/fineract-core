@@ -33,6 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.accounting.closure.domain.GLClosure;
 import org.apache.fineract.accounting.closure.domain.GLClosureRepository;
+import org.apache.fineract.accounting.cutoff.AccountingCutoffPolicyService;
 import org.apache.fineract.accounting.financialactivityaccount.domain.FinancialActivityAccount;
 import org.apache.fineract.accounting.financialactivityaccount.domain.FinancialActivityAccountRepositoryWrapper;
 import org.apache.fineract.accounting.glaccount.data.GLAccountDataForLookup;
@@ -136,6 +137,7 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
     private final ExternalAssetOwnerRepository externalAssetOwnerRepository;
     private final LoanAmortizationAllocationMappingRepository loanAmortizationAllocationMappingRepository;
     private final LoanTransactionRepository loanTransactionRepository;
+    private final AccountingCutoffPolicyService cutoffPolicyService;
 
     @Transactional
     @Override
@@ -143,6 +145,12 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
         try {
             final JournalEntryCommand journalEntryCommand = this.fromApiJsonDeserializer.commandFromApiJson(command.json());
             journalEntryCommand.validateForCreate();
+
+            final LocalDate transactionDate = command
+                    .localDateValueOfParameterNamed(JournalEntryJsonInputParams.TRANSACTION_DATE.getValue());
+            if (!cutoffPolicyService.shouldGenerateAccounting(transactionDate)) {
+                return CommandProcessingResult.empty();
+            }
 
             // check office is valid
             final Long officeId = command.longValueOfParameterNamed(JournalEntryJsonInputParams.OFFICE_ID.getValue());
@@ -157,8 +165,6 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
             final PaymentDetail paymentDetail = this.paymentDetailWritePlatformService.createAndPersistPaymentDetail(command, changes);
 
             /** Set a transaction Id and save these Journal entries **/
-            final LocalDate transactionDate = command
-                    .localDateValueOfParameterNamed(JournalEntryJsonInputParams.TRANSACTION_DATE.getValue());
             final String transactionId = generateTransactionId(officeId);
             final String referenceNumber = command.stringValueOfParameterNamed(JournalEntryJsonInputParams.REFERENCE_NUMBER.getValue());
 
@@ -349,6 +355,9 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
     @Override
     public void createJournalEntryForReversedLoanTransaction(final LocalDate transactionDate, final String loanTransactionId,
             final Long officeId) {
+        if (!cutoffPolicyService.shouldGenerateAccounting(transactionDate)) {
+            return;
+        }
         final GLClosure latestGLClosure = this.helper.getLatestClosureByBranch(officeId);
         this.helper.checkForBranchClosures(latestGLClosure, transactionDate);
         final String transactionId = AccountingProcessorHelper.LOAN_TRANSACTION_IDENTIFIER + loanTransactionId;
@@ -369,6 +378,10 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
     }
 
     public String revertJournalEntry(final List<JournalEntry> journalEntries, String reversalComment) {
+        final LocalDate journalEntriesTransactionDate = journalEntries.get(0).getTransactionDate();
+        if (!cutoffPolicyService.shouldGenerateAccounting(journalEntriesTransactionDate)) {
+            return null;
+        }
         final Long officeId = journalEntries.get(0).getOffice().getId();
         final String reversalTransactionId = generateTransactionId(officeId);
         final boolean manualEntry = true;
@@ -379,7 +392,6 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
 
         // Before reversal validate accounting closure is done for that branch
         // or not.
-        final LocalDate journalEntriesTransactionDate = journalEntries.get(0).getTransactionDate();
         final GLClosure latestGLClosureByBranch = this.glClosureRepository.getLatestGLClosureByBranch(officeId);
         if (latestGLClosureByBranch != null) {
             if (!DateUtils.isBefore(latestGLClosureByBranch.getClosingDate(), journalEntriesTransactionDate)) {
@@ -421,6 +433,9 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
 
     @Override
     public String revertProvisioningJournalEntries(final LocalDate reversalTransactionDate, final Long entityId, final Integer entityType) {
+        if (!cutoffPolicyService.shouldGenerateAccounting(reversalTransactionDate)) {
+            return null;
+        }
         List<JournalEntry> journalEntries = this.glJournalEntryRepository.findProvisioningJournalEntriesByEntityId(entityId, entityType);
         final String reversalTransactionId = journalEntries.get(0).getTransactionId();
         for (final JournalEntry journalEntry : journalEntries) {
@@ -455,6 +470,9 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
 
     @Override
     public String createProvisioningJournalEntries(ProvisioningEntry provisioningEntry) {
+        if (!cutoffPolicyService.shouldGenerateAccounting(provisioningEntry.getCreatedDate())) {
+            return null;
+        }
         Collection<LoanProductProvisioningEntry> provisioningEntries = provisioningEntry.getLoanProductProvisioningEntries();
         Map<OfficeCurrencyKey, List<LoanProductProvisioningEntry>> officeMap = new HashMap<>();
 
@@ -534,6 +552,10 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
         final boolean periodicAccrualBasedAccountingEnabled = accountingBridgeData.isPeriodicAccrualBasedAccountingEnabled();
 
         if (cashBasedAccountingEnabled || upfrontAccrualBasedAccountingEnabled || periodicAccrualBasedAccountingEnabled) {
+            if (!cutoffPolicyService.shouldGenerateAccountingForBatch(
+                    accountingBridgeData.getNewLoanTransactions().stream().map(transaction -> transaction.getDate()).toList())) {
+                return;
+            }
             final LoanDTO loanDTO = this.helper.populateLoanDtoFromDTO(accountingBridgeData);
             final AccountingProcessorForLoan accountingProcessorForLoan = this.accountingProcessorForLoanFactory
                     .determineProcessor(loanDTO);
@@ -551,6 +573,10 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
         if (cashBasedAccountingEnabled || accrualBasedAccountingEnabled) {
             final SavingsDTO savingsDTO = this.helper.populateSavingsDtoFromMap(accountingBridgeData, cashBasedAccountingEnabled,
                     accrualBasedAccountingEnabled);
+            if (!cutoffPolicyService.shouldGenerateAccountingForBatch(
+                    savingsDTO.getNewSavingsTransactions().stream().map(transaction -> transaction.getTransactionDate()).toList())) {
+                return;
+            }
             final AccountingProcessorForSavings accountingProcessorForSavings = this.accountingProcessorForSavingsFactory
                     .determineProcessor(savingsDTO);
             accountingProcessorForSavings.createJournalEntriesForSavings(savingsDTO);
@@ -567,6 +593,10 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
         if (cashBasedAccountingEnabled) {
             final SharesDTO sharesDTO = this.helper.populateSharesDtoFromMap(accountingBridgeData, cashBasedAccountingEnabled,
                     accrualBasedAccountingEnabled);
+            if (!cutoffPolicyService.shouldGenerateAccountingForBatch(
+                    sharesDTO.getNewTransactions().stream().map(transaction -> transaction.getTransactionDate()).toList())) {
+                return;
+            }
             final AccountingProcessorForShares accountingProcessorForShares = this.accountingProcessorForSharesFactory
                     .determineProcessor(sharesDTO);
             accountingProcessorForShares.createJournalEntriesForShares(sharesDTO);
@@ -576,6 +606,9 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
 
     @Override
     public void revertShareAccountJournalEntries(final ArrayList<Long> transactionIds, final LocalDate transactionDate) {
+        if (!cutoffPolicyService.shouldGenerateAccounting(transactionDate)) {
+            return;
+        }
         for (Long shareTransactionId : transactionIds) {
             String transactionId = AccountingProcessorHelper.SHARE_TRANSACTION_IDENTIFIER + shareTransactionId;
             List<JournalEntry> journalEntries = this.glJournalEntryRepository.findJournalEntries(transactionId,
@@ -701,6 +734,12 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
             final JournalEntryCommand journalEntryCommand = this.fromApiJsonDeserializer.commandFromApiJson(command.json());
             journalEntryCommand.validateForCreate();
 
+            final LocalDate transactionDate = command
+                    .localDateValueOfParameterNamed(JournalEntryJsonInputParams.TRANSACTION_DATE.getValue());
+            if (!cutoffPolicyService.shouldGenerateAccounting(transactionDate)) {
+                return CommandProcessingResult.empty();
+            }
+
             final FinancialActivityAccount financialActivityAccountId = this.financialActivityAccountRepositoryWrapper
                     .findByFinancialActivityTypeWithNotFoundDetection(300);
             final Long contraId = financialActivityAccountId.getGlAccount().getId();
@@ -731,8 +770,6 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
             }
 
             /** Set a transaction Id and save these Journal entries **/
-            final LocalDate transactionDate = command
-                    .localDateValueOfParameterNamed(JournalEntryJsonInputParams.TRANSACTION_DATE.getValue());
             final String transactionId = generateTransactionId(officeId);
 
             saveAllDebitOrCreditOpeningBalanceEntries(journalEntryCommand, office, currencyCode, transactionDate,
@@ -817,7 +854,9 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
     @Override
     public void createJournalEntriesForClientTransactions(Map<String, Object> accountingBridgeData) {
         final ClientTransactionDTO clientTransactionDTO = this.helper.populateClientTransactionDtoFromMap(accountingBridgeData);
-        accountingProcessorForClientTransactions.createJournalEntriesForClientTransaction(clientTransactionDTO);
+        if (cutoffPolicyService.shouldGenerateAccounting(clientTransactionDTO.getTransactionDate())) {
+            accountingProcessorForClientTransactions.createJournalEntriesForClientTransaction(clientTransactionDTO);
+        }
     }
 
     @Transactional
@@ -853,6 +892,9 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
     @Override
     public void createJournalEntriesForExternalOwnerTransfer(final Loan loan, final ExternalAssetOwnerTransfer externalAssetOwnerTransfer,
             final ExternalAssetOwner previousOwner) {
+        if (!cutoffPolicyService.shouldGenerateAccounting(externalAssetOwnerTransfer.getSettlementDate())) {
+            return;
+        }
         final boolean isBuyback = externalAssetOwnerTransfer.getStatus().name().contains("BUYBACK");
 
         if (isBuyback) {

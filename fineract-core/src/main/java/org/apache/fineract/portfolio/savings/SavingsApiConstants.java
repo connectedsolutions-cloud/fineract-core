@@ -154,6 +154,8 @@ public class SavingsApiConstants {
     public static final String transactionReferenceParamName = "transactionReference";
     public static final String COMMAND_EXPLICIT_WITHHOLD_TAX = "explicitWithholdTax";
     public static final String COMMAND_EXPLICIT_INTEREST_POSTING = "explicitInterestPosting";
+    public static final String COMMAND_SOURCE_EXACT_DEPOSIT = "sourceExactDeposit";
+    public static final String COMMAND_SOURCE_EXACT_WITHDRAWAL = "sourceExactWithdrawal";
     public static final String paymentDetailDataParamName = "paymentDetailData";
     public static final String runningBalanceParamName = "runningBalance";
     public static final String reversedParamName = "reversed";

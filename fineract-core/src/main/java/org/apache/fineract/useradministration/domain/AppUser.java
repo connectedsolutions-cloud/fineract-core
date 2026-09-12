@@ -39,6 +39,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
@@ -282,10 +283,13 @@ public class AppUser extends AbstractPersistableCustom<Long> implements Platform
     }
 
     public boolean hasAccessToOffice(final Office office) {
-        if (office == null) {
+        if (office == null || office.getId() == null) {
             return false;
         }
-        return this.offices.contains(office);
+        // The authenticated AppUser can be detached from the persistence context
+        // that loaded the requested office. Office intentionally uses identity
+        // equality, so Set.contains() rejects an equivalent entity instance.
+        return this.offices.stream().anyMatch(assignedOffice -> Objects.equals(assignedOffice.getId(), office.getId()));
     }
 
     public void changeStaff(final Staff differentStaff) {

@@ -23,6 +23,7 @@ import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.fineract.accounting.common.AccountingConstants.FinancialActivity;
+import org.apache.fineract.accounting.cutoff.AccountingCutoffPolicyService;
 import org.apache.fineract.accounting.financialactivityaccount.domain.FinancialActivityAccountRepositoryWrapper;
 import org.apache.fineract.accounting.glaccount.domain.GLAccount;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntry;
@@ -46,6 +47,7 @@ public class TellerVaultTransferAccountingHelper {
 
     private final FinancialActivityAccountRepositoryWrapper financialActivityAccountRepository;
     private final AccountingProcessorHelper accountingProcessorHelper;
+    private final AccountingCutoffPolicyService cutoffPolicyService;
 
     /**
      * Posts the vault transfer: Debit main vault, Credit cash-at-teller. Uses the same account logic as SETTLE in
@@ -67,6 +69,9 @@ public class TellerVaultTransferAccountingHelper {
     @Transactional
     public void postVaultTransferFromTeller(Office office, BigDecimal amount, String currencyCode, LocalDate transactionDate,
             String transactionId, String description) {
+        if (!cutoffPolicyService.shouldGenerateAccounting(transactionDate)) {
+            return;
+        }
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             log.warn("TellerVaultTransferAccountingHelper: amount must be positive, got {}", amount);
             return;
@@ -99,6 +104,9 @@ public class TellerVaultTransferAccountingHelper {
     @Transactional
     public void postVaultTransferToTeller(Office office, BigDecimal amount, String currencyCode, LocalDate transactionDate,
             String transactionId, String description) {
+        if (!cutoffPolicyService.shouldGenerateAccounting(transactionDate)) {
+            return;
+        }
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             log.warn("TellerVaultTransferAccountingHelper: amount must be positive, got {}", amount);
             return;

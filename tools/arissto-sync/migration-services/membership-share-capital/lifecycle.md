@@ -181,9 +181,9 @@ Before native writes are enabled, the implementation still needs:
 3. completion of the independent native savings migration, including real
    products, ownership, movements, posted interest, accrual state, and
    accounting reconciliation;
-4. one real, active, same-client, same-currency `SAVINGS_DEPOSIT` for every
-   migrated share account; current source coverage supports 45 of 57 positions,
-   while the other 12 remain blocked rather than receiving synthetic accounts;
+4. one active, same-client, same-currency `SAVINGS_DEPOSIT` for every migrated
+   share account; source VISTA accounts support 45 of 57 positions, while the
+   other 12 use six approved target-only accounts that must remain empty;
 5. a queryable certificate extension design if legal certificate data must be
    used operationally rather than only retained losslessly; and
 6. a durable source-event-to-native-transaction crosswalk so reconciliation and

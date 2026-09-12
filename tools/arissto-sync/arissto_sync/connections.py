@@ -1,22 +1,41 @@
 from __future__ import annotations
 
 import json
+import urllib3
+import warnings
 from contextlib import contextmanager
 from typing import Any
 
 import requests
+from urllib3.exceptions import InsecureRequestWarning
 
 from .arissto import IDENTIFIER, select_rows, source_connection
 from .config import TargetConfig
 
 
+# urllib3 emits this warning for every request when a local self-signed endpoint
+# is explicitly configured. Replace that stream with one direct warning per
+# process so the safety signal remains visible without flooding workflow logs.
+urllib3.disable_warnings(InsecureRequestWarning)
+_tls_warning_emitted = False
+
+
 class FineractError(RuntimeError):
-    pass
+    def __init__(self, message: str, status_code: int | None = None):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class FineractApi:
     def __init__(self, config: TargetConfig, session: requests.Session | None = None):
+        global _tls_warning_emitted
         self.config = config
+        if not getattr(config, "tls_verify", True) and not _tls_warning_emitted:
+            warnings.warn(
+                "Fineract TLS certificate verification is disabled for this process.",
+                RuntimeWarning,
+            )
+            _tls_warning_emitted = True
         # One session per workflow reuses TLS handshakes and TCP connections.
         self.session = session or requests.Session()
 
@@ -41,7 +60,10 @@ class FineractApi:
             response = exc.response
             status = response.status_code if response is not None else "unknown"
             detail = response.text[:1000] if response is not None else ""
-            raise FineractError(f"Fineract API {method} {path} failed ({status}): {detail}") from exc
+            raise FineractError(
+                f"Fineract API {method} {path} failed ({status}): {detail}",
+                response.status_code if response is not None else None,
+            ) from exc
 
     def ping(self) -> dict[str, Any]:
         return self.request("GET", "offices", query={"limit": 1})

@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "depends_on": ["clients", "loans"],
+  "source": {
+    "fiscal_table": "FAC_MOVIMIENTOS",
+    "projection_table": "comprobantes",
+    "line_table": "comprobante_detalles",
+    "loan_movement_table": "CRD_MOVIMIENTOS_CARTERA"
+  },
+  "target": {
+    "invoice_table": "m_invoice",
+    "source_origin": "ARISSTO_HISTORY",
+    "ambiente": "01",
+    "tipo_moneda": "USD"
+  },
+  "identity": {
+    "source_key": "codigo_generacion",
+    "client_external_id": "NUMERO_AFILIACION",
+    "loan_transaction_external_id": "ARISSTO:CRD-MOV:{movement_id}"
+  },
+  "scope": {
+    "tipo_dte": "01",
+    "requires_normalized_detail": true,
+    "requires_exactly_one_loan_movement": true
+  },
+  "missing_normal_mode": {
+    "model_type": 1,
+    "operation_type": 1,
+    "requires_no_contingency_signal": true
+  },
+  "write_policy": {
+    "historical_invoice_tables": "controlled-parameterized-sql-create-only",
+    "mh_submission": "forbidden",
+    "native_financial_tables": "forbidden",
+    "update": "forbidden",
+    "delete": "forbidden"
+  }
+}

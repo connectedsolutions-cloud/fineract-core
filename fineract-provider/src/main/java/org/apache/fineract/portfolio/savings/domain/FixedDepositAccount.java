@@ -247,6 +247,23 @@ public class FixedDepositAccount extends SavingsAccount {
 
     public void updateMaturityStatus(final boolean isSavingsInterestPostingAtCurrentPeriodEnd, final Integer financialYearBeginningMonth,
             final boolean postMaturityInterest) {
+        validateActiveForMaturity();
+
+        if (!DateUtils.isDateInTheFuture(maturityDate())) {
+            // update account status
+            this.status = SavingsAccountStatusType.MATURED.getValue();
+            if (postMaturityInterest) {
+                postMaturityInterest(isSavingsInterestPostingAtCurrentPeriodEnd, financialYearBeginningMonth);
+            }
+        }
+    }
+
+    public void updateMaturityStatusFromSource() {
+        validateActiveForMaturity();
+        this.status = SavingsAccountStatusType.MATURED.getValue();
+    }
+
+    private void validateActiveForMaturity() {
         final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
                 .resource(FIXED_DEPOSIT_ACCOUNT_RESOURCE_NAME + SavingsApiConstants.updateMaturityDetailsAction);
@@ -256,14 +273,6 @@ public class FixedDepositAccount extends SavingsAccount {
             baseDataValidator.reset().failWithCodeNoParameterAddedToErrorCode("not.in.active.state");
             if (!dataValidationErrors.isEmpty()) {
                 throw new PlatformApiDataValidationException(dataValidationErrors);
-            }
-        }
-
-        if (!DateUtils.isDateInTheFuture(maturityDate())) {
-            // update account status
-            this.status = SavingsAccountStatusType.MATURED.getValue();
-            if (postMaturityInterest) {
-                postMaturityInterest(isSavingsInterestPostingAtCurrentPeriodEnd, financialYearBeginningMonth);
             }
         }
     }

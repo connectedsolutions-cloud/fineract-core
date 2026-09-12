@@ -30,8 +30,8 @@ and current checkpoint here and move detailed investigations into linked files.
 - `membership-share-capital` is locally applied and reconciled.
 - The prevention fix for new `savings-deposits` scheduler drift is locally
   proven, but the previously damaged 155-account population is not repaired.
-- `native-share-capital` has been applied locally, but three accounts still
-  require reconciliation/repair and twelve accounts are expected quarantines.
+- The historical native-share run below predates the approved empty-VISTA
+  fallback; its twelve quarantines are no longer the intended final state.
 - Do not apply savings plan `f6c89d83039442b7ad36e0b439a6589c`.
 - Do not use the current local result as production acceptance evidence.
 
@@ -48,9 +48,10 @@ fingerprint confirmation.
 | Native shares | Plan `7adc29d0fc734074b2ad9094c2352ded`; run `d4ca31cf17ca4b6bb54752cdc1ed3a0c` | 43 succeeded, 2 unchanged, 12 quarantined | Applied locally; subsequent plan has 42 unchanged, 3 resume, and 12 quarantine |
 
 The two savings quarantines are reviewed `SUBMITTED_UNFUNDED` DPF placeholders
-with zero principal. The twelve native-share quarantines represent shareholders
-without a legitimate eligible VISTA prerequisite; the share service must not
-manufacture dummy savings accounts for them.
+with zero principal. The twelve native-share quarantines in this historical
+baseline represent six shareholders with no Arissto savings account, movement,
+or deposit. The current contract creates an audited target-only empty VISTA
+prerequisite for them.
 
 ## Issue register
 

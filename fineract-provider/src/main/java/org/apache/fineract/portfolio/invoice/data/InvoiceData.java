@@ -20,6 +20,7 @@ public class InvoiceData {
     private String loanExternalId;
     private Long savingsTransactionId;
     private Long clientTransactionId;
+    private String sourceOrigin;
     private String numeroControl;
     private String codigoGeneracion;
     private LocalDate fecEmi;
@@ -63,6 +64,7 @@ public class InvoiceData {
     private BigDecimal totalExenta;
     private BigDecimal totalNoSuj;
     private BigDecimal subTotal;
+    private BigDecimal totalIva;
     private BigDecimal montoTotalOperacion;
     private BigDecimal totalPagar;
     private String totalLetras;
@@ -74,6 +76,7 @@ public class InvoiceData {
         data.loanTransactionId = invoice.getLoanTransactionId();
         data.savingsTransactionId = invoice.getSavingsTransactionId();
         data.clientTransactionId = invoice.getClientTransactionId();
+        data.sourceOrigin = invoice.getSourceOrigin();
         data.numeroControl = invoice.getNumeroControl();
         data.codigoGeneracion = invoice.getCodigoGeneracion();
         data.fecEmi = invoice.getFecEmi();
@@ -126,6 +129,7 @@ public class InvoiceData {
             data.totalExenta = summary.getTotalExenta();
             data.totalNoSuj = summary.getTotalNoSuj();
             data.subTotal = summary.getSubTotal();
+            data.totalIva = summary.getTotalIva();
             data.montoTotalOperacion = summary.getMontoTotalOperacion();
             data.totalPagar = summary.getTotalPagar();
             data.totalLetras = summary.getTotalLetras();
@@ -175,6 +179,10 @@ public class InvoiceData {
 
     public Long getClientTransactionId() {
         return clientTransactionId;
+    }
+
+    public String getSourceOrigin() {
+        return sourceOrigin;
     }
 
     public String getNumeroControl() {
@@ -347,6 +355,10 @@ public class InvoiceData {
 
     public BigDecimal getSubTotal() {
         return subTotal;
+    }
+
+    public BigDecimal getTotalIva() {
+        return totalIva;
     }
 
     public BigDecimal getMontoTotalOperacion() {

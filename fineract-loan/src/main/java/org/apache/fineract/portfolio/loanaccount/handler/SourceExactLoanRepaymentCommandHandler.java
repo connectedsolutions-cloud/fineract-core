@@ -19,6 +19,7 @@
 package org.apache.fineract.portfolio.loanaccount.handler;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.fineract.accounting.cutoff.AccountingOperationalMigrationService;
 import org.apache.fineract.commands.annotation.CommandType;
 import org.apache.fineract.commands.handler.NewCommandSourceHandler;
 import org.apache.fineract.infrastructure.DataIntegrityErrorHandler;
@@ -37,12 +38,14 @@ public class SourceExactLoanRepaymentCommandHandler implements NewCommandSourceH
 
     private final LoanWritePlatformService writePlatformService;
     private final DataIntegrityErrorHandler dataIntegrityErrorHandler;
+    private final AccountingOperationalMigrationService operationalMigrationService;
 
     @Transactional
     @Override
     public CommandProcessingResult processCommand(final JsonCommand command) {
         try {
-            return this.writePlatformService.makeSourceExactLoanRepayment(command.getLoanId(), command);
+            return operationalMigrationService
+                    .execute(() -> this.writePlatformService.makeSourceExactLoanRepayment(command.getLoanId(), command));
         } catch (final JpaSystemException | DataIntegrityViolationException dve) {
             dataIntegrityErrorHandler.handleDataIntegrityIssues(command, dve.getMostSpecificCause(), dve, "loan.source.exact.repayment",
                     "Source-exact repayment");

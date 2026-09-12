@@ -123,6 +123,22 @@ def extract_assignments(conn: Any, contract: ClientStaffAssignmentContract,
     return select_rows(conn, sql, params)
 
 
+def _source_rows_by_key(
+    rows: list[dict[str, Any]], contract: ClientStaffAssignmentContract,
+) -> tuple[dict[str, dict[str, Any]], set[str]]:
+    indexed: dict[str, dict[str, Any]] = {}
+    duplicates: set[str] = set()
+    for row in rows:
+        try:
+            key = contract.source_key(row)
+        except ClientStaffAssignmentDataIssue:
+            continue
+        if key in indexed:
+            duplicates.add(key)
+        indexed[key] = row
+    return indexed, duplicates
+
+
 def _schema_signature(source_columns: dict[str, str], target_schema: dict[str, dict[str, str]],
                       registered: bool) -> str:
     material = {"source": source_columns, "target": target_schema, "registered": registered}
@@ -371,6 +387,10 @@ def apply_client_staff_assignment_plan(
         raise RuntimeError("Client staff assignment destination readiness changed; apply refused")
     with postgres_connection(settings.target.pg_url or "") as conn:
         current_targets, staff = _target_rows(conn, contract), _staff_by_external(conn, contract)
+    with source_connection(settings.source) as source:
+        source_rows, duplicate_source_keys = _source_rows_by_key(
+            extract_assignments(source, contract), contract
+        )
     api, counts = FineractApi(settings.target), Counter()
     target_table = contract.raw["target"]["datatable"]
     run_id = state.start_run(plan)
@@ -388,19 +408,22 @@ def apply_client_staff_assignment_plan(
             counts["unchanged"] += 1
             continue
         try:
-            with source_connection(settings.source) as source:
-                rows = extract_assignments(source, contract, key)
-            if len(rows) != 1 or contract.hash_row(rows[0]) != action["source_hash"]:
+            source_row = source_rows.get(key)
+            if (
+                source_row is None
+                or key in duplicate_source_keys
+                or contract.hash_row(source_row) != action["source_hash"]
+            ):
                 raise RuntimeError("source_changed_after_plan")
             current = current_targets.get(key)
             if not current or str(current["client_id"]) != str(target_id):
                 raise RuntimeError("client_identity_changed_after_plan")
-            normalized = contract.normalized(rows[0])
+            normalized = contract.normalized(source_row)
             missing = [role for role in ROLES if normalized[f"{role}_external_id"]
                        and normalized[f"{role}_external_id"] not in staff]
             if missing:
                 raise RuntimeError("staff_identity_changed_after_plan")
-            payload = contract.payload(rows[0], _staff_ids(staff))
+            payload = contract.payload(source_row, _staff_ids(staff))
             body = datatable_api_payload(payload)
             if action["action"] == "create":
                 api.create_datatable(target_table, str(target_id), body)
@@ -432,7 +455,11 @@ def reconcile_client_staff_assignments(
     if plan["contract_hash"] != contract.contract_hash:
         raise RuntimeError("Run belongs to a stale client staff assignment contract")
     results = Counter()
-    with source_connection(settings.source) as source, postgres_connection(settings.target.pg_url or "") as target_db:
+    with source_connection(settings.source) as source:
+        source_rows, duplicate_source_keys = _source_rows_by_key(
+            extract_assignments(source, contract), contract
+        )
+    with postgres_connection(settings.target.pg_url or "") as target_db:
         targets, staff = _target_rows(target_db, contract), _staff_by_external(target_db, contract)
         for item in state.run_items(run_id):
             if item["status"] == "failed":
@@ -442,11 +469,15 @@ def reconcile_client_staff_assignments(
                 results["quarantined"] += 1
                 continue
             try:
-                rows = extract_assignments(source, contract, item["source_key"])
-                if len(rows) != 1 or contract.hash_row(rows[0]) != item["source_hash"]:
+                source_row = source_rows.get(item["source_key"])
+                if (
+                    source_row is None
+                    or item["source_key"] in duplicate_source_keys
+                    or contract.hash_row(source_row) != item["source_hash"]
+                ):
                     results["source_changed"] += 1
                     continue
-                normalized = contract.normalized(rows[0])
+                normalized = contract.normalized(source_row)
                 current = targets.get(item["source_key"])
                 expected_staff_present = all(
                     not normalized[f"{role}_external_id"] or normalized[f"{role}_external_id"] in staff for role in ROLES

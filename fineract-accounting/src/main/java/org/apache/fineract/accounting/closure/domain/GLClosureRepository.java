@@ -27,4 +27,7 @@ public interface GLClosureRepository extends JpaRepository<GLClosure, Long>, Jpa
 
     @Query("select closure from GLClosure closure where closure.closingDate = (select max(closure1.closingDate) from GLClosure closure1 where closure1.office.id=:officeId)  and closure.office.id= :officeId")
     GLClosure getLatestGLClosureByBranch(@Param("officeId") Long officeId);
+
+    @Query("select closure from GLClosure closure where closure.deleted=false and closure.closingDate = (select max(closure1.closingDate) from GLClosure closure1 where closure1.deleted=false and closure1.office.id=:officeId) and closure.office.id=:officeId")
+    GLClosure getLatestActiveGLClosureByBranch(@Param("officeId") Long officeId);
 }

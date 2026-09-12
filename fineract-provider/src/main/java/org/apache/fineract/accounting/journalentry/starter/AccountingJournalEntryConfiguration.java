@@ -19,6 +19,7 @@
 package org.apache.fineract.accounting.journalentry.starter;
 
 import org.apache.fineract.accounting.closure.domain.GLClosureRepository;
+import org.apache.fineract.accounting.cutoff.AccountingCutoffPolicyService;
 import org.apache.fineract.accounting.financialactivityaccount.domain.FinancialActivityAccountRepositoryWrapper;
 import org.apache.fineract.accounting.glaccount.domain.GLAccountRepository;
 import org.apache.fineract.accounting.glaccount.service.GLAccountReadPlatformService;
@@ -29,6 +30,7 @@ import org.apache.fineract.accounting.journalentry.service.AccountingProcessorFo
 import org.apache.fineract.accounting.journalentry.service.AccountingProcessorForSharesFactory;
 import org.apache.fineract.accounting.journalentry.service.AccountingProcessorHelper;
 import org.apache.fineract.accounting.journalentry.service.CashBasedAccountingProcessorForClientTransactions;
+import org.apache.fineract.accounting.journalentry.service.JournalEntryPersistenceService;
 import org.apache.fineract.accounting.journalentry.service.JournalEntryReadPlatformService;
 import org.apache.fineract.accounting.journalentry.service.JournalEntryReadPlatformServiceImpl;
 import org.apache.fineract.accounting.journalentry.service.JournalEntryWritePlatformService;
@@ -38,7 +40,6 @@ import org.apache.fineract.accounting.rule.domain.AccountingRuleRepository;
 import org.apache.fineract.infrastructure.configuration.service.ConfigurationReadPlatformService;
 import org.apache.fineract.infrastructure.core.service.PaginationHelper;
 import org.apache.fineract.infrastructure.core.service.database.DatabaseSpecificSQLGenerator;
-import org.apache.fineract.infrastructure.event.business.service.BusinessEventNotifierService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.infrastructure.security.utils.ColumnValidator;
 import org.apache.fineract.investor.domain.ExternalAssetOwnerRepository;
@@ -62,15 +63,13 @@ public class AccountingJournalEntryConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(AccountingProcessorHelper.class)
-    public AccountingProcessorHelper accountingProcessorHelper(JournalEntryRepository glJournalEntryRepository,
+    public AccountingProcessorHelper accountingProcessorHelper(JournalEntryPersistenceService journalEntryPersistenceService,
             ProductToGLAccountMappingRepository accountMappingRepository,
             FinancialActivityAccountRepositoryWrapper financialActivityAccountRepository, GLClosureRepository closureRepository,
             GLAccountRepository glAccountRepository, OfficeRepository officeRepository,
-            AccountTransfersReadPlatformService accountTransfersReadPlatformService, ChargeRepositoryWrapper chargeRepositoryWrapper,
-            BusinessEventNotifierService businessEventNotifierService) {
-        return new AccountingProcessorHelper(glJournalEntryRepository, accountMappingRepository, financialActivityAccountRepository,
-                closureRepository, glAccountRepository, officeRepository, accountTransfersReadPlatformService, chargeRepositoryWrapper,
-                businessEventNotifierService);
+            AccountTransfersReadPlatformService accountTransfersReadPlatformService, ChargeRepositoryWrapper chargeRepositoryWrapper) {
+        return new AccountingProcessorHelper(journalEntryPersistenceService, accountMappingRepository, financialActivityAccountRepository,
+                closureRepository, glAccountRepository, officeRepository, accountTransfersReadPlatformService, chargeRepositoryWrapper);
     }
 
     @Bean
@@ -98,12 +97,13 @@ public class AccountingJournalEntryConfiguration {
             ConfigurationReadPlatformService configurationReadPlatformService, AccountingService accountingService,
             ExternalAssetOwnerRepository externalAssetOwnerRepository,
             LoanAmortizationAllocationMappingRepository loanAmortizationAllocationMappingRepository,
-            LoanTransactionRepository loanTransactionRepository) {
+            LoanTransactionRepository loanTransactionRepository, AccountingCutoffPolicyService cutoffPolicyService) {
         return new JournalEntryWritePlatformServiceJpaRepositoryImpl(glClosureRepository, glAccountRepository, glJournalEntryRepository,
                 officeRepositoryWrapper, accountingProcessorForLoanFactory, accountingProcessorForSavingsFactory,
                 accountingProcessorForSharesFactory, helper, fromApiJsonDeserializer, accountingRuleRepository,
                 glAccountReadPlatformService, organisationCurrencyRepository, context, paymentDetailWritePlatformService,
                 financialActivityAccountRepositoryWrapper, accountingProcessorForClientTransactions, configurationReadPlatformService,
-                accountingService, externalAssetOwnerRepository, loanAmortizationAllocationMappingRepository, loanTransactionRepository);
+                accountingService, externalAssetOwnerRepository, loanAmortizationAllocationMappingRepository, loanTransactionRepository,
+                cutoffPolicyService);
     }
 }

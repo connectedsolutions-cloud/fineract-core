@@ -143,7 +143,9 @@ fineract_is_running() {
 }
 
 require_fineract_stopped() {
-  fineract_is_running && die "Fineract is listening on ${FINERACT_HOST}:${FINERACT_PORT}; stop it before $ACTION"
+  if fineract_is_running; then
+    die "Fineract is listening on ${FINERACT_HOST}:${FINERACT_PORT}; stop it before $ACTION"
+  fi
 }
 
 database_exists() {
@@ -154,6 +156,7 @@ write_counts() {
   local output="$1"
   psql -X -v ON_ERROR_STOP=1 -d "$DB_NAME" -AtF '=' <<'SQL' >"$output"
 SELECT 'databasechangelog', COUNT(*) FROM databasechangelog
+UNION ALL SELECT 'm_product_loan', COUNT(*) FROM m_product_loan
 UNION ALL SELECT 'm_client', COUNT(*) FROM m_client
 UNION ALL SELECT 'm_staff', COUNT(*) FROM m_staff
 UNION ALL SELECT 'm_loan', COUNT(*) FROM m_loan
@@ -161,6 +164,91 @@ UNION ALL SELECT 'm_savings_account', COUNT(*) FROM m_savings_account
 UNION ALL SELECT 'm_share_account', COUNT(*) FROM m_share_account
 ORDER BY 1;
 SQL
+}
+
+write_ledger_counts() {
+  local output="$1"
+  local table_name table_count
+  : >"$output"
+  for table_name in \
+    acc_gl_journal_entry \
+    acc_gl_journal_entry_annual_summary \
+    credesal_arissto_gl_journal \
+    credesal_arissto_gl_journal_line \
+    m_journal_entry_aggregation_summary \
+    m_journal_entry_aggregation_tracking \
+    m_trial_balance
+  do
+    if [[ "$(psql -X -v ON_ERROR_STOP=1 -d "$DB_NAME" -Atqc \
+      "SELECT to_regclass('public.$table_name') IS NOT NULL;")" == "t" ]]; then
+      table_count="$(psql -X -v ON_ERROR_STOP=1 -d "$DB_NAME" -Atqc \
+        "SELECT COUNT(*) FROM $table_name;")"
+      printf '%s=%s\n' "$table_name" "$table_count" >>"$output"
+    else
+      printf '%s=not-present\n' "$table_name" >>"$output"
+    fi
+  done
+}
+
+write_invoice_counts() {
+  local output="$1"
+  local table_name table_count
+  : >"$output"
+  for table_name in \
+    m_invoice \
+    m_invoice_issuer \
+    m_invoice_receiver \
+    m_invoice_line \
+    m_invoice_related_document \
+    m_invoice_summary
+  do
+    if [[ "$(psql -X -v ON_ERROR_STOP=1 -d "$DB_NAME" -Atqc \
+      "SELECT to_regclass('public.$table_name') IS NOT NULL;")" == "t" ]]; then
+      table_count="$(psql -X -v ON_ERROR_STOP=1 -d "$DB_NAME" -Atqc \
+        "SELECT COUNT(*) FROM $table_name;")"
+      printf '%s=%s\n' "$table_name" "$table_count" >>"$output"
+    else
+      printf '%s=not-present\n' "$table_name" >>"$output"
+    fi
+  done
+}
+
+require_empty_ledger() {
+  local ledger_counts nonempty
+  ledger_counts="$(mktemp)"
+  write_ledger_counts "$ledger_counts"
+  nonempty="$(awk -F= '$2 != "0" && $2 != "not-present" { print }' "$ledger_counts")"
+  if [[ -n "$nonempty" ]]; then
+    echo "Non-empty ledger tables:" >&2
+    printf '%s\n' "$nonempty" | sed 's/^/  /' >&2
+    rm -f "$ledger_counts"
+    die "Tenant still contains ledger postings or derived ledger state"
+  fi
+  rm -f "$ledger_counts"
+}
+
+require_empty_invoices() {
+  local invoice_counts nonempty
+  invoice_counts="$(mktemp)"
+  write_invoice_counts "$invoice_counts"
+  nonempty="$(awk -F= '$2 != "0" && $2 != "not-present" { print }' "$invoice_counts")"
+  if [[ -n "$nonempty" ]]; then
+    echo "Non-empty invoice tables:" >&2
+    printf '%s\n' "$nonempty" | sed 's/^/  /' >&2
+    rm -f "$invoice_counts"
+    die "Tenant still contains invoice or DTE transaction data"
+  fi
+  rm -f "$invoice_counts"
+}
+
+require_clean_sync_baseline() {
+  local product_count loan_count
+  IFS='|' read -r product_count loan_count <<<"$(psql -X -v ON_ERROR_STOP=1 -d "$DB_NAME" -AtF '|' -c \
+    "SELECT (SELECT COUNT(*) FROM m_product_loan), (SELECT COUNT(*) FROM m_loan);")"
+  [[ "$product_count" == "0" && "$loan_count" == "0" ]] || die \
+    "Tenant contains $product_count loan product(s) and $loan_count loan(s); recreate and migrate the tenant before capturing a baseline"
+  require_empty_ledger
+  require_empty_invoices
 }
 
 archive_state() {
@@ -198,10 +286,18 @@ case "$ACTION" in
     echo "Fineract listening: $(fineract_is_running && echo yes || echo no)"
     if database_exists; then
       temp_counts="$(mktemp)"
-      trap 'rm -f "$temp_counts"' EXIT
+      temp_ledger_counts="$(mktemp)"
+      temp_invoice_counts="$(mktemp)"
+      trap 'rm -f "$temp_counts" "$temp_ledger_counts" "$temp_invoice_counts"' EXIT
       write_counts "$temp_counts"
       echo "Current counts:"
       sed 's/^/  /' "$temp_counts"
+      write_ledger_counts "$temp_ledger_counts"
+      echo "Current ledger counts:"
+      sed 's/^/  /' "$temp_ledger_counts"
+      write_invoice_counts "$temp_invoice_counts"
+      echo "Current invoice counts:"
+      sed 's/^/  /' "$temp_invoice_counts"
     else
       echo "Current database: missing"
     fi
@@ -218,6 +314,7 @@ case "$ACTION" in
   capture)
     require_fineract_stopped
     database_exists || die "Tenant database does not exist: $DB_NAME"
+    require_clean_sync_baseline
     [[ ! -e "$DUMP_FILE" && ! -e "$META_FILE" && ! -e "$COUNTS_FILE" ]] || \
       die "Baseline already exists for $TENANT; archive it explicitly before replacing it"
     mkdir -p "$BASELINE_DIR"
@@ -257,6 +354,7 @@ case "$ACTION" in
     archive_state
     replace_with_empty_database
     pg_restore --exit-on-error --no-owner --no-privileges --dbname="$DB_NAME" "$DUMP_FILE"
+    require_clean_sync_baseline
     temp_counts="$(mktemp)"
     trap 'rm -f "$temp_counts"' EXIT
     write_counts "$temp_counts"

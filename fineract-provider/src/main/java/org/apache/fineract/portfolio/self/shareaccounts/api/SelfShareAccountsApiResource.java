@@ -132,7 +132,7 @@ public class SelfShareAccountsApiResource {
         final Long clientId = (Long) attr.get(ShareAccountApiConstants.clientid_paramname);
         validateAppuserClientsMapping(clientId);
         String accountType = ShareAccountApiConstants.shareEntityType;
-        return accountsApiResource.createAccount(accountType, accountRequest);
+        return accountsApiResource.createAccount(accountType, null, accountRequest);
     }
 
     @GET

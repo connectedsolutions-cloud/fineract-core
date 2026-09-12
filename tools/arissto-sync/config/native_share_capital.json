@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "source": {
     "position_table": "AFI_ACCION",
     "certificate_table": "AFI_CERTIFICADO",
@@ -17,7 +17,15 @@
     "event_map_table": "credesal_share_native_event_map",
     "certificate_table": "credesal_share_certificate",
     "savings_map_table": "credesal_savings_migration_account",
-    "savings_owner_table": "credesal_savings_migration_owner"
+    "savings_owner_table": "credesal_savings_migration_owner",
+    "missing_vista_policy": {
+      "disposition": "create_target_only_empty_account",
+      "product_source_key": "AHO_LINEA_AHORRO|001|00001",
+      "external_id_prefix": "arissto:share-vista:",
+      "opening_balance": "0.00",
+      "allow_transactions": false,
+      "activation_date": "client_activation_date"
+    }
   },
   "share_classes": {
     "1": {
@@ -73,8 +81,10 @@
     }
   },
   "accounting_strategy": {
-    "posting_owner": "native_fineract_share_transactions",
-    "office_dimension": "acc_gl_journal_entry.office_id",
+    "posting_owner": "split_by_accounting_cutoff",
+    "historical_posting_owner": "arissto_historical_gl_import",
+    "current_posting_owner": "native_fineract_share_transactions",
+    "office_dimension": "acc_gl_journal_entry.dimensions.office",
     "canonical_cash_gl_code": "1110010199",
     "fallback_reference_expected_balance": "0.00",
     "approval_suspense_expected_balance": "0.00",
@@ -101,11 +111,15 @@
   "required_permissions": [
     "CREATE_SHAREPRODUCT",
     "UPDATE_SHAREPRODUCT",
-    "CREATE_SHAREACCOUNT",
-    "APPROVE_SHAREACCOUNT",
-    "ACTIVATE_SHAREACCOUNT",
-    "APPLYADDITIONALSHARES_SHAREACCOUNT",
-    "APPROVEADDITIONALSHARES_SHAREACCOUNT"
+    "SOURCEEXACTCREATE_SHAREACCOUNT",
+    "SOURCEEXACTAPPROVE_SHAREACCOUNT",
+    "SOURCEEXACTACTIVATE_SHAREACCOUNT",
+    "SOURCEEXACTAPPLYADDITIONALSHARES_SHAREACCOUNT",
+    "SOURCEEXACTAPPROVEADDITIONALSHARES_SHAREACCOUNT",
+    "CREATE_SAVINGSACCOUNT",
+    "APPROVE_SAVINGSACCOUNT",
+    "ACTIVATE_SAVINGSACCOUNT",
+    "USE_ARISSTO_OPERATIONAL_MIGRATION"
   ],
   "release_gates": [
     "approved_share_product_limits",

@@ -84,6 +84,10 @@ monthly schedule and short-month rule are specified in
 - Migrations 0288 and 0290 are applied through normal Fineract Liquibase
   startup.
 - Savings and fixed-deposit product, tax, and GL mappings are approved.
+- The enclosing sync workflow maps Fineract financial activity `200`
+  (`LIABILITY_TRANSFER`) to reviewed liability GL `2130050101` through the API before
+  this service starts; an exact existing mapping is reused and a conflict fails
+  closed.
 - A completed `CIERRE_DIARIO` snapshot exists with exactly one daily row per
   selected account.
 - One controlled account simulation proves Fineract reproduces the source
@@ -115,6 +119,14 @@ The complete reviewed workflow is available:
 
 Planning never writes Fineract or Arissto. Apply writes only the explicitly
 selected Fineract target; Arissto remains read-only.
+
+Savings lifecycle extraction uses one read-only Arissto connection and groups
+accounts, movements, history, owners, and cutoff snapshots from five bulk
+queries per 500-account chunk. It does not invoke the per-account lifecycle
+proof readers during normal planning, apply validation, or reconciliation.
+The 2026-09-02 equivalence benchmark covered all 157 current source accounts:
+every frozen hash and quarantine result matched the former per-account path,
+while source extraction fell from 137.427 seconds to 1.924 seconds.
 
 Inspection also requires exactly one
 `EXPLICITINTERESTPOSTING_SAVINGSACCOUNT` permission and reports the effective
@@ -189,6 +201,9 @@ event map before issuing any command.
   recovery, tax-component detail, balance processing, ISR-payable/control
   journals, and native reversal all reconciled. The remaining controlled-
   lifecycle gate covers the other savings/DPF paths, not this ISR command.
+- Tenant migration `0322` seeds the stable `Credesal ISR` group (`id=2`) and
+  its 10% component (`id=3`) used by the savings product contract. Inspection
+  rejects an absent or drifted group before product creation begins.
 - Historical VISTA capitalization is resolved. The source posting amount is an
   authoritative ledger fact and is not always equal to a new calculation from
   the retained movement stream; the controlled account includes a 4.17 source
@@ -219,10 +234,21 @@ event map before issuing any command.
 
 The deterministic implementation gate passed locally on 2026-08-29. The final
 full plan contained 155 `unchanged`, 2 reviewed `quarantine`, and no writable
-actions. Run `5945601248a64b90a2c485b88fd3313a` reconciled all 155 eligible
-accounts with zero failures and zero mismatches. The quarantines are stable
-`SUBMITTED_UNFUNDED` DPF placeholders with zero principal; no artificial native
-positions are created for them.
+actions. Run `5945601248a64b90a2c485b88fd3313a` reconciled all 155 then-eligible
+accounts with zero failures and zero mismatches.
+
+The two reviewed zero-principal `SUBMITTED_UNFUNDED` DPFs are now eligible for
+a deliberately non-financial migration path. The engine creates each as a
+native fixed-deposit application in `Submitted and pending approval` through
+the permission-gated `sourceExactCreateUnfunded` command. It preserves account
+and migration metadata but does not approve, activate, create a native funding
+link, post an empty deposit, or create a journal.
+
+Controlled sandbox plan `7fd6d5121f5f4609aabe7962b25a5f63` and run
+`3dd22a3514354308a01b66d46b0368c5` created both accounts and reconciled
+`matched=2`, with no failures, quarantines, or mismatches. Native accounts `414`
+and `415` are status `100`, balance and deposit amount zero, with zero native
+transactions, journals, and active funding associations.
 
 The accepted engine also proves stale native-transaction recovery, finite
 snapshot cleanup of Fineract-generated VISTA interest/tax artifacts, atomic
@@ -232,12 +258,22 @@ aliases are retained as `SUPERSEDED`, not counted as active events.
 Each plan freezes the latest completed-close cutoff in its immutable source
 hash. A later completed close is legitimate source drift and produces a new
 plan; it is not treated as nondeterministic replay.
+Reconciliation evaluates DPF replay counts as of that frozen cutoff, while an
+Arissto `MATURED` account state is authoritative. The permission-gated
+`sourceExactProcessMaturity` command can move an active Fineract account to
+matured before Fineract's business date reaches the contractual maturity date,
+but only when the command supplies a `MATURED` source state plus source maturity
+and cutoff dates. This status-only override rejects interest posting and
+maturity instructions, records its evidence in the command audit JSON, and is
+not available through the normal Fineract maturity command. Closed accounts and
+historical rollovers remain on their existing lifecycle paths. Transactions
+posted after the cutoff do not contaminate the frozen replay count.
 
 The direct line-specific GL crosswalk is now verified locally: all 19 distinct
 Arissto codes used for principal control, interest expense, accrued-interest
 liability, and ISR exist as enabled target GL accounts. The shared target roles
 are also resolved from the convention already used by both local deposit
-products: reference `1110040202`, transfer suspense `213005`, fee/penalty
+products: reference `1110040202`, transfer suspense `2130050101`, fee/penalty
 income `6420`/`6430`, and receivables `1530`/`1540`. Inspection verifies that
 all are enabled with the required classifications, so the GL-selection blocker
 is cleared.

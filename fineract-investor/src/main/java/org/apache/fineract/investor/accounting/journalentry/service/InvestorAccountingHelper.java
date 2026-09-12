@@ -29,10 +29,10 @@ import org.apache.fineract.accounting.financialactivityaccount.domain.FinancialA
 import org.apache.fineract.accounting.financialactivityaccount.domain.FinancialActivityAccountRepositoryWrapper;
 import org.apache.fineract.accounting.glaccount.domain.GLAccount;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntry;
-import org.apache.fineract.accounting.journalentry.domain.JournalEntryRepository;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntryType;
 import org.apache.fineract.accounting.journalentry.exception.JournalEntryInvalidException;
 import org.apache.fineract.accounting.journalentry.exception.JournalEntryInvalidException.GlJournalEntryInvalidReason;
+import org.apache.fineract.accounting.journalentry.service.JournalEntryPersistenceService;
 import org.apache.fineract.accounting.producttoaccountmapping.domain.ProductToGLAccountMapping;
 import org.apache.fineract.accounting.producttoaccountmapping.domain.ProductToGLAccountMappingRepository;
 import org.apache.fineract.accounting.producttoaccountmapping.exception.ProductToGLAccountMappingNotFoundException;
@@ -47,7 +47,7 @@ public class InvestorAccountingHelper {
 
     public static final String INVESTOR_TRANSFER_IDENTIFIER = "I";
 
-    private final JournalEntryRepository glJournalEntryRepository;
+    private final JournalEntryPersistenceService journalEntryPersistenceService;
     private final ProductToGLAccountMappingRepository accountMappingRepository;
     private final FinancialActivityAccountRepositoryWrapper financialActivityAccountRepository;
     private final GLClosureRepository closureRepository;
@@ -99,7 +99,7 @@ public class InvestorAccountingHelper {
         final JournalEntry journalEntry = JournalEntry.createNew(office, null, account, currencyCode, modifiedTransactionId, manualEntry,
                 transactionDate, JournalEntryType.CREDIT, amount, null, PortfolioProductType.LOAN.getValue(), loanId, null, null, null,
                 null, null, null);
-        return this.glJournalEntryRepository.saveAndFlush(journalEntry);
+        return this.journalEntryPersistenceService.saveAndFlush(journalEntry);
     }
 
     private JournalEntry createDebitJournalEntryForInvestor(final Office office, final String currencyCode, final GLAccount account,
@@ -110,7 +110,7 @@ public class InvestorAccountingHelper {
         final JournalEntry journalEntry = JournalEntry.createNew(office, null, account, currencyCode, modifiedTransactionId, manualEntry,
                 transactionDate, JournalEntryType.DEBIT, amount, null, PortfolioProductType.LOAN.getValue(), loanId, null, null, null, null,
                 null, null);
-        return this.glJournalEntryRepository.saveAndFlush(journalEntry);
+        return this.journalEntryPersistenceService.saveAndFlush(journalEntry);
     }
 
     public GLAccount getLinkedGLAccountForLoanProduct(final Long loanProductId, final int accountMappingTypeId) {

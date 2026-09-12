@@ -207,6 +207,27 @@ class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest {
     }
 
     @Test
+    void periodicAccrualContinuesAfterFinalInstallmentDate() {
+        final LoanRepaymentScheduleInstallment installment = installment(new BigDecimal("350.00"), new BigDecimal("12.08"));
+
+        final Money accrued = new PostDueAccruedInterestCalculator().calculateAccruableThrough(loan, CURRENCY, List.of(installment),
+                DUE_DATE.plusDays(3));
+
+        assertMoney("2.42", accrued);
+    }
+
+    @Test
+    void periodicAccrualSubtractsInterestAlreadyMaterializedByARepayment() {
+        final LoanRepaymentScheduleInstallment installment = installment(new BigDecimal("350.00"), new BigDecimal("12.08"));
+        installment.addPostDueInterest(DUE_DATE.plusDays(1), Money.of(CURRENCY, new BigDecimal("0.81")));
+
+        final Money accrued = new PostDueAccruedInterestCalculator().calculateUnmaterializedAccruableThrough(loan, CURRENCY,
+                List.of(installment), DUE_DATE.plusDays(3));
+
+        assertMoney("1.61", accrued);
+    }
+
+    @Test
     void flatInterestLoanDoesNotReceiveDecliningBalancePostDueInterest() {
         when(terms.getInterestMethod()).thenReturn(InterestMethod.FLAT);
         final LoanRepaymentScheduleInstallment installment = installment(new BigDecimal("350.00"), new BigDecimal("12.08"));

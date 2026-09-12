@@ -1,0 +1,141 @@
+# Local workflow orchestration
+
+This directory owns the machine-readable definitions for local, dependency-driven
+Arissto-to-Fineract sync workflows. See `migration-services/orchestration.md` for
+the operating and safety contract.
+
+The workflow files select services and policies. They do not duplicate dependency
+edges: the runner derives those from `migration-services/registry.json` and uses
+the listed service order only to break ties between independent nodes.
+
+Financial workflows select `accounting_cutoff_policy: activate-frozen-plan`.
+Before their first service step, the runner idempotently configures and activates
+the cutoff frozen in the parent plan. It reuses an exact active match and rejects
+a mismatched active or sealed cutoff before financial writes.
+
+Workflow definitions may also declare reviewed target prerequisites. Workflows
+that select loans require Fineract financial activity `100` (`ASSET_TRANSFER`)
+to map to active detail asset account `1510`. Workflows that select
+`savings-deposits` require activity `200` (`LIABILITY_TRANSFER`) to map to active
+detail liability account `2130050101`. The runner creates only these mappings through
+the Fineract API when the accounts already exist. It never seeds the chart of
+accounts, never replaces a conflicting mapping, verifies each result, and records
+the actions before any service step begins.
+
+Version 1 is deliberately local-only, sequential, full-block, and fail-closed.
+By default, services whose registry status is not `available`, or whose dependencies
+were not selected, prevent a workflow plan from being created. A reviewed local
+acceptance workflow may use `unavailable_services: allow-executable` to exercise its
+actual dependency graph while a selected service remains registry-blocked. The plan
+surfaces that condition as a warning, and a non-executable service is never allowed.
+
+## State cycles
+
+A workflow never uses the legacy shared `state.sqlite3` directly. Before planning,
+create a named cycle tied to the exact disposable-tenant baseline:
+
+```bash
+./arissto-sync workflow cycle create \
+  --cycle sandbox-2026-09-02-a \
+  --baseline-ref sandbox-clean-baseline-2026-09-02 \
+  --target local
+```
+
+For a disposable local tenant with a captured baseline, cycle creation can
+optionally restore the baseline first:
+
+```bash
+./arissto-sync workflow cycle create \
+  --cycle sandbox-2026-09-02-b \
+  --baseline-ref sandbox-restored-baseline-2026-09-02 \
+  --target local \
+  --reset-tenant sandbox \
+  --reset-confirm sandbox:fineract_sandbox
+```
+
+The reset refuses the default tenant, remote targets, or any queued/running
+workflow. It stops Fineract, restores the whole tenant snapshot, restarts the
+service, verifies readiness, and creates the cycle only after success.
+
+The base `ARISSTO_SYNC_STATE` setting determines the parent directory. Cycle
+state is stored at `.arissto-sync/cycles/<cycle-id>/state.sqlite3`, while
+`.arissto-sync/cycles.sqlite3` catalogs every cycle, its baseline reference,
+target fingerprint, status, timestamps, and state path.
+
+Use the same cycle ID to continue the same target lifetime. After restoring or
+recreating the Fineract test tenant, create a new cycle. Never copy mappings or
+active statuses forward: the old cycle remains available for failure comparison.
+Closing a cycle prevents new workflow plans or runs without deleting its SQLite
+file.
+
+Inspect local state and runner-log growth without loading source or target
+credentials:
+
+```bash
+./arissto-sync health
+```
+
+The health report measures total, SQLite, and workflow-log bytes; highlights
+large logs and inactive cycles left open; and reports repeated local TLS warning
+output. It is read-only and never deletes rows or files. The reported local
+sandbox retention baseline keeps the newest cycle complete and removes every
+older cycle database, runner log, summary, failure archive, and catalog entry.
+
+Apply that policy only after reviewing its exact actions:
+
+```bash
+./arissto-sync retention plan --scope local
+./arissto-sync retention apply --scope local --confirm APPLY-RETENTION
+```
+
+The creation of a new cycle applies local retention automatically after the new
+baseline cycle is established. Retention never prunes rows inside the newest
+cycle, and replacement is refused while any cataloged workflow is queued or
+running.
+
+## Definitions
+
+- `local-full-sync`: every executable registry service in one dependency-complete
+  local workflow. The planned accounting journal service is enabled as the final
+  local acceptance step and remains visibly marked with a readiness warning.
+  Dashboard runs default to the complete bounded pre-cutoff ledger; operators may
+  supply a source period to narrow a test. This is the dashboard default for a
+  fresh run.
+- `local-party-profile`: clients, employees, current client-level promoter,
+  account-executive and collections-manager assignments, PEP, and family
+  references.
+- `local-membership-financial`: clients, membership records, savings/deposits,
+  and native shares.
+- `local-credit-collections`: clients, employees, client-level staff assignments,
+  savings, loans (including the separate loan-level staff assignment), and Mobile
+  Collections. This is the reviewed local acceptance flow and permits executable
+  registry-blocked services to run; all runtime gates still apply.
+
+## Failure identity and privacy
+
+Workflow diagnostics store the service ID, execution phase, item status, error
+code, and the existing opaque Arissto `source_key`. A deterministic failure
+fingerprint makes the same failure comparable across runs. Names, documents,
+addresses, source rows, destination payloads, and credentials must not be copied
+into orchestration state.
+
+When an upstream failure prevents a dependent service from starting, the runner
+creates a service-level `blocked` failure and links it to the upstream failure.
+The schema supports more detailed links later, but version 1 does not guess that
+two differently shaped source keys identify the same business entity.
+
+## Durable state
+
+Each cycle SQLite database contains state identity plus five orchestration tables
+in addition to the block-level plan/run state:
+
+- `workflow_plans`: immutable definition, ordering, preflight, and target identity;
+- `workflow_runs`: parent lifecycle, PID, heartbeat, current phase, and summary;
+- `workflow_steps`: one row per service attempt with child plan and run IDs;
+- `workflow_failures`: comparable service/phase/source-key failure facts; and
+- `workflow_failure_links`: `blocked-by` and exact `same-source-key` relationships.
+
+`workflow history` groups the deterministic fingerprints across runs and, when
+no cycle is supplied, across preserved cycle databases. This makes it
+possible to distinguish newly introduced, recurring, and no-longer-observed
+failures without retaining source payloads.

@@ -168,16 +168,27 @@ public class FixedDepositAccountsApiResource {
     @POST
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
-    @Operation(summary = "Submit new fixed deposit application", description = "Submits a new fixed deposit application"
+    @Operation(summary = "Submit new fixed deposit application", description = "Submits a new fixed deposit application. "
+            + "The permission-gated sourceExactCreateUnfunded command is reserved for migration of a zero-funded source application; "
+            + "it creates only a submitted-and-pending-approval account and does not approve, activate, or post a deposit.\n\n"
             + "Mandatory Fields: clientId or groupId, productId, submittedOnDate, depositAmount, depositPeriod, depositPeriodFrequencyId\n\n"
             + "Optional Fields: accountNo, externalId, fieldOfficerId,linkAccountId(if provided initial deposit amount will be collected from this account),transferInterestToSavings(By enabling this flag all interest postings will be transferred to linked saving account )")
     @RequestBody(required = true, content = @Content(schema = @Schema(implementation = FixedDepositAccountsApiResourceSwagger.PostFixedDepositAccountsRequest.class)))
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = FixedDepositAccountsApiResourceSwagger.PostFixedDepositAccountsResponse.class))) })
-    public String submitApplication(@Parameter(hidden = true) final String apiRequestBodyAsJson) {
+    public String submitApplication(
+            @QueryParam("command") @Parameter(description = "Optional migration-only command") final String commandParam,
+            @Parameter(hidden = true) final String apiRequestBodyAsJson) {
 
-        final CommandWrapper commandRequest = new CommandWrapperBuilder().createFixedDepositAccount().withJson(apiRequestBodyAsJson)
-                .build();
+        final CommandWrapperBuilder builder = new CommandWrapperBuilder().withJson(apiRequestBodyAsJson);
+        final CommandWrapper commandRequest;
+        if (StringUtils.isBlank(commandParam)) {
+            commandRequest = builder.createFixedDepositAccount().build();
+        } else if (is(commandParam, "sourceExactCreateUnfunded")) {
+            commandRequest = builder.sourceExactCreateUnfundedFixedDepositAccount().build();
+        } else {
+            throw new UnrecognizedQueryParamException("command", commandParam, new Object[] { "sourceExactCreateUnfunded" });
+        }
 
         final CommandProcessingResult result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
 
@@ -386,14 +397,23 @@ public class FixedDepositAccountsApiResource {
         } else if (is(commandParam, "activate")) {
             final CommandWrapper commandRequest = builder.fixedDepositAccountActivation(accountId).build();
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        } else if (is(commandParam, "sourceExactActivate")) {
+            final CommandWrapper commandRequest = builder.sourceExactFixedDepositAccountActivation(accountId).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
         } else if (is(commandParam, "calculateInterest")) {
             final CommandWrapper commandRequest = builder.fixedDepositAccountInterestCalculation(accountId).build();
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
         } else if (is(commandParam, "processMaturity")) {
             final CommandWrapper commandRequest = builder.fixedDepositAccountMaturityProcessing(accountId).build();
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        } else if (is(commandParam, "sourceExactProcessMaturity")) {
+            final CommandWrapper commandRequest = builder.sourceExactFixedDepositAccountMaturityProcessing(accountId).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
         } else if (is(commandParam, "transferInterest")) {
             final CommandWrapper commandRequest = builder.withNoJsonBody().fixedDepositAccountInterestTransfer(accountId).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        } else if (is(commandParam, "sourceExactTransferInterest")) {
+            final CommandWrapper commandRequest = builder.withNoJsonBody().sourceExactFixedDepositAccountInterestTransfer(accountId).build();
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
         } else if (is(commandParam, "migrationLink")) {
             final CommandWrapper commandRequest = builder.fixedDepositAccountMigrationLink(accountId).build();
@@ -406,6 +426,9 @@ public class FixedDepositAccountsApiResource {
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
         } else if (is(commandParam, "close")) {
             final CommandWrapper commandRequest = builder.closeFixedDepositAccount(accountId).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        } else if (is(commandParam, "sourceExactClose")) {
+            final CommandWrapper commandRequest = builder.sourceExactCloseFixedDepositAccount(accountId).build();
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
         } else if (is(commandParam, "prematureClose")) {
             final CommandWrapper commandRequest = builder.prematureCloseFixedDepositAccount(accountId).build();

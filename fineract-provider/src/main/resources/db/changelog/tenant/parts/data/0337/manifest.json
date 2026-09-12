@@ -1,0 +1,18 @@
+{
+  "policy_version": "arissto-coa-presentation-v1",
+  "source": "dbo.CNT_CATALOGO_CUENTAS and dbo.CNT_CLASIFICADOR_CUENTAS",
+  "company": "001",
+  "files": {
+    "account_presentation.csv": {
+      "rows": 2494,
+      "sha256": "9e4d2a035daf0d21944ef21684a467d26349023e2b2c56e30ffc98385bc56282"
+    }
+  },
+  "invariants": {
+    "rows": 2494,
+    "unique_gl_codes": 2494,
+    "trial_balance_rows": 101,
+    "balance_sheet_rows": 75,
+    "income_statement_rows": 26
+  }
+}

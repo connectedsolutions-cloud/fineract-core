@@ -239,20 +239,28 @@ public class JournalEntryReadPlatformServiceImpl implements JournalEntryReadPlat
     @Override
     public Page<JournalEntryData> retrieveAll(final SearchParameters searchParameters, final Long glAccountId,
             final Boolean onlyManualEntries, final LocalDate fromDate, final LocalDate toDate, final LocalDate submittedOnDateFrom,
-            final LocalDate submittedOnDateTo, final String transactionId, final Integer entityType, final String dimensionFilter,
-            final JournalEntryAssociationParametersData associationParametersData) {
+            final LocalDate submittedOnDateTo, final String transactionId, final Integer entityType, final String referenceNumber,
+            final String dimensionFilter, final JournalEntryAssociationParametersData associationParametersData) {
         GLJournalEntryMapper rm = getGlJournalEntryMapper(associationParametersData);
         final StringBuilder sqlBuilder = new StringBuilder(200);
         sqlBuilder.append("select ").append(sqlGenerator.calcFoundRows()).append(" ");
         sqlBuilder.append(rm.schema());
 
-        final Object[] objectArray = new Object[15];
+        final Object[] objectArray = new Object[16];
         int arrayPos = 0;
         String whereClose = " where ";
 
         if (StringUtils.isNotBlank(transactionId)) {
             sqlBuilder.append(whereClose).append(" journalEntry.transaction_id = ?");
             objectArray[arrayPos] = transactionId;
+            arrayPos = arrayPos + 1;
+
+            whereClose = " and ";
+        }
+
+        if (StringUtils.isNotBlank(referenceNumber)) {
+            sqlBuilder.append(whereClose).append(" journalEntry.ref_num = ?");
+            objectArray[arrayPos] = referenceNumber;
             arrayPos = arrayPos + 1;
 
             whereClose = " and ";
@@ -532,7 +540,7 @@ public class JournalEntryReadPlatformServiceImpl implements JournalEntryReadPlat
                 .orderBy("journalEntry.id").sortOrder("ASC").currencyCode(currencyCode).build();
 
         return retrieveAll(searchParameters, contraId, onlyManualEntries, fromDate, toDate, submittedOnDateFrom, submittedOnDateTo,
-                transactionId, entityType, null, associationParametersData);
+                transactionId, entityType, null, null, associationParametersData);
 
     }
 

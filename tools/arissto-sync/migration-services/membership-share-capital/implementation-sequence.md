@@ -157,18 +157,19 @@ Every Fineract share account requires a same-client
 and is active/eligible for lookup. The requirement remains valid even though
 Arissto has no individual dividend results to migrate.
 
-Required decision: finish and reconcile the savings migration domain before
-native shares. It must preserve real products, accounts, authoritative
-ownership, transactions, posted interest, and accrued-interest state through
-Fineract's native savings lifecycle. Do not create dummy accounts, create an
-account as a side effect of the share service, use another client's account,
-use a fixed-term deposit, or weaken Fineract's required relationship.
+The savings migration domain must finish and reconcile before native shares. It
+preserves real products, accounts, authoritative ownership, transactions,
+posted interest, and accrued-interest state through Fineract's native savings
+lifecycle. When no source savings account or movement exists, the approved
+share prerequisite is a deterministic target-only VISTA with zero balance and
+no transactions. Never use another client's account, a fixed-term deposit, or
+weaken Fineract's required relationship.
 
-Arissto currently provides an active `VISTA` account for 34 of 40 shareholders.
-Those clients cover 45 of the 57 current share accounts. The six shareholders
-without any savings ownership link hold both classes, so their 12 share
-accounts must remain blocked until the business legitimately opens eligible
-savings accounts. This is not an account-shell migration: 37 of the 38 source
+Arissto provides an active `VISTA` account for 34 of 40 shareholders. Those
+clients cover 45 of the 57 current share accounts. The other six shareholders
+have no source savings account, movement, or deposit; their 12 share accounts
+use six empty target-only prerequisites. This does not weaken migration of real
+savings history: 37 of the 38 source
 `VISTA` accounts have non-zero provision/accrual state, so the savings service
 must define cutoff treatment and reconcile native interest and accounting
 results before any of these accounts is used by the share service.

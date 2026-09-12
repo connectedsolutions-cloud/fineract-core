@@ -30,6 +30,7 @@ import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.apache.fineract.accounting.cutoff.AccountingCutoffPolicyService;
 import org.apache.fineract.accounting.journalentry.service.JournalEntryWritePlatformService;
 import org.apache.fineract.infrastructure.accountnumberformat.domain.AccountNumberFormat;
 import org.apache.fineract.infrastructure.accountnumberformat.domain.AccountNumberFormatRepositoryWrapper;
@@ -72,6 +73,8 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
 
     private final JournalEntryWritePlatformService journalEntryWritePlatformService;
 
+    private final AccountingCutoffPolicyService cutoffPolicyService;
+
     private final NoteRepository noteRepository;
 
     private final BusinessEventNotifierService businessEventNotifierService;
@@ -82,8 +85,7 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
             ShareAccount account = this.accountDataSerializer.validateAndCreate(jsonCommand);
             this.shareAccountRepository.saveAndFlush(account);
             generateAccountNumber(account);
-            journalEntryWritePlatformService.createJournalEntriesForShares(
-                    populateJournalEntries(account, account.getPendingForApprovalSharePurchaseTransactions()));
+            createJournalEntriesForShares(account, account.getPendingForApprovalSharePurchaseTransactions());
 
             businessEventNotifierService.notifyPostBusinessEvent(new ShareAccountCreateBusinessEvent(account));
 
@@ -161,6 +163,13 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
         return accountingBridgeData;
     }
 
+    private void createJournalEntriesForShares(final ShareAccount account, final Set<ShareAccountTransaction> transactions) {
+        List<LocalDate> transactionDates = transactions.stream().map(ShareAccountTransaction::getPurchasedDate).toList();
+        if (this.cutoffPolicyService.shouldGenerateAccountingForBatch(transactionDates)) {
+            this.journalEntryWritePlatformService.createJournalEntriesForShares(populateJournalEntries(account, transactions));
+        }
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public CommandProcessingResult updateShareAccount(Long accountId, JsonCommand jsonCommand) {
@@ -176,8 +185,7 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
             if (changes.containsKey("reversalIds")) {
                 ArrayList<Long> reversalIds = (ArrayList<Long>) changes.get("reversalIds");
                 this.journalEntryWritePlatformService.revertShareAccountJournalEntries(reversalIds, transactionDate);
-                journalEntryWritePlatformService.createJournalEntriesForShares(
-                        populateJournalEntries(account, account.getPendingForApprovalSharePurchaseTransactions()));
+                createJournalEntriesForShares(account, account.getPendingForApprovalSharePurchaseTransactions());
                 changes.remove("reversalIds");
             }
             return new CommandProcessingResultBuilder() //
@@ -210,7 +218,7 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
                     changes.put(ShareAccountApiConstants.additionalshares_paramname, transaction.getId());
                     Set<ShareAccountTransaction> transactions = new HashSet<>();
                     transactions.add(transaction);
-                    this.journalEntryWritePlatformService.createJournalEntriesForShares(populateJournalEntries(account, transactions));
+                    createJournalEntriesForShares(account, transactions);
                 }
             }
 
@@ -254,7 +262,7 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
             shareProduct.addSubscribedShares(totalSubsribedShares);
             this.shareProductRepository.save(shareProduct);
 
-            this.journalEntryWritePlatformService.createJournalEntriesForShares(populateJournalEntries(account, journalTransactions));
+            createJournalEntriesForShares(account, journalTransactions);
 
             businessEventNotifierService.notifyPostBusinessEvent(new ShareAccountApproveBusinessEvent(account));
 
@@ -291,7 +299,7 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
                 }
             }
 
-            this.journalEntryWritePlatformService.createJournalEntriesForShares(populateJournalEntries(account, journalTransactions));
+            createJournalEntriesForShares(account, journalTransactions);
             return new CommandProcessingResultBuilder() //
                     .withCommandId(jsonCommand.commandId()) //
                     .withEntityId(accountId) //
@@ -327,8 +335,7 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
             }
             LocalDate transactionDate = DateUtils.getBusinessLocalDate();
             this.journalEntryWritePlatformService.revertShareAccountJournalEntries(journalEntryTransactions, transactionDate);
-            journalEntryWritePlatformService.createJournalEntriesForShares(
-                    populateJournalEntries(account, account.getPendingForApprovalSharePurchaseTransactions()));
+            createJournalEntriesForShares(account, account.getPendingForApprovalSharePurchaseTransactions());
             return new CommandProcessingResultBuilder() //
                     .withCommandId(jsonCommand.commandId()) //
                     .withEntityId(accountId) //
@@ -349,8 +356,7 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
             if (!changes.isEmpty()) {
                 this.shareAccountRepository.save(account);
             }
-            this.journalEntryWritePlatformService
-                    .createJournalEntriesForShares(populateJournalEntries(account, account.getChargeTransactions()));
+            createJournalEntriesForShares(account, account.getChargeTransactions());
             return new CommandProcessingResultBuilder() //
                     .withCommandId(jsonCommand.commandId()) //
                     .withEntityId(accountId) //
@@ -380,7 +386,7 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
                         transactions.add(transaction);
                         totalSubscribedShares += transaction.getTotalShares();
                     }
-                    this.journalEntryWritePlatformService.createJournalEntriesForShares(populateJournalEntries(account, transactions));
+                    createJournalEntriesForShares(account, transactions);
                 }
                 if (!totalSubscribedShares.equals(Long.valueOf(0))) {
                     ShareProduct shareProduct = account.getShareProduct();
@@ -414,7 +420,7 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
                         ShareAccountTransaction transaction = account.retrievePurchasedShares(id);
                         transactions.add(transaction);
                     }
-                    this.journalEntryWritePlatformService.createJournalEntriesForShares(populateJournalEntries(account, transactions));
+                    createJournalEntriesForShares(account, transactions);
                 }
             }
             return new CommandProcessingResultBuilder() //
@@ -448,7 +454,7 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
 
                 Set<ShareAccountTransaction> transactions = new HashSet<>();
                 transactions.add(transaction);
-                this.journalEntryWritePlatformService.createJournalEntriesForShares(populateJournalEntries(account, transactions));
+                createJournalEntriesForShares(account, transactions);
                 changes.clear();
                 changes.put(ShareAccountApiConstants.requestedshares_paramname, transaction.getId());
 
@@ -482,7 +488,7 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
                 transaction = account.getShareAccountTransaction(transaction);
                 Set<ShareAccountTransaction> transactions = new HashSet<>();
                 transactions.add(transaction);
-                this.journalEntryWritePlatformService.createJournalEntriesForShares(populateJournalEntries(account, transactions));
+                createJournalEntriesForShares(account, transactions);
                 changes.clear();
                 changes.put(ShareAccountApiConstants.requestedshares_paramname, transaction.getId());
 

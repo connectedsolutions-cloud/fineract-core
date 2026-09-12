@@ -63,6 +63,16 @@ class InvoiceMhValidationServiceImplTest {
         verifyNoInteractions(dteJsonBuilder, mhValidationFirmaRestClient);
     }
 
+    @Test
+    void submitMhValidationRejectsImportedArisstoHistoryBeforeCallingMh() {
+        Invoice invoice = validGeneratedInvoice();
+        invoice.markImportedHistory("source-hash", "{}");
+        when(invoiceRepository.findById(1L)).thenReturn(Optional.of(invoice));
+
+        assertThrows(PlatformDataIntegrityException.class, () -> service.submitMhValidationByInvoiceId(1L));
+        verifyNoInteractions(invoiceOfficeResolver, mhFirmaCredentialResolver, dteJsonBuilder, mhValidationFirmaRestClient);
+    }
+
     private Invoice validGeneratedInvoice() {
         Invoice invoice = Invoice.draft(10L, null, null, 3, "00", "03", "DTE-03-00010001-000000000000001", UUID.randomUUID().toString(), 1,
                 1, LocalDate.now(), LocalTime.NOON, "USD");

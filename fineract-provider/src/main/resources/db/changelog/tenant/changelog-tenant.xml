@@ -339,4 +339,24 @@
     <include file="parts/0317_add_loan_refinancing_settlements.xml" relativeToChangelogFile="true" />
     <include file="parts/0318_correct_arissto_office_2_opening_date.xml" relativeToChangelogFile="true" />
     <include file="parts/0319_add_source_exact_active_schedule_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0320_add_accounting_cutoff_guard.xml" relativeToChangelogFile="true" />
+    <include file="parts/0321_ensure_arissto_family_relationship_values.xml" relativeToChangelogFile="true" />
+    <include file="parts/0322_seed_credesal_isr_tax_group.xml" relativeToChangelogFile="true" />
+    <include file="parts/0323_add_source_exact_savings_permissions.xml" relativeToChangelogFile="true" />
+    <include file="parts/0324_add_source_exact_fixed_deposit_permissions.xml" relativeToChangelogFile="true" />
+    <include file="parts/0325_add_source_exact_fixed_deposit_transfer_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0326_seed_arissto_loan_runtime_resources.xml" relativeToChangelogFile="true" />
+    <include file="parts/0327_add_legacy_cross_client_refinancing_audit.xml" relativeToChangelogFile="true" />
+    <include file="parts/0328_add_source_exact_guarantor_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0329_add_partial_refinancing_settlements.xml" relativeToChangelogFile="true" />
+    <include file="parts/0330_add_source_exact_unfunded_fixed_deposit_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0331_add_source_exact_share_permissions.xml" relativeToChangelogFile="true" />
+    <include file="parts/0332_add_source_exact_share_create_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0333_add_source_exact_share_activate_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0334_add_source_exact_share_apply_additional_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0335_add_arissto_dte_history_metadata.xml" relativeToChangelogFile="true" />
+    <include file="parts/0336_add_arissto_gl_journal_provenance.xml" relativeToChangelogFile="true" />
+    <include file="parts/0337_add_credesal_gl_account_presentation.xml" relativeToChangelogFile="true" />
+    <include file="parts/0338_index_gl_journal_reference_number.xml" relativeToChangelogFile="true" />
+    <include file="parts/0339_add_source_exact_fee_charge_identity.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

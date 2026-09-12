@@ -25,6 +25,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import org.apache.fineract.infrastructure.core.domain.AbstractPersistableCustom;
 
 /**
@@ -55,6 +56,9 @@ public class LoanRefinancingSettlement extends AbstractPersistableCustom<Long> {
     @Column(name = "settlement_amount", precision = 19, scale = 6)
     private BigDecimal settlementAmount;
 
+    @Column(name = "settlement_type", nullable = false, length = 30)
+    private String settlementType = "FULL_CLOSE";
+
     @Column(name = "principal_portion", precision = 19, scale = 6)
     private BigDecimal principalPortion;
 
@@ -67,15 +71,51 @@ public class LoanRefinancingSettlement extends AbstractPersistableCustom<Long> {
     @Column(name = "penalty_charges_portion", precision = 19, scale = 6)
     private BigDecimal penaltyChargesPortion;
 
+    @Column(name = "legacy_cross_client", nullable = false)
+    private boolean legacyCrossClient;
+
+    @Column(name = "authorization_basis", length = 50)
+    private String authorizationBasis;
+
+    @Column(name = "source_system", length = 30)
+    private String sourceSystem;
+
+    @Column(name = "source_liquidation_id", length = 100)
+    private String sourceLiquidationId;
+
+    @Column(name = "source_payoff_movement_id", length = 100)
+    private String sourcePayoffMovementId;
+
+    @Column(name = "source_operator_id", length = 100)
+    private String sourceOperatorId;
+
+    @Column(name = "source_payoff_date")
+    private LocalDate sourcePayoffDate;
+
+    @Column(name = "predecessor_client_id")
+    private Long predecessorClientId;
+
+    @Column(name = "successor_client_id")
+    private Long successorClientId;
+
     protected LoanRefinancingSettlement() {}
 
     LoanRefinancingSettlement(final LoanTopupDetails refinancing, final Long closureLoanId) {
+        this(refinancing, closureLoanId, "FULL_CLOSE");
+    }
+
+    LoanRefinancingSettlement(final LoanTopupDetails refinancing, final Long closureLoanId, final String settlementType) {
         this.refinancing = refinancing;
         this.closureLoanId = closureLoanId;
+        this.settlementType = settlementType;
     }
 
     public Long getLoanIdToClose() {
         return closureLoanId;
+    }
+
+    public String getSettlementType() {
+        return settlementType;
     }
 
     public void recordSettlement(final Long accountTransferDetailsId, final Long repaymentTransactionId, final BigDecimal settlementAmount,
@@ -89,5 +129,19 @@ public class LoanRefinancingSettlement extends AbstractPersistableCustom<Long> {
             this.feeChargesPortion = allocation.feeCharges();
             this.penaltyChargesPortion = allocation.penaltyCharges();
         }
+    }
+
+    public void recordLegacyCrossClientEvidence(final String authorizationBasis, final String sourceSystem,
+            final String sourceLiquidationId, final String sourcePayoffMovementId, final String sourceOperatorId,
+            final LocalDate sourcePayoffDate, final Long predecessorClientId, final Long successorClientId) {
+        this.legacyCrossClient = true;
+        this.authorizationBasis = authorizationBasis;
+        this.sourceSystem = sourceSystem;
+        this.sourceLiquidationId = sourceLiquidationId;
+        this.sourcePayoffMovementId = sourcePayoffMovementId;
+        this.sourceOperatorId = sourceOperatorId;
+        this.sourcePayoffDate = sourcePayoffDate;
+        this.predecessorClientId = predecessorClientId;
+        this.successorClientId = successorClientId;
     }
 }

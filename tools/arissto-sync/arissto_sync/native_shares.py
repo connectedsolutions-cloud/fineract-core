@@ -42,8 +42,8 @@ class NativeShareContract:
     @classmethod
     def load(cls, path: Path) -> "NativeShareContract":
         value = json.loads(path.read_text(encoding="utf-8"))
-        if value.get("version") != 1:
-            raise ValueError("Native share contract version must be 1")
+        if value.get("version") != 2:
+            raise ValueError("Native share contract version must be 2")
         identifiers = list(value.get("source", {}).values()) + [
             item for key, item in value.get("target", {}).items() if key.endswith("_table")
         ]
@@ -62,6 +62,16 @@ class NativeShareContract:
             raise ValueError("Native share expected counts must be positive")
         if Decimal(str(expected.get("unit_price", "0"))) <= 0:
             raise ValueError("Native share unit price must be positive")
+        missing_vista = value.get("target", {}).get("missing_vista_policy", {})
+        if missing_vista != {
+            "disposition": "create_target_only_empty_account",
+            "product_source_key": "AHO_LINEA_AHORRO|001|00001",
+            "external_id_prefix": "arissto:share-vista:",
+            "opening_balance": "0.00",
+            "allow_transactions": False,
+            "activation_date": "client_activation_date",
+        }:
+            raise ValueError("Native share missing-VISTA policy is not the approved target-only empty-account contract")
         return cls(value)
 
     @property

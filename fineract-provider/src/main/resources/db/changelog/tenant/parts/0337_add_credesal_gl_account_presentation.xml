@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0337-1-add-credesal-gl-account-presentation" author="credesal" dbms="postgresql">
+        <comment>
+            Freeze the reviewed Arissto COA presentation metadata used by the
+            Credesal native trial-balance, balance-sheet, and income-statement
+            reports. Journal amounts remain authoritative in
+            acc_gl_journal_entry and are never stored here.
+        </comment>
+
+        <createTable tableName="credesal_gl_account_presentation">
+            <column name="gl_account_id" type="BIGINT">
+                <constraints nullable="false" primaryKey="true" primaryKeyName="pk_cr_gl_account_presentation"/>
+            </column>
+            <column name="presentation_version" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="source_snapshot_sha256" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="source_account_id" type="VARCHAR(32)"><constraints nullable="false"/></column>
+            <column name="source_gl_code" type="VARCHAR(45)"><constraints nullable="false"/></column>
+            <column name="source_name" type="VARCHAR(300)"><constraints nullable="false"/></column>
+            <column name="source_parent_account_id" type="VARCHAR(32)"/>
+            <column name="source_parent_gl_code" type="VARCHAR(45)"/>
+            <column name="classifier_code" type="VARCHAR(3)"><constraints nullable="false"/></column>
+            <column name="classifier_name" type="VARCHAR(30)"><constraints nullable="false"/></column>
+            <column name="trial_balance_group" type="SMALLINT"/>
+            <column name="trial_balance_order" type="SMALLINT"/>
+            <column name="income_statement_order" type="SMALLINT"/>
+            <column name="account_order" type="BIGINT"/>
+            <column name="balance_nature" type="VARCHAR(1)"><constraints nullable="false"/></column>
+            <column name="trial_balance_selected" type="BOOLEAN"><constraints nullable="false"/></column>
+            <column name="balance_sheet_selected" type="BOOLEAN"><constraints nullable="false"/></column>
+            <column name="created_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_gl_account_presentation" baseColumnNames="gl_account_id"
+                                 constraintName="fk_cr_gl_account_presentation_account" referencedTableName="acc_gl_account"
+                                 referencedColumnNames="id" onDelete="RESTRICT" onUpdate="RESTRICT"/>
+        <addUniqueConstraint tableName="credesal_gl_account_presentation" columnNames="source_account_id"
+                             constraintName="uk_cr_gl_account_presentation_source_id"/>
+        <addUniqueConstraint tableName="credesal_gl_account_presentation" columnNames="source_gl_code"
+                             constraintName="uk_cr_gl_account_presentation_source_code"/>
+        <createIndex tableName="credesal_gl_account_presentation" indexName="ix_cr_gl_account_presentation_reports">
+            <column name="trial_balance_selected"/>
+            <column name="balance_sheet_selected"/>
+            <column name="classifier_code"/>
+            <column name="trial_balance_order"/>
+            <column name="income_statement_order"/>
+        </createIndex>
+
+        <createTable tableName="credesal_gl_account_presentation_seed_0337">
+            <column name="source_account_id" type="VARCHAR(32)"/>
+            <column name="gl_code" type="VARCHAR(45)"/>
+            <column name="source_name" type="VARCHAR(300)"/>
+            <column name="source_parent_account_id" type="VARCHAR(32)"/>
+            <column name="parent_gl_code" type="VARCHAR(45)"/>
+            <column name="classifier_code" type="VARCHAR(3)"/>
+            <column name="classifier_name" type="VARCHAR(30)"/>
+            <column name="trial_balance_group" type="SMALLINT"/>
+            <column name="trial_balance_order" type="SMALLINT"/>
+            <column name="income_statement_order" type="SMALLINT"/>
+            <column name="account_order" type="BIGINT"/>
+            <column name="balance_nature" type="VARCHAR(1)"/>
+            <column name="trial_balance_selected" type="BOOLEAN"/>
+            <column name="balance_sheet_selected" type="BOOLEAN"/>
+        </createTable>
+        <loadData file="data/0337/account_presentation.csv"
+                  relativeToChangelogFile="true"
+                  encoding="UTF-8"
+                  separator="," quotchar="&quot;"
+                  tableName="credesal_gl_account_presentation_seed_0337"/>
+
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+DO $$
+DECLARE
+    snapshot_hash CONSTANT VARCHAR(64) := '9e4d2a035daf0d21944ef21684a467d26349023e2b2c56e30ffc98385bc56282';
+BEGIN
+    UPDATE credesal_gl_account_presentation_seed_0337
+       SET source_parent_account_id = NULLIF(BTRIM(source_parent_account_id), ''),
+           parent_gl_code = NULLIF(BTRIM(parent_gl_code), '');
+
+    IF (SELECT COUNT(*) FROM credesal_gl_account_presentation_seed_0337) <> 2494
+       OR (SELECT COUNT(DISTINCT gl_code) FROM credesal_gl_account_presentation_seed_0337) <> 2494
+       OR (SELECT COUNT(*) FROM credesal_gl_account_presentation_seed_0337 WHERE trial_balance_selected) <> 101
+       OR (SELECT COUNT(*) FROM credesal_gl_account_presentation_seed_0337 WHERE balance_sheet_selected) <> 75
+       OR (SELECT COUNT(*) FROM credesal_gl_account_presentation_seed_0337
+           WHERE balance_sheet_selected AND classifier_code IN ('001', '002', '003')) <> 64
+       OR (SELECT COUNT(*) FROM credesal_gl_account_presentation_seed_0337
+           WHERE balance_sheet_selected AND classifier_code IN ('006', '007')) <> 11
+       OR (SELECT COUNT(*) FROM credesal_gl_account_presentation_seed_0337
+           WHERE trial_balance_selected AND NOT balance_sheet_selected
+             AND classifier_code IN ('004', '005')) <> 26
+    THEN
+        RAISE EXCEPTION 'Credesal GL presentation snapshot failed frozen selector counts';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+          FROM credesal_gl_account_presentation_seed_0337 source
+          LEFT JOIN credesal_gl_account_presentation_seed_0337 parent
+            ON parent.gl_code = source.parent_gl_code
+         WHERE source.balance_nature NOT IN ('D', 'A')
+            OR (source.source_parent_account_id IS NULL) <> (source.parent_gl_code IS NULL)
+            OR (source.parent_gl_code IS NOT NULL AND parent.gl_code IS NULL)
+    ) THEN
+        RAISE EXCEPTION 'Credesal GL presentation snapshot has invalid nature or parent hierarchy';
+    END IF;
+
+    -- The 12 source codes absent from migration 0310 are non-selected legacy
+    -- posting leaves. Every selected report rollup must map exactly by code.
+    IF EXISTS (
+        SELECT 1
+          FROM credesal_gl_account_presentation_seed_0337 source
+          LEFT JOIN acc_gl_account target ON target.gl_code = source.gl_code
+         WHERE source.trial_balance_selected
+           AND target.id IS NULL
+    ) THEN
+        RAISE EXCEPTION 'A selected Credesal report account is missing from the native COA';
+    END IF;
+
+    INSERT INTO credesal_gl_account_presentation (
+        gl_account_id, presentation_version, source_snapshot_sha256,
+        source_account_id, source_gl_code, source_name,
+        source_parent_account_id, source_parent_gl_code, classifier_code,
+        classifier_name, trial_balance_group, trial_balance_order,
+        income_statement_order, account_order, balance_nature,
+        trial_balance_selected, balance_sheet_selected
+    )
+    SELECT target.id, 'arissto-coa-presentation-v1', snapshot_hash,
+           source.source_account_id, source.gl_code, source.source_name,
+           source.source_parent_account_id, source.parent_gl_code,
+           source.classifier_code, source.classifier_name,
+           source.trial_balance_group, source.trial_balance_order,
+           source.income_statement_order, source.account_order,
+           source.balance_nature, source.trial_balance_selected,
+           source.balance_sheet_selected
+      FROM credesal_gl_account_presentation_seed_0337 source
+      JOIN acc_gl_account target ON target.gl_code = source.gl_code;
+
+    IF (SELECT COUNT(*) FROM credesal_gl_account_presentation) <> 2482
+       OR (SELECT COUNT(*) FROM credesal_gl_account_presentation WHERE trial_balance_selected) <> 101
+       OR (SELECT COUNT(*) FROM credesal_gl_account_presentation WHERE balance_sheet_selected) <> 75
+       OR EXISTS (
+            SELECT 1
+              FROM credesal_gl_account_presentation presentation
+              JOIN acc_gl_account target ON target.id = presentation.gl_account_id
+              LEFT JOIN acc_gl_account target_parent ON target_parent.id = target.parent_id
+             WHERE target.gl_code IS DISTINCT FROM presentation.source_gl_code
+                OR target_parent.gl_code IS DISTINCT FROM presentation.source_parent_gl_code
+       )
+    THEN
+        RAISE EXCEPTION 'Credesal GL presentation metadata did not reconcile to the native COA';
+    END IF;
+END $$;
+        ]]></sql>
+
+        <dropTable tableName="credesal_gl_account_presentation_seed_0337"/>
+    </changeSet>
+
+    <changeSet id="0337-2-add-credesal-financial-report-permission" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'READ_CREDESAL_FINANCIAL_REPORTS'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="accounting"/>
+            <column name="code" value="READ_CREDESAL_FINANCIAL_REPORTS"/>
+            <column name="entity_name" value="CREDESALFINANCIALREPORTS"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

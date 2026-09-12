@@ -148,6 +148,19 @@ public class PostDueAccruedInterestCalculator {
         return Money.of(currency, accrued, mc);
     }
 
+    /**
+     * Returns the part of cumulative post-due interest which has not yet been materialized into the repayment schedule
+     * by a repayment. Periodic accrual uses this amount so that payment-time materialization and COB recognition cannot
+     * count the same interest twice.
+     */
+    public Money calculateUnmaterializedAccruableThrough(final Loan loan, final MonetaryCurrency currency,
+            final List<LoanRepaymentScheduleInstallment> installments, final LocalDate effectiveDate) {
+        final Money totalAccruable = calculateAccruableThrough(loan, currency, installments, effectiveDate);
+        final Money materialized = installments.stream().map(installment -> Money.of(currency, installment.getPostDueInterestCharged()))
+                .reduce(Money.zero(currency), Money::add);
+        return totalAccruable.isGreaterThan(materialized) ? totalAccruable.minus(materialized) : Money.zero(currency);
+    }
+
     private BigDecimal calculateSegment(final Money outstandingPrincipal, final BigDecimal annualRate, final LocalDate startDate,
             final LocalDate endDate, final DaysInYearType daysInYearType, final MathContext mc) {
         if (!outstandingPrincipal.isGreaterThanZero() || !startDate.isBefore(endDate)) {

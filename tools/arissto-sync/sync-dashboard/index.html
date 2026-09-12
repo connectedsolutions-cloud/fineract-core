@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f2f0e9" />
+    <meta name="description" content="Read-only visibility into local Arissto to Fineract workflow runs." />
+    <meta property="og:title" content="Arissto Sync Runs" />
+    <meta property="og:description" content="A local, read-only dashboard for workflow runs, steps, and failures." />
+    <meta property="og:image" content="/og.svg" />
+    <title>Arissto Sync Runs</title>
+    <link rel="icon" href="/og.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div>
+          <p class="eyebrow">Credesal migration operations</p>
+          <h1>Arissto Sync Runs</h1>
+        </div>
+        <div class="topbar-actions">
+          <span class="readonly-badge"><span></span>Local target</span>
+          <button class="icon-button" id="refreshButton" aria-label="Refresh runs" title="Refresh runs">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66L20 8.68M20 4v4.68h-4.68"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="run-panel" aria-label="Workflow runs">
+          <div class="panel-heading">
+            <div><p class="eyebrow">Run history</p><h2>Workflow runs</h2></div>
+            <div class="panel-actions"><span id="runCount" class="count-pill">—</span><button id="launchButton" class="launch-button" type="button"><span>＋</span>Fresh/clean run</button></div>
+          </div>
+          <label class="search-box">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <input id="runSearch" type="search" placeholder="Search workflows or run IDs" />
+          </label>
+          <div id="runList" class="run-list" aria-live="polite">
+            <div class="loading-card">Loading preserved runs…</div>
+          </div>
+        </aside>
+
+        <section id="detailPanel" class="detail-panel" aria-live="polite">
+          <div class="empty-state">
+            <div class="empty-glyph">↳</div>
+            <h2>Select a sync run</h2>
+            <p>Review its services, attempts, failures, and dependency gates.</p>
+          </div>
+        </section>
+      </main>
+    </div>
+    <dialog id="launchDialog" class="launch-dialog" aria-labelledby="launchTitle">
+      <form method="dialog" class="dialog-shell">
+        <div class="dialog-head">
+          <div><p class="eyebrow">Local orchestrator</p><h2 id="launchTitle">Launch a sync run</h2></div>
+          <button class="dialog-close" value="cancel" aria-label="Close">×</button>
+        </div>
+        <div id="launchContent" class="dialog-content"></div>
+      </form>
+    </dialog>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

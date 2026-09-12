@@ -540,7 +540,7 @@ public class AccountTransfersWritePlatformServiceImpl implements AccountTransfer
             repayTransaction = this.loanAccountDomainService.makeSourceExactTransaction(LoanTransactionType.REPAYMENT, toLoanAccount,
                     accountTransferDTO.getTransactionDate(), accountTransferDTO.getTransactionAmount(),
                     accountTransferDTO.getPaymentDetail(), null, externalIdForRepayment,
-                    accountTransferDTO.getSourceExactRepaymentAllocation(), null, false, true, true);
+                    accountTransferDTO.getSourceExactRepaymentAllocation(), null, false, true, true, null);
         }
 
         AccountTransferDetails accountTransferDetails = this.accountTransferAssembler.assembleLoanToLoanTransfer(accountTransferDTO,
