@@ -99,6 +99,31 @@ CREATE TABLE IF NOT EXISTS workflow_event_links (
  relationship TEXT NOT NULL,
  PRIMARY KEY(event_id, related_event_id, relationship)
 );
+CREATE TABLE IF NOT EXISTS loan_sync_changes (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ pr_reference TEXT NOT NULL UNIQUE,
+ description TEXT NOT NULL,
+ status TEXT NOT NULL DEFAULT 'open',
+ created_at TEXT NOT NULL,
+ closed_at TEXT
+);
+CREATE TABLE IF NOT EXISTS loan_sync_change_loans (
+ change_id INTEGER NOT NULL,
+ source_loan_id TEXT NOT NULL,
+ target_loan_id TEXT,
+ result TEXT NOT NULL,
+ notes TEXT,
+ PRIMARY KEY (change_id, source_loan_id),
+ FOREIGN KEY (change_id) REFERENCES loan_sync_changes(id)
+);
+CREATE TABLE IF NOT EXISTS loan_sync_change_decisions (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ change_id INTEGER NOT NULL,
+ decision TEXT NOT NULL,
+ rationale TEXT NOT NULL,
+ created_at TEXT NOT NULL,
+ FOREIGN KEY (change_id) REFERENCES loan_sync_changes(id)
+);
 CREATE INDEX IF NOT EXISTS workflow_runs_status_idx
  ON workflow_runs(target_fingerprint, status, created_at);
 CREATE INDEX IF NOT EXISTS workflow_steps_run_idx
@@ -109,6 +134,10 @@ CREATE INDEX IF NOT EXISTS workflow_events_run_idx
  ON workflow_events(workflow_run_id, sequence);
 CREATE INDEX IF NOT EXISTS workflow_events_failure_idx
  ON workflow_events(workflow_failure_id);
+CREATE INDEX IF NOT EXISTS loan_sync_change_loans_source_idx
+ ON loan_sync_change_loans(source_loan_id);
+CREATE INDEX IF NOT EXISTS loan_sync_change_decisions_change_idx
+ ON loan_sync_change_decisions(change_id, created_at);
 """
 
 

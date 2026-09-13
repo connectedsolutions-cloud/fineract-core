@@ -303,8 +303,7 @@ class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest {
         final LoanRepaymentScheduleInstallment installment = installment(1, LocalDate.of(2026, 5, 28), DUE_DATE, BigDecimal.ZERO,
                 BigDecimal.ZERO);
         final LoanTransaction repayment = repayment(DUE_DATE, fee.add(penalty));
-        repayment.markAsSourceExactAllocation(new SourceExactRepaymentAllocation(BigDecimal.ZERO, BigDecimal.ZERO, fee, penalty), null,
-                true);
+        repayment.markAsSourceExactAllocation(new SourceExactRepaymentAllocation(BigDecimal.ZERO, BigDecimal.ZERO, fee, penalty), "", true);
 
         processor.handleTransactionAndCharges(repayment, CURRENCY, List.of(installment), new HashSet<>(), null, false);
 

@@ -222,7 +222,7 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
     private void settleSourceExactFeeCharge(final LoanTransaction loanTransaction, final MonetaryCurrency currency,
             final Set<LoanCharge> charges) {
         final String externalId = loanTransaction.getSourceExactFeeChargeExternalId();
-        if (externalId == null) {
+        if (externalId == null || externalId.isBlank()) {
             return; // Legacy source-exact transactions did not carry a charge identity.
         }
         final Money requested = loanTransaction.getSourceExactFeeChargesPortion(currency);
@@ -240,7 +240,7 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
         final LoanCharge target = allLoanCharges.stream()
                 .filter(charge -> charge.getExternalId() != null && externalId.equals(charge.getExternalId().getValue())).findFirst()
                 .orElseThrow(() -> new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.fee.charge.missing",
-                        "The declared source-exact fee charge does not exist on this loan"));
+                        "The declared source-exact fee charge does not exist on this loan: " + externalId));
         final String transactionExternalId = loanTransaction.getExternalId() == null ? null : loanTransaction.getExternalId().getValue();
         final LoanChargePaidBy existingOwner = target.getLoanChargePaidBySet().stream().filter(mapping -> {
             final LoanTransaction ownerTransaction = mapping.getLoanTransaction();
