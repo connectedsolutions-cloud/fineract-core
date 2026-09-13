@@ -4486,9 +4486,13 @@ def _apply_loan_lifecycle(
             _verify_transaction_amount(existing_transaction, event)
             _verify_repayment_allocation(existing_transaction, event)
         elif role in {"repayment", "adjusted-repayment", "mobile-collection-repayment"}:
-            if _amount(event["allocation"]["penalty"]) > 0:
+            # A reversed source repayment is posted only so its paired reversal has a native transaction to undo.
+            # Creating persistent charge rows for it would leave those charges active and outstanding after the
+            # transaction reversal, manufacturing a balance that does not exist in Arissto.
+            source_reversed = bool(event.get("source_reversed"))
+            if not source_reversed and _amount(event["allocation"]["penalty"]) > 0:
                 loan = _ensure_source_penalty_charge(api, loan, event, attempt_key)
-            if _amount(event["allocation"]["fee"]) > 0:
+            if not source_reversed and _amount(event["allocation"]["fee"]) > 0:
                 loan = _ensure_source_insurance_charges(api, loan, event, attempt_key)
                 fee_charges = event.get("historical_insurance_charges") or []
                 if len(fee_charges) != 1:
@@ -4507,7 +4511,7 @@ def _apply_loan_lifecycle(
                     "feeChargesPortion": event["allocation"]["fee"],
                     "penaltyChargesPortion": event["allocation"]["penalty"],
                 }
-                if _amount(event["allocation"]["fee"]) > 0:
+                if not source_reversed and _amount(event["allocation"]["fee"]) > 0:
                     payload["feeChargeExternalId"] = fee_charges[0]["external_id"]
                 if event.get("payment_type_id") is not None:
                     payload["paymentTypeId"] = int(event["payment_type_id"])

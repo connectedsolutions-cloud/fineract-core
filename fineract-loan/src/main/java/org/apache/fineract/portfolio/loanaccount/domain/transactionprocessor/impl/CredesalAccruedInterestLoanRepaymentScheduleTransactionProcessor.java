@@ -84,9 +84,18 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
         if (loanTransaction.isRepaymentLikeType() || loanTransaction.isInterestWaiver() || loanTransaction.isRecoveryRepayment()) {
             loanTransaction.resetDerivedComponents();
         }
-        // processSourceExactRepayment assigns the declared charge itself. Running the base post-processing afterwards
-        // would allocate the same fee a second time to whichever other charge happens to be earliest.
-        return processTransaction(loanTransaction, currency, installments, charges, chargeAmountToProcess);
+        // Source-exact processing assigns its declared fee charge.
+        // Generic fee post-processing would allocate the same fee a second time.
+        // Penalties have no source charge identity, so preserve their standard paid-by bookkeeping.
+        final Money transactionAmountUnprocessed = processTransaction(loanTransaction, currency, installments, charges,
+                chargeAmountToProcess);
+        if (loanTransaction.isNotWaiver() && !loanTransaction.isAccrual() && !loanTransaction.isAccrualActivity()) {
+            final Money penaltyCharges = loanTransaction.getPenaltyChargesPortion(currency);
+            if (penaltyCharges.isGreaterThanZero()) {
+                updateChargesPaidAmountBy(loanTransaction, penaltyCharges, extractPenaltyCharges(charges), null);
+            }
+        }
+        return transactionAmountUnprocessed;
     }
 
     private Money processSourceExactComponentReallocation(final LoanTransaction loanTransaction, final MonetaryCurrency currency,

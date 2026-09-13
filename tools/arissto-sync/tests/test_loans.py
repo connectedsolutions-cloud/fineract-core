@@ -2626,6 +2626,43 @@ class LoanInspectionTests(unittest.TestCase):
         ensure_charge.assert_called_once()
         self.assertEqual(ensure_charge.call_args.args[2]["external_id"], "ARISSTO:CRD-MOV:101")
 
+    def test_lifecycle_writer_does_not_persist_charges_for_reversed_source_repayment(self):
+        loan, lifecycle, target, payload = self.lifecycle_fixture()
+        built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        repayment_event = built["lifecycle"]["events"][-1]
+        repayment_event["source_reversed"] = True
+        built["lifecycle"]["events"] = [repayment_event]
+        built["lifecycle"]["cutover_insurance_charge"] = None
+        built["lifecycle"]["recurring_insurance_charge"] = None
+        built["lifecycle"]["terminal_adjustment"] = None
+        action = {"external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
+        active = {
+            "id": 55, "loanProductId": 90, "clientId": 900, "principal": 350,
+            "status": {"id": 300}, "charges": [], "transactions": [],
+            "repaymentSchedule": self.calculated_schedule(built["lifecycle"]),
+        }
+        paid = {**active, "transactions": [{
+            "id": 2, "externalId": repayment_event["external_id"], "amount": 10,
+            "principalPortion": 8, "interestPortion": 1.9,
+            "feeChargesPortion": .1, "penaltyChargesPortion": 0,
+        }]}
+        api = MagicMock()
+        api.request.side_effect = [active, {}, paid]
+
+        with (
+            patch("arissto_sync.loans._find_loan", return_value=active),
+            patch("arissto_sync.loans._ensure_source_insurance_charges") as ensure_insurance,
+            patch("arissto_sync.loans._ensure_source_penalty_charge") as ensure_penalty,
+            patch("arissto_sync.loans._ensure_source_exact_guarantors"),
+        ):
+            loan_id, recovered = _apply_loan_lifecycle(api, action, 90)
+
+        self.assertEqual((loan_id, recovered), (55, True))
+        ensure_insurance.assert_not_called()
+        ensure_penalty.assert_not_called()
+        repayment_payload = api.request.call_args_list[1].args[2]
+        self.assertNotIn("feeChargeExternalId", repayment_payload)
+
     def test_lifecycle_writer_writes_source_exact_variations_before_approval(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)

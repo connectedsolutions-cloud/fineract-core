@@ -13,7 +13,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -265,6 +268,32 @@ class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest {
         assertTrue(replayCopy.isSourceExactAllocation());
         assertMoney("12.03", replayCopy.getSourceExactPrincipalPortion(CURRENCY));
         assertMoney("1.15", replayCopy.getSourceExactInterestPortion(CURRENCY));
+    }
+
+    @Test
+    void sourceExactRepaymentStillSettlesItsPenaltyCharge() {
+        final BigDecimal penalty = new BigDecimal("1.25");
+        final LoanRepaymentScheduleInstallment installment = new LoanRepaymentScheduleInstallment(loan, 1, LocalDate.of(2026, 5, 28),
+                DUE_DATE, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, penalty, false, null, BigDecimal.ZERO);
+        final LoanTransaction repayment = repayment(DUE_DATE, penalty);
+        repayment.markAsSourceExactAllocation(
+                new SourceExactRepaymentAllocation(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, penalty));
+        final LoanCharge penaltyCharge = mock(LoanCharge.class);
+        final Money penaltyMoney = Money.of(CURRENCY, penalty);
+        when(penaltyCharge.isPenaltyCharge()).thenReturn(true);
+        when(penaltyCharge.getAmountOutstanding(any(MonetaryCurrency.class))).thenReturn(penaltyMoney);
+        when(penaltyCharge.isDueAtDisbursement()).thenReturn(false);
+        when(penaltyCharge.isInstalmentFee()).thenReturn(false);
+        when(penaltyCharge.getDueLocalDate()).thenReturn(DUE_DATE);
+        when(penaltyCharge.updatePaidAmountBy(any(Money.class), isNull(), any(Money.class))).thenReturn(penaltyMoney);
+
+        processor.handleTransactionAndCharges(repayment, CURRENCY, List.of(installment), new HashSet<>(List.of(penaltyCharge)), null,
+                false);
+
+        assertMoney("1.25", repayment.getPenaltyChargesPortion(CURRENCY));
+        assertEquals(1, repayment.getLoanChargesPaid().size());
+        assertEquals(penaltyCharge, repayment.getLoanChargesPaid().iterator().next().getLoanCharge());
+        verify(penaltyCharge).updatePaidAmountBy(any(Money.class), isNull(), any(Money.class));
     }
 
     @Test
