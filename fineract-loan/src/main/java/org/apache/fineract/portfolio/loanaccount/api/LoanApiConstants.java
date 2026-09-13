@@ -202,6 +202,7 @@ public interface LoanApiConstants {
     String sourceExactInterestPortionParameterName = "interestPortion";
     String sourceExactFeeChargesPortionParameterName = "feeChargesPortion";
     String sourceExactFeeChargeExternalIdParameterName = "feeChargeExternalId";
+    String sourceExactTransientChargeAllocationParameterName = "transientChargeAllocation";
     String sourceExactPenaltyChargesPortionParameterName = "penaltyChargesPortion";
     String sourceSystemParameterName = "sourceSystem";
     String sourceReversalMovementIdsParameterName = "sourceReversalMovementIds";

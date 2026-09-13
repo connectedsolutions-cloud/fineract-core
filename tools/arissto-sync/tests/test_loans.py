@@ -2662,6 +2662,7 @@ class LoanInspectionTests(unittest.TestCase):
         ensure_penalty.assert_not_called()
         repayment_payload = api.request.call_args_list[1].args[2]
         self.assertNotIn("feeChargeExternalId", repayment_payload)
+        self.assertIs(repayment_payload["transientChargeAllocation"], True)
 
     def test_lifecycle_writer_writes_source_exact_variations_before_approval(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()

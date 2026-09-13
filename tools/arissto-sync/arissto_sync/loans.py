@@ -4511,6 +4511,8 @@ def _apply_loan_lifecycle(
                     "feeChargesPortion": event["allocation"]["fee"],
                     "penaltyChargesPortion": event["allocation"]["penalty"],
                 }
+                if source_reversed:
+                    payload["transientChargeAllocation"] = True
                 if not source_reversed and _amount(event["allocation"]["fee"]) > 0:
                     payload["feeChargeExternalId"] = fee_charges[0]["external_id"]
                 if event.get("payment_type_id") is not None:

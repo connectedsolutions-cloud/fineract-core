@@ -77,7 +77,7 @@ public interface LoanAccountDomainService {
     LoanTransaction makeSourceExactTransaction(LoanTransactionType transactionType, Loan loan, LocalDate transactionDate,
             BigDecimal transactionAmount, PaymentDetail paymentDetail, String noteText, ExternalId txnExternalId,
             SourceExactRepaymentAllocation allocation, HolidayDetailDTO holidayDetailDto, Boolean isHolidayValidationDone,
-            boolean isAccountTransfer, boolean isLoanToLoanTransfer, String feeChargeExternalId);
+            boolean isAccountTransfer, boolean isLoanToLoanTransfer, String feeChargeExternalId, boolean transientChargeAllocation);
 
     LoanTransaction makeSourceExactComponentReallocation(Loan loan, LocalDate transactionDate, PaymentDetail paymentDetail, String noteText,
             ExternalId txnExternalId, SourceExactRepaymentAllocation allocation, String sourceSystem, String reversalMovementIds,

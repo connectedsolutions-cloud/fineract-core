@@ -502,6 +502,7 @@ public class LoanTransactionValidatorImpl implements LoanTransactionValidator {
         transactionParameters.addAll(Arrays.asList(LoanApiConstants.sourceExactPrincipalPortionParameterName,
                 LoanApiConstants.sourceExactInterestPortionParameterName, LoanApiConstants.sourceExactFeeChargesPortionParameterName,
                 LoanApiConstants.sourceExactFeeChargeExternalIdParameterName,
+                LoanApiConstants.sourceExactTransientChargeAllocationParameterName,
                 LoanApiConstants.sourceExactPenaltyChargesPortionParameterName, "cashierId"));
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, transactionParameters);
@@ -538,6 +539,12 @@ public class LoanTransactionValidatorImpl implements LoanTransactionValidator {
                 .extractStringNamed(LoanApiConstants.sourceExactFeeChargeExternalIdParameterName, element);
         baseDataValidator.reset().parameter(LoanApiConstants.sourceExactFeeChargeExternalIdParameterName).value(feeChargeExternalId)
                 .notExceedingLengthOf(100);
+        final Boolean transientChargeAllocation = this.fromApiJsonHelper
+                .extractBooleanNamed(LoanApiConstants.sourceExactTransientChargeAllocationParameterName, element);
+        if (Boolean.TRUE.equals(transientChargeAllocation) && StringUtils.isNotBlank(feeChargeExternalId)) {
+            baseDataValidator.reset().parameter(LoanApiConstants.sourceExactTransientChargeAllocationParameterName)
+                    .failWithCode("cannot.use.persistent.fee.charge.identity");
+        }
         final String note = this.fromApiJsonHelper.extractStringNamed(LoanApiConstants.noteParameterName, element);
         baseDataValidator.reset().parameter(LoanApiConstants.noteParameterName).value(note).notExceedingLengthOf(1000);
         validatePaymentDetails(baseDataValidator, element);

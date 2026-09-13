@@ -922,3 +922,21 @@ Before Mobile Collections can reach complete native loan and repayment links,
 the selected target still needs a fresh full-scope loan plan, apply,
 reconciliation, and unchanged second plan. Follow the canonical
 [manual loans-to-mobile flow](../orchestration.md#current-manual-loans-to-mobile-collections-flow).
+
+### Reversed repayment charge-allocation invariant
+
+The September 2026 fresh-run investigation separated infrastructure failures
+from two source-exact replay defects. First, a historical fee charge becomes
+inactive after it is paid, while normal transaction processing supplies only
+active charges. Source-exact replay must therefore resolve its persisted
+`feeChargeExternalId` from the loan's complete charge set while continuing to
+reject a missing identity or a charge owned by a different repayment.
+
+Second, a source repayment marked `REVERSION=1` still needs its exact fee and
+penalty components represented until the paired reversal is posted. Creating
+persistent synthetic charge rows for that temporary transaction leaves false
+outstanding balances after reversal. Such repayments are now explicitly marked
+with `transientChargeAllocation`; Fineract materializes only the schedule
+capacity needed to process those components, creates no charge-paid ownership,
+and persists the marker so replay has the same behavior. Reprocessing after the
+transaction is reversed must leave zero fee or penalty schedule residue.

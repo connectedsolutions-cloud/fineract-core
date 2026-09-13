@@ -1408,6 +1408,8 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         final SourceExactRepaymentAllocation allocation = sourceExactAllocationFrom(command);
         final String feeChargeExternalId = command
                 .stringValueOfParameterNamed(LoanApiConstants.sourceExactFeeChargeExternalIdParameterName);
+        final boolean transientChargeAllocation = command
+                .booleanPrimitiveValueOfParameterNamed(LoanApiConstants.sourceExactTransientChargeAllocationParameterName);
         final ExternalId txnExternalId = externalIdFactory.createFromCommand(command, LoanApiConstants.externalIdParameterName);
         final Loan loan = this.loanAssembler.assembleFrom(loanId);
         if (!CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor.STRATEGY_CODE.equals(loan.transactionProcessingStrategy())) {
@@ -1431,6 +1433,9 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             }
             changes.put(LoanApiConstants.sourceExactFeeChargeExternalIdParameterName, feeChargeExternalId);
         }
+        if (transientChargeAllocation) {
+            changes.put(LoanApiConstants.sourceExactTransientChargeAllocationParameterName, true);
+        }
         changes.put(LoanApiConstants.localeParameterName, command.locale());
         changes.put(LoanApiConstants.dateFormatParameterName, command.dateFormat());
         changes.put(LoanApiConstants.PAYMENT_TYPE_PARAMNAME, command.longValueOfParameterNamed(LoanApiConstants.PAYMENT_TYPE_PARAMNAME));
@@ -1443,7 +1448,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         final PaymentDetail paymentDetail = this.paymentDetailWritePlatformService.createAndPersistPaymentDetail(command, changes);
         final LoanTransaction loanTransaction = this.loanAccountDomainService.makeSourceExactTransaction(transactionType, loan,
                 transactionDate, transactionAmount, paymentDetail, noteText, txnExternalId, allocation, null, false, false, false,
-                feeChargeExternalId);
+                feeChargeExternalId, transientChargeAllocation);
         if (command.parameterExists("cashierId")) {
             loanTransaction.setCashierId(command.longValueOfParameterNamed("cashierId"));
         }

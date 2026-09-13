@@ -218,7 +218,7 @@ public class LoanAccountDomainServiceJpa implements LoanAccountDomainService {
             HolidayDetailDTO holidayDetailDto, Boolean isHolidayValidationDone, final boolean isLoanToLoanTransfer) {
         return makeRepaymentInternal(repaymentTransactionType, loan, transactionDate, transactionAmount, paymentDetail, noteText,
                 txnExternalId, isRecoveryRepayment, chargeRefundChargeType, isAccountTransfer, holidayDetailDto, isHolidayValidationDone,
-                isLoanToLoanTransfer, null, null, null, null, null);
+                isLoanToLoanTransfer, null, null, null, null, null, false);
     }
 
     @Transactional
@@ -227,10 +227,10 @@ public class LoanAccountDomainServiceJpa implements LoanAccountDomainService {
             final LocalDate transactionDate, final BigDecimal transactionAmount, final PaymentDetail paymentDetail, final String noteText,
             final ExternalId txnExternalId, final SourceExactRepaymentAllocation allocation, final HolidayDetailDTO holidayDetailDto,
             final Boolean isHolidayValidationDone, final boolean isAccountTransfer, final boolean isLoanToLoanTransfer,
-            final String feeChargeExternalId) {
+            final String feeChargeExternalId, final boolean transientChargeAllocation) {
         return makeRepaymentInternal(transactionType, loan, transactionDate, transactionAmount, paymentDetail, noteText, txnExternalId,
                 false, null, isAccountTransfer, holidayDetailDto, isHolidayValidationDone, isLoanToLoanTransfer, allocation, null, null,
-                null, feeChargeExternalId);
+                null, feeChargeExternalId, transientChargeAllocation);
     }
 
     @Transactional
@@ -241,7 +241,7 @@ public class LoanAccountDomainServiceJpa implements LoanAccountDomainService {
             final String repaymentMovementId) {
         return makeRepaymentInternal(LoanTransactionType.REPAYMENT, loan, transactionDate, BigDecimal.ZERO, paymentDetail, noteText,
                 txnExternalId, false, null, false, null, false, false, allocation, sourceSystem, reversalMovementIds, repaymentMovementId,
-                null);
+                null, false);
     }
 
     private LoanTransaction makeRepaymentInternal(final LoanTransactionType repaymentTransactionType, Loan loan,
@@ -249,7 +249,8 @@ public class LoanAccountDomainServiceJpa implements LoanAccountDomainService {
             final ExternalId txnExternalId, final boolean isRecoveryRepayment, final String chargeRefundChargeType,
             final boolean isAccountTransfer, final HolidayDetailDTO holidayDetailDto, final Boolean isHolidayValidationDone,
             final boolean isLoanToLoanTransfer, final SourceExactRepaymentAllocation sourceExactAllocation, final String sourceSystem,
-            final String reversalMovementIds, final String repaymentMovementId, final String feeChargeExternalId) {
+            final String reversalMovementIds, final String repaymentMovementId, final String feeChargeExternalId,
+            final boolean transientChargeAllocation) {
         checkClientOrGroupActive(loan);
 
         LoanBusinessEvent repaymentEvent = getLoanRepaymentTypeBusinessEvent(repaymentTransactionType, isRecoveryRepayment, loan);
@@ -274,7 +275,7 @@ public class LoanAccountDomainServiceJpa implements LoanAccountDomainService {
                     paymentDetail, transactionDate, txnExternalId, chargeRefundChargeType);
         }
         if (sourceExactAllocation != null) {
-            newRepaymentTransaction.markAsSourceExactAllocation(sourceExactAllocation, feeChargeExternalId);
+            newRepaymentTransaction.markAsSourceExactAllocation(sourceExactAllocation, feeChargeExternalId, transientChargeAllocation);
         }
         if (sourceSystem != null) {
             newRepaymentTransaction.markAsSourceExactComponentReallocation(sourceSystem, reversalMovementIds, repaymentMovementId);

@@ -123,6 +123,13 @@ public class LoanTransaction extends AbstractAuditableWithUTCDateTimeCustom<Long
     @Column(name = "source_exact_fee_charge_external_id", length = 100)
     private String sourceExactFeeChargeExternalId;
 
+    /**
+     * True only for a source repayment that is immediately reversed by a later source movement. Its fee and penalty
+     * components must exist long enough to preserve the exact transaction, but must not create persistent charge rows.
+     */
+    @Column(name = "source_exact_transient_charge_allocation", nullable = false)
+    private boolean sourceExactTransientChargeAllocation;
+
     @Column(name = "source_exact_penalty_charges_portion", scale = 6, precision = 19)
     private BigDecimal sourceExactPenaltyChargesPortion;
 
@@ -391,6 +398,7 @@ public class LoanTransaction extends AbstractAuditableWithUTCDateTimeCustom<Long
         newTransaction.sourceExactInterestPortion = loanTransaction.sourceExactInterestPortion;
         newTransaction.sourceExactFeeChargesPortion = loanTransaction.sourceExactFeeChargesPortion;
         newTransaction.sourceExactFeeChargeExternalId = loanTransaction.sourceExactFeeChargeExternalId;
+        newTransaction.sourceExactTransientChargeAllocation = loanTransaction.sourceExactTransientChargeAllocation;
         newTransaction.sourceExactPenaltyChargesPortion = loanTransaction.sourceExactPenaltyChargesPortion;
         newTransaction.sourceExactReallocationSystem = loanTransaction.sourceExactReallocationSystem;
         newTransaction.sourceExactReversalMovementIds = loanTransaction.sourceExactReversalMovementIds;
@@ -708,12 +716,18 @@ public class LoanTransaction extends AbstractAuditableWithUTCDateTimeCustom<Long
     }
 
     public void markAsSourceExactAllocation(final SourceExactRepaymentAllocation allocation, final String feeChargeExternalId) {
+        markAsSourceExactAllocation(allocation, feeChargeExternalId, false);
+    }
+
+    public void markAsSourceExactAllocation(final SourceExactRepaymentAllocation allocation, final String feeChargeExternalId,
+            final boolean transientChargeAllocation) {
         this.sourceExactAllocation = true;
         this.sourceExactPrincipalPortion = allocation.principal();
         this.sourceExactInterestPortion = allocation.interest();
         this.sourceExactFeeChargesPortion = allocation.feeCharges();
         this.sourceExactPenaltyChargesPortion = allocation.penaltyCharges();
         this.sourceExactFeeChargeExternalId = feeChargeExternalId;
+        this.sourceExactTransientChargeAllocation = transientChargeAllocation;
     }
 
     public void markAsSourceExactComponentReallocation(final String sourceSystem, final String reversalMovementIds,

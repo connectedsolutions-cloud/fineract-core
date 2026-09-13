@@ -20,6 +20,7 @@ package org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.im
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRuleException;
@@ -69,6 +70,7 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
         }
         if (loanTransaction.isSourceExactAllocation()) {
             materializeSourceExactPostDueInterest(loanTransaction, currency, installments);
+            materializeSourceExactTransientCharges(loanTransaction, currency, installments);
             return processSourceExactRepayment(loanTransaction, currency, installments, charges);
         }
         return super.processTransaction(loanTransaction, currency, installments, charges, amountToProcess);
@@ -91,7 +93,7 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
                 chargeAmountToProcess);
         if (loanTransaction.isNotWaiver() && !loanTransaction.isAccrual() && !loanTransaction.isAccrualActivity()) {
             final Money penaltyCharges = loanTransaction.getPenaltyChargesPortion(currency);
-            if (penaltyCharges.isGreaterThanZero()) {
+            if (penaltyCharges.isGreaterThanZero() && !loanTransaction.isSourceExactTransientChargeAllocation()) {
                 updateChargesPaidAmountBy(loanTransaction, penaltyCharges, extractPenaltyCharges(charges), null);
             }
         }
@@ -152,6 +154,34 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
                 .addPostDueInterest(loanTransaction.getTransactionDate(), sourcePostDueInterest);
     }
 
+    private void materializeSourceExactTransientCharges(final LoanTransaction loanTransaction, final MonetaryCurrency currency,
+            final List<LoanRepaymentScheduleInstallment> installments) {
+        if (!loanTransaction.isSourceExactTransientChargeAllocation() || installments.isEmpty()) {
+            return;
+        }
+        final Money requestedFee = loanTransaction.getSourceExactFeeChargesPortion(currency);
+        final Money requestedPenalty = loanTransaction.getSourceExactPenaltyChargesPortion(currency);
+        final Money representableFee = installments.stream().map(installment -> installment.getFeeChargesOutstanding(currency))
+                .reduce(Money.zero(currency), Money::add);
+        final Money representablePenalty = installments.stream().map(installment -> installment.getPenaltyChargesOutstanding(currency))
+                .reduce(Money.zero(currency), Money::add);
+        final Money missingFee = requestedFee.isGreaterThan(representableFee) ? requestedFee.minus(representableFee) : Money.zero(currency);
+        final Money missingPenalty = requestedPenalty.isGreaterThan(representablePenalty) ? requestedPenalty.minus(representablePenalty)
+                : Money.zero(currency);
+        if (!missingFee.isGreaterThanZero() && !missingPenalty.isGreaterThanZero()) {
+            return;
+        }
+        final LoanRepaymentScheduleInstallment installment = installments.stream()
+                .filter(LoanRepaymentScheduleInstallment::isNotFullyPaidOff)
+                .min((left, right) -> left.getDueDate().compareTo(right.getDueDate())).orElse(installments.getFirst());
+        if (missingFee.isGreaterThanZero()) {
+            installment.setFeeChargesCharged(installment.getFeeChargesCharged(currency).plus(missingFee).getAmount());
+        }
+        if (missingPenalty.isGreaterThanZero()) {
+            installment.setPenaltyCharges(installment.getPenaltyChargesCharged(currency).plus(missingPenalty).getAmount());
+        }
+    }
+
     private Money processSourceExactRepayment(final LoanTransaction loanTransaction, final MonetaryCurrency currency,
             final List<LoanRepaymentScheduleInstallment> installments, final Set<LoanCharge> charges) {
         final LocalDate transactionDate = loanTransaction.getTransactionDate();
@@ -201,7 +231,13 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
             // fee component is zero. The identity has no financial effect in that case and must not block later events.
             return;
         }
-        final LoanCharge target = charges.stream()
+        // Paid charges are inactive and are therefore absent from the active-charge set used by normal transaction
+        // processing. Source-exact replay must still be able to find its persisted, named charge on the loan.
+        final Set<LoanCharge> allLoanCharges = new HashSet<>(charges);
+        if (loanTransaction.getLoan() != null && loanTransaction.getLoan().getLoanCharges() != null) {
+            allLoanCharges.addAll(loanTransaction.getLoan().getLoanCharges());
+        }
+        final LoanCharge target = allLoanCharges.stream()
                 .filter(charge -> charge.getExternalId() != null && externalId.equals(charge.getExternalId().getValue())).findFirst()
                 .orElseThrow(() -> new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.fee.charge.missing",
                         "The declared source-exact fee charge does not exist on this loan"));
