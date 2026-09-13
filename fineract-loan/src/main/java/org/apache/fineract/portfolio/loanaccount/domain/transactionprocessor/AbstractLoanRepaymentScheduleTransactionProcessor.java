@@ -205,6 +205,9 @@ public abstract class AbstractLoanRepaymentScheduleTransactionProcessor implemen
                     } else if (LoanTransaction.transactionAmountsMatch(currency, loanTransaction, newLoanTransaction)) {
                         loanTransaction.updateLoanTransactionToRepaymentScheduleMappings(
                                 newLoanTransaction.getLoanTransactionToRepaymentScheduleMappings());
+                        if (loanTransaction.isSourceExactAllocation()) {
+                            loanTransaction.updateLoanChargePaidMappings(newLoanTransaction.getLoanChargesPaid());
+                        }
                     } else {
                         createNewTransaction(loanTransaction, newLoanTransaction, changedTransactionDetail);
                     }

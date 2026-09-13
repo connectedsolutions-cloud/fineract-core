@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -314,6 +315,89 @@ class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest {
         assertMoney("2.18", charge.getAmountPaid(CURRENCY));
         assertMoney("0.00", charge.getAmountOutstanding(CURRENCY));
         assertEquals(1, repayment.getLoanChargesPaid().size());
+    }
+
+    @Test
+    void sourceExactReplayRetainsChargeAlreadyOwnedByTheSameTransaction() {
+        final BigDecimal fee = new BigDecimal("2.18");
+        final LoanRepaymentScheduleInstallment installment = installment(1, LocalDate.of(2026, 5, 28), DUE_DATE, BigDecimal.ZERO,
+                BigDecimal.ZERO, fee);
+        final LoanTransaction repayment = repayment(DUE_DATE, fee);
+        final String transactionExternalId = "ARISSTO:CRD-MOV:0000000085";
+        repayment.updateExternalId(new ExternalId(transactionExternalId));
+        final String chargeExternalId = "ARISSTO:CRD-INS:198057:0000000085:0005";
+        repayment.markAsSourceExactAllocation(new SourceExactRepaymentAllocation(BigDecimal.ZERO, BigDecimal.ZERO, fee, BigDecimal.ZERO),
+                chargeExternalId);
+        final LoanCharge charge = new LoanCharge();
+        charge.setExternalId(new ExternalId(chargeExternalId));
+        charge.setAmount(fee);
+        charge.setAmountPaid(BigDecimal.ZERO);
+        charge.setAmountWaived(BigDecimal.ZERO);
+        charge.setAmountWrittenOff(BigDecimal.ZERO);
+        charge.setAmountOutstanding(fee);
+        charge.setPaid(false);
+        final LoanTransaction persistedOwner = repayment(DUE_DATE, fee);
+        persistedOwner.updateExternalId(new ExternalId(transactionExternalId));
+        final LoanChargePaidBy existingOwner = new LoanChargePaidBy(persistedOwner, charge, fee, null);
+        charge.getLoanChargePaidBySet().add(existingOwner);
+
+        processor.processTransaction(repayment, CURRENCY, List.of(installment), new HashSet<>(List.of(charge)), null);
+
+        assertMoney("2.18", repayment.getFeeChargesPortion(CURRENCY));
+        assertMoney("2.18", charge.getAmountPaid(CURRENCY));
+        assertMoney("0.00", charge.getAmountOutstanding(CURRENCY));
+        assertEquals(1, repayment.getLoanChargesPaid().size());
+    }
+
+    @Test
+    void sourceExactReplayPersistsNewChargeOwnershipWhenTransactionAmountsAreUnchanged() {
+        final BigDecimal fee = new BigDecimal("2.18");
+        final LoanRepaymentScheduleInstallment installment = installment(1, LocalDate.of(2026, 5, 28), DUE_DATE, BigDecimal.ZERO,
+                BigDecimal.ZERO);
+        final LoanTransaction repayment = repayment(DUE_DATE, fee);
+        repayment.setId(1L);
+        repayment.updateComponents(Money.zero(CURRENCY), Money.zero(CURRENCY), Money.of(CURRENCY, fee), Money.zero(CURRENCY));
+        final String chargeExternalId = "ARISSTO:CRD-INS:198057:0000000085:0005";
+        repayment.markAsSourceExactAllocation(new SourceExactRepaymentAllocation(BigDecimal.ZERO, BigDecimal.ZERO, fee, BigDecimal.ZERO),
+                chargeExternalId);
+        final LoanCharge charge = new LoanCharge();
+        charge.setLoan(loan);
+        charge.setExternalId(new ExternalId(chargeExternalId));
+        charge.setChargeTime(2);
+        charge.setChargeCalculation(1);
+        charge.setChargePaymentMode(0);
+        charge.setDueDate(DUE_DATE);
+        charge.setAmountOrPercentage(fee);
+        charge.setAmount(fee);
+        charge.setAmountPaid(BigDecimal.ZERO);
+        charge.setAmountWaived(BigDecimal.ZERO);
+        charge.setAmountWrittenOff(BigDecimal.ZERO);
+        charge.setAmountOutstanding(fee);
+        charge.setPaid(false);
+        final LoanCharge otherCharge = new LoanCharge();
+        otherCharge.setLoan(loan);
+        otherCharge.setExternalId(new ExternalId("ARISSTO:CRD-INS:198057:0000000086:0006"));
+        otherCharge.setChargeTime(2);
+        otherCharge.setChargeCalculation(1);
+        otherCharge.setChargePaymentMode(0);
+        otherCharge.setDueDate(DUE_DATE);
+        otherCharge.setAmountOrPercentage(new BigDecimal("5.00"));
+        otherCharge.setAmount(new BigDecimal("5.00"));
+        otherCharge.setAmountPaid(BigDecimal.ZERO);
+        otherCharge.setAmountWaived(BigDecimal.ZERO);
+        otherCharge.setAmountWrittenOff(BigDecimal.ZERO);
+        otherCharge.setAmountOutstanding(new BigDecimal("5.00"));
+        otherCharge.setPaid(false);
+
+        processor.reprocessLoanTransactions(LocalDate.of(2026, 5, 28), List.of(repayment), CURRENCY, new ArrayList<>(List.of(installment)),
+                new HashSet<>(List.of(charge, otherCharge)));
+
+        assertEquals(1, repayment.getLoanChargesPaid().size());
+        assertEquals(charge, repayment.getLoanChargesPaid().iterator().next().getLoanCharge());
+        assertMoney("2.18", charge.getAmountPaid(CURRENCY));
+        assertMoney("0.00", charge.getAmountOutstanding(CURRENCY));
+        assertMoney("0.00", otherCharge.getAmountPaid(CURRENCY));
+        assertMoney("5.00", otherCharge.getAmountOutstanding(CURRENCY));
     }
 
     @Test

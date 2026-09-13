@@ -74,6 +74,21 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
         return super.processTransaction(loanTransaction, currency, installments, charges, amountToProcess);
     }
 
+    @Override
+    protected Money handleTransactionAndCharges(final LoanTransaction loanTransaction, final MonetaryCurrency currency,
+            final List<LoanRepaymentScheduleInstallment> installments, final Set<LoanCharge> charges, final Money chargeAmountToProcess,
+            final boolean isFeeCharge) {
+        if (!loanTransaction.isSourceExactAllocation()) {
+            return super.handleTransactionAndCharges(loanTransaction, currency, installments, charges, chargeAmountToProcess, isFeeCharge);
+        }
+        if (loanTransaction.isRepaymentLikeType() || loanTransaction.isInterestWaiver() || loanTransaction.isRecoveryRepayment()) {
+            loanTransaction.resetDerivedComponents();
+        }
+        // processSourceExactRepayment assigns the declared charge itself. Running the base post-processing afterwards
+        // would allocate the same fee a second time to whichever other charge happens to be earliest.
+        return processTransaction(loanTransaction, currency, installments, charges, chargeAmountToProcess);
+    }
+
     private Money processSourceExactComponentReallocation(final LoanTransaction loanTransaction, final MonetaryCurrency currency,
             final List<LoanRepaymentScheduleInstallment> installments) {
         final Money requestedPrincipal = loanTransaction.getSourceExactPrincipalPortion(currency);
@@ -181,6 +196,36 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
                 .filter(charge -> charge.getExternalId() != null && externalId.equals(charge.getExternalId().getValue())).findFirst()
                 .orElseThrow(() -> new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.fee.charge.missing",
                         "The declared source-exact fee charge does not exist on this loan"));
+        final String transactionExternalId = loanTransaction.getExternalId() == null ? null : loanTransaction.getExternalId().getValue();
+        final LoanChargePaidBy existingOwner = target.getLoanChargePaidBySet().stream().filter(mapping -> {
+            final LoanTransaction ownerTransaction = mapping.getLoanTransaction();
+            if (ownerTransaction == null) {
+                return false;
+            }
+            if (ownerTransaction.equals(loanTransaction)) {
+                return true;
+            }
+            return transactionExternalId != null && ownerTransaction.getExternalId() != null
+                    && transactionExternalId.equals(ownerTransaction.getExternalId().getValue());
+        }).findFirst().orElse(null);
+        if (existingOwner != null) {
+            final Money existingPaid = Money.of(currency, existingOwner.getAmount());
+            final boolean hasConflictingOwner = target.getLoanChargePaidBySet().stream()
+                    .anyMatch(mapping -> mapping != existingOwner && mapping.getAmount().signum() > 0);
+            if (!existingPaid.isEqualTo(requested) || hasConflictingOwner) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.fee.charge.not.representable",
+                        "The declared source-exact fee charge has an incompatible existing payment owner");
+            }
+            // Adding the next historical charge retains the exact earlier owner row while replay resets the charge's
+            // derived paid amount. Restore that amount, then reattach ownership to the transaction being rebuilt.
+            target.updatePaidAmountBy(requested, null, requested.zero());
+            if (!target.getAmountPaid(currency).isEqualTo(requested) || !target.getAmountOutstanding(currency).isZero()) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.fee.charge.not.representable",
+                        "The declared source-exact fee charge cannot restore its existing payment owner");
+            }
+            loanTransaction.updateLoanChargePaidMappings(List.of(existingOwner));
+            return;
+        }
         Money paid = target.updatePaidAmountBy(requested, null, requested.zero());
         if (!paid.isEqualTo(requested) && target.getLoanChargePaidBySet().isEmpty() && target.getAmountPaid(currency).isEqualTo(requested)
                 && target.getAmountOutstanding(currency).isZero()) {

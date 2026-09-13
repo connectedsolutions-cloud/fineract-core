@@ -66,7 +66,7 @@ CONFIG = Path(__file__).resolve().parents[1] / "config" / "loans.json"
 
 class LoanInspectionTests(unittest.TestCase):
     def test_historical_insurance_settlement_requires_the_declared_charge_to_close(self):
-        lifecycle = {"events": [{"source_reversed": False, "historical_insurance_charges": [{
+        lifecycle = {"events": [{"role": "repayment", "source_reversed": False, "historical_insurance_charges": [{
             "external_id": "ARISSTO:CRD-INS:7:101:1", "amount": "0.72",
         }]}]}
         settled = {"charges": [{
@@ -79,6 +79,17 @@ class LoanInspectionTests(unittest.TestCase):
         }]}
         with self.assertRaisesRegex(RuntimeError, "historical_insurance_charge_missing"):
             _verify_historical_insurance_charge_settlement(wrong_charge, lifecycle)
+
+    def test_historical_insurance_settlement_ignores_reversal_event_charge_metadata(self):
+        lifecycle = {"events": [{
+            "role": "repayment-reversal",
+            "source_reversed": False,
+            "historical_insurance_charges": [{
+                "external_id": "ARISSTO:CRD-INS:7:102:2", "amount": "0.72",
+            }],
+        }]}
+
+        _verify_historical_insurance_charge_settlement({"charges": []}, lifecycle)
 
     def test_transient_fineract_failure_pauses_and_retries(self):
         operation = MagicMock(side_effect=[requests.ConnectionError("offline"), "recovered"])
@@ -699,6 +710,30 @@ class LoanInspectionTests(unittest.TestCase):
         self.assertEqual(frozen["expected"]["total_outstanding"], "344.00")
         self.assertIsNone(frozen["legacy_timeline"])
         self.assertEqual(len(result["lifecycle_hash"]), 64)
+
+    def test_lifecycle_plan_does_not_create_insurance_charge_for_reversal(self):
+        loan, lifecycle, target, payload = self.lifecycle_fixture()
+        original = lifecycle["movements"][-1]
+        original.update({
+            "CODIGO_SISTEMA": 4, "ID_TRANSACCION": "00001", "REVERSION": "1",
+        })
+        lifecycle["movements"].append({
+            **original,
+            "ID_MOVIMIENTO_CARTERA": "102",
+            "ID_TRANSACCION": "00004",
+            "REVERSION": "",
+        })
+        lifecycle["charge_details"].append({
+            **lifecycle["charge_details"][0],
+            "ID_MOVIMIENTO_CARTERA": "102",
+            "ID_RECARGO_CARTERA": 7002,
+            "ID_PAGOS": "0002",
+        })
+
+        result = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+
+        reversal = next(event for event in result["lifecycle"]["events"] if event["role"] == "repayment-reversal")
+        self.assertNotIn("historical_insurance_charges", reversal)
 
     def test_legacy_insurance_uses_typed_detail_when_monto_seguro_is_empty(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
@@ -2553,6 +2588,43 @@ class LoanInspectionTests(unittest.TestCase):
              "penaltyChargesPortion": "0.00"},
         )
         self.assertEqual(repayment_payload["feeChargeExternalId"], "ARISSTO:CRD-INS:7001:101:0001")
+
+    def test_lifecycle_writer_restores_missing_charge_for_existing_repayment(self):
+        loan, lifecycle, target, payload = self.lifecycle_fixture()
+        built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        built["lifecycle"]["cutover_insurance_charge"] = None
+        built["lifecycle"]["recurring_insurance_charge"] = None
+        action = {"external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
+        active = {
+            "id": 55, "loanProductId": 90, "clientId": 900, "principal": 350,
+            "status": {"id": 300}, "charges": [],
+            "repaymentSchedule": self.calculated_schedule(built["lifecycle"]),
+            "transactions": [
+                {"id": 1, "externalId": "ARISSTO:CRD-MOV:100", "amount": 350},
+                {
+                    "id": 2, "externalId": "ARISSTO:CRD-MOV:101", "amount": 10,
+                    "principalPortion": 8, "interestPortion": 1.9,
+                    "feeChargesPortion": .1, "penaltyChargesPortion": 0,
+                },
+            ],
+        }
+        restored = {**active, "charges": [{
+            "externalId": "ARISSTO:CRD-INS:7001:101:0001", "amount": .1,
+            "amountOutstanding": 0,
+        }]}
+        api = MagicMock()
+        api.request.side_effect = [active, active]
+
+        with (
+            patch("arissto_sync.loans._find_loan", return_value=active),
+            patch("arissto_sync.loans._ensure_source_insurance_charges", return_value=restored) as ensure_charge,
+            patch("arissto_sync.loans._ensure_source_exact_guarantors"),
+        ):
+            loan_id, recovered = _apply_loan_lifecycle(api, action, 90)
+
+        self.assertEqual((loan_id, recovered), (55, True))
+        ensure_charge.assert_called_once()
+        self.assertEqual(ensure_charge.call_args.args[2]["external_id"], "ARISSTO:CRD-MOV:101")
 
     def test_lifecycle_writer_writes_source_exact_variations_before_approval(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()

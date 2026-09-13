@@ -2044,7 +2044,9 @@ def _build_loan_lifecycle_action(
             event["source_gross_amount"] = format(_amount(row.get("MONTO")), "f")
             event["source_refund_amount"] = format(refund, "f")
             event["amount_classification"] = "source-applied-amount-after-refund"
-        if insurance_details:
+        if insurance_details and role in {
+            "repayment", "adjusted-repayment", "mobile-collection-repayment"
+        }:
             event["historical_insurance_charges"] = [
                 {
                     "source_charge_id": _clean(detail.get("ID_RECARGO_CARTERA")),
@@ -2060,7 +2062,9 @@ def _build_loan_lifecycle_action(
                 }
                 for detail in insurance_details
             ]
-        elif legacy_other_insurance:
+        elif legacy_other_insurance and role in {
+            "repayment", "adjusted-repayment", "mobile-collection-repayment"
+        }:
             event["historical_insurance_charges"] = [{
                 "source_charge_id": None,
                 "source_payment_id": None,
@@ -3515,7 +3519,9 @@ def _verify_historical_insurance_charge_settlement(loan: dict[str, Any], lifecyc
         if row.get("externalId")
     }
     for event in lifecycle.get("events") or []:
-        if event.get("source_reversed"):
+        if event.get("source_reversed") or event.get("role") not in {
+            "repayment", "adjusted-repayment", "mobile-collection-repayment"
+        }:
             continue
         for expected in event.get("historical_insurance_charges") or []:
             external_id = expected["external_id"]
@@ -4480,19 +4486,19 @@ def _apply_loan_lifecycle(
             _verify_transaction_amount(existing_transaction, event)
             _verify_repayment_allocation(existing_transaction, event)
         elif role in {"repayment", "adjusted-repayment", "mobile-collection-repayment"}:
+            if _amount(event["allocation"]["penalty"]) > 0:
+                loan = _ensure_source_penalty_charge(api, loan, event, attempt_key)
+            if _amount(event["allocation"]["fee"]) > 0:
+                loan = _ensure_source_insurance_charges(api, loan, event, attempt_key)
+                fee_charges = event.get("historical_insurance_charges") or []
+                if len(fee_charges) != 1:
+                    raise RuntimeError(f"source_exact_fee_charge_identity_ambiguous:{event['external_id']}")
+                if _amount(fee_charges[0]["amount"]) != _amount(event["allocation"]["fee"]):
+                    raise RuntimeError(f"source_exact_fee_charge_amount_mismatch:{event['external_id']}")
             if existing_transaction is None:
                 status = int((loan.get("status") or {}).get("id") or -1)
                 if status != 300:
                     raise RuntimeError(f"loan_not_active_before_repayment:{status}")
-                if _amount(event["allocation"]["penalty"]) > 0:
-                    loan = _ensure_source_penalty_charge(api, loan, event, attempt_key)
-                if _amount(event["allocation"]["fee"]) > 0:
-                    loan = _ensure_source_insurance_charges(api, loan, event, attempt_key)
-                    fee_charges = event.get("historical_insurance_charges") or []
-                    if len(fee_charges) != 1:
-                        raise RuntimeError(f"source_exact_fee_charge_identity_ambiguous:{event['external_id']}")
-                    if _amount(fee_charges[0]["amount"]) != _amount(event["allocation"]["fee"]):
-                        raise RuntimeError(f"source_exact_fee_charge_amount_mismatch:{event['external_id']}")
                 payload = {
                     "transactionDate": event["date"], "transactionAmount": event["amount"],
                     "externalId": event["external_id"], "dateFormat": "yyyy-MM-dd", "locale": "en",
