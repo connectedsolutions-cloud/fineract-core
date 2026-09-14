@@ -21,6 +21,9 @@ from arissto_sync.loans import (
     _attempt_idempotency_key,
     _build_loan_lifecycle_action,
     _classify_voided_refinance_attempts,
+    _collateral_runtime_contract,
+    _ensure_loan_collaterals,
+    _ensure_existing_loan_collateral_attachments,
     _ensure_recurring_insurance_charge,
     _ensure_source_exact_guarantors,
     _ensure_pending_native_creation_override,
@@ -680,6 +683,24 @@ class LoanInspectionTests(unittest.TestCase):
         return loan, lifecycle, target, payload
 
     @staticmethod
+    def property_collateral():
+        return {
+            "ID_SOLICITUD_GARANTIA": 77,
+            "type_id": "002", "subtype_id": "002",
+            "DESCRIPCION": "Casa de habitación",
+            "PROPIEDAD_SOLICITANTE": "1", "RELACION_PROPIETARIO": None,
+            "DESCRIPCION_INMUEBLE": "Vivienda de concreto",
+            "DIRECCION": "Sensitive source address",
+            "MATRICULA_INMUEBLE": "M-123", "NATURALEZA": "URBANA",
+            "AREA": "120.50", "DERECHO_PROPIEDAD": "PLENO",
+            "GRAVAMENES": "0", "EMBARGO_JUDICIAL": "0",
+            "SOLVENCIA_MUNICIPAL": "SOLVENTE",
+            "FECHA_VALUO": "2026-08-12", "VALUO_TOTAL": "500.00",
+            "VALUO_TERRENO": "200.00", "VALUO_CONSTRUCCION": "300.00",
+            "PERITO_VALUADOR": "Migration appraiser",
+        }
+
+    @staticmethod
     def calculated_schedule(lifecycle):
         schedule = lifecycle["schedule"]
         return {
@@ -730,6 +751,130 @@ class LoanInspectionTests(unittest.TestCase):
         self.assertEqual(frozen["expected"]["total_outstanding"], "344.00")
         self.assertIsNone(frozen["legacy_timeline"])
         self.assertEqual(len(result["lifecycle_hash"]), 64)
+
+    def test_collateral_contract_freezes_safe_summary_and_runtime_payload(self):
+        loan, lifecycle, target, payload = self.lifecycle_fixture()
+        lifecycle["collaterals"] = [self.property_collateral()]
+
+        summaries, runtime, quarantines = _collateral_runtime_contract(
+            self.contract, loan, lifecycle,
+        )
+
+        self.assertEqual(quarantines, [])
+        self.assertEqual(summaries[0]["asset_external_id"], "ARISSTO:CRD-GUAR:77")
+        self.assertEqual(summaries[0]["valuation_external_id"], "ARISSTO:CRD-VAL:77")
+        self.assertNotIn("Sensitive source address", json.dumps(summaries))
+        self.assertEqual(runtime[0]["asset"]["property"]["address"], "Sensitive source address")
+        self.assertEqual(runtime[0]["valuation"]["status"], "FINAL")
+
+    def test_collateral_missing_date_and_undercoverage_quarantine_loan(self):
+        loan, lifecycle, _target, _payload = self.lifecycle_fixture()
+        collateral = self.property_collateral()
+        collateral["FECHA_VALUO"] = None
+        collateral["VALUO_TOTAL"] = "100.00"
+        lifecycle["collaterals"] = [collateral]
+
+        _summaries, _runtime, quarantines = _collateral_runtime_contract(
+            self.contract, loan, lifecycle,
+        )
+
+        self.assertIn("collateral_valuation_date_missing:77", quarantines)
+        self.assertIn("collateral_valuation_under_covers_principal:100.00:350.00", quarantines)
+
+    def test_collateral_plan_adds_internal_product_dependency_without_sensitive_payload(self):
+        loan, lifecycle, target, _payload = self.lifecycle_fixture()
+        lifecycle["collaterals"] = [self.property_collateral()]
+        product = self.product("00010", "001", "M-MICROCREDITO MULTIDESTINO")
+        target.update({
+            "products": {"00010": None}, "crosswalks": {}, "loans": {},
+            "collateral_product": None,
+        })
+        settings = SimpleNamespace(
+            source=SimpleNamespace(), target=SimpleNamespace(fingerprint="target"),
+        )
+
+        with patch("arissto_sync.loans.source_fingerprint", return_value="source"):
+            plan = compose_loan_plan(
+                settings, self.contract, [loan], [product], target,
+                source_lifecycles={2068: lifecycle}, migration_cutover_date="2026-08-31",
+            )
+
+        self.assertEqual(plan["actions"][0]["source_key"], "collateral-product:arissto")
+        loan_action = next(row for row in plan["actions"] if row["source_key"] == "loan:2068")
+        self.assertIn("collateral-product:arissto", loan_action["depends_on"])
+        self.assertNotIn("Sensitive source address", json.dumps(plan))
+
+    def test_client_collateral_creation_is_recoverable_by_asset_external_id(self):
+        loan, lifecycle, _target, _payload = self.lifecycle_fixture()
+        lifecycle["collaterals"] = [self.property_collateral()]
+        _summaries, runtime, _quarantines = _collateral_runtime_contract(
+            self.contract, loan, lifecycle,
+        )
+        action = {
+            "external_id": "ARISSTO:CRD:2068",
+            "lifecycle": {"application_payload": {"clientId": 900}},
+            "_runtime_collaterals": runtime,
+        }
+        api = MagicMock()
+        created = False
+
+        def request(method, path, payload=None, **_kwargs):
+            nonlocal created
+            if method == "POST":
+                created = True
+                return {"resourceId": 55}
+            if path == "clients/900/collaterals":
+                return [{"id": 55}] if created else []
+            if path.endswith("/asset"):
+                return {"id": 70, "clientCollateralId": 55, **runtime[0]["asset"]}
+            if path.endswith("/valuations"):
+                return [{"id": 80, "assetId": 70, **runtime[0]["valuation"]}]
+            raise AssertionError((method, path, payload))
+
+        api.request.side_effect = request
+        first = _ensure_loan_collaterals(api, action, 12, "run-1")
+        second = _ensure_loan_collaterals(api, action, 12, "run-2")
+
+        self.assertEqual(first, second)
+        self.assertEqual(first, [{"clientCollateralId": 55, "quantity": "1.00", "valuationId": 80}])
+        post_calls = [call for call in api.request.call_args_list if call.args[0] == "POST"]
+        self.assertEqual(len(post_calls), 1)
+        self.assertEqual(post_calls[0].args[2]["collateralId"], 12)
+
+    def test_existing_loan_collateral_backfill_only_fills_empty_set(self):
+        expected = [
+            {"clientCollateralId": 55, "quantity": "1.00", "valuationId": 80},
+            {"clientCollateralId": 56, "quantity": "1.00", "valuationId": 81},
+        ]
+        loan = {"id": 522, "collateral": []}
+        refreshed = {"id": 522, "collateral": expected}
+        api = MagicMock()
+        api.request.side_effect = [{"resourceId": 90}, {"resourceId": 91}, refreshed]
+
+        result = _ensure_existing_loan_collateral_attachments(
+            api, loan, expected, "ARISSTO:CRD:901", "run-1",
+        )
+
+        self.assertEqual(result, refreshed)
+        posts = [row for row in api.request.call_args_list if row.args[0] == "POST"]
+        self.assertEqual(len(posts), 2)
+        self.assertEqual(posts[0].args[1], "loan-collateral-management/522")
+        self.assertEqual(posts[0].kwargs["query"], {"command": "sourceExactAttach"})
+
+    def test_existing_loan_collateral_backfill_refuses_nonempty_mismatch(self):
+        expected = [{"clientCollateralId": 55, "quantity": "1.00", "valuationId": 80}]
+        loan = {
+            "id": 522,
+            "collateral": [{"clientCollateralId": 99, "quantity": "1.00", "valuationId": 98}],
+        }
+        api = MagicMock()
+
+        with self.assertRaisesRegex(RuntimeError, "existing_loan_collateral_contract_conflict"):
+            _ensure_existing_loan_collateral_attachments(
+                api, loan, expected, "ARISSTO:CRD:901", "run-1",
+            )
+
+        api.request.assert_not_called()
 
     def test_lifecycle_plan_does_not_create_insurance_charge_for_reversal(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
@@ -3487,11 +3632,12 @@ class LoanInspectionTests(unittest.TestCase):
             result = extract_loan_lifecycle_rows(settings, self.contract, loans)
 
         self.assertEqual(len(result), 901)
-        self.assertEqual(select.call_count, 14)
+        self.assertEqual(select.call_count, 20)
         parameter_counts = [len(call.args[2]) for call in select.call_args_list]
         self.assertEqual(
             parameter_counts,
-            [900, 900, 900, 900, 900, 900, 1800, 1, 1, 1, 1, 1, 1, 2],
+            [900, 900, 900, 900, 900, 900, 900, 900, 900, 1800,
+             1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
         )
         self.assertLessEqual(max(parameter_counts), 2100)
 
@@ -4135,6 +4281,10 @@ class LoanInspectionTests(unittest.TestCase):
             [{"company_id": "001", "line_id": "00010", "loan_count": 1}],
             [{"loan_state": "1", "loan_type": "1", "loan_count": 1}],
             [{"loan_count": 1, "missing_application_count": 0}],
+            [{"collateral_count": 0, "loans_with_collateral": 0,
+              "missing_valuation_dates": 0, "invalid_valuation_totals": 0,
+              "unsupported_types": 0}],
+            [{"valuation_history_count": 0, "registration_history_count": 0}],
             [{"loan_count": 1, "loans_with_schedule": 1, "loans_without_schedule": 0,
               "installment_count": 12, "null_due_dates": 0, "first_due_date_mismatches": 0}],
             [{"movement_count": 2, "blank_movement_keys": 0, "distinct_movement_keys": 2,
@@ -4206,6 +4356,10 @@ class LoanInspectionTests(unittest.TestCase):
             [{"company_id": "001", "line_id": "00010", "loan_count": 1}],
             [],
             [{"loan_count": 1, "missing_application_count": 0}],
+            [{"collateral_count": 0, "loans_with_collateral": 0,
+              "missing_valuation_dates": 0, "invalid_valuation_totals": 0,
+              "unsupported_types": 0}],
+            [{"valuation_history_count": 0, "registration_history_count": 0}],
             [{"loan_count": 1, "loans_with_schedule": 0, "loans_without_schedule": 1,
               "installment_count": 0, "null_due_dates": 0, "first_due_date_mismatches": 0}],
             [{"movement_count": 1, "blank_movement_keys": 0, "distinct_movement_keys": 1,

@@ -35,6 +35,10 @@ transaction, but must never create the same repayment again.
   `sandbox-2026-09-13-loans-b`, including dependency-complete recovery after an
   environmental disk-full interruption, a final durable ledger with no failed
   or blocked plan items, and strict reconciliation with zero blocking mismatches
+- That accepted cycle predates the collateral extension. The collateral writer,
+  recovery guards, and reconciliation are implemented and unit-tested, but a
+  new controlled fresh/clean local acceptance covering mortgage and vehicle
+  collateral is still required before treating that extension as production-ready.
 - CLI block: `loans`, inspection and immutable target-specific planning
 - Writer: product plus bounded native loan lifecycle for normal, adjusted,
   Cobro Movil, reversal, terminal, single-predecessor refinance, multi-loan
@@ -47,6 +51,20 @@ transaction, but must never create the same repayment again.
   writer preserves repeated source rows, supports historical attachment to
   closed loans, omits relationship/funding details, and reconciles exact active
   multiplicity without deleting target rows.
+- Application collateral is an internal loan subphase, not a separate registry
+  service. For affected loans the plan creates or verifies one deterministic
+  `ARISSTO-COLLATERAL` product, atomically creates each client asset with its
+  selected final appraisal, and submits the resulting client-collateral and
+  valuation IDs with the native loan. Asset and valuation external IDs make
+  retries recoverable without duplication.
+- Collateral plans retain safe identities, amounts, dates, and full-payload
+  hashes only; source addresses, vehicle identifiers, registry details, and
+  appraisal narrative exist only in the guarded in-memory apply payload.
+- Current parent guarantees support mortgage land/housing and pledged
+  vehicle/motorcycle records. Missing appraisal dates, non-positive or
+  under-covering values, and unknown types quarantine the affected loan. Any
+  future rows in `CRD_GARANTIA_VALUO` or `CRD_GARANTIA_INSCRIPCION` block the
+  service until their chronology is reviewed.
 - The single proved zero-cash Arissto component reallocation uses the separately
   permission-gated `sourceExactComponentReallocation` command and retains all
   constituent source movement identities.

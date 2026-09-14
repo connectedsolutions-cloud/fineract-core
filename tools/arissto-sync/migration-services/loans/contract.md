@@ -8,10 +8,16 @@ approve and disburse them, replay supported repayments and reversals, preserve
 charges and restructuring history, and reconcile the resulting native balances
 and accounting.
 
-The service includes only originated rows in `CRD_CARTERA`. Applications in
-`CRD_SOLICITUD_CREDITO` without a portfolio row are not loans and are deferred
-to a future application-history service. Daily and period snapshots are
-reconciliation evidence, not transactions to replay.
+The service includes only originated rows in `CRD_CARTERA`. Under reviewed
+scope decision [`SCOPE-001`](../scope-decisions.md#scope-001--standalone-credit-applications),
+standalone applications in `CRD_SOLICITUD_CREDITO` without a portfolio row are
+not synchronized for now. The source table remains
+available in Arissto, and fields needed to construct an originated loan may
+still be read through that loan's application relationship. A separate
+application-history service should be reconsidered only if rejected,
+withdrawn, or otherwise non-originated application history becomes a business
+requirement. Daily and period snapshots are reconciliation evidence, not
+transactions to replay.
 
 For each originated loan, the service also owns the personal-guarantor rows in
 `CRD_SOLICITUD_FIADOR`. Each source guarantor resolves through its declared
@@ -20,6 +26,14 @@ For each originated loan, the service also owns the personal-guarantor rows in
 one active `m_guarantor` row with `type_enum=1` and
 `entity_id=m_client.id` for every source row. Relationship code values and
 guarantor-funded savings details are intentionally out of scope.
+
+The same loan-owned boundary applies to pledged collateral in
+`CRD_SOLICITUD_GARANTIA`. Collateral is not a separate registry service because
+the currently populated source records belong to originated applications and
+must be attached to the native loan at creation. Internally it remains a
+distinct, idempotent subphase: resolve or create the shared collateral product,
+resolve or atomically create each client asset and its selected final
+valuation, then include those identities in the loan application payload.
 
 No downstream service may create a second financial transaction for an Arissto
 loan movement. In particular, `mobile-collections` may link to repayments
@@ -32,6 +46,9 @@ journal endpoint.
 AFI_SOCIO
   -> CRD_SOLICITUD_CREDITO
       -> CRD_SOLICITUD_FIADOR -> AFI_SOCIO (guarantor)
+      -> CRD_SOLICITUD_GARANTIA
+          -> CRD_GARANTIA_VALUO
+          -> CRD_GARANTIA_INSCRIPCION
       -> CRD_CARTERA
           -> CRD_PLAN_PAGO
           -> CRD_MOVIMIENTOS_CARTERA
@@ -75,8 +92,49 @@ repeated rows and may attach historical evidence to a closed loan. Reconcile
 requires the exact source multiplicity for every loan with source guarantors.
 
 The four current guarantor rows attached to applications without
-`CRD_CARTERA` remain outside this service and belong to the future
-application-history service.
+`CRD_CARTERA` remain outside synchronization under the same reviewed scope
+decision. They should be reconsidered together with standalone application
+history if that scope is added later.
+
+### Collateral subphase
+
+The reviewed source population contains 34 guarantee rows on 31 originated
+loans. Five are mortgages (`002`: three land and two housing) and 29 are
+pledges (`004`: 25 vehicles and four motorcycles). A loan may have two source
+guarantees, so the frozen lifecycle retains an ordered collection rather than
+a single field.
+
+The first implementation deliberately uses one migration-owned Fineract
+collateral product named `ARISSTO-COLLATERAL`. Its quantity is always `1.00`,
+base price is `1.00`, percentage to base is `100.00`, and the selected source
+appraisal carries the actual pledged and eligible value. The product is a
+top-level plan action and a prerequisite only for loan actions that contain
+source collateral. It is created once and recovered by its exact name and
+contract on retry; a conflicting product blocks the plan.
+
+Each client collateral is created atomically through
+`POST /clients/{clientId}/collaterals` with its asset detail and initial final
+valuation. Retry resolves it through the asset external ID before writing, so a
+timeout after a successful create cannot duplicate it. The resulting
+`clientCollateralId`, `valuationId`, and quantity are included in the native
+loan application. Existing loans must have the exact same collateral set or
+apply fails closed.
+
+Plans contain only source IDs, type/subtype, stable external IDs, appraisal
+date/value, and a hash of the full payload. Addresses, vehicle identifiers,
+registry numbers, owner detail, and appraisal narrative are re-read only after
+the apply-time source hash guard passes and are held in memory for the API
+write. They are never persisted in the plan or run ledger.
+
+The current `CRD_GARANTIA_VALUO` and `CRD_GARANTIA_INSCRIPCION` populations are
+empty. If either child table becomes populated, inspection blocks the loans
+service until ordering, supersession, and loan-association semantics are
+reviewed. The parent row's current appraisal is mapped as the selected `FINAL`
+valuation for now. A collateral row with no appraisal date, a non-positive
+value, an unsupported type/subtype, or aggregate appraised value below the
+approved principal quarantines only its loan. Source vehicle-type and quality
+codes remain unmapped until their catalog semantics are verified; the reviewed
+subtype label is retained in the descriptive vehicle/property field instead.
 
 ## Deterministic identities
 
@@ -125,6 +183,18 @@ MCD_MOVIMIENTOS.ID_MOVIMIENTO_CARTERA = 0000123456
 
 No service may resolve a transaction from date and amount when this identity is
 absent.
+
+### Collateral asset and valuation
+
+| Purpose | Value |
+|---|---|
+| Source asset owner | `CRD_SOLICITUD_GARANTIA` |
+| Source asset key | `ID_SOLICITUD_GARANTIA` |
+| Fineract asset identity | `ARISSTO:CRD-GUAR:{ID_SOLICITUD_GARANTIA}` |
+| Initial valuation identity | `ARISSTO:CRD-VAL:{ID_SOLICITUD_GARANTIA}` |
+
+Asset and valuation identities are global and deterministic. They do not use
+mutable description, plate, registry number, date, or amount fields.
 
 ### Client, staff, office, and product
 
@@ -1026,6 +1096,9 @@ For every selected loan, reconciliation compares:
 - principal, interest, penalty, fee, overpayment, and total balances;
 - closed/active/undisbursed outcome;
 - refinance predecessor/successor relationships; and
+- the exact migrated collateral set, asset and valuation identities, final
+  appraisal amount/date/status, loan quantity, and immutable pledged/eligible
+  valuation snapshot; and
 - native journal entries against the reviewed accounting roles.
 
 Transaction identity, date, total amount, principal/interest/penalty/fee
@@ -1045,6 +1118,8 @@ Acceptance requires a controlled local lifecycle run that covers at least:
 - one disbursement reversal;
 - one debt-insurance charge and payment;
 - one refinanced predecessor/successor chain;
+- one mortgage collateral and one vehicle collateral, including an unchanged
+  retry that recovers their deterministic asset and valuation identities;
 - a portfolio proof that either covers a linked restructure or establishes
   that no linked restructure exists; and
 - an idempotent second run.

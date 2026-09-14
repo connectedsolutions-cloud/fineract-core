@@ -108,6 +108,28 @@ REQUIRED_COLUMNS = {
     "guarantor_party_table": {
         "ID_EMPRESA", "ID_SUCURSAL", "ID_SOCIO", "NUMERO_AFILIACION",
     },
+    "collateral_table": {
+        "ID_EMPRESA", "ID_SUCURSAL", "ID_LINEA_CREDITO", "ID_SOCIO", "ID_SOLICITUD_CREDITO",
+        "ID_SOLICITUD_GARANTIA", "ID_TIPO_GARANTIA", "ID_SUB_GARANTIA", "VALOR_ESTIMADO",
+        "DESCRIPCION", "PROPIEDAD_SOLICITANTE", "RELACION_PROPIETARIO", "DIRECCION",
+        "ANIO_VEHICULO", "MARCA_VEHICULO", "MODELO_VEHICULO", "PLACA", "COLOR",
+        "NUMERO_MOTOR", "NUMERO_CHASIS", "NUMERO_VIN", "CLASE_VEHICULO", "CAPACIDAD_VEHICULO",
+        "FECHA_VENCIMIENTO_TARJETA", "DESCRIPCION_INMUEBLE", "NUMERO_MATRICULA",
+        "MATRICULA_INMUEBLE", "NATURALEZA", "AREA", "DERECHO_PROPIEDAD", "GRAVAMENES",
+        "EMBARGO_JUDICIAL", "SOLVENCIA_MUNICIPAL", "FECHA_VALUO", "VALUO_TOTAL",
+        "VALUO_TERRENO", "VALUO_CONSTRUCCION", "VALUO_MERCADO", "PRECIO_VENTA",
+        "PERITO_VALUADOR", "EMPRESA_VALUADORA", "OPINION_PERITO", "COSTO_VALUO",
+    },
+    "collateral_valuation_table": {
+        "ID_GARANTIA_VALUO", "ID_SOLICITUD_GARANTIA", "FECHA_VALUO", "DESCRIPCION",
+        "VALUO_TOTAL", "VALUO_TERRENO", "VALUO_CONSTRUCCION", "VALUO_MERCADO",
+        "PRECIO_VENTA", "PERITO_VALUADOR", "EMPRESA_VALUADORA", "OPINION_PERITO", "COSTO_VALUO",
+    },
+    "collateral_registration_table": {
+        "ID_GARANTIA_INSCRIPCION", "ID_SOLICITUD_GARANTIA", "ID_ENCARGADO_INSCRIPCION",
+        "FECHA_PRESENTACIÓN", "FECHA_INSCRIPCION", "NUMERO_INSCRIPCION", "ESTADO_INSCRIPCION",
+        "MONTO_PRESTAMO", "MONTO_COMPRAVENTA", "TIPO_CONTRATO", "OBSERVACION_INSCRIPCION",
+    },
     "schedule_table": {
         "ID_CREDITO", "NO_CUOTA", "FECHA_PAGO", "MONTO_CAPITAL", "MONTO_INTERES",
         "MONTO_OTROS", "MONTO_APORTACION", "ID_REESTRUCTURACION", "CUOTA_DIFERIDA",
@@ -166,6 +188,19 @@ REQUIRED_TARGET_COLUMNS = {
     },
     "m_loan": {"id", "account_no", "external_id", "product_id", "client_id", "loan_officer_id", "loan_status_id"},
     "m_guarantor": {"id", "loan_id", "type_enum", "entity_id", "is_active"},
+    "m_collateral_management": {"id", "name", "quality", "base_price", "unit_type", "pct_to_base", "currency"},
+    "m_client_collateral_management": {"id", "client_id", "collateral_id", "quantity"},
+    "m_client_collateral_asset": {"id", "client_collateral_id", "external_id", "asset_type", "status"},
+    "m_client_collateral_vehicle": {"asset_id", "manufacture_year", "make", "model", "plate", "chassis_number", "vin"},
+    "m_client_collateral_property": {"asset_id", "address", "registry_number", "property_nature", "area"},
+    "m_collateral_valuation": {
+        "id", "asset_id", "external_id", "valuation_type", "valuation_date", "currency_code", "total_value", "status",
+    },
+    "m_collateral_registration": {"id", "asset_id", "external_id"},
+    "m_loan_collateral_management": {
+        "id", "loan_id", "client_collateral_id", "quantity", "valuation_id", "pledged_value", "eligible_value",
+        "valuation_date",
+    },
     "m_loan_topup": {"id", "loan_id", "closure_loan_id", "operation_type", "topup_amount"},
     "m_loan_refinancing_settlement": {
         "id", "refinancing_id", "closure_loan_id", "account_transfer_details_id",
@@ -200,7 +235,7 @@ class LoanContract:
         if value.get("version") != 1:
             raise ValueError("Loans mapping requires version 1")
         for section in (
-            "source", "identity", "product_contract", "target", "supported_transactions",
+            "source", "identity", "collateral_contract", "product_contract", "target", "supported_transactions",
             "historical_schedule_exceptions", "historical_reference_only_schedules",
             "native_creation_overrides", "active_manual_schedule_imports",
             "source_error_quarantines",
@@ -224,6 +259,22 @@ class LoanContract:
             "ARISSTO:CRD-INS-LEGACY:{ID_MOVIMIENTO_CARTERA}"
         ):
             raise ValueError("Loans mapping has an invalid legacy-insurance external ID template")
+        collateral_contract = value["collateral_contract"]
+        if collateral_contract.get("target_currency") != "USD":
+            raise ValueError("Collateral valuations must use the reviewed USD target currency")
+        if collateral_contract.get("supported_types") != {"002": "PROPERTY", "004": "VEHICLE"}:
+            raise ValueError("Loans mapping has an unreviewed collateral type scope")
+        if collateral_contract.get("supported_subtypes") != {
+            "002:001": "TERRENO", "002:002": "VIVIENDA",
+            "004:008": "VEHICULO", "004:009": "MOTOCICLETA",
+        }:
+            raise ValueError("Loans mapping has an unreviewed collateral subtype scope")
+        if collateral_contract.get("child_history_policy") != "block-if-populated-until-chronology-reviewed":
+            raise ValueError("Collateral child history must remain blocked until its chronology is reviewed")
+        if collateral_contract.get("missing_valuation_date_policy") != "quarantine-loan":
+            raise ValueError("Collateral without an appraisal date must quarantine its loan")
+        if collateral_contract.get("undercovered_loan_policy") != "quarantine-loan":
+            raise ValueError("Undercovered collateral must quarantine its loan")
         product_contract = value["product_contract"]
         if product_contract.get("target_baseline") != "empty-business-data":
             raise ValueError("Loans product planning must assume an empty business-data target")
@@ -454,6 +505,10 @@ def product_action_key(line_id: str) -> str:
     if not re.fullmatch(r"[0-9]{5}", value):
         raise ValueError(f"Invalid Arissto credit-line identity: {line_id!r}")
     return f"product:{value}"
+
+
+def collateral_product_action_key() -> str:
+    return "collateral-product:arissto"
 
 
 def loan_action_key(loan_id: str | int) -> str:
@@ -1408,6 +1463,9 @@ def extract_loan_lifecycle_rows(
     loan_id_batches = [loan_ids[offset:offset + 900] for offset in range(0, len(loan_ids), 900)]
     applications: list[dict[str, Any]] = []
     guarantors: list[dict[str, Any]] = []
+    collaterals: list[dict[str, Any]] = []
+    collateral_valuations: list[dict[str, Any]] = []
+    collateral_registrations: list[dict[str, Any]] = []
     schedules: list[dict[str, Any]] = []
     schedule_adjustments: list[dict[str, Any]] = []
     movements: list[dict[str, Any]] = []
@@ -1443,6 +1501,48 @@ def extract_loan_lifecycle_rows(
              AND gs.ID_SOCIO=f.ID_SOCIO_FIADOR
             WHERE c.ID_CREDITO IN ({placeholders})
             ORDER BY c.ID_CREDITO,f.ID_SOCIO_FIADOR,f.ID_EMPRESA_FIADOR,f.ID_SUCURSAL_FIADOR
+        """, tuple(batch)))
+            collaterals.extend(select_rows(conn, f"""
+            SELECT c.ID_CREDITO,g.ID_SOLICITUD_GARANTIA,
+                   RTRIM(g.ID_TIPO_GARANTIA) AS type_id,RTRIM(g.ID_SUB_GARANTIA) AS subtype_id,
+                   g.VALOR_ESTIMADO,g.DESCRIPCION,g.PROPIEDAD_SOLICITANTE,g.RELACION_PROPIETARIO,g.DIRECCION,
+                   g.ANIO_VEHICULO,g.MARCA_VEHICULO,g.MODELO_VEHICULO,g.PLACA,g.COLOR,
+                   g.NUMERO_MOTOR,g.NUMERO_CHASIS,g.NUMERO_VIN,g.CLASE_VEHICULO,g.CAPACIDAD_VEHICULO,
+                   g.FECHA_VENCIMIENTO_TARJETA,g.DESCRIPCION_INMUEBLE,g.NUMERO_MATRICULA,g.MATRICULA_INMUEBLE,
+                   g.NATURALEZA,g.AREA,g.DERECHO_PROPIEDAD,g.GRAVAMENES,g.EMBARGO_JUDICIAL,g.SOLVENCIA_MUNICIPAL,
+                   g.FECHA_VALUO,g.VALUO_TOTAL,g.VALUO_TERRENO,g.VALUO_CONSTRUCCION,g.VALUO_MERCADO,g.PRECIO_VENTA,
+                   g.PERITO_VALUADOR,g.EMPRESA_VALUADORA,g.OPINION_PERITO,g.COSTO_VALUO
+            FROM [dbo].[{source['loan_table']}] c
+            JOIN [dbo].[{source['collateral_table']}] g
+              ON g.ID_EMPRESA=c.ID_EMPRESA AND g.ID_SUCURSAL=c.ID_SUCURSAL
+             AND g.ID_LINEA_CREDITO=c.ID_LINEA_CREDITO AND g.ID_SOCIO=c.ID_SOCIO
+             AND g.ID_SOLICITUD_CREDITO=c.ID_SOLICITUD_CREDITO
+            WHERE c.ID_CREDITO IN ({placeholders})
+            ORDER BY c.ID_CREDITO,g.ID_SOLICITUD_GARANTIA
+        """, tuple(batch)))
+            collateral_valuations.extend(select_rows(conn, f"""
+            SELECT c.ID_CREDITO,v.ID_GARANTIA_VALUO,v.ID_SOLICITUD_GARANTIA
+            FROM [dbo].[{source['loan_table']}] c
+            JOIN [dbo].[{source['collateral_table']}] g
+              ON g.ID_EMPRESA=c.ID_EMPRESA AND g.ID_SUCURSAL=c.ID_SUCURSAL
+             AND g.ID_LINEA_CREDITO=c.ID_LINEA_CREDITO AND g.ID_SOCIO=c.ID_SOCIO
+             AND g.ID_SOLICITUD_CREDITO=c.ID_SOLICITUD_CREDITO
+            JOIN [dbo].[{source['collateral_valuation_table']}] v
+              ON v.ID_SOLICITUD_GARANTIA=g.ID_SOLICITUD_GARANTIA
+            WHERE c.ID_CREDITO IN ({placeholders})
+            ORDER BY c.ID_CREDITO,v.ID_GARANTIA_VALUO
+        """, tuple(batch)))
+            collateral_registrations.extend(select_rows(conn, f"""
+            SELECT c.ID_CREDITO,r.ID_GARANTIA_INSCRIPCION,r.ID_SOLICITUD_GARANTIA
+            FROM [dbo].[{source['loan_table']}] c
+            JOIN [dbo].[{source['collateral_table']}] g
+              ON g.ID_EMPRESA=c.ID_EMPRESA AND g.ID_SUCURSAL=c.ID_SUCURSAL
+             AND g.ID_LINEA_CREDITO=c.ID_LINEA_CREDITO AND g.ID_SOCIO=c.ID_SOCIO
+             AND g.ID_SOLICITUD_CREDITO=c.ID_SOLICITUD_CREDITO
+            JOIN [dbo].[{source['collateral_registration_table']}] r
+              ON r.ID_SOLICITUD_GARANTIA=g.ID_SOLICITUD_GARANTIA
+            WHERE c.ID_CREDITO IN ({placeholders})
+            ORDER BY c.ID_CREDITO,r.ID_GARANTIA_INSCRIPCION
         """, tuple(batch)))
             schedules.extend(select_rows(conn, f"""
             SELECT p.ID_CREDITO,p.NO_CUOTA,p.FECHA_PAGO,p.MONTO_CAPITAL,p.MONTO_INTERES,
@@ -1570,7 +1670,8 @@ def extract_loan_lifecycle_rows(
         )
 
     result = {loan_id: {
-        "application": None, "guarantors": [], "schedule": [], "movements": [], "charge_details": [],
+        "application": None, "guarantors": [], "collaterals": [], "collateral_valuations": [],
+        "collateral_registrations": [], "schedule": [], "movements": [], "charge_details": [],
         "schedule_adjustment_summary": {"adjustment_count": 0},
         "refinance_incoming": [], "refinance_outgoing": [],
     } for loan_id in loan_ids}
@@ -1578,6 +1679,12 @@ def extract_loan_lifecycle_rows(
         result[int(row["ID_CREDITO"])]["application"] = row
     for row in guarantors:
         result[int(row["ID_CREDITO"])]["guarantors"].append(row)
+    for row in collaterals:
+        result[int(row["ID_CREDITO"])]["collaterals"].append(row)
+    for row in collateral_valuations:
+        result[int(row["ID_CREDITO"])]["collateral_valuations"].append(row)
+    for row in collateral_registrations:
+        result[int(row["ID_CREDITO"])]["collateral_registrations"].append(row)
     for row in schedules:
         result[int(row["ID_CREDITO"])]["schedule"].append(row)
     for row in schedule_adjustments:
@@ -1613,6 +1720,38 @@ def _find_loan_product(api: FineractApi, external_id: str) -> dict[str, Any] | N
         if "(404)" in str(exc):
             return None
         raise
+
+
+def _collateral_product_payload(contract: LoanContract) -> dict[str, Any]:
+    configured = contract.raw["collateral_contract"]["collateral_product"]
+    return {
+        **configured,
+        "currency": contract.raw["collateral_contract"]["target_currency"],
+        "locale": "en",
+    }
+
+
+def _collateral_product_view(value: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "name": value.get("name"),
+        "quality": value.get("quality"),
+        "basePrice": _decimal_text(value.get("basePrice")),
+        "pctToBase": _decimal_text(value.get("pctToBase")),
+        "unitType": value.get("unitType"),
+        "currency": value.get("currency") if isinstance(value.get("currency"), str)
+        else (value.get("currency") or {}).get("code"),
+    }
+
+
+def _find_collateral_product(api: FineractApi, contract: LoanContract) -> dict[str, Any] | None:
+    expected_name = contract.raw["collateral_contract"]["collateral_product"]["name"]
+    matches = [
+        row for row in _api_list(api.request("GET", "collateral-management"))
+        if row.get("name") == expected_name
+    ]
+    if len(matches) > 1:
+        raise RuntimeError("collateral_product_name_is_not_unique")
+    return matches[0] if matches else None
 
 
 def _resource_id(result: dict[str, Any]) -> int:
@@ -1759,6 +1898,11 @@ def resolve_loan_product_target(
         for row in crosswalk_rows
     }
     api = FineractApi(settings.target)
+    has_source_collateral = any(
+        lifecycle.get("collaterals")
+        for lifecycle in source_lifecycles.values()
+    )
+    collateral_product = _find_collateral_product(api, contract) if has_source_collateral else None
     charge_contract = product_contract["target_resources"]["debt_insurance_charge"]
     matching_charges = []
     for charge in _api_list(api.request("GET", "charges")):
@@ -1821,6 +1965,7 @@ def resolve_loan_product_target(
             "mobile_collection_payment_type_id": int(payment_types[0]["id"]),
         },
         "products": products,
+        "collateral_product": collateral_product,
         "crosswalks": crosswalks,
         "clients": {
             str(external_id): {
@@ -1845,6 +1990,140 @@ def resolve_loan_product_target(
     }
 
 
+def _optional_iso_date(value: Any, field: str) -> str | None:
+    return None if value in (None, "") else _iso_date(value, field)
+
+
+def _source_boolean(value: Any) -> bool | None:
+    normalized = _clean(value).upper()
+    if normalized in {"1", "S", "Y", "TRUE"}:
+        return True
+    if normalized in {"0", "N", "F", "FALSE"}:
+        return False
+    return None
+
+
+def _collateral_runtime_contract(
+    contract: LoanContract, loan: dict[str, Any], source_lifecycle: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+    collateral_contract = contract.raw["collateral_contract"]
+    summaries: list[dict[str, Any]] = []
+    runtime: list[dict[str, Any]] = []
+    quarantines: list[str] = []
+    if source_lifecycle.get("collateral_valuations"):
+        quarantines.append("collateral_valuation_history_chronology_not_reviewed")
+    if source_lifecycle.get("collateral_registrations"):
+        quarantines.append("collateral_registration_history_chronology_not_reviewed")
+    total_value = Decimal("0.00")
+    for row in source_lifecycle.get("collaterals") or []:
+        source_id = int(row["ID_SOLICITUD_GARANTIA"])
+        type_id = _clean(row.get("type_id"))
+        subtype_id = _clean(row.get("subtype_id"))
+        asset_type = collateral_contract["supported_types"].get(type_id)
+        subtype = collateral_contract["supported_subtypes"].get(f"{type_id}:{subtype_id}")
+        if asset_type is None:
+            quarantines.append(f"unsupported_collateral_type:{type_id or 'blank'}")
+            continue
+        if subtype is None:
+            quarantines.append(f"unsupported_collateral_subtype:{type_id}:{subtype_id or 'blank'}")
+            continue
+        valuation_date = _optional_iso_date(row.get("FECHA_VALUO"), "collateral valuation")
+        valuation_total = _amount(row.get("VALUO_TOTAL") or row.get("VALOR_ESTIMADO"))
+        if valuation_date is None:
+            quarantines.append(f"collateral_valuation_date_missing:{source_id}")
+        if valuation_total <= 0:
+            quarantines.append(f"collateral_valuation_total_invalid:{source_id}")
+        total_value += max(valuation_total, Decimal("0.00"))
+        asset_external_id = collateral_contract["asset_external_id"].format(
+            ID_SOLICITUD_GARANTIA=source_id,
+        )
+        valuation_external_id = collateral_contract["valuation_external_id"].format(
+            ID_SOLICITUD_GARANTIA=source_id,
+        )
+        vehicle = None
+        property_detail = None
+        if asset_type == "VEHICLE":
+            year_text = _clean(row.get("ANIO_VEHICULO"))
+            vehicle = {
+                "manufactureYear": int(year_text) if year_text.isdigit() else None,
+                "make": _clean(row.get("MARCA_VEHICULO")) or None,
+                "model": _clean(row.get("MODELO_VEHICULO")) or None,
+                "plate": _clean(row.get("PLACA")) or None,
+                "color": _clean(row.get("COLOR")) or None,
+                "engineNumber": _clean(row.get("NUMERO_MOTOR")) or None,
+                "chassisNumber": _clean(row.get("NUMERO_CHASIS")) or None,
+                "vin": _clean(row.get("NUMERO_VIN")) or None,
+                "vehicleTypeCodeValueId": None,
+                "vehicleClass": _clean(row.get("CLASE_VEHICULO")) or subtype,
+                "capacity": _clean(row.get("CAPACIDAD_VEHICULO")) or None,
+                "registrationExpiryDate": _optional_iso_date(
+                    row.get("FECHA_VENCIMIENTO_TARJETA"), "vehicle registration expiry",
+                ),
+                "qualityCodeValueId": None,
+            }
+        else:
+            property_detail = {
+                "propertyTypeCodeValueId": None,
+                "propertyDescription": _clean(row.get("DESCRIPCION_INMUEBLE")) or subtype,
+                "address": _clean(row.get("DIRECCION")) or None,
+                "departmentCode": None,
+                "municipalityCode": None,
+                "registryNumber": _clean(row.get("MATRICULA_INMUEBLE") or row.get("NUMERO_MATRICULA")) or None,
+                "propertyNature": _clean(row.get("NATURALEZA")) or None,
+                "area": format(_amount(row.get("AREA")), "f") if row.get("AREA") is not None else None,
+                "areaUnit": None,
+                "ownershipRights": _clean(row.get("DERECHO_PROPIEDAD")) or None,
+                "hasLiens": _source_boolean(row.get("GRAVAMENES")),
+                "hasJudicialAttachment": _source_boolean(row.get("EMBARGO_JUDICIAL")),
+                "municipalClearanceStatus": _clean(row.get("SOLVENCIA_MUNICIPAL")) or None,
+            }
+        asset_payload = {
+            "externalId": asset_external_id,
+            "assetType": asset_type,
+            "description": _clean(row.get("DESCRIPCION")) or None,
+            "ownedByClient": _source_boolean(row.get("PROPIEDAD_SOLICITANTE")),
+            "ownerRelationship": _clean(row.get("RELACION_PROPIETARIO")) or None,
+            "status": "ACTIVE",
+            "vehicle": vehicle,
+            "property": property_detail,
+        }
+        valuation_payload = {
+            "externalId": valuation_external_id,
+            "valuationType": "INITIAL",
+            "valuationDate": valuation_date,
+            "currencyCode": collateral_contract["target_currency"],
+            "totalValue": format(valuation_total, "f"),
+            "landValue": format(_amount(row.get("VALUO_TERRENO")), "f") if row.get("VALUO_TERRENO") is not None else None,
+            "constructionValue": format(_amount(row.get("VALUO_CONSTRUCCION")), "f")
+            if row.get("VALUO_CONSTRUCCION") is not None else None,
+            "marketValue": format(_amount(row.get("VALUO_MERCADO")), "f") if row.get("VALUO_MERCADO") is not None else None,
+            "saleValue": format(_amount(row.get("PRECIO_VENTA")), "f") if row.get("PRECIO_VENTA") is not None else None,
+            "appraiser": _clean(row.get("PERITO_VALUADOR")) or None,
+            "appraisalCompany": _clean(row.get("EMPRESA_VALUADORA")) or None,
+            "appraiserOpinion": _clean(row.get("OPINION_PERITO")) or None,
+            "appraisalCost": format(_amount(row.get("COSTO_VALUO")), "f") if row.get("COSTO_VALUO") is not None else None,
+            "status": "FINAL",
+        }
+        source_payload_hash = _stable_hash({"asset": asset_payload, "valuation": valuation_payload})
+        summary = {
+            "source_id": source_id,
+            "type_id": type_id,
+            "subtype_id": subtype_id,
+            "asset_type": asset_type,
+            "asset_external_id": asset_external_id,
+            "valuation_external_id": valuation_external_id,
+            "valuation_date": valuation_date,
+            "total_value": format(valuation_total, "f"),
+            "source_payload_hash": source_payload_hash,
+        }
+        summaries.append(summary)
+        runtime.append({**summary, "asset": asset_payload, "valuation": valuation_payload})
+    principal = _amount(loan.get("MONTO_APROBADO"))
+    if summaries and total_value < principal:
+        quarantines.append(f"collateral_valuation_under_covers_principal:{format(total_value, 'f')}:{format(principal, 'f')}")
+    return summaries, runtime, quarantines
+
+
 def _build_loan_lifecycle_action(
     contract: LoanContract,
     loan: dict[str, Any],
@@ -1863,6 +2142,9 @@ def _build_loan_lifecycle_action(
     movements = list((source_lifecycle or {}).get("movements") or [])
     charge_details = list((source_lifecycle or {}).get("charge_details") or [])
     source_guarantors = list((source_lifecycle or {}).get("guarantors") or [])
+    collaterals, _runtime_collaterals, collateral_quarantines = _collateral_runtime_contract(
+        contract, loan, source_lifecycle or {},
+    )
     refinance_incoming = list((source_lifecycle or {}).get("refinance_incoming") or [])
     refinance_outgoing = list((source_lifecycle or {}).get("refinance_outgoing") or [])
     voided_refinance_attempts = list(
@@ -1873,6 +2155,7 @@ def _build_loan_lifecycle_action(
         ((source_lifecycle or {}).get("discarded_voided_refinance_movement_ids") or [])
     }
     quarantines: list[str] = []
+    quarantines.extend(collateral_quarantines)
 
     source_error = contract.raw["source_error_quarantines"].get(str(loan_id))
     if source_error is not None:
@@ -2832,6 +3115,7 @@ def _build_loan_lifecycle_action(
     lifecycle = {
         "application_payload": application_payload,
         "guarantors": guarantors,
+        "collaterals": collaterals,
         "staff_assignment": staff_assignment,
         "legacy_timeline": legacy_timeline,
         "first_accrual_day_policy": first_accrual_day_policy,
@@ -3022,8 +3306,31 @@ def compose_loan_plan(
     migration_cutover_date = migration_cutover_date or date.today().isoformat()
     by_line = {_clean(row["line_id"]): row for row in source_products}
     product_actions: list[dict[str, Any]] = []
+    collateral_product_actions: list[dict[str, Any]] = []
     conflicts: list[str] = []
     counts: Counter[str] = Counter()
+    collateral_product_dependency: str | None = None
+    if any(lifecycle.get("collaterals") for lifecycle in (source_lifecycles or {}).values()):
+        payload = _collateral_product_payload(contract)
+        existing = target.get("collateral_product")
+        action_name = "create-collateral-product" if existing is None else "unchanged-collateral-product"
+        conflict = existing is not None and _collateral_product_view(existing) != _collateral_product_view(payload)
+        if conflict:
+            action_name = "conflict-collateral-product"
+            conflicts.append("collateral-product:arissto:contract_differs")
+        collateral_product_dependency = collateral_product_action_key()
+        collateral_product_actions.append({
+            "source_key": collateral_product_dependency,
+            "entity_type": "collateral-product",
+            "entity_source_key": "arissto",
+            "action": action_name,
+            "depends_on": [],
+            "source_hash": _stable_hash(contract.raw["collateral_contract"]),
+            "target_id": int(existing["id"]) if existing else None,
+            "payload": payload,
+            "payload_hash": _stable_hash(_collateral_product_view(payload)),
+        })
+        counts[action_name] += 1
     for line_id in sorted(by_line):
         source_product = by_line[line_id]
         action_key = product_action_key(line_id)
@@ -3141,7 +3448,9 @@ def compose_loan_plan(
             "entity_type": "loan",
             "entity_source_key": str(loan_id),
             "action": action_name,
-            "depends_on": [dependency] + refinance_dependencies,
+            "depends_on": [dependency] + ([collateral_product_dependency] if (
+                collateral_product_dependency and raw_lifecycle and raw_lifecycle.get("collaterals")
+            ) else []) + refinance_dependencies,
             "product_action_key": dependency,
             "product_line_id": line_id,
             "external_id": external_id,
@@ -3155,7 +3464,7 @@ def compose_loan_plan(
     for source_key, previous_action in changed_actions.items():
         counts[previous_action] -= 1
         counts["quarantine-loan"] += 1
-    actions = product_actions + loan_actions
+    actions = collateral_product_actions + product_actions + loan_actions
     action_keys = [action["source_key"] for action in actions]
     if len(action_keys) != len(set(action_keys)):
         raise RuntimeError("Loan plan action keys are not unique after namespacing")
@@ -3171,6 +3480,7 @@ def compose_loan_plan(
         "planner_phase": "product-aware-sequential-actions",
         "writer_registered": source_lifecycles is not None,
         "product_writer_registered": True,
+        "collateral_writer_registered": True,
         "loan_writer_registered": source_lifecycles is not None,
         "scope": {
             "mode": "explicit-source-keys" if source_keys else "full-block",
@@ -3237,6 +3547,8 @@ def _loan_apply_guard(
         raise RuntimeError("Loans plan predates the Gate 4 product writer; create a new plan")
     if not document.get("loan_writer_registered"):
         raise RuntimeError("Loans plan predates the Gate 4 lifecycle writer; create a new plan")
+    if not document.get("collateral_writer_registered"):
+        raise RuntimeError("Loans plan predates the collateral writer; create a new plan")
     requested = document.get("scope", {}).get("requested_source_keys") or None
     inspections = _plan_scope_inspections(settings, contract, requested)
     blockers = sorted({
@@ -3260,7 +3572,16 @@ def _loan_apply_guard(
     products_by_line = {_clean(row["line_id"]): row for row in source_products}
     loans_by_id = {str(int(row["ID_CREDITO"])): row for row in loans}
     for action in document["actions"]:
-        if action["entity_type"] == "product":
+        if action["entity_type"] == "collateral-product":
+            current_payload = _collateral_product_payload(contract)
+            if action["source_hash"] != _stable_hash(contract.raw["collateral_contract"]):
+                raise RuntimeError("Collateral contract changed after planning")
+            if action["payload_hash"] != _stable_hash(_collateral_product_view(current_payload)):
+                raise RuntimeError("Collateral product payload changed after planning")
+            current_product = target.get("collateral_product")
+            if current_product is not None and _collateral_product_view(current_product) != _collateral_product_view(current_payload):
+                raise RuntimeError("Collateral product target changed after planning")
+        elif action["entity_type"] == "product":
             current = products_by_line.get(action["entity_source_key"])
             if current is None or _stable_hash(current) != action["source_hash"]:
                 raise RuntimeError(f"Loan product source changed after planning: {action['source_key']}")
@@ -3291,6 +3612,10 @@ def _loan_apply_guard(
             }) if rebuilt_lifecycle else None
             if current is None or current_hash != action["source_hash"]:
                 raise RuntimeError(f"Loan source changed after planning: {action['source_key']}")
+            _, runtime_collaterals, _ = _collateral_runtime_contract(
+                contract, current, source_lifecycles.get(int(action["entity_source_key"])) or {},
+            )
+            action["_runtime_collaterals"] = runtime_collaterals
         else:
             raise RuntimeError(f"Unsupported loans plan action type: {action.get('entity_type')}")
     return plan, target
@@ -3311,7 +3636,7 @@ def _selected_loan_actions(
     # loans into the retry. A healthy product added only as a prerequisite of a
     # failed loan must not expand that retry to every loan sharing the product.
     selected_products = {
-        key for key in explicitly_selected if by_key[key]["entity_type"] == "product"
+        key for key in explicitly_selected if by_key[key]["entity_type"] in {"product", "collateral-product"}
     }
     selected.update(
         action["source_key"] for action in actions
@@ -3400,6 +3725,146 @@ def _resolve_or_create_loan_product(
     if conflicts:
         raise RuntimeError("loan_product_contract_changed_after_plan")
     return int(existing["id"]), recovered
+
+
+def _resolve_or_create_collateral_product(
+    api: FineractApi, contract: LoanContract, action: dict[str, Any], planned_existing: dict[str, Any] | None,
+) -> tuple[int, bool]:
+    existing = _find_collateral_product(api, contract)
+    if existing is None and planned_existing is not None:
+        raise RuntimeError("collateral_product_disappeared_after_plan")
+    recovered = existing is not None and action["action"] == "create-collateral-product"
+    if existing is None:
+        if action["action"] != "create-collateral-product":
+            raise RuntimeError("unchanged_collateral_product_missing_at_apply")
+        api.request(
+            "POST", "collateral-management", action["payload"],
+            idempotency_key=_attempt_idempotency_key(action["source_key"], action["source_hash"]),
+        )
+        existing = _find_collateral_product(api, contract)
+        if existing is None:
+            raise RuntimeError("created_collateral_product_not_recoverable_by_name")
+    if _collateral_product_view(existing) != _collateral_product_view(action["payload"]):
+        raise RuntimeError("collateral_product_contract_changed_after_plan")
+    return int(existing["id"]), recovered
+
+
+def _find_client_collateral_by_asset_external_id(
+    api: FineractApi, client_id: int, asset_external_id: str,
+) -> tuple[int, dict[str, Any]] | None:
+    for client_collateral in _api_list(api.request("GET", f"clients/{client_id}/collaterals")):
+        client_collateral_id = int(client_collateral["id"])
+        try:
+            asset = api.request("GET", f"clients/{client_id}/collaterals/{client_collateral_id}/asset")
+        except FineractError as exc:
+            if "(404)" in str(exc):
+                continue
+            raise
+        if asset.get("externalId") == asset_external_id:
+            return client_collateral_id, asset
+    return None
+
+
+def _collateral_asset_differences(expected: dict[str, Any], actual: dict[str, Any]) -> list[str]:
+    differences = []
+    for field in ("externalId", "assetType", "description", "ownedByClient", "ownerRelationship", "status"):
+        if actual.get(field) != expected.get(field):
+            differences.append(field)
+    for detail_name in ("vehicle", "property"):
+        expected_detail = expected.get(detail_name)
+        actual_detail = actual.get(detail_name)
+        if expected_detail is None:
+            if actual_detail is not None:
+                differences.append(detail_name)
+            continue
+        if actual_detail is None:
+            differences.append(detail_name)
+            continue
+        for field, expected_value in expected_detail.items():
+            actual_value = actual_detail.get(field)
+            if field == "area" and (expected_value is not None or actual_value is not None):
+                if _decimal_text(actual_value) != _decimal_text(expected_value):
+                    differences.append(f"{detail_name}.{field}")
+            elif field.endswith("Date") and (expected_value is not None or actual_value is not None):
+                if _optional_iso_date(actual_value, f"target collateral {field}") != expected_value:
+                    differences.append(f"{detail_name}.{field}")
+            elif actual_value != expected_value:
+                differences.append(f"{detail_name}.{field}")
+    return differences
+
+
+def _collateral_valuation_differences(expected: dict[str, Any], actual: dict[str, Any]) -> list[str]:
+    differences = []
+    decimal_fields = {
+        "totalValue", "landValue", "constructionValue", "marketValue", "saleValue", "appraisalCost",
+    }
+    for field, expected_value in expected.items():
+        actual_value = actual.get(field)
+        if field in decimal_fields and (expected_value is not None or actual_value is not None):
+            if _decimal_text(actual_value) != _decimal_text(expected_value):
+                differences.append(field)
+        elif field == "valuationDate" and (expected_value is not None or actual_value is not None):
+            if _optional_iso_date(actual_value, "target collateral valuation") != expected_value:
+                differences.append(field)
+        elif actual_value != expected_value:
+            differences.append(field)
+    return differences
+
+
+def _ensure_loan_collaterals(
+    api: FineractApi, action: dict[str, Any], collateral_product_id: int | None, attempt_key: str | None,
+) -> list[dict[str, Any]]:
+    runtime_collaterals = action.get("_runtime_collaterals") or []
+    if not runtime_collaterals:
+        return []
+    if collateral_product_id is None:
+        raise RuntimeError("loan_collateral_product_dependency_missing")
+    lifecycle = action["lifecycle"]
+    client_id = int(lifecycle["application_payload"]["clientId"])
+    result = []
+    for collateral in runtime_collaterals:
+        resolved = _find_client_collateral_by_asset_external_id(
+            api, client_id, collateral["asset_external_id"],
+        )
+        if resolved is None:
+            create_payload = {
+                "quantity": "1.00",
+                "collateralId": int(collateral_product_id),
+                "locale": "en",
+                "asset": collateral["asset"],
+                "initialValuation": collateral["valuation"],
+            }
+            api.request(
+                "POST", f"clients/{client_id}/collaterals", create_payload,
+                idempotency_key=_attempt_idempotency_key(collateral["asset_external_id"], attempt_key),
+            )
+            resolved = _find_client_collateral_by_asset_external_id(
+                api, client_id, collateral["asset_external_id"],
+            )
+            if resolved is None:
+                raise RuntimeError(f"created_client_collateral_not_recoverable:{collateral['source_id']}")
+        client_collateral_id, asset = resolved
+        asset_differences = _collateral_asset_differences(collateral["asset"], asset)
+        if asset_differences:
+            raise RuntimeError(f"client_collateral_asset_contract_mismatch:{collateral['source_id']}")
+        valuations = _api_list(api.request(
+            "GET", f"clients/{client_id}/collaterals/{client_collateral_id}/valuations",
+        ))
+        matching = [
+            value for value in valuations
+            if value.get("externalId") == collateral["valuation_external_id"]
+        ]
+        if len(matching) != 1:
+            raise RuntimeError(f"client_collateral_valuation_identity_mismatch:{collateral['source_id']}")
+        valuation = matching[0]
+        if _collateral_valuation_differences(collateral["valuation"], valuation):
+            raise RuntimeError(f"client_collateral_valuation_contract_mismatch:{collateral['source_id']}")
+        result.append({
+            "clientCollateralId": client_collateral_id,
+            "quantity": "1.00",
+            "valuationId": int(valuation["id"]),
+        })
+    return result
 
 
 def _find_loan(api: FineractApi, external_id: str) -> dict[str, Any] | None:
@@ -4104,6 +4569,58 @@ def _validate_existing_loan(
         raise RuntimeError(f"existing_loan_contract_conflict:{','.join(conflicts)}")
 
 
+def _validate_existing_loan_collaterals(
+    loan: dict[str, Any], expected: list[dict[str, Any]],
+) -> None:
+    actual = [
+        {
+            "clientCollateralId": int(row.get("clientCollateralId") or -1),
+            "valuationId": int(row.get("valuationId") or -1),
+            "quantity": _decimal_text(row.get("quantity")),
+        }
+        for row in (loan.get("collateral") or [])
+    ]
+    expected_view = [
+        {
+            "clientCollateralId": int(row["clientCollateralId"]),
+            "valuationId": int(row["valuationId"]),
+            "quantity": _decimal_text(row["quantity"]),
+        }
+        for row in expected
+    ]
+    sort_key = lambda row: (row["clientCollateralId"], row["valuationId"], row["quantity"])
+    if sorted(actual, key=sort_key) != sorted(expected_view, key=sort_key):
+        raise RuntimeError("existing_loan_collateral_contract_conflict")
+
+
+def _ensure_existing_loan_collateral_attachments(
+    api: FineractApi, loan: dict[str, Any], expected: list[dict[str, Any]],
+    loan_external_id: str, attempt_key: str | None,
+) -> dict[str, Any]:
+    """Backfill only an empty legacy loan collateral set; never merge or replace it."""
+    if not expected:
+        return loan
+    actual = list(loan.get("collateral") or [])
+    if actual:
+        _validate_existing_loan_collaterals(loan, expected)
+        return loan
+    loan_id = int(loan["id"])
+    for attachment in expected:
+        identity = (
+            f"{loan_external_id}:collateral:"
+            f"{int(attachment['clientCollateralId'])}:{int(attachment['valuationId'])}"
+        )
+        api.request(
+            "POST", f"loan-collateral-management/{loan_id}",
+            {**attachment, "locale": "en"},
+            query={"command": "sourceExactAttach"},
+            idempotency_key=_attempt_idempotency_key(identity, attempt_key),
+        )
+    refreshed = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
+    _validate_existing_loan_collaterals(refreshed, expected)
+    return refreshed
+
+
 def _native_creation_override_differences(
     loan: dict[str, Any], payload: dict[str, Any], override: dict[str, Any],
 ) -> list[str]:
@@ -4246,6 +4763,7 @@ def _refinance_fee_charge_external_id(settlement: dict[str, Any]) -> str | None:
 
 def _apply_loan_lifecycle(
     api: FineractApi, action: dict[str, Any], product_id: int, attempt_key: str | None = None,
+    collateral_product_id: int | None = None,
 ) -> tuple[int, bool]:
     lifecycle = action.get("lifecycle")
     if not lifecycle:
@@ -4258,11 +4776,16 @@ def _apply_loan_lifecycle(
         }
     ):
         raise RuntimeError("loan_plan_predates_source_exact_schedule_writer")
+    loan_collaterals = _ensure_loan_collaterals(
+        api, action, collateral_product_id, attempt_key,
+    )
     existing = _find_loan(api, action["external_id"])
     recovered = existing is not None
     if existing is None:
         payload = {key: value for key, value in lifecycle["application_payload"].items() if value is not None}
         payload["productId"] = int(product_id)
+        if loan_collaterals:
+            payload["collateral"] = loan_collaterals
         refinance = lifecycle.get("refinance")
         predecessors = []
         if refinance:
@@ -4335,6 +4858,11 @@ def _apply_loan_lifecycle(
     loan_id = int(existing["id"])
     existing = _ensure_pending_native_creation_override(api, existing, action, attempt_key)
     _validate_existing_loan(existing, action, product_id)
+    if recovered:
+        existing = _ensure_existing_loan_collateral_attachments(
+            api, existing, loan_collaterals, action["external_id"], attempt_key,
+        )
+    _validate_existing_loan_collaterals(existing, loan_collaterals)
     staff_assignment = lifecycle.get("staff_assignment")
     if staff_assignment is None:
         raise RuntimeError("loan_plan_predates_staff_assignment_writer")
@@ -4765,14 +5293,21 @@ def _loan_worker(
     controls: LoanApplyControls,
     action: dict[str, Any],
     product_id: int,
+    collateral_product_id: int | None,
     run_id: str,
 ) -> tuple[int, bool]:
     api = getattr(worker_local, "api", None)
     if api is None:
         api = FineractApi(settings.target)
         worker_local.api = api
+    if collateral_product_action_key() in action.get("depends_on", []):
+        operation = lambda: _apply_loan_lifecycle(
+            api, action, product_id, run_id, collateral_product_id,
+        )
+    else:
+        operation = lambda: _apply_loan_lifecycle(api, action, product_id, run_id)
     return _with_fineract_recovery(
-        lambda: _apply_loan_lifecycle(api, action, product_id, run_id),
+        operation,
         gate,
         controls.recovery_attempts,
     )
@@ -4788,16 +5323,40 @@ def apply_loan_plan(
         settings, state, contract, plan_id, production_confirmation
     )
     actions = _selected_loan_actions(plan["document"]["actions"], only_keys)
+    collateral_product_actions = [action for action in actions if action["entity_type"] == "collateral-product"]
     product_actions = [action for action in actions if action["entity_type"] == "product"]
     loan_actions = [action for action in actions if action["entity_type"] == "loan"]
-    if actions != product_actions + loan_actions:
-        raise RuntimeError("Loans plan is not ordered with products before loans")
+    if actions != collateral_product_actions + product_actions + loan_actions:
+        raise RuntimeError("Loans plan is not ordered with collateral and loan products before loans")
 
     api = FineractApi(settings.target)
     gate = _FineractCircuitBreaker(controls.pause_seconds)
     run_id = state.start_run(plan)
     counts: Counter[str] = Counter()
     product_outcomes: dict[str, int | None] = {}
+    collateral_product_id: int | None = None
+    for action in collateral_product_actions:
+        key = action["source_key"]
+        try:
+            collateral_product_id, recovered = _with_fineract_recovery(
+                lambda: _resolve_or_create_collateral_product(
+                    api, contract, action, current_target.get("collateral_product"),
+                ),
+                gate,
+                controls.recovery_attempts,
+            )
+            state.record_item(
+                run_id, key, action["action"], action["source_hash"],
+                "unchanged" if action["action"] == "unchanged-collateral-product" else "succeeded",
+                str(collateral_product_id),
+            )
+            counts["collateral_products_recovered" if recovered else "collateral_products_succeeded"] += 1
+        except Exception as exc:
+            state.record_item(
+                run_id, key, action["action"], action["source_hash"], "failed",
+                action.get("target_id"), str(exc).splitlines()[0][:240],
+            )
+            counts["collateral_products_failed"] += 1
     for action in product_actions:
         key = action["source_key"]
         try:
@@ -4868,6 +5427,16 @@ def apply_loan_plan(
                     del pending[key]
                     progressed = True
                     continue
+                if collateral_product_action_key() in action.get("depends_on", []) and collateral_product_id is None:
+                    state.record_item(
+                        run_id, key, action["action"], action["source_hash"],
+                        "blocked", action.get("target_id"), "collateral_product_dependency_failed",
+                    )
+                    counts["loans_blocked"] += 1
+                    loan_outcomes[key] = False
+                    del pending[key]
+                    progressed = True
+                    continue
                 loan_dependencies = [
                     dependency for dependency in action.get("depends_on", [])
                     if dependency.startswith("loan:")
@@ -4893,7 +5462,7 @@ def apply_loan_plan(
             for action, product_id in ready:
                 futures[executor.submit(
                     _loan_worker, settings, worker_local, gate, controls,
-                    action, product_id, run_id,
+                    action, product_id, collateral_product_id, run_id,
                 )] = action
                 del pending[action["source_key"]]
             if ready:
@@ -4924,7 +5493,7 @@ def apply_loan_plan(
                 unresolved = ",".join(sorted(pending)[:10])
                 raise RuntimeError(f"loan_dependency_graph_cannot_progress:{unresolved}")
 
-    run_status = "completed-with-errors" if counts["products_failed"] or counts["loans_failed"] else (
+    run_status = "completed-with-errors" if counts["collateral_products_failed"] or counts["products_failed"] or counts["loans_failed"] else (
         "completed-with-quarantine" if counts["loans_quarantined"] else "completed"
     )
     state.finish_run(run_id, run_status, dict(counts))
@@ -4952,6 +5521,44 @@ def reconcile_loans(
     adjustments: list[dict[str, Any]] = []
     counts: Counter[str] = Counter()
     failed_or_quarantined = []
+    expected_asset_external_ids = sorted({
+        collateral["asset_external_id"]
+        for action in actions.values()
+        if action.get("entity_type") == "loan" and action.get("lifecycle")
+        for collateral in action["lifecycle"].get("collaterals") or []
+    })
+    collateral_loan_external_ids = sorted({
+        action["external_id"]
+        for action in actions.values()
+        if action.get("entity_type") == "loan"
+        and (action.get("lifecycle") or {}).get("collaterals")
+    })
+    collateral_target_rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    if expected_asset_external_ids:
+        if not settings.target.pg_url:
+            raise RuntimeError("Target PostgreSQL URL is required for collateral reconciliation")
+        with postgres_connection(settings.target.pg_url) as conn:
+            rows = conn.execute("""
+                SELECT a.external_id,a.asset_type,a.status,v.external_id,l.external_id,cm.client_id,
+                       lcm.quantity,lcm.valuation_id,lcm.pledged_value,lcm.eligible_value,
+                       lcm.valuation_date,v.total_value,v.status
+                FROM m_client_collateral_asset a
+                JOIN m_client_collateral_management cm ON cm.id=a.client_collateral_id
+                JOIN m_collateral_valuation v ON v.asset_id=a.id
+                LEFT JOIN m_loan_collateral_management lcm ON lcm.valuation_id=v.id
+                LEFT JOIN m_loan l ON l.id=lcm.loan_id
+                WHERE a.external_id=ANY(%s) OR l.external_id=ANY(%s)
+                ORDER BY a.external_id,v.id,lcm.id
+            """, (expected_asset_external_ids, collateral_loan_external_ids)).fetchall()
+        columns = (
+            "asset_external_id", "asset_type", "asset_status", "valuation_external_id",
+            "loan_external_id", "client_id",
+            "quantity", "valuation_id", "pledged_value", "eligible_value", "valuation_date",
+            "total_value", "valuation_status",
+        )
+        for row in rows:
+            item = dict(zip(columns, row))
+            collateral_target_rows[str(item["asset_external_id"])].append(item)
 
     for item in items:
         action = actions.get(item["source_key"])
@@ -4986,6 +5593,53 @@ def reconcile_loans(
                 })
             else:
                 counts["guarantor_relationships"] += sum(desired_guarantors.values())
+        for expected_collateral in lifecycle.get("collaterals") or []:
+            target_rows = [
+                row for row in collateral_target_rows.get(expected_collateral["asset_external_id"], [])
+                if row["valuation_external_id"] == expected_collateral["valuation_external_id"]
+                and row["loan_external_id"] == action["external_id"]
+            ]
+            if len(target_rows) != 1:
+                mismatches.append({
+                    "source_key": item["source_key"], "kind": "loan_collateral_identity",
+                    "asset_external_id": expected_collateral["asset_external_id"],
+                    "target_count": len(target_rows),
+                })
+                continue
+            target_collateral = target_rows[0]
+            expected_value = _amount(expected_collateral["total_value"])
+            if (
+                int(target_collateral["client_id"]) != int(lifecycle["application_payload"]["clientId"])
+                or target_collateral["asset_type"] != expected_collateral["asset_type"]
+                or target_collateral["asset_status"] != "ACTIVE"
+                or target_collateral["valuation_status"] != "FINAL"
+                or _amount(target_collateral["total_value"]) != expected_value
+                or _amount(target_collateral["quantity"]) != Decimal("1.00")
+                or _amount(target_collateral["pledged_value"]) != expected_value
+                or _amount(target_collateral["eligible_value"]) != expected_value
+                or _iso_date(target_collateral["valuation_date"], "loan collateral valuation")
+                != expected_collateral["valuation_date"]
+            ):
+                mismatches.append({
+                    "source_key": item["source_key"], "kind": "loan_collateral_snapshot",
+                    "asset_external_id": expected_collateral["asset_external_id"],
+                })
+            else:
+                counts["collateral_assets"] += 1
+        expected_collateral_ids = Counter(
+            row["asset_external_id"] for row in lifecycle.get("collaterals") or []
+        )
+        actual_collateral_ids = Counter(
+            row["asset_external_id"]
+            for rows in collateral_target_rows.values()
+            for row in rows
+            if row["loan_external_id"] == action["external_id"]
+        )
+        if actual_collateral_ids != expected_collateral_ids:
+            mismatches.append({
+                "source_key": item["source_key"], "kind": "loan_collateral_set",
+                "source": dict(expected_collateral_ids), "target": dict(actual_collateral_ids),
+            })
         expected_assignment = lifecycle.get("staff_assignment")
         assignment_row = _generic_datatable_row(
             api.datatable_data("credesal_loan_staff_assignment", str(loan["id"]))
@@ -5372,6 +6026,7 @@ def inspect_loans(
     loan_filter = "" if key is None else " WHERE c.ID_CREDITO=?"
     movement_filter = "" if key is None else " WHERE m.ID_CREDITO=?"
     schedule_filter = "" if key is None else " WHERE p.ID_CREDITO=?"
+    collateral_filter = "" if key is None else " WHERE c.ID_CREDITO=?"
 
     with source_connection(source_config) as conn:
         for role, required in REQUIRED_COLUMNS.items():
@@ -5432,6 +6087,37 @@ def inspect_loans(
               ON s.ID_EMPRESA=c.ID_EMPRESA AND s.ID_SUCURSAL=c.ID_SUCURSAL
              AND s.ID_LINEA_CREDITO=c.ID_LINEA_CREDITO AND s.ID_SOCIO=c.ID_SOCIO
              AND s.ID_SOLICITUD_CREDITO=c.ID_SOLICITUD_CREDITO{loan_filter}
+        """, params)[0]
+        collateral_inventory = select_rows(conn, f"""
+            SELECT COUNT_BIG(g.ID_SOLICITUD_GARANTIA) AS collateral_count,
+                   COUNT_BIG(DISTINCT CASE WHEN g.ID_SOLICITUD_GARANTIA IS NOT NULL THEN c.ID_CREDITO END)
+                       AS loans_with_collateral,
+                   SUM(CASE WHEN g.ID_SOLICITUD_GARANTIA IS NOT NULL AND g.FECHA_VALUO IS NULL THEN 1 ELSE 0 END)
+                       AS missing_valuation_dates,
+                   SUM(CASE WHEN g.ID_SOLICITUD_GARANTIA IS NOT NULL
+                                 AND COALESCE(g.VALUO_TOTAL,g.VALOR_ESTIMADO,0)<=0 THEN 1 ELSE 0 END)
+                       AS invalid_valuation_totals,
+                   SUM(CASE WHEN g.ID_SOLICITUD_GARANTIA IS NOT NULL
+                                 AND RTRIM(g.ID_TIPO_GARANTIA) NOT IN ('002','004') THEN 1 ELSE 0 END)
+                       AS unsupported_types
+            FROM [dbo].[{source['loan_table']}] c
+            LEFT JOIN [dbo].[{source['collateral_table']}] g
+              ON g.ID_EMPRESA=c.ID_EMPRESA AND g.ID_SUCURSAL=c.ID_SUCURSAL
+             AND g.ID_LINEA_CREDITO=c.ID_LINEA_CREDITO AND g.ID_SOCIO=c.ID_SOCIO
+             AND g.ID_SOLICITUD_CREDITO=c.ID_SOLICITUD_CREDITO{collateral_filter}
+        """, params)[0]
+        collateral_history = select_rows(conn, f"""
+            SELECT COUNT_BIG(DISTINCT v.ID_GARANTIA_VALUO) AS valuation_history_count,
+                   COUNT_BIG(DISTINCT r.ID_GARANTIA_INSCRIPCION) AS registration_history_count
+            FROM [dbo].[{source['loan_table']}] c
+            JOIN [dbo].[{source['collateral_table']}] g
+              ON g.ID_EMPRESA=c.ID_EMPRESA AND g.ID_SUCURSAL=c.ID_SUCURSAL
+             AND g.ID_LINEA_CREDITO=c.ID_LINEA_CREDITO AND g.ID_SOCIO=c.ID_SOCIO
+             AND g.ID_SOLICITUD_CREDITO=c.ID_SOLICITUD_CREDITO
+            LEFT JOIN [dbo].[{source['collateral_valuation_table']}] v
+              ON v.ID_SOLICITUD_GARANTIA=g.ID_SOLICITUD_GARANTIA
+            LEFT JOIN [dbo].[{source['collateral_registration_table']}] r
+              ON r.ID_SOLICITUD_GARANTIA=g.ID_SOLICITUD_GARANTIA{collateral_filter}
         """, params)[0]
         schedule = select_rows(conn, f"""
             WITH schedule AS (
@@ -5592,6 +6278,10 @@ def inspect_loans(
         source_blockers.append("loan_account_number_not_unique")
     if int(application.get("missing_application_count") or 0):
         source_blockers.append("loan_application_link_missing")
+    if int(collateral_history.get("valuation_history_count") or 0):
+        source_blockers.append("collateral_valuation_history_chronology_not_reviewed")
+    if int(collateral_history.get("registration_history_count") or 0):
+        source_blockers.append("collateral_registration_history_chronology_not_reviewed")
     if int(movement_identity.get("blank_movement_keys") or 0) or int(movement_identity.get("distinct_movement_keys") or 0) != movement_count:
         source_blockers.append("movement_identity_not_unique")
     if int(movement_identity.get("missing_loan_keys") or 0):
@@ -5658,6 +6348,9 @@ def inspect_loans(
                 "SOURCEEXACTTOPUPDISBURSE_LOAN", "SOURCEEXACTCOMPONENTREALLOCATION_LOAN",
                 "SOURCEEXACTREFINANCINGDISBURSE_LOAN",
                 "SOURCEEXACTCREATE_GUARANTOR",
+                "SOURCEEXACTATTACH_LOAN_COLLATERAL_PRODUCT",
+                "CREATE_COLLATERAL_PRODUCT", "CREATE_CLIENT_COLLATERAL_PRODUCT",
+                "READ_COLLATERAL_DETAILS", "MANAGE_COLLATERAL_DETAILS",
                 "READ_credesal_loan_staff_assignment", "CREATE_credesal_loan_staff_assignment",
                 "UPDATE_credesal_loan_staff_assignment",
                 "READ_credesal_loan_legacy_timeline", "CREATE_credesal_loan_legacy_timeline",
@@ -5702,6 +6395,7 @@ def inspect_loans(
             "identity": loan_identity,
             "products": products,
             "application_links": application,
+            "collateral": {**collateral_inventory, **collateral_history},
             "lifecycle": lifecycle,
             "schedule": schedule,
             "movement_identity": movement_identity,

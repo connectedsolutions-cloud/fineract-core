@@ -6,6 +6,9 @@
     "application_table": "CRD_SOLICITUD_CREDITO",
     "guarantor_table": "CRD_SOLICITUD_FIADOR",
     "guarantor_party_table": "AFI_SOCIO",
+    "collateral_table": "CRD_SOLICITUD_GARANTIA",
+    "collateral_valuation_table": "CRD_GARANTIA_VALUO",
+    "collateral_registration_table": "CRD_GARANTIA_INSCRIPCION",
     "schedule_table": "CRD_PLAN_PAGO",
     "schedule_adjustment_table": "CRD_REESTRUCTURACION",
     "movement_table": "CRD_MOVIMIENTOS_CARTERA",
@@ -30,6 +33,32 @@
     "cutover_adjustment_external_id": "ARISSTO:CRD-CUTOVER:{ID_CREDITO}",
     "refinance_adjustment_external_id": "ARISSTO:CRD-REFI-CUTOVER:{OLD_ID_CREDITO}:{NEW_ID_CREDITO}",
     "refinance_final_adjustment_external_id": "ARISSTO:CRD-REFI-FINAL:{OLD_ID_CREDITO}:{NEW_ID_CREDITO}"
+  },
+  "collateral_contract": {
+    "target_currency": "USD",
+    "collateral_product": {
+      "name": "ARISSTO-COLLATERAL",
+      "quality": "Source-exact",
+      "basePrice": "1.00",
+      "pctToBase": "100.00",
+      "unitType": "asset"
+    },
+    "supported_types": {
+      "002": "PROPERTY",
+      "004": "VEHICLE"
+    },
+    "supported_subtypes": {
+      "002:001": "TERRENO",
+      "002:002": "VIVIENDA",
+      "004:008": "VEHICULO",
+      "004:009": "MOTOCICLETA"
+    },
+    "asset_external_id": "ARISSTO:CRD-GUAR:{ID_SOLICITUD_GARANTIA}",
+    "valuation_external_id": "ARISSTO:CRD-VAL:{ID_SOLICITUD_GARANTIA}",
+    "quantity": "1.00",
+    "child_history_policy": "block-if-populated-until-chronology-reviewed",
+    "missing_valuation_date_policy": "quarantine-loan",
+    "undercovered_loan_policy": "quarantine-loan"
   },
   "product_contract": {
     "target_table": "m_product_loan",
