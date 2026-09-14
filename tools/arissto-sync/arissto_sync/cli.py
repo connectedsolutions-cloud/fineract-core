@@ -234,6 +234,11 @@ def parser() -> argparse.ArgumentParser:
         "--accounting-period", action="append", dest="accounting_periods",
         help="reviewed accounting source period; repeat to include more than one",
     )
+    workflow_plan.add_argument(
+        "--resume-from-workflow-run",
+        help=("continue in the same cycle while validating and skipping services "
+              "already reconciled by this completed or incomplete workflow run"),
+    )
     workflow_start = workflow_commands.add_parser("start", help="start a planned workflow in a detached local process")
     workflow_start.add_argument("--workflow-plan", required=True)
     workflow_start.add_argument("--cycle", required=True)
@@ -584,6 +589,7 @@ def main(argv=None) -> int:
                     selected_services=args.included_services,
                     dte_controls=DteApplyControls.configured(args.dte_workers, args.dte_batch_size),
                     accounting_periods=args.accounting_periods,
+                    resume_from_run_id=args.resume_from_workflow_run,
                 )
                 emit({"workflow_plan_id": plan_id, **document})
             elif args.workflow_command == "start":

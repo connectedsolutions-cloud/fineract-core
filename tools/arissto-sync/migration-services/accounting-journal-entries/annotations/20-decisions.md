@@ -44,9 +44,12 @@
   none shared a journal ID. All 18 reversed-refinance payoff pairs and all 18
   successor disbursement/undo pairs also used separate journals; 17 of each
   cohort were exact whole-journal inverses and one was aggregated differently.
-- Every journal follows its own `FECHA_PARTIDA` at the cutoff, without needing
-  to know whether another journal reverses it. Pre-cutoff journals import;
-  on/after-cutoff journals remain outside historical scope.
+- Every journal follows the accounting month declared by `CNT_PERIODO` at the
+  cutoff, without needing to know whether another journal reverses it. An
+  in-period `FECHA_PARTIDA` remains exact; an out-of-period date is normalized
+  to the period's final day and retained separately as source provenance.
+  Pre-cutoff effective dates import; on/after-cutoff effective dates remain
+  outside historical scope.
 - Historical accounting begins with the first populated status-`3` journal on
   2022-11-18 in period `00028`. All 29 `CNT_MAYOR` rows in that first
   journal-bearing period have `SALDO_INICIAL=0.00`, and their closing balances

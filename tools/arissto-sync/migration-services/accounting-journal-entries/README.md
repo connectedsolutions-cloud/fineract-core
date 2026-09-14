@@ -236,6 +236,13 @@ explicit-key or bounded-period runs, plus a posting-key closing comparison to
 the bounded full-company loader for sandbox acceptance; standalone operator
 runs continue to require explicit keys or periods.
 
+The closing comparison detects accounts that are both parents and direct
+annual-liquidation posting targets. It accepts their `CNT_MAYOR` difference
+only when direct annual activity nets to zero and the parent balance is exactly
+recreated from complete child mayor rows. Accepted rollups are measured in
+`accepted_hybrid_rollup_count` and `accepted_hybrid_rollup_variance`; they are
+never imported as balancing journals. Any unproven hybrid shape fails closed.
+
 Apply an accepted explicit-key plan while the tenant scheduler is paused:
 
 ```bash
@@ -303,9 +310,11 @@ account indexes for the complete phase.
    journal creation and source-identity reservation are one atomic action.
 3. Decide how source journal type, module, period, close, and status are
    preserved without overloading `ref_num`.
-4. Define treatment of back-period and unresolved-account journals; empty and
-   unbalanced journals already quarantine under the frozen status/integrity
-   policy.
+4. Resolve any future unresolved-account journals. Back-period dates are now a
+   non-blocking observation: the engine posts them on the final calendar day of
+   `CNT_PERIODO.ANIO/MES` and retains the original `FECHA_PARTIDA` in provenance.
+   Empty and unbalanced journals still quarantine under the frozen
+   status/integrity policy.
 5. Prove that `ref_num` is queryable enough for operator lookup while the
    durable migration mapping remains the idempotency authority.
 6. Complete cutoff-guard coverage for loan accrual, loan-loss provisioning,

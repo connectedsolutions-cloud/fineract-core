@@ -124,6 +124,13 @@ class WorkflowDefinitionTests(unittest.TestCase):
             "--baseline-ref", "sandbox@baseline-a", "--target", "local",
         ])
         self.assertEqual(created.cycle, "cycle-a")
+        resumed = parser().parse_args([
+            "workflow", "plan", "--workflow", "local-full-sync",
+            "--include-service", "accounting-journal-entries",
+            "--cycle", "cycle-a", "--target", "local",
+            "--resume-from-workflow-run", "parent-run",
+        ])
+        self.assertEqual(resumed.resume_from_workflow_run, "parent-run")
         reset_created = parser().parse_args([
             "workflow", "cycle", "create", "--cycle", "cycle-b",
             "--baseline-ref", "sandbox@baseline-b", "--target", "local",
@@ -272,6 +279,27 @@ class WorkflowDefinitionTests(unittest.TestCase):
 
         self.assertEqual(run_id, "run-1")
         self.assertEqual(counts, {"create": 3})
+        apply.assert_not_called()
+
+    def test_service_runtime_reuses_completed_accounting_child_for_reconciliation_only_retry(self):
+        runtime = object.__new__(ServiceRuntime)
+        runtime.settings = SimpleNamespace()
+        runtime.contracts = {"accounting-journal-entries": object()}
+        runtime.state = SimpleNamespace(
+            run=lambda _run_id: {
+                "block": "accounting", "plan_id": "plan-1",
+                "summary": {"reconciled": 13973, "quarantined": 51},
+            },
+        )
+
+        with (
+            patch("arissto_sync.service_runtime.accounting_retry_keys", return_value=set()),
+            patch("arissto_sync.service_runtime.apply_accounting_plan") as apply,
+        ):
+            run_id, counts = runtime.retry("accounting-journal-entries", "run-1")
+
+        self.assertEqual(run_id, "run-1")
+        self.assertEqual(counts, {"reconciled": 13973, "quarantined": 51})
         apply.assert_not_called()
 
     def test_service_runtime_reuses_recovered_loans_child_for_reconciliation_only_retry(self):
@@ -851,6 +879,49 @@ class WorkflowStateTests(unittest.TestCase):
             child_cutoff = self.state.plan(step["plan_id"])["document"]["accounting_cutoff"]
             self.assertEqual(child_cutoff["configuration_revision"], 2)
             self.assertEqual(child_cutoff["configuration_hash"], "cutoff-hash")
+
+    def test_resumed_plan_validates_and_skips_reconciled_parent_service(self):
+        with patch("arissto_sync.orchestration.preflight", return_value={"ok": True}):
+            parent_plan_id, _document = build_workflow_plan(
+                self.settings, self.state, "local-party-profile", self.cycle_id,
+            )
+        parent_run_id = self.state.create_workflow_run(
+            self.state.workflow_plan(parent_plan_id)
+        )
+        client_plan_id = self.state.save_plan(
+            self.settings.target.fingerprint, "clients", "source", "contract-clients",
+            {"applicable": True, "actions": []},
+        )
+        child_run_id = self.state.start_run(self.state.plan(client_plan_id))
+        self.state.finish_run(child_run_id, "completed", {"succeeded": 1})
+        client_step = self.state.workflow_steps(parent_run_id)[0]
+        self.state.update_workflow_step(
+            client_step["id"], status="completed", phase="completed",
+            plan_id=client_plan_id, child_run_id=child_run_id,
+            summary={"reconciliation_ok": True}, finish=True,
+        )
+        self.state.finish_workflow_run(parent_run_id, "failed", {})
+
+        with patch("arissto_sync.orchestration.preflight", return_value={"ok": True}):
+            plan_id, document = build_workflow_plan(
+                self.settings, self.state, "local-party-profile", self.cycle_id,
+                selected_services=["client-pep"], resume_from_run_id=parent_run_id,
+            )
+
+        self.assertEqual(document["run_mode"], "resumed")
+        self.assertEqual(document["service_actions"], {
+            "clients": "validate-and-skip", "client-pep": "continue",
+        })
+        run_id = self.state.create_workflow_run(self.state.workflow_plan(plan_id))
+        runtime = FakeRuntime(self.state, self.settings.target.fingerprint)
+        with patch("arissto_sync.orchestration.ServiceRuntime", return_value=runtime):
+            report = execute_workflow(self.settings, self.state, run_id, self.cycle_id)
+
+        self.assertEqual(report["workflow_run"]["status"], "completed")
+        self.assertEqual(runtime.prepared, ["client-pep"])
+        self.assertEqual(runtime.planned, ["client-pep"])
+        client_summary = report["steps"][0]["summary"]
+        self.assertEqual(client_summary["execution_action"], "validated-and-skipped")
 
     def test_transient_fineract_outage_restarts_and_retries_service_step(self):
         run_id = self.create_run({

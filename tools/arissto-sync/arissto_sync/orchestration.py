@@ -569,6 +569,7 @@ def build_workflow_plan(
     selected_services: list[str] | tuple[str, ...] | None = None,
     dte_controls: DteApplyControls | None = None,
     accounting_periods: list[str] | tuple[str, ...] | None = None,
+    resume_from_run_id: str | None = None,
 ) -> tuple[str, dict[str, Any]]:
     if settings.target.name != "local":
         raise ValueError("Workflow orchestration is strictly local; target must be local")
@@ -586,6 +587,35 @@ def build_workflow_plan(
     accounting_periods = tuple(dict.fromkeys(accounting_periods or ()))
     if any(not re.fullmatch(r"[0-9A-Za-z_-]{1,64}", period) for period in accounting_periods):
         raise ValueError("Accounting period contains an unsafe component")
+    satisfied_services: dict[str, dict[str, Any]] = {}
+    parent_run: dict[str, Any] | None = None
+    if resume_from_run_id:
+        parent_run = state.workflow_run(resume_from_run_id)
+        if parent_run["target_fingerprint"] != settings.target.fingerprint:
+            raise ValueError("Parent workflow run belongs to a different target fingerprint")
+        if parent_run["status"] not in {"completed", "failed", "interrupted"}:
+            raise ValueError(
+                "Resumed planning requires a completed, failed, or interrupted parent workflow run"
+            )
+        parent_plan = state.workflow_plan(parent_run["workflow_plan_id"])
+        if parent_plan["document"].get("accounting_cutoff") != state.accounting_cutoff:
+            raise ValueError("Parent workflow run uses a different accounting cutoff")
+        requested = set(selected_services or ())
+        for service_id, step in _latest_steps(state, resume_from_run_id).items():
+            if service_id not in report["ordered_services"] or service_id in requested:
+                continue
+            if (
+                step["status"] == "completed"
+                and step.get("child_run_id")
+                and step.get("summary", {}).get("reconciliation_ok") is True
+            ):
+                satisfied_services[service_id] = {
+                    "workflow_run_id": resume_from_run_id,
+                    "workflow_step_id": step["id"],
+                    "child_run_id": step["child_run_id"],
+                    "child_plan_id": step.get("plan_id"),
+                    "action": "validate-and-skip",
+                }
     document = {
         "workflow_id": definition.identifier,
         "workflow_version": definition.version,
@@ -617,6 +647,18 @@ def build_workflow_plan(
             },
         },
     }
+    if parent_run is not None:
+        document.update({
+            "run_mode": "resumed",
+            "parent_workflow_run_id": resume_from_run_id,
+            "satisfied_services": satisfied_services,
+            "service_actions": {
+                service_id: (
+                    "validate-and-skip" if service_id in satisfied_services else "continue"
+                )
+                for service_id in report["ordered_services"]
+            },
+        })
     if "accounting-journal-entries" in report["ordered_services"]:
         document["runtime_controls"]["accounting-journal-entries"] = {
             "scope": "source-periods" if accounting_periods else "full-company",
@@ -896,6 +938,53 @@ def _execute_workflow(settings: Settings, state: State, run_id: str, cycle_id: s
                         attempt=step["attempt"], status="completed",
                         details={"reason": "already-completed"},
                     )
+                    continue
+                satisfied = plan["document"].get("satisfied_services", {}).get(service_id)
+                if satisfied is not None:
+                    phase = "resume-prerequisite-validation"
+                    try:
+                        state.heartbeat_workflow(run_id, service_id, phase)
+                        state.update_workflow_step(
+                            step["id"], status="running", phase=phase, start=True,
+                        )
+                        reconciliation = runtime.reconcile(
+                            service_id, satisfied["child_run_id"],
+                        )
+                        if not reconciliation.get("ok"):
+                            raise RuntimeError(
+                                "Parent service reconciliation is no longer valid"
+                            )
+                        summary = {
+                            "reconciliation_ok": True,
+                            "reconciliation_counts": reconciliation.get("counts", {}),
+                            "satisfied_by_parent_workflow_run": satisfied["workflow_run_id"],
+                            "parent_child_run_id": satisfied["child_run_id"],
+                            "execution_action": "validated-and-skipped",
+                        }
+                        state.update_workflow_step(
+                            step["id"], status="completed", phase="completed",
+                            plan_id=satisfied.get("child_plan_id"),
+                            child_run_id=satisfied["child_run_id"], summary=summary,
+                            finish=True,
+                        )
+                        state.record_workflow_event(
+                            run_id, "workflow-parent-prerequisite-validated", phase,
+                            step_id=step["id"], service_id=service_id,
+                            attempt=step["attempt"], status="completed",
+                            details=summary,
+                        )
+                    except Exception as exc:
+                        code = type(exc).__name__
+                        message = _safe_message(exc)
+                        failure_id = _record_failure(
+                            state, run_id, step["id"], service_id, phase, None,
+                            "failed", code, message,
+                        )
+                        failures_by_service[service_id].append(failure_id)
+                        state.update_workflow_step(
+                            step["id"], status="failed", phase=phase,
+                            error_code=code, error_message=message, finish=True,
+                        )
                     continue
                 recovery_child = next(
                     (

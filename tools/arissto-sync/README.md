@@ -147,6 +147,21 @@ Employees, and Loans, but not Savings Deposits or Mobile Collections:
   --target local
 ```
 
+To continue the same target lifetime without replaying already reconciled
+prerequisites, create a resumed plan from a completed, failed, or interrupted
+workflow run. The runner
+reconciles those parent services again and skips their plan/apply phases only
+when that validation remains successful:
+
+```bash
+./arissto-sync workflow plan \
+  --workflow local-full-sync \
+  --include-service accounting-journal-entries \
+  --resume-from-workflow-run WORKFLOW_RUN_ID \
+  --cycle CYCLE_ID \
+  --target local
+```
+
 The workflow plan freezes an accounting cutoff equal to its creation date in
 `America/El_Salvador`. Add `--cutoff-date YYYY-MM-DD` when an explicit boundary
 is required; child plans, apply, retry, and reconciliation retain that value.

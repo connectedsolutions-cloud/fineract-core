@@ -247,8 +247,9 @@ public class HistoricalJournalImportServiceImpl implements HistoricalJournalImpo
         requireText(request.planId(), "plan.id.required");
         requireText(request.refNum(), "reference.required");
         requireEquals(request.sourceJournalNumber(), request.refNum(), "reference.mismatch");
-        if (request.entryDate() == null || request.cutoffDate() == null || request.cutoffConfigurationRevision() == null) {
-            throw failure("dates.required", "Journal and cutoff dates and the cutoff revision are required");
+        if (request.sourceJournalDate() == null || request.entryDate() == null || request.cutoffDate() == null
+                || request.cutoffConfigurationRevision() == null) {
+            throw failure("dates.required", "Source, effective and cutoff dates and the cutoff revision are required");
         }
         String[] hashes = { request.sourceHash(), request.plannedHash(), request.contractHash(), request.sourceSchemaSignature(),
                 request.coaMappingHash(), request.officeMappingHash(), request.policyHash(), request.targetBaselineHash(),

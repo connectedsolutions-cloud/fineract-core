@@ -24,7 +24,7 @@ from .connections import FineractApi, FineractError, postgres_connection
 from .state import State
 
 
-VERSION = "accounting-g10-canary-acceptance-v1"
+VERSION = "accounting-g10-canary-acceptance-v2"
 POSITIVE_KEYS = {
     "ordinary_multiline": "001:001:00028:0000000097",
     "both_agencies_and_cross_branch": "001:001:00052:0000005132",
@@ -36,8 +36,8 @@ POSITIVE_KEYS = {
 NEGATIVE_KEYS = {
     "status_2": "001:001:00071:0000013957",
     "empty": "001:001:00045:0000003217",
-    "back_period": "001:002:00058:0000007509",
 }
+NORMALIZED_DATE_KEY = "001:002:00058:0000007509"
 RECOVERY_KEY = "001:001:00031:0000000001"
 NATIVE_CUTOFF_REFERENCE = "G10-CUTOFF-20260910"
 
@@ -165,7 +165,7 @@ def prove_g10(settings: Settings, contract: AccountingContract, state: State, cu
         raise ValueError("FINERACT_LOCAL_PG_URL is required for G10 acceptance")
     api = FineractApi(settings.target)
     cutoff = _active_cutoff(api, cutoff_date)
-    all_keys = sorted(set(POSITIVE_KEYS.values()) | set(NEGATIVE_KEYS.values()) | {RECOVERY_KEY})
+    all_keys = sorted(set(POSITIVE_KEYS.values()) | set(NEGATIVE_KEYS.values()) | {NORMALIZED_DATE_KEY, RECOVERY_KEY})
     headers, lines, schema, currencies = _load_accounting_plan_inputs(settings, contract, all_keys)
     target = _target_snapshot(settings.target.pg_url, contract)
     document = plan_accounting_rows(
@@ -200,11 +200,17 @@ def prove_g10(settings: Settings, contract: AccountingContract, state: State, cu
                              == _signature(grouped[POSITIVE_KEYS["opposite_posting_b"]]),
         "annual_liquidation": str(annual_header.get("journal_type") or "").rstrip() == "003"
                               and str(annual_header.get("liquidation_flag") or "").rstrip() == "1",
+        "normalized_accounting_period_date": (
+            actions[NORMALIZED_DATE_KEY]["disposition"] in {"APPLICABLE", "UNCHANGED"}
+            and actions[NORMALIZED_DATE_KEY]["payload"]["entry_date"] == "2025-05-31"
+            and actions[NORMALIZED_DATE_KEY]["payload"]["provenance"]["source_journal_date"] == "2025-06-04"
+            and set(actions[NORMALIZED_DATE_KEY]["payload"]["provenance"]["date_anomaly_codes"])
+            == {"SOURCE_JOURNAL_BACK_PERIOD", "SOURCE_JOURNAL_REFERENCE_DATE_MISMATCH"}
+        ),
     }
     expected_negative = {
         NEGATIVE_KEYS["status_2"]: {"SOURCE_JOURNAL_EXCLUDED_FROM_LEDGER"},
         NEGATIVE_KEYS["empty"]: {"SOURCE_JOURNAL_EMPTY"},
-        NEGATIVE_KEYS["back_period"]: {"SOURCE_JOURNAL_BACK_PERIOD", "SOURCE_JOURNAL_REFERENCE_DATE_MISMATCH"},
     }
     live_quarantines = {
         key: {"passed": actions[key]["disposition"] == "QUARANTINED" and expected <= set(actions[key]["reason_codes"]),

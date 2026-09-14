@@ -143,7 +143,7 @@ public class HistoricalJournalProvenance extends AbstractPersistableCustom<Long>
         value.sourcePeriodId = request.sourcePeriodId();
         value.sourceJournalId = request.sourceJournalId();
         value.sourceJournalNumber = request.sourceJournalNumber();
-        value.sourceJournalDate = request.entryDate();
+        value.sourceJournalDate = request.sourceJournalDate();
         value.sourceJournalType = request.sourceJournalType();
         value.sourceModuleCode = request.sourceModuleCode();
         value.sourceStatus = request.sourceStatus();

@@ -46,8 +46,11 @@ matching expected/actual balance hash
 - `001:001:00071:0000013957` quarantined as
   `SOURCE_JOURNAL_EXCLUDED_FROM_LEDGER`.
 - `001:001:00045:0000003217` quarantined as `SOURCE_JOURNAL_EMPTY`.
-- `001:002:00058:0000007509` quarantined as `SOURCE_JOURNAL_BACK_PERIOD` and
-  `SOURCE_JOURNAL_REFERENCE_DATE_MISMATCH`.
+- Under the then-current contract, `001:002:00058:0000007509` quarantined as
+  `SOURCE_JOURNAL_BACK_PERIOD` and `SOURCE_JOURNAL_REFERENCE_DATE_MISMATCH`.
+  Contract version 15 supersedes that result: both codes are non-blocking
+  observations, the journal posts on the May 2025 period end (`2025-05-31`),
+  and its original `2025-06-04` source date remains in provenance.
 - With a temporary office-2 closure, `001:001:00053:0000005650` quarantined as
   `TARGET_OFFICE_CLOSURE_CONFLICT`. The closure was then deleted.
 - A real post-commit response-loss injection for

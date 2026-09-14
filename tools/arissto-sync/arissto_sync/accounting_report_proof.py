@@ -22,36 +22,59 @@ PRESENTATION_CSV = (
 )
 
 ACTIVITY_QUERY = """
-SELECT RTRIM(d.ID_CUENTA) source_account_id,
-       RTRIM(d.ID_SUCURSAL_DESTINO) source_branch_id,
-       SUM(CASE WHEN CAST(p.FECHA_PARTIDA AS date)<? AND d.DEBE>0 THEN d.DEBE ELSE 0 END) opening_debit,
-       SUM(CASE WHEN CAST(p.FECHA_PARTIDA AS date)<? AND d.HABER>0 THEN d.HABER ELSE 0 END) opening_credit,
-       SUM(CASE WHEN CAST(p.FECHA_PARTIDA AS date) BETWEEN ? AND ? AND d.DEBE>0 THEN d.DEBE ELSE 0 END) period_debit,
-       SUM(CASE WHEN CAST(p.FECHA_PARTIDA AS date) BETWEEN ? AND ? AND d.HABER>0 THEN d.HABER ELSE 0 END) period_credit,
-       SUM(CASE WHEN CAST(p.FECHA_PARTIDA AS date)<=? AND d.DEBE>0 THEN d.DEBE ELSE 0 END) closing_debit,
-       SUM(CASE WHEN CAST(p.FECHA_PARTIDA AS date)<=? AND d.HABER>0 THEN d.HABER ELSE 0 END) closing_credit
-FROM dbo.CNT_PARTIDAS p
-JOIN dbo.CNT_DETALLE_PARTIDAS d
-  ON d.ID_EMPRESA=p.ID_EMPRESA AND d.ID_SUCURSAL=p.ID_SUCURSAL
- AND d.ID_PERIODO=p.ID_PERIODO AND d.ID_PARTIDA=p.ID_PARTIDA
-WHERE p.ID_EMPRESA=? AND p.ESTADO_PARTIDA='3'
-  AND CAST(p.FECHA_PARTIDA AS date)>=?
-  AND CAST(p.FECHA_PARTIDA AS date)<=?
-  AND (?=0 OR p.ID_TIPO_PARTIDA<>'003')
-GROUP BY d.ID_CUENTA,d.ID_SUCURSAL_DESTINO
+WITH journal_lines AS (
+    SELECT p.ID_EMPRESA,p.ID_TIPO_PARTIDA,d.ID_CUENTA,d.ID_SUCURSAL_DESTINO,d.DEBE,d.HABER,
+           CASE
+             WHEN CAST(p.FECHA_PARTIDA AS date) BETWEEN DATEFROMPARTS(pe.ANIO,pe.MES,1)
+                                                         AND EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1))
+               THEN CAST(p.FECHA_PARTIDA AS date)
+             ELSE EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1))
+           END AS entry_date
+      FROM dbo.CNT_PARTIDAS p
+      JOIN dbo.CNT_PERIODO pe
+        ON pe.ID_EMPRESA=p.ID_EMPRESA AND pe.ID_PERIODO=p.ID_PERIODO
+      JOIN dbo.CNT_DETALLE_PARTIDAS d
+        ON d.ID_EMPRESA=p.ID_EMPRESA AND d.ID_SUCURSAL=p.ID_SUCURSAL
+       AND d.ID_PERIODO=p.ID_PERIODO AND d.ID_PARTIDA=p.ID_PARTIDA
+     WHERE p.ESTADO_PARTIDA='3'
+)
+SELECT RTRIM(ID_CUENTA) source_account_id,
+       RTRIM(ID_SUCURSAL_DESTINO) source_branch_id,
+       SUM(CASE WHEN entry_date<? AND DEBE>0 THEN DEBE ELSE 0 END) opening_debit,
+       SUM(CASE WHEN entry_date<? AND HABER>0 THEN HABER ELSE 0 END) opening_credit,
+       SUM(CASE WHEN entry_date BETWEEN ? AND ? AND DEBE>0 THEN DEBE ELSE 0 END) period_debit,
+       SUM(CASE WHEN entry_date BETWEEN ? AND ? AND HABER>0 THEN HABER ELSE 0 END) period_credit,
+       SUM(CASE WHEN entry_date<=? AND DEBE>0 THEN DEBE ELSE 0 END) closing_debit,
+       SUM(CASE WHEN entry_date<=? AND HABER>0 THEN HABER ELSE 0 END) closing_credit
+FROM journal_lines
+WHERE ID_EMPRESA=? AND entry_date>=? AND entry_date<=?
+  AND (?=0 OR ID_TIPO_PARTIDA<>'003')
+GROUP BY ID_CUENTA,ID_SUCURSAL_DESTINO
 """
 
 GENERAL_LEDGER_QUERY = """
-SELECT CAST(p.FECHA_PARTIDA AS date) entry_date,RTRIM(p.NUMERO_PARTIDA) ref_num,
+SELECT CASE
+         WHEN CAST(p.FECHA_PARTIDA AS date) BETWEEN DATEFROMPARTS(pe.ANIO,pe.MES,1)
+                                                     AND EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1))
+           THEN CAST(p.FECHA_PARTIDA AS date)
+         ELSE EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1))
+       END entry_date,RTRIM(p.NUMERO_PARTIDA) ref_num,
        RTRIM(d.ID_CUENTA) source_account_id,RTRIM(d.ID_SUCURSAL_DESTINO) source_branch_id,
        d.DEBE debit,d.HABER credit
 FROM dbo.CNT_PARTIDAS p
+JOIN dbo.CNT_PERIODO pe
+  ON pe.ID_EMPRESA=p.ID_EMPRESA AND pe.ID_PERIODO=p.ID_PERIODO
 JOIN dbo.CNT_DETALLE_PARTIDAS d
   ON d.ID_EMPRESA=p.ID_EMPRESA AND d.ID_SUCURSAL=p.ID_SUCURSAL
  AND d.ID_PERIODO=p.ID_PERIODO AND d.ID_PARTIDA=p.ID_PARTIDA
 WHERE p.ID_EMPRESA=? AND p.ESTADO_PARTIDA='3'
-  AND CAST(p.FECHA_PARTIDA AS date) BETWEEN ? AND ?
-ORDER BY p.FECHA_PARTIDA,p.ID_PARTIDA,d.ID_DETALLE_PARTIDA
+  AND CASE
+        WHEN CAST(p.FECHA_PARTIDA AS date) BETWEEN DATEFROMPARTS(pe.ANIO,pe.MES,1)
+                                                    AND EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1))
+          THEN CAST(p.FECHA_PARTIDA AS date)
+        ELSE EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1))
+      END BETWEEN ? AND ?
+ORDER BY entry_date,p.ID_PARTIDA,d.ID_DETALLE_PARTIDA
 """
 
 MEASURES = ("opening_balance", "debits", "credits", "closing_balance")
@@ -263,7 +286,7 @@ def prove_accounting_reports(settings: Settings, contract: AccountingContract, f
         and all(count > 0 for count in closing_effect_rows.values())
     )
     return {
-        "accepted": accepted, "proof_version": "accounting-report-parity-v1", "target": "local",
+        "accepted": accepted, "proof_version": "accounting-report-parity-v2", "target": "local",
         "from_date": from_date.isoformat(), "to_date": to_date.isoformat(),
         "presentation_version": contract.raw["report_presentation"]["policy_version"],
         "selector_counts": {

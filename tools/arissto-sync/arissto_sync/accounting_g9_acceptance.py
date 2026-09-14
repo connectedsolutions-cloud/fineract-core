@@ -15,7 +15,7 @@ from .config import ROOT, Settings, load_settings
 from .connections import FineractApi, postgres_connection
 
 
-G9_VERSION = "accounting-g9-statement-acceptance-v1"
+G9_VERSION = "accounting-g9-statement-acceptance-v2"
 CURRENCY_FIELDS = (*MEASURES, "accumulated_balance")
 DECEMBER_PERIOD = "00053"
 JANUARY_PERIOD = "00054"
@@ -86,7 +86,7 @@ WITH roots AS (
       JOIN descendants d
         ON d.ID_EMPRESA=c.ID_EMPRESA AND d.ID_CUENTA=c.ID_CUENTA_PADRE
 ), journal_activity AS (
-    SELECT CAST(p.FECHA_PARTIDA AS date) AS activity_date,
+    SELECT effective.activity_date,
            RTRIM(p.ID_PERIODO) AS period_id,
            RTRIM(d.ID_SUCURSAL_DESTINO) AS branch_id,
            tree.control_gl_code,
@@ -101,13 +101,21 @@ WITH roots AS (
       JOIN dbo.CNT_DETALLE_PARTIDAS d
         ON d.ID_EMPRESA=p.ID_EMPRESA AND d.ID_SUCURSAL=p.ID_SUCURSAL
        AND d.ID_PERIODO=p.ID_PERIODO AND d.ID_PARTIDA=p.ID_PARTIDA
+      JOIN dbo.CNT_PERIODO pe
+        ON pe.ID_EMPRESA=p.ID_EMPRESA AND pe.ID_PERIODO=p.ID_PERIODO
       JOIN dbo.CNT_CATALOGO_CUENTAS c
         ON c.ID_EMPRESA=d.ID_EMPRESA AND c.ID_CUENTA=d.ID_CUENTA
       JOIN descendants tree
         ON tree.ID_EMPRESA=d.ID_EMPRESA AND tree.ID_CUENTA=d.ID_CUENTA
+      CROSS APPLY (VALUES (CASE
+        WHEN CAST(p.FECHA_PARTIDA AS date) BETWEEN DATEFROMPARTS(pe.ANIO,pe.MES,1)
+                                                    AND EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1))
+          THEN CAST(p.FECHA_PARTIDA AS date)
+        ELSE EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1))
+      END)) effective(activity_date)
      WHERE p.ID_EMPRESA=? AND p.ESTADO_PARTIDA='3'
-       AND CAST(p.FECHA_PARTIDA AS date)<=?
-     GROUP BY CAST(p.FECHA_PARTIDA AS date),p.ID_PERIODO,d.ID_SUCURSAL_DESTINO,
+       AND effective.activity_date<=?
+     GROUP BY effective.activity_date,p.ID_PERIODO,d.ID_SUCURSAL_DESTINO,
               tree.control_gl_code,c.CODIGO_CUENTA,c.TIPO_SALDO,p.ID_TIPO_PARTIDA
 )
 SELECT * FROM journal_activity
@@ -139,8 +147,15 @@ WITH used_accounts AS (
       JOIN dbo.CNT_DETALLE_PARTIDAS d
         ON d.ID_EMPRESA=p.ID_EMPRESA AND d.ID_SUCURSAL=p.ID_SUCURSAL
        AND d.ID_PERIODO=p.ID_PERIODO AND d.ID_PARTIDA=p.ID_PARTIDA
+      JOIN dbo.CNT_PERIODO pe
+        ON pe.ID_EMPRESA=p.ID_EMPRESA AND pe.ID_PERIODO=p.ID_PERIODO
      WHERE p.ID_EMPRESA=? AND p.ESTADO_PARTIDA='3'
-       AND CAST(p.FECHA_PARTIDA AS date)<=?
+       AND CASE
+             WHEN CAST(p.FECHA_PARTIDA AS date) BETWEEN DATEFROMPARTS(pe.ANIO,pe.MES,1)
+                                                         AND EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1))
+               THEN CAST(p.FECHA_PARTIDA AS date)
+             ELSE EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1))
+           END<=?
 )
 SELECT RTRIM(u.ID_SUCURSAL_DESTINO) AS branch_id,
        RTRIM(c.CODIGO_CUENTA) AS gl_code,

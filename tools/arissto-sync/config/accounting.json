@@ -1,5 +1,5 @@
 {
-  "contract_version": 14,
+  "contract_version": 15,
   "category": "accounting",
   "cutoff": {
     "date": null,
@@ -76,6 +76,17 @@
       "disposition": "QUARANTINED",
       "reason_code": "SOURCE_JOURNAL_UNBALANCED"
     }
+  },
+  "journal_date_policy": {
+    "accounting_period_authority": "CNT_PERIODO.ANIO_and_MES",
+    "within_period_effective_date": "preserve_CNT_PARTIDAS.FECHA_PARTIDA",
+    "outside_period_effective_date": "last_calendar_day_of_CNT_PERIODO",
+    "source_date_provenance": "preserve_CNT_PARTIDAS.FECHA_PARTIDA_separately",
+    "journal_number_role": "preserve_exactly_as_ref_num_never_derive_effective_date",
+    "recognized_nonblocking_anomalies": [
+      "SOURCE_JOURNAL_BACK_PERIOD",
+      "SOURCE_JOURNAL_REFERENCE_DATE_MISMATCH"
+    ]
   },
   "reversal_policy": {
     "reporting_requirement": "preserve_posted_gl_effects",

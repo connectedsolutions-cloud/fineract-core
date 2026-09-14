@@ -264,6 +264,12 @@ class ServiceRuntime:
         contract = self.contracts[block]
         if block == ACCOUNTING_SERVICE:
             keys = accounting_retry_keys(self.state, previous_run_id)
+            if not keys:
+                # The apply phase is already terminal and only strict
+                # reconciliation remains. Keep the exact child identity; the
+                # accounting reconciler reads durable outcomes across its
+                # frozen plan's retry chain.
+                return previous_run_id, dict(previous.get("summary", {}))
             return apply_accounting_plan(
                 self.settings, self.state, contract, plan_id, production_confirmation,
                 keys, retry_from_run=previous_run_id,

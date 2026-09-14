@@ -68,6 +68,13 @@ active statuses forward: the old cycle remains available for failure comparison.
 Closing a cycle prevents new workflow plans or runs without deleting its SQLite
 file.
 
+A new downstream selection in the same target lifetime must name its completed,
+failed, or interrupted parent with
+`workflow plan --resume-from-workflow-run WORKFLOW_RUN_ID`. The
+resulting resumed plan freezes parent child-run identities. At execution time it
+reruns reconciliation for those services and skips their plan/apply phases only
+when reconciliation still passes; all newly selected services continue normally.
+
 Inspect local state and runner-log growth without loading source or target
 credentials:
 

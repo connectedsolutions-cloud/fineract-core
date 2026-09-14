@@ -154,6 +154,23 @@ class HistoricalJournalImportServiceImplTest {
     }
 
     @Test
+    void preservesSourceDateButPostsUsingTheNormalizedAccountingPeriodDate() {
+        LocalDate sourceJournalDate = LocalDate.of(2025, 6, 4);
+        LocalDate effectiveEntryDate = LocalDate.of(2025, 5, 31);
+        HistoricalJournalImportRequest request = request(lines(), sourceJournalDate, effectiveEntryDate, CUTOFF_DATE);
+
+        service.importJournal(request);
+
+        var provenanceCaptor = org.mockito.ArgumentCaptor.forClass(HistoricalJournalProvenance.class);
+        verify(provenanceRepository, org.mockito.Mockito.times(2)).saveAndFlush(provenanceCaptor.capture());
+        assertThat(provenanceCaptor.getAllValues()).extracting(HistoricalJournalProvenance::getSourceJournalDate)
+                .containsOnly(sourceJournalDate);
+        var journalCaptor = org.mockito.ArgumentCaptor.forClass(JournalEntry.class);
+        verify(journalEntryPersistenceService, org.mockito.Mockito.times(2)).saveAndFlush(journalCaptor.capture());
+        assertThat(journalCaptor.getAllValues()).extracting(JournalEntry::getTransactionDate).containsOnly(effectiveEntryDate);
+    }
+
+    @Test
     void identicalRetryAndLostResponseReturnPriorSuccessWithoutNewWrites() {
         HistoricalJournalImportRequest request = validRequest();
         HistoricalJournalProvenance existing = mock(HistoricalJournalProvenance.class);
@@ -283,12 +300,17 @@ class HistoricalJournalImportServiceImplTest {
 
     private HistoricalJournalImportRequest request(List<HistoricalJournalImportRequest.HistoricalJournalLineImportRequest> values,
             LocalDate entryDate, LocalDate cutoffDate) {
-        return new HistoricalJournalImportRequest("arissto-gl-v1", "ARISSTO", "001", "001", "00065", "10", "2025120010", entryDate, "001",
-                "1", "3", "0", "0", "header concept", fieldHash("CNT_PARTIDAS.CONCEPTO", "header concept"), "header description",
-                fieldHash("CNT_PARTIDAS.DESCRIPCION", "header description"), HASH, HASH, HASH, HASH, "fineract-gl-code-v1", HASH,
-                "fineract-office-external-id-v1", HASH, "13", HASH, "legacy-text-v1", "source-fingerprint", "target-fingerprint", HASH,
-                cutoffDate, "America/El_Salvador", 2L, HASH, "plan-id", "run-id", "2025120010", "USD", new BigDecimal("10.00"),
-                new BigDecimal("10.00"), false, null, values);
+        return request(values, entryDate, entryDate, cutoffDate);
+    }
+
+    private HistoricalJournalImportRequest request(List<HistoricalJournalImportRequest.HistoricalJournalLineImportRequest> values,
+            LocalDate sourceJournalDate, LocalDate entryDate, LocalDate cutoffDate) {
+        return new HistoricalJournalImportRequest("arissto-gl-v1", "ARISSTO", "001", "001", "00065", "10", "2025120010", sourceJournalDate,
+                entryDate, "001", "1", "3", "0", "0", "header concept", fieldHash("CNT_PARTIDAS.CONCEPTO", "header concept"),
+                "header description", fieldHash("CNT_PARTIDAS.DESCRIPCION", "header description"), HASH, HASH, HASH, HASH,
+                "fineract-gl-code-v1", HASH, "fineract-office-external-id-v1", HASH, "13", HASH, "legacy-text-v1", "source-fingerprint",
+                "target-fingerprint", HASH, cutoffDate, "America/El_Salvador", 2L, HASH, "plan-id", "run-id", "2025120010", "USD",
+                new BigDecimal("10.00"), new BigDecimal("10.00"), false, null, values);
     }
 
     private HistoricalJournalImportRequest.HistoricalJournalLineImportRequest line(String id, int sequence, long officeId,

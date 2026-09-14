@@ -11,6 +11,7 @@ import hashlib
 import json
 import re
 import unicodedata
+from calendar import monthrange
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -27,8 +28,8 @@ from .state import State
 
 
 BLOCK = "accounting"
-PLAN_VERSION = "accounting-explicit-key-plan-v1"
-RECONCILIATION_VERSION = "accounting-direct-journal-reconciliation-v2"
+PLAN_VERSION = "accounting-explicit-key-plan-v2"
+RECONCILIATION_VERSION = "accounting-direct-journal-reconciliation-v4"
 PROVENANCE_SCHEMA_VERSION = "arissto-gl-v1"
 DESCRIPTION_POLICY_VERSION = "arissto-description-projection-v1"
 IMPORT_ENDPOINT = "arisstohistoricaljournals"
@@ -148,6 +149,17 @@ class AccountingContract:
         if any(not re.fullmatch(r"[0-9A-Za-z_-]+", str(key)) or not re.fullmatch(r"[0-9A-Za-z_-]+", str(target))
                for key, target in overrides.items()):
             raise ValueError("Accounting account mapping contains an unsafe code")
+        date_policy = value.get("journal_date_policy", {})
+        if (
+            date_policy.get("accounting_period_authority") != "CNT_PERIODO.ANIO_and_MES"
+            or date_policy.get("within_period_effective_date") != "preserve_CNT_PARTIDAS.FECHA_PARTIDA"
+            or date_policy.get("outside_period_effective_date") != "last_calendar_day_of_CNT_PERIODO"
+            or date_policy.get("source_date_provenance") != "preserve_CNT_PARTIDAS.FECHA_PARTIDA_separately"
+            or date_policy.get("journal_number_role") != "preserve_exactly_as_ref_num_never_derive_effective_date"
+            or date_policy.get("recognized_nonblocking_anomalies")
+            != ["SOURCE_JOURNAL_BACK_PERIOD", "SOURCE_JOURNAL_REFERENCE_DATE_MISMATCH"]
+        ):
+            raise ValueError("Accounting contract must freeze the intended journal-date policy")
         return cls(value)
 
     @property
@@ -255,13 +267,19 @@ WITH control_period AS (
     FROM dbo.CNT_PERIODO pe
     WHERE pe.ID_EMPRESA=? AND pe.ID_PERIODO=?
 ), eligible_headers AS (
-    SELECT p.ID_EMPRESA,p.ID_SUCURSAL,p.ID_PERIODO,p.ID_PARTIDA
+    SELECT p.ID_EMPRESA,p.ID_SUCURSAL,p.ID_PERIODO,p.ID_PARTIDA,
+           p.ID_TIPO_PARTIDA,p.LIQ_ING_EGR
     FROM dbo.CNT_PARTIDAS p
     CROSS JOIN control_period cp
     JOIN dbo.CNT_PERIODO pe
       ON pe.ID_EMPRESA=p.ID_EMPRESA AND pe.ID_PERIODO=p.ID_PERIODO
     WHERE p.ID_EMPRESA=? AND p.ESTADO_PARTIDA='3'
-      AND CAST(p.FECHA_PARTIDA AS date)>=CAST(? AS date)
+      AND CASE
+            WHEN CAST(p.FECHA_PARTIDA AS date) BETWEEN DATEFROMPARTS(pe.ANIO,pe.MES,1)
+                                                        AND EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1))
+              THEN CAST(p.FECHA_PARTIDA AS date)
+            ELSE EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1))
+          END>=CAST(? AS date)
       AND (pe.ANIO<cp.ANIO OR (pe.ANIO=cp.ANIO AND pe.MES<=cp.MES))
       AND EXISTS (
           SELECT 1 FROM dbo.CNT_DETALLE_PARTIDAS d
@@ -269,21 +287,26 @@ WITH control_period AS (
             AND d.ID_PERIODO=p.ID_PERIODO AND d.ID_PARTIDA=p.ID_PARTIDA
       )
 ), journal_closing AS (
-    SELECT d.ID_SUCURSAL_DESTINO AS destination_branch_id,d.ID_CUENTA,
-           SUM(CASE WHEN c.TIPO_SALDO='A' THEN d.HABER-d.DEBE ELSE d.DEBE-d.HABER END) AS closing_balance
+    SELECT h.ID_EMPRESA,d.ID_SUCURSAL_DESTINO AS destination_branch_id,d.ID_CUENTA,
+           SUM(CASE WHEN c.TIPO_SALDO='A' THEN d.HABER-d.DEBE ELSE d.DEBE-d.HABER END) AS closing_balance,
+           COUNT_BIG(*) AS direct_line_count,
+           SUM(CASE WHEN RTRIM(COALESCE(h.ID_TIPO_PARTIDA,''))='003'
+                          AND RTRIM(COALESCE(h.LIQ_ING_EGR,''))='1'
+                    THEN 0 ELSE 1 END) AS non_annual_liquidation_line_count
     FROM eligible_headers h
     JOIN dbo.CNT_DETALLE_PARTIDAS d
       ON d.ID_EMPRESA=h.ID_EMPRESA AND d.ID_SUCURSAL=h.ID_SUCURSAL
      AND d.ID_PERIODO=h.ID_PERIODO AND d.ID_PARTIDA=h.ID_PARTIDA
     JOIN dbo.CNT_CATALOGO_CUENTAS c
       ON c.ID_EMPRESA=d.ID_EMPRESA AND c.ID_CUENTA=d.ID_CUENTA
-    GROUP BY d.ID_SUCURSAL_DESTINO,d.ID_CUENTA
+    GROUP BY h.ID_EMPRESA,d.ID_SUCURSAL_DESTINO,d.ID_CUENTA
 ), comparison_keys AS (
     SELECT destination_branch_id,ID_CUENTA FROM journal_closing
 ), comparison AS (
     SELECT k.destination_branch_id,k.ID_CUENTA,
            COALESCE(j.closing_balance,0) AS journal_closing,
-           COALESCE(m.SALDO_FINAL,0) AS ledger_closing
+           COALESCE(m.SALDO_FINAL,0) AS ledger_closing,
+           j.direct_line_count,j.non_annual_liquidation_line_count
     FROM comparison_keys k
     CROSS JOIN control_period cp
     LEFT JOIN journal_closing j
@@ -295,12 +318,31 @@ WITH control_period AS (
 SELECT RTRIM(cp.ID_PERIODO) AS control_period_id,
        CAST(CASE WHEN cp.period_end<CAST(? AS date) THEN 1 ELSE 0 END AS int) AS closed_before_cutoff,
        (SELECT COUNT_BIG(*) FROM eligible_headers) AS eligible_journal_count,
-       COUNT_BIG(c.ID_CUENTA) AS compared_account_branch_count,
-       SUM(CASE WHEN c.journal_closing=c.ledger_closing THEN 0 ELSE 1 END) AS closing_mismatch_count,
-       COALESCE(SUM(ABS(c.journal_closing-c.ledger_closing)),0) AS absolute_closing_variance
+       RTRIM(c.destination_branch_id) AS destination_branch_id,
+       RTRIM(c.ID_CUENTA) AS account_id,c.journal_closing,c.ledger_closing,
+       c.direct_line_count,c.non_annual_liquidation_line_count
 FROM control_period cp
 LEFT JOIN comparison c ON 1=1
-GROUP BY cp.ID_PERIODO,cp.period_end
+"""
+
+SOURCE_HYBRID_ROLLUP_QUERY_PREFIX = """
+WITH requested(destination_branch_id,ID_CUENTA) AS (
+"""
+
+SOURCE_HYBRID_ROLLUP_QUERY_SUFFIX = """
+)
+SELECT RTRIM(r.destination_branch_id) AS destination_branch_id,
+       RTRIM(r.ID_CUENTA) AS account_id,
+       COUNT(child.ID_CUENTA) AS child_account_count,
+       COUNT(child_mayor.ID_CUENTA) AS child_ledger_row_count,
+       COALESCE(SUM(child_mayor.SALDO_FINAL),0) AS child_ledger_closing
+FROM requested r
+LEFT JOIN dbo.CNT_CATALOGO_CUENTAS child
+  ON child.ID_EMPRESA_PADRE=? AND child.ID_CUENTA_PADRE=r.ID_CUENTA
+LEFT JOIN dbo.CNT_MAYOR child_mayor
+  ON child_mayor.ID_EMPRESA=child.ID_EMPRESA AND child_mayor.ID_CUENTA=child.ID_CUENTA
+ AND child_mayor.ID_PERIODO=? AND child_mayor.ID_SUCURSAL=r.destination_branch_id
+GROUP BY r.destination_branch_id,r.ID_CUENTA
 """
 
 
@@ -320,6 +362,47 @@ def _date(value: Any) -> date | None:
         return date.fromisoformat(str(value)[:10]) if value not in (None, "") else None
     except ValueError:
         return None
+
+
+def _journal_date_policy(header: dict[str, Any]) -> dict[str, Any]:
+    """Resolve the effective accounting date without trusting journal numbering.
+
+    Arissto can create a journal after the month to which it was intentionally
+    posted. CNT_PERIODO is the accounting-period authority; NUMERO_PARTIDA is
+    preserved as business evidence but never used to derive a date.
+    """
+    source_date = _date(header.get("journal_date"))
+    period_year = _trim(header.get("period_year"))
+    period_month = (_trim(header.get("period_month")) or "").zfill(2)
+    try:
+        year, month = int(period_year or ""), int(period_month)
+        period_start = date(year, month, 1)
+        period_end = date(year, month, monthrange(year, month)[1])
+    except (TypeError, ValueError):
+        return {
+            "source_date": source_date, "effective_date": source_date,
+            "period_start": None, "period_end": None, "rule": "unresolved-accounting-period",
+            "anomaly_codes": [],
+        }
+
+    anomaly_codes: list[str] = []
+    if source_date is not None and not period_start <= source_date <= period_end:
+        anomaly_codes.append("SOURCE_JOURNAL_BACK_PERIOD")
+        effective_date = period_end
+        rule = "accounting-period-end-normalization"
+    else:
+        effective_date = source_date
+        rule = "source-date-within-accounting-period"
+
+    number = _trim(header.get("journal_number"))
+    if number and JOURNAL_NUMBER.fullmatch(number) and source_date is not None:
+        if number[:6] != f"{source_date.year:04d}{source_date.month:02d}":
+            anomaly_codes.append("SOURCE_JOURNAL_REFERENCE_DATE_MISMATCH")
+    return {
+        "source_date": source_date, "effective_date": effective_date,
+        "period_start": period_start, "period_end": period_end, "rule": rule,
+        "anomaly_codes": sorted(anomaly_codes),
+    }
 
 
 def _line_hash(row: dict[str, Any], contract: AccountingContract) -> str:
@@ -388,6 +471,7 @@ def _policy_hash(contract: AccountingContract) -> str:
         "historical_origin": contract.raw["historical_origin"],
         "source_eligibility": contract.raw["source_eligibility"],
         "annual_liquidation_policy": contract.raw["annual_liquidation_policy"],
+        "journal_date_policy": contract.raw["journal_date_policy"],
         "legacy_text_policy": contract.raw["legacy_text_policy"],
         "currency_precision": contract.raw["currency_precision"],
         "cutoff": contract.raw["cutoff"],
@@ -436,6 +520,7 @@ def classify_accounting(headers: list[dict[str, Any]], lines: list[dict[str, Any
     boundary_counts: Counter[str] = Counter({
         "before_cutoff": 0, "on_cutoff": 0, "after_cutoff": 0, "invalid": 0,
     })
+    date_policy_observations: list[dict[str, Any]] = []
     hash_by_key: dict[str, str] = {}
 
     for header in sorted(headers, key=_source_key):
@@ -443,7 +528,19 @@ def classify_accounting(headers: list[dict[str, Any]], lines: list[dict[str, Any
         key_text = source_key_text(key)
         journal_lines = grouped_lines.get(key, [])
         reasons: set[str] = set()
-        journal_date = _date(header.get("journal_date"))
+        date_policy = _journal_date_policy(header)
+        source_journal_date = date_policy["source_date"]
+        journal_date = date_policy["effective_date"]
+        if date_policy["anomaly_codes"]:
+            for code in date_policy["anomaly_codes"]:
+                classification_counts[code] += 1
+            date_policy_observations.append({
+                "source_key": key_text,
+                "source_journal_date": source_journal_date.isoformat() if source_journal_date else None,
+                "effective_entry_date": journal_date.isoformat() if journal_date else None,
+                "rule": date_policy["rule"],
+                "anomaly_codes": date_policy["anomaly_codes"],
+            })
         if journal_date is None:
             boundary = "invalid"
             reasons.add("SOURCE_JOURNAL_DATE_INVALID")
@@ -492,20 +589,14 @@ def classify_accounting(headers: list[dict[str, Any]], lines: list[dict[str, Any
         if annual_signal:
             classification_counts["annual_liquidation"] += 1
 
-        period_year = _trim(header.get("period_year"))
-        period_month = (_trim(header.get("period_month")) or "").zfill(2)
-        if not period_year or not period_month.strip("0"):
+        if date_policy["period_start"] is None:
             reasons.add("SOURCE_ACCOUNTING_PERIOD_UNRESOLVED")
-        elif journal_date and (str(journal_date.year), f"{journal_date.month:02d}") != (period_year, period_month):
-            reasons.add("SOURCE_JOURNAL_BACK_PERIOD")
 
         number = _trim(header.get("journal_number"))
         if not number:
             reasons.add("SOURCE_JOURNAL_REFERENCE_BLANK")
         elif not JOURNAL_NUMBER.fullmatch(number):
             reasons.add("SOURCE_JOURNAL_REFERENCE_INVALID")
-        elif journal_date and number[:6] != f"{journal_date.year:04d}{journal_date.month:02d}":
-            reasons.add("SOURCE_JOURNAL_REFERENCE_DATE_MISMATCH")
 
         involved_offices: set[int] = set()
         for line in journal_lines:
@@ -569,6 +660,7 @@ def classify_accounting(headers: list[dict[str, Any]], lines: list[dict[str, Any
         "line_count": len(lines),
         "boundary_counts": dict(sorted(boundary_counts.items())),
         "classification_counts": dict(sorted(classification_counts.items())),
+        "date_policy_observations": sorted(date_policy_observations, key=lambda item: item["source_key"]),
         "finding_count": len(findings),
         "findings": findings,
         "source_hashes": hash_by_key,
@@ -759,9 +851,12 @@ def _canonical_payload(header: dict[str, Any], lines: list[dict[str, Any]],
                 "agency_version": agency["mapping_version"],
             },
         })
+    date_policy = _journal_date_policy(header)
+    source_journal_date = date_policy["source_date"]
+    effective_entry_date = date_policy["effective_date"]
     return {
         "source_key": key_text,
-        "entry_date": _date(header.get("journal_date")).isoformat(),  # type: ignore[union-attr]
+        "entry_date": effective_entry_date.isoformat(),  # type: ignore[union-attr]
         "ref_num": _trim(header.get("journal_number")),
         "currency": str(currency["target_currency_code"]),
         "debit_total": _money(sum((_decimal(line.get("debit")) for line in lines), Decimal(0))),
@@ -776,6 +871,9 @@ def _canonical_payload(header: dict[str, Any], lines: list[dict[str, Any]],
             "source_journal_type": _trim(header.get("journal_type")),
             "source_liquidation_flag": _trim(header.get("liquidation_flag")),
             "source_opening_flag": _trim(header.get("opening_flag")),
+            "source_journal_date": source_journal_date.isoformat(),  # type: ignore[union-attr]
+            "effective_entry_date_rule": date_policy["rule"],
+            "date_anomaly_codes": date_policy["anomaly_codes"],
             "header_concept_sha256": _text_hash("CNT_PARTIDAS.CONCEPTO", header.get("header_concept")),
             "header_description_sha256": _text_hash("CNT_PARTIDAS.DESCRIPCION", header.get("header_description")),
         },
@@ -820,7 +918,7 @@ def plan_accounting_rows(headers: list[dict[str, Any]], lines: list[dict[str, An
             payload = None
         else:
             header = min(matching_headers, key=_canonical_json)
-            journal_date = _date(header.get("journal_date"))
+            journal_date = _journal_date_policy(header)["effective_date"]
             if journal_date is not None and journal_date >= cutoff:
                 reasons.add("SOURCE_JOURNAL_ON_OR_AFTER_CUTOFF")
             if not currency_ready:
@@ -1125,6 +1223,7 @@ def build_historical_journal_request(
         "provenanceSchemaVersion": PROVENANCE_SCHEMA_VERSION, "sourceSystem": "ARISSTO",
         "sourceCompanyId": key[0], "sourceBranchId": key[1], "sourcePeriodId": key[2],
         "sourceJournalId": key[3], "sourceJournalNumber": payload["ref_num"],
+        "sourceJournalDate": provenance["source_journal_date"],
         "entryDate": payload["entry_date"], "sourceJournalType": provenance["source_journal_type"],
         "sourceModuleCode": _trim(header.get("source_system")), "sourceStatus": provenance["source_journal_status"],
         "sourceLiquidationFlag": provenance["source_liquidation_flag"],
@@ -1141,13 +1240,14 @@ def build_historical_journal_request(
         "officeMappingHash": bindings["agency_mapping"]["hash"],
         "policyVersion": f"accounting-contract-v{bindings['policy']['contract_version']}",
         "policyHash": bindings["policy"]["hash"], "descriptionPolicyVersion": DESCRIPTION_POLICY_VERSION,
+        "knownAnomalyCodes": ",".join(provenance["date_anomaly_codes"]) or None,
         "sourceFingerprint": document["source_fingerprint"], "targetFingerprint": document["target_fingerprint"],
         "targetBaselineHash": bindings["target_baseline_hash"], "cutoffDate": cutoff["date"],
         "cutoffTimezoneId": cutoff["timezone"], "cutoffConfigurationRevision": cutoff["configuration_revision"],
         "cutoffConfigurationHash": cutoff["configuration_hash"], "planId": plan_id, "runId": request_run_id,
         "refNum": payload["ref_num"], "currency": payload["currency"],
         "debitTotal": payload["debit_total"], "creditTotal": payload["credit_total"],
-        "knownTransferredLoanOfficeMismatch": False, "knownAnomalyCodes": None, "lines": request_lines,
+        "knownTransferredLoanOfficeMismatch": False, "lines": request_lines,
     }
 
 
@@ -1385,7 +1485,7 @@ def _reconcile_accounting_action(action: dict[str, Any], rows: list[dict[str, An
             "cutoff_configuration_hash": cutoff["configuration_hash"],
             "provenance_result": "IMPORTED",
             "target_ref_num": payload["ref_num"],
-            "source_journal_date": payload["entry_date"],
+            "source_journal_date": payload["provenance"]["source_journal_date"],
         }
         if header_actual != header_expected:
             reasons.add("TARGET_JOURNAL_PROVENANCE_DRIFT")
@@ -1561,9 +1661,80 @@ def _source_ledger_control(
             conn, SOURCE_LEDGER_CONTROL_QUERY,
             (company, control_period_id, company, origin, company, cutoff),
         )
-    if len(rows) != 1:
-        raise RuntimeError("SOURCE_LEDGER_CONTROL_PERIOD_UNRESOLVED")
-    return rows[0]
+        if not rows or not rows[0].get("control_period_id"):
+            raise RuntimeError("SOURCE_LEDGER_CONTROL_PERIOD_UNRESOLVED")
+        comparisons = [row for row in rows if row.get("account_id")]
+        mismatches = [
+            row for row in comparisons
+            if _decimal(row.get("journal_closing")) != _decimal(row.get("ledger_closing"))
+        ]
+        rollups: dict[tuple[str, str], dict[str, Any]] = {}
+        if mismatches:
+            requested = "\nUNION ALL\n".join(
+                "SELECT CAST(? AS char(3)),CAST(? AS char(10))" for _ in mismatches
+            )
+            params: list[Any] = []
+            for row in mismatches:
+                params.extend([row["destination_branch_id"], row["account_id"]])
+            params.extend([company, control_period_id])
+            rollup_rows = select_rows(
+                conn,
+                SOURCE_HYBRID_ROLLUP_QUERY_PREFIX + requested + SOURCE_HYBRID_ROLLUP_QUERY_SUFFIX,
+                tuple(params),
+            )
+            rollups = {
+                (str(row["destination_branch_id"]), str(row["account_id"])): row
+                for row in rollup_rows
+            }
+    base = rows[0]
+    accepted: list[dict[str, Any]] = []
+    unresolved: list[dict[str, Any]] = []
+    unsafe_hybrid_count = 0
+    for row in mismatches:
+        rollup = rollups.get((str(row["destination_branch_id"]), str(row["account_id"])), {})
+        child_count = int(rollup.get("child_account_count") or 0)
+        child_rows = int(rollup.get("child_ledger_row_count") or 0)
+        safe_hybrid = (
+            child_count > 0
+            and child_rows == child_count
+            and int(row.get("non_annual_liquidation_line_count") or 0) == 0
+            and _decimal(row.get("journal_closing")) == 0
+            and _decimal(row.get("ledger_closing")) == _decimal(rollup.get("child_ledger_closing"))
+        )
+        if safe_hybrid:
+            accepted.append(row)
+        else:
+            unresolved.append(row)
+            unsafe_hybrid_count += int(child_count > 0)
+    accepted_variance = sum(
+        (abs(_decimal(row["journal_closing"]) - _decimal(row["ledger_closing"])) for row in accepted),
+        Decimal("0"),
+    )
+    unresolved_variance = sum(
+        (abs(_decimal(row["journal_closing"]) - _decimal(row["ledger_closing"])) for row in unresolved),
+        Decimal("0"),
+    )
+    return {
+        "control_period_id": str(base["control_period_id"]),
+        "closed_before_cutoff": int(base.get("closed_before_cutoff") or 0),
+        "eligible_journal_count": int(base.get("eligible_journal_count") or 0),
+        "compared_account_branch_count": len(comparisons),
+        "raw_closing_mismatch_count": len(mismatches),
+        "accepted_hybrid_rollup_count": len(accepted),
+        "accepted_hybrid_rollup_variance": accepted_variance,
+        "accepted_hybrid_rollup_hash": _hash([
+            {
+                "destination_branch_id": row["destination_branch_id"],
+                "account_id": row["account_id"],
+                "journal_closing": _amount_text(row["journal_closing"], 2),
+                "ledger_closing": _amount_text(row["ledger_closing"], 2),
+            }
+            for row in sorted(accepted, key=lambda value: (value["destination_branch_id"], value["account_id"]))
+        ]),
+        "unsafe_hybrid_account_count": unsafe_hybrid_count,
+        "closing_mismatch_count": len(unresolved),
+        "absolute_closing_variance": unresolved_variance,
+    }
 
 
 def reconcile_accounting(
@@ -1585,7 +1756,10 @@ def reconcile_accounting(
     rows_by_key: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in snapshot.get("rows", []):
         rows_by_key[str(row.get("source_key") or "")].append(row)
-    apply_items = {item["source_key"]: item for item in state.run_items(run_id)}
+    # Reconciliation may be retried from a zero-write child run after the
+    # original apply completed. Read the durable outcome across the frozen
+    # plan's complete retry chain instead of treating that child in isolation.
+    apply_items = {item["source_key"]: item for item in state.plan_run_items(plan["id"])}
     findings: list[dict[str, Any]] = []
     counts = Counter()
     for action in actions:
@@ -1601,7 +1775,7 @@ def reconcile_accounting(
             item["status"] not in {"succeeded", "recovered", "unchanged", "reconciled"}
             and not (
                 item["status"] == "failed"
-                and (state.accounting_attempt(run_id, key) or {}).get("error_class") == "reconciliation"
+                and (state.accounting_attempt(item["run_id"], key) or {}).get("error_class") == "reconciliation"
             )
         ):
             reasons = ["ACCOUNTING_APPLY_NOT_TERMINAL"]
@@ -1616,7 +1790,7 @@ def reconcile_accounting(
             state.record_accounting_reconciliation(run_id, key, False, ",".join(reasons))
             counts["mismatched"] += 1
         elif action["disposition"] != "QUARANTINED":
-            state.record_accounting_reconciliation(run_id, key, True)
+            state.record_accounting_reconciliation(item["run_id"], key, True)
             counts["reconciled"] += 1
     boundary = snapshot.get("boundary", {})
     boundary_findings = []
@@ -1639,6 +1813,8 @@ def reconcile_accounting(
         source_ledger_findings.append("SOURCE_LEDGER_CONTROL_PERIOD_NOT_CLOSED_BEFORE_CUTOFF")
     if int(source_ledger_control.get("eligible_journal_count", -1)) != eligible_action_count:
         source_ledger_findings.append("SOURCE_LEDGER_CONTROL_SCOPE_INCOMPLETE")
+    if int(source_ledger_control.get("unsafe_hybrid_account_count", 0)):
+        source_ledger_findings.append("SOURCE_HYBRID_ACCOUNT_ROLLUP_UNSAFE")
     if int(source_ledger_control.get("closing_mismatch_count", -1)):
         source_ledger_findings.append("SOURCE_JOURNAL_TO_CNT_MAYOR_CLOSING_DRIFT")
     ok = not findings and not boundary_findings and not balance_findings and not source_ledger_findings

@@ -330,7 +330,8 @@ neither mode writes Arissto or Fineract. The registry remains `planned` and
    - populated, empty, balanced, and unbalanced journals;
    - duplicate header/line keys;
    - zero lines or lines with both debit and credit;
-   - unsupported statuses, annual liquidation, and back-period rows;
+   - unsupported statuses, annual liquidation, and back-period rows, recording
+     the latter as non-blocking observations with period-end normalization;
    - unresolved/ambiguous accounts and agency tags;
    - blank/invalid reference numbers, dates, currencies, and precision;
    - per-line-office closure conflicts; and
@@ -480,7 +481,8 @@ permissioned provenance endpoint.
      authorization, closure policy, balance, and dimensions;
    - reserve the source key/hash;
    - create one manual journal group with a shared `transaction_id`;
-   - copy exact `ref_num` and `entry_date` to every line; and
+   - copy exact `ref_num` and the contract-normalized effective `entry_date` to
+     every line while preserving the unmodified source journal date; and
    - persist header/line provenance and returned line IDs.
 5. Return the prior success for an identical key/hash retry.
 6. Reject changed hashes, duplicate/conflicting keys, partial payloads,
@@ -559,7 +561,7 @@ reasons without exposing sensitive descriptions.
 
 ### Current implementation evidence — 2026-09-07
 
-Reconciliation version `accounting-direct-journal-reconciliation-v2` joins the
+Reconciliation version `accounting-direct-journal-reconciliation-v4` joins the
 immutable source header/line provenance directly to `acc_gl_journal_entry`,
 `acc_gl_account`, and `m_office`. It validates complete source and target
 identities, all frozen hashes, date, reference, currency, account, side, exact
@@ -569,8 +571,14 @@ native non-manual pre-cutoff rows or imported on/after-cutoff rows and compares
 agency plus consolidated balance buckets from direct journals. For the final
 closed period in the plan, it also proves that the plan contains every eligible
 journal from the approved inception and that cumulative journal balances match
-posting-key `CNT_MAYOR.SALDO_FINAL` values. Parent/reporting ledger rows are
-excluded because they repeat descendant balances.
+posting-key `CNT_MAYOR.SALDO_FINAL` values. Ordinary parent/reporting ledger
+rows are excluded because they repeat descendant balances. Hybrid accounts
+that also receive direct annual-liquidation lines are accepted only when their
+direct signed movement is zero, all immediate child mayor rows exist, and the
+parent balance equals the exact child sum; otherwise reconciliation fails with
+`SOURCE_HYBRID_ACCOUNT_ROLLUP_UNSAFE`. The verified `314002` control accounts
+for two accepted agency rollups totaling `37,880.08` without creating an
+additional journal.
 
 The controlled period-`00028` plan contained all three inception journals and
 seven lines. Local run `2bdb367e631e4b6599079c6e740b65b2` imported two and
@@ -803,7 +811,8 @@ Run on a restored disposable tenant using explicit source journal keys:
    suppressed;
 7. two known opposite-posting journals, without requiring a reversal link;
 8. an annual-liquidation journal;
-9. a back-period journal and target-closure case;
+9. a back-period journal that proves period-end normalization, plus a separate
+   target-closure quarantine case;
 10. status-`2`, empty, unbalanced, unresolved-account, and unmapped-agency
     quarantines;
 11. an interrupted/lost-response retry and changed-hash rejection; and

@@ -1,5 +1,6 @@
 import unittest
 import tempfile
+from contextlib import nullcontext
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -11,7 +12,8 @@ import requests
 from arissto_sync.accounting import (
     BLOCK, RECONCILIATION_VERSION, AccountingContract, HEADER_PERIOD_QUERY, HEADER_QUERY, LINE_PERIOD_QUERY, LINE_QUERY,
     SOURCE_LEDGER_CONTROL_QUERY, SOURCE_SCHEMA_QUERY,
-    _classify_apply_error, _hash, _load_accounting_plan_inputs, _verify_scheduler_paused, accounting_retry_keys,
+    _classify_apply_error, _hash, _load_accounting_plan_inputs, _source_ledger_control,
+    _verify_scheduler_paused, accounting_retry_keys,
     apply_accounting_plan,
     assert_accounting_plan_current,
     build_historical_journal_request, classify_accounting, parse_source_key, plan_accounting_rows,
@@ -91,6 +93,33 @@ class AccountingInspectorTests(unittest.TestCase):
             self.assertRegex(query, READ_ONLY_SQL)
         self.assertIn("p.ID_PERIODO=?", HEADER_PERIOD_QUERY)
         self.assertIn("d.ID_PERIODO=?", LINE_PERIOD_QUERY)
+        self.assertIn("non_annual_liquidation_line_count", SOURCE_LEDGER_CONTROL_QUERY)
+
+    def test_source_ledger_control_accepts_only_reproducible_annual_hybrid_rollup(self):
+        document, _, _, _ = self.reconciliation_fixture()
+        comparisons = [{
+            "control_period_id": "00065", "closed_before_cutoff": 1,
+            "eligible_journal_count": 1, "destination_branch_id": "001",
+            "account_id": "parent", "journal_closing": Decimal("0.00"),
+            "ledger_closing": Decimal("-10.00"), "direct_line_count": 4,
+            "non_annual_liquidation_line_count": 0,
+        }]
+        rollups = [{
+            "destination_branch_id": "001", "account_id": "parent",
+            "child_account_count": 2, "child_ledger_row_count": 2,
+            "child_ledger_closing": Decimal("-10.00"),
+        }]
+        with (
+            patch("arissto_sync.accounting.source_connection", return_value=nullcontext(object())),
+            patch("arissto_sync.accounting.select_rows", side_effect=[comparisons, rollups]),
+        ):
+            result = _source_ledger_control(SimpleNamespace(source=object()), self.contract, document)
+
+        self.assertEqual(result["raw_closing_mismatch_count"], 1)
+        self.assertEqual(result["accepted_hybrid_rollup_count"], 1)
+        self.assertEqual(result["accepted_hybrid_rollup_variance"], Decimal("10.00"))
+        self.assertEqual(result["unsafe_hybrid_account_count"], 0)
+        self.assertEqual(result["closing_mismatch_count"], 0)
 
     def test_period_plan_apply_revalidation_uses_bounded_period_queries(self):
         calls = []
@@ -163,12 +192,16 @@ class AccountingInspectorTests(unittest.TestCase):
         reasons = set(report["findings"][0]["reason_codes"])
         self.assertTrue({
             "SOURCE_JOURNAL_EXCLUDED_FROM_LEDGER", "SOURCE_JOURNAL_UNBALANCED",
-            "SOURCE_JOURNAL_REFERENCE_INVALID", "SOURCE_JOURNAL_BACK_PERIOD",
+            "SOURCE_JOURNAL_REFERENCE_INVALID",
             "SOURCE_OPENING_JOURNAL_REQUIRES_REVIEW", "SOURCE_JOURNAL_LINE_KEY_DUPLICATE",
             "SOURCE_JOURNAL_LINE_ZERO", "SOURCE_AMOUNT_SCALE_UNSUPPORTED",
             "SOURCE_ACCOUNT_UNRESOLVED", "SOURCE_DESTINATION_BRANCH_UNMAPPED",
             "TARGET_OFFICE_CLOSURE_CONFLICT",
         } <= reasons)
+        self.assertEqual(report["classification_counts"]["SOURCE_JOURNAL_BACK_PERIOD"], 1)
+        self.assertEqual(
+            report["date_policy_observations"][0]["effective_entry_date"], "2025-12-31",
+        )
 
     def test_classification_and_hashes_are_deterministic(self):
         headers = [header()]
@@ -205,9 +238,74 @@ class AccountingInspectorTests(unittest.TestCase):
         self.assertEqual(planned_line["office_id"], 1)
         self.assertEqual(planned_line["dimensions"], {"office": "1"})
         self.assertEqual(planned_line["debit"], "3.00")
-        self.assertEqual(first["bindings"]["policy"]["planner_version"], "accounting-explicit-key-plan-v1")
+        self.assertEqual(first["bindings"]["policy"]["planner_version"], "accounting-explicit-key-plan-v2")
         self.assertEqual(len(first["plan_hash"]), 64)
         self.assertEqual(len(action["planned_hash"]), 64)
+
+    def test_malformed_reference_month_is_preserved_without_quarantine(self):
+        source_header = header(
+            period_id="00054", journal_id="0000006008", journal_number="2025020061",
+            journal_date=date(2025, 1, 24), period_year="2025", period_month="1",
+        )
+        source_lines = [
+            line("01", period_id="00054", journal_id="0000006008", debit="3.00"),
+            line("02", period_id="00054", journal_id="0000006008", credit="3.00"),
+        ]
+        document = self.plan(
+            headers=[source_header], lines=source_lines,
+            keys=["001:001:00054:0000006008"],
+        )
+
+        action = document["actions"][0]
+        self.assertEqual(action["disposition"], "APPLICABLE")
+        self.assertEqual(action["payload"]["ref_num"], "2025020061")
+        self.assertEqual(action["payload"]["entry_date"], "2025-01-24")
+        self.assertEqual(action["payload"]["provenance"]["source_journal_date"], "2025-01-24")
+        self.assertEqual(
+            action["payload"]["provenance"]["date_anomaly_codes"],
+            ["SOURCE_JOURNAL_REFERENCE_DATE_MISMATCH"],
+        )
+
+    def test_back_period_journal_uses_period_end_and_preserves_source_date(self):
+        source_header = header(
+            header_branch_id="002", period_id="00058", journal_id="0000007509",
+            journal_number="2025050365", journal_date=date(2025, 6, 4),
+            period_year="2025", period_month="5",
+        )
+        source_lines = [
+            line("01", header_branch_id="002", period_id="00058", journal_id="0000007509", debit="3.00"),
+            line("02", header_branch_id="002", period_id="00058", journal_id="0000007509", credit="3.00"),
+        ]
+        document = self.plan(
+            headers=[source_header], lines=source_lines,
+            keys=["001:002:00058:0000007509"],
+        )
+
+        action = document["actions"][0]
+        self.assertEqual(action["disposition"], "APPLICABLE")
+        self.assertEqual(action["payload"]["entry_date"], "2025-05-31")
+        self.assertEqual(action["payload"]["provenance"]["source_journal_date"], "2025-06-04")
+        self.assertEqual(
+            action["payload"]["provenance"]["date_anomaly_codes"],
+            ["SOURCE_JOURNAL_BACK_PERIOD", "SOURCE_JOURNAL_REFERENCE_DATE_MISMATCH"],
+        )
+        request = build_historical_journal_request(
+            "plan-1", "run-1", {**document, "accounting_cutoff": {
+                **document["accounting_cutoff"], "configuration_revision": 2,
+                "configuration_hash": "a" * 64, "lifecycle_state": "ACTIVE",
+            }}, action, source_header, source_lines, self.contract,
+        )
+        self.assertEqual(request["sourceJournalDate"], "2025-06-04")
+        self.assertEqual(request["entryDate"], "2025-05-31")
+        self.assertEqual(
+            request["knownAnomalyCodes"],
+            "SOURCE_JOURNAL_BACK_PERIOD,SOURCE_JOURNAL_REFERENCE_DATE_MISMATCH",
+        )
+        boundary_document = self.plan(
+            headers=[source_header], lines=source_lines,
+            keys=["001:002:00058:0000007509"], cutoff="2025-06-01",
+        )
+        self.assertEqual(boundary_document["actions"][0]["disposition"], "APPLICABLE")
 
     def test_display_projection_is_normalized_bounded_and_raw_auxiliary_text_is_not_planned(self):
         long_text = "  A\nB  " + "x" * 600
@@ -225,7 +323,10 @@ class AccountingInspectorTests(unittest.TestCase):
         self.assertNotIn("another secret", rendered)
 
     def test_plan_never_silently_omits_missing_invalid_or_post_cutoff_keys(self):
-        invalid = header(journal_id="11", journal_date=date(2026, 1, 1))
+        invalid = header(
+            journal_id="11", journal_date=date(2026, 1, 1),
+            period_year="2026", period_month="1",
+        )
         invalid_lines = [
             line("1", journal_id="11", debit="1.00"),
             line("2", journal_id="11", credit="1.00"),
@@ -301,6 +402,7 @@ class AccountingInspectorTests(unittest.TestCase):
         )
         self.assertEqual(request["provenanceSchemaVersion"], "arissto-gl-v1")
         self.assertEqual(request["sourceJournalNumber"], request["refNum"])
+        self.assertEqual(request["sourceJournalDate"], request["entryDate"])
         self.assertEqual(request["cutoffConfigurationRevision"], 2)
         self.assertEqual(request["lines"][0]["officeExternalId"], "1")
         self.assertEqual(request["lines"][0]["sourceLineConcept"], "private line text")
@@ -445,6 +547,41 @@ class AccountingInspectorTests(unittest.TestCase):
             self.assertEqual(state.run(run_id)["status"], "reconciled")
             self.assertEqual(state.run_items(run_id)[0]["status"], "reconciled")
 
+    def test_gate8_reconciliation_uses_terminal_items_across_plan_retry_chain(self):
+        document, action, transaction_id, rows = self.reconciliation_fixture()
+        settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target-fingerprint", pg_url=None))
+        with tempfile.TemporaryDirectory() as directory:
+            state = State(Path(directory) / "state.sqlite3")
+            state.adopt_accounting_cutoff(document["accounting_cutoff"])
+            plan_id = state.save_plan(
+                settings.target.fingerprint, BLOCK, "source-fingerprint", self.contract.hash, document,
+            )
+            apply_run_id = state.start_run(state.plan(plan_id))
+            state.record_accounting_item(
+                apply_run_id, action["source_key"], "import", action["source_hash"], "succeeded",
+                document["plan_hash"], action["planned_hash"], "acct:key", apply_run_id,
+                target_transaction_id=transaction_id, target_line_ids=[101, 102], disposition="IMPORTED",
+            )
+            state.finish_run(apply_run_id, "completed", {"imported": 1})
+            reconciliation_run_id = state.start_run(state.plan(plan_id))
+            state.finish_run(reconciliation_run_id, "completed", {})
+
+            result = reconcile_accounting(
+                settings, state, self.contract, reconciliation_run_id,
+                {"rows": rows, "boundary": {
+                    "native_non_manual_pre_cutoff": 0, "imported_on_or_after_cutoff": 0,
+                }},
+                {
+                    "control_period_id": "00065", "closed_before_cutoff": 1,
+                    "eligible_journal_count": 1, "compared_account_branch_count": 2,
+                    "closing_mismatch_count": 0, "absolute_closing_variance": "0.00",
+                },
+            )
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["counts"]["reconciled"], 1)
+            self.assertEqual(state.run_items(apply_run_id)[0]["status"], "reconciled")
+
     def test_gate8_reconciliation_fails_closed_on_line_or_boundary_drift(self):
         document, action, transaction_id, rows = self.reconciliation_fixture()
         rows[0]["journal_amount"] = "4.00"
@@ -509,6 +646,76 @@ class AccountingInspectorTests(unittest.TestCase):
             self.assertFalse(result["gate8_acceptance_ok"])
             self.assertEqual(result["source_ledger_findings"], [
                 "SOURCE_LEDGER_CONTROL_SCOPE_INCOMPLETE",
+                "SOURCE_JOURNAL_TO_CNT_MAYOR_CLOSING_DRIFT",
+            ])
+
+    def test_gate8_accepts_proven_safe_hybrid_parent_rollups(self):
+        document, action, transaction_id, rows = self.reconciliation_fixture()
+        settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target-fingerprint", pg_url=None))
+        with tempfile.TemporaryDirectory() as directory:
+            state = State(Path(directory) / "state.sqlite3")
+            state.adopt_accounting_cutoff(document["accounting_cutoff"])
+            plan_id = state.save_plan(
+                settings.target.fingerprint, BLOCK, "source-fingerprint", self.contract.hash, document,
+            )
+            run_id = state.start_run(state.plan(plan_id))
+            state.record_accounting_item(
+                run_id, action["source_key"], "import", action["source_hash"], "succeeded",
+                document["plan_hash"], action["planned_hash"], "acct:key", run_id,
+                target_transaction_id=transaction_id, target_line_ids=[101, 102], disposition="IMPORTED",
+            )
+            result = reconcile_accounting(
+                settings, state, self.contract, run_id,
+                {"rows": rows, "boundary": {
+                    "native_non_manual_pre_cutoff": 0, "imported_on_or_after_cutoff": 0,
+                }},
+                {
+                    "control_period_id": "00065", "closed_before_cutoff": 1,
+                    "eligible_journal_count": 1, "compared_account_branch_count": 2,
+                    "raw_closing_mismatch_count": 2,
+                    "accepted_hybrid_rollup_count": 2,
+                    "accepted_hybrid_rollup_variance": "37880.08",
+                    "unsafe_hybrid_account_count": 0,
+                    "closing_mismatch_count": 0, "absolute_closing_variance": "0.00",
+                },
+            )
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["source_ledger_findings"], [])
+            self.assertEqual(result["source_ledger_control"]["accepted_hybrid_rollup_count"], 2)
+
+    def test_gate8_fails_closed_for_unproven_hybrid_parent_rollup(self):
+        document, action, transaction_id, rows = self.reconciliation_fixture()
+        settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target-fingerprint", pg_url=None))
+        with tempfile.TemporaryDirectory() as directory:
+            state = State(Path(directory) / "state.sqlite3")
+            state.adopt_accounting_cutoff(document["accounting_cutoff"])
+            plan_id = state.save_plan(
+                settings.target.fingerprint, BLOCK, "source-fingerprint", self.contract.hash, document,
+            )
+            run_id = state.start_run(state.plan(plan_id))
+            state.record_accounting_item(
+                run_id, action["source_key"], "import", action["source_hash"], "succeeded",
+                document["plan_hash"], action["planned_hash"], "acct:key", run_id,
+                target_transaction_id=transaction_id, target_line_ids=[101, 102], disposition="IMPORTED",
+            )
+            result = reconcile_accounting(
+                settings, state, self.contract, run_id,
+                {"rows": rows, "boundary": {
+                    "native_non_manual_pre_cutoff": 0, "imported_on_or_after_cutoff": 0,
+                }},
+                {
+                    "control_period_id": "00065", "closed_before_cutoff": 1,
+                    "eligible_journal_count": 1, "compared_account_branch_count": 1,
+                    "accepted_hybrid_rollup_count": 0,
+                    "unsafe_hybrid_account_count": 1,
+                    "closing_mismatch_count": 1, "absolute_closing_variance": "1.00",
+                },
+            )
+
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["source_ledger_findings"], [
+                "SOURCE_HYBRID_ACCOUNT_ROLLUP_UNSAFE",
                 "SOURCE_JOURNAL_TO_CNT_MAYOR_CLOSING_DRIFT",
             ])
 

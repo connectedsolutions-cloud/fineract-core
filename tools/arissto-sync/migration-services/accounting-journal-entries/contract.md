@@ -60,14 +60,18 @@ move the cutoff implicitly.
 ## Historical accounting scope
 
 The accounting service imports every reviewed, posted, balanced Arissto journal
-whose `FECHA_PARTIDA` is strictly before the cutoff. Eligibility is mechanical:
+whose effective accounting date is strictly before the cutoff. `CNT_PERIODO.ANIO`
+and `MES` define the intended accounting month: an in-period `FECHA_PARTIDA` is
+retained, while an out-of-period value is normalized to that period's final
+calendar day. Eligibility is mechanical:
 
 - the full source header and all detail lines are present;
 - the source status is `ESTADO_PARTIDA='3'`;
 - total debits equal total credits at the approved precision;
 - every non-zero source posting account resolves to exactly one Fineract leaf
   GL account;
-- the date is before the immutable cutoff and accepted by target closure rules;
+- the effective accounting date is before the immutable cutoff and accepted by
+  target closure rules;
 - the journal has not already been imported under its complete source key; and
 - annual-closing treatment follows the approved preservation policy.
 
@@ -130,6 +134,25 @@ Each line extends that identity with
 evidence. They are not independent transaction sources and are never replayed
 as additional journals.
 
+Some Arissto accounts have a hybrid shape: they have real children and also
+receive direct journal lines. The reconciler discovers that shape from actual
+parent links rather than trusting `ULTIMO_NIVEL`. A raw direct-journal versus
+`CNT_MAYOR` mismatch is accepted as a materialized parent rollup only when all
+of these conditions hold at the account/agency grain:
+
+- every direct line belongs to a type-`003`, `LIQ_ING_EGR='1'` annual
+  liquidation journal;
+- the cumulative direct signed movement is exactly zero;
+- every immediate child has a row in the control-period mayor; and
+- the parent `SALDO_FINAL` equals the exact sum of those child balances.
+
+The accepted parent variance is reported separately and never becomes an
+opening, residual, or balancing journal. Any hybrid account that fails one of
+the conditions remains a reconciliation blocker with
+`SOURCE_HYBRID_ACCOUNT_ROLLUP_UNSAFE`. Account `314002` is the verified control:
+its two agency variances total `37,880.08` and are fully reproduced by children
+`3140020100` and `3140020200`.
+
 ## Historical origin and opening balance
 
 For company `001`, historical accounting begins with the first populated,
@@ -160,7 +183,7 @@ opening values are `CNT_MAYOR` carry-forward state rather than transactions.
 The importer therefore:
 
 - imports every otherwise eligible `ID_TIPO_PARTIDA='003'` and
-  `LIQ_ING_EGR='1'` journal intact on `FECHA_PARTIDA`;
+  `LIQ_ING_EGR='1'` journal intact on its effective accounting date;
 - never generates a second Fineract annual-closing transaction;
 - never imports `CNT_MAYOR*` state or creates an opening/residual journal from
   it; and
@@ -201,15 +224,16 @@ the journal from `acc_gl_journal_entry` or reconciliation.
 
 ## Journal number and target mapping
 
-`CNT_PARTIDAS.NUMERO_PARTIDA` follows the verified `YYYYMM####` monthly pattern.
-The engine preserves `RTRIM(NUMERO_PARTIDA)` exactly and never regenerates it
-from dates, row order or a target counter.
+`CNT_PARTIDAS.NUMERO_PARTIDA` generally follows the verified `YYYYMM####`
+monthly pattern, but isolated month-prefix errors exist. The engine preserves
+`RTRIM(NUMERO_PARTIDA)` exactly, records a non-blocking mismatch observation,
+and never regenerates it or derives the effective date from it.
 
 | Arissto source | Fineract target | Rule |
 |---|---|---|
 | Complete journal key | Durable provenance plus one `transaction_id` | Idempotency authority |
 | `NUMERO_PARTIDA` | `acc_gl_journal_entry.ref_num` | Exact trimmed value on every line |
-| `FECHA_PARTIDA` | Transaction/entry date | Exact pre-cutoff business date |
+| `CNT_PERIODO.ANIO/MES` plus `FECHA_PARTIDA` | Transaction/entry date | Preserve `FECHA_PARTIDA` when it lies in the period; otherwise use the period's final calendar day. Preserve the original source date separately in provenance. |
 | Detail `ID_CUENTA` | `acc_gl_journal_entry.account_id` | Reviewed source-code-to-target-account resolution |
 | Detail `ID_SUCURSAL_DESTINO` | Per-line `acc_gl_journal_entry.office_id` and `dimensions.office` | Resolve both native office ID and stable dimension tag from the frozen crosswalk; never replace the posted destination with one journal-wide office |
 | Detail `DEBE`/`HABER` | Entry type and amount | Preserve one non-zero side per normalized line |
@@ -523,6 +547,12 @@ For every imported journal, reconciliation verifies:
 4. no source key or target group is duplicated; and
 5. no native, non-manual journal exists with an accounting date before the
    cutoff.
+
+The independent source-ledger control compares ordinary posting accounts
+directly and evaluates hybrid parent/direct accounts with the guarded rollup
+rule above. This keeps exact journal preservation separate from report
+hierarchy reconstruction and prevents double-posting a materialized parent
+balance.
 
 Cutover acceptance additionally requires:
 

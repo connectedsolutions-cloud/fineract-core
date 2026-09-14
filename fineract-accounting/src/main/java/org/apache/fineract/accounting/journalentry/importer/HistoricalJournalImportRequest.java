@@ -24,12 +24,12 @@ import java.util.List;
 import java.util.Map;
 
 public record HistoricalJournalImportRequest(String provenanceSchemaVersion, String sourceSystem, String sourceCompanyId,
-        String sourceBranchId, String sourcePeriodId, String sourceJournalId, String sourceJournalNumber, LocalDate entryDate,
-        String sourceJournalType, String sourceModuleCode, String sourceStatus, String sourceLiquidationFlag, String sourceOpeningFlag,
-        String sourceHeaderConcept, String sourceHeaderConceptSha256, String sourceHeaderDescription, String sourceHeaderDescriptionSha256,
-        String sourceHash, String plannedHash, String contractHash, String sourceSchemaSignature, String coaMappingVersion,
-        String coaMappingHash, String officeMappingVersion, String officeMappingHash, String policyVersion, String policyHash,
-        String descriptionPolicyVersion, String sourceFingerprint, String targetFingerprint, String targetBaselineHash,
+        String sourceBranchId, String sourcePeriodId, String sourceJournalId, String sourceJournalNumber, LocalDate sourceJournalDate,
+        LocalDate entryDate, String sourceJournalType, String sourceModuleCode, String sourceStatus, String sourceLiquidationFlag,
+        String sourceOpeningFlag, String sourceHeaderConcept, String sourceHeaderConceptSha256, String sourceHeaderDescription,
+        String sourceHeaderDescriptionSha256, String sourceHash, String plannedHash, String contractHash, String sourceSchemaSignature,
+        String coaMappingVersion, String coaMappingHash, String officeMappingVersion, String officeMappingHash, String policyVersion,
+        String policyHash, String descriptionPolicyVersion, String sourceFingerprint, String targetFingerprint, String targetBaselineHash,
         LocalDate cutoffDate, String cutoffTimezoneId, Long cutoffConfigurationRevision, String cutoffConfigurationHash, String planId,
         String runId, String refNum, String currency, BigDecimal debitTotal, BigDecimal creditTotal,
         Boolean knownTransferredLoanOfficeMismatch, String knownAnomalyCodes, List<HistoricalJournalLineImportRequest> lines) {
