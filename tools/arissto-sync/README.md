@@ -239,6 +239,12 @@ queued or running. Legacy local rows in the shared pre-cycle state database are
 also removed once no legacy run is marked active; production rows are isolated by
 their recorded target fingerprint and remain untouched.
 
+Loan-sync implementation history is stored separately in
+`.arissto-sync/change-tracker.sqlite3`. It contains changes/commits, impacted loan
+IDs, and implementation decisions and is never a retention target. Before cycle
+replacement, legacy tracker rows found in surviving cycle or shared state
+databases are copied there idempotently.
+
 Production is handled separately inside the shared legacy state database. It
 retains durable operational mappings and links, plus only the single latest run
 globally and that run's plan and items. All older and unexecuted production plans,

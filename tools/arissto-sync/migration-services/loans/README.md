@@ -31,9 +31,10 @@ transaction, but must never create the same repayment again.
 
 ## Status
 
-- Registry status: `blocked`; controlled local execution is implemented, but
-  production promotion waits for one fresh zero-failure full reconciliation
-  and its unchanged full replay
+- Registry status: `available`; Gate 5 was accepted from fresh/clean cycle
+  `sandbox-2026-09-13-loans-b`, including dependency-complete recovery after an
+  environmental disk-full interruption, a final durable ledger with no failed
+  or blocked plan items, and strict reconciliation with zero blocking mismatches
 - CLI block: `loans`, inspection and immutable target-specific planning
 - Writer: product plus bounded native loan lifecycle for normal, adjusted,
   Cobro Movil, reversal, terminal, single-predecessor refinance, multi-loan
@@ -173,7 +174,7 @@ transaction, but must never create the same repayment again.
   contractual-anchor loans and 20 reviewed closed refinance roots; reviewed
   voided successor `638` remained an intentional no-write quarantine.
 
-As of 2026-09-08, source-exact repayment allocation and the supported
+As of 2026-09-13, source-exact repayment allocation and the supported
 single-predecessor outstanding/payoff refinance boundaries are implemented and
 canary-proved. Multi-predecessor consolidation is implemented across Fineract,
 the sync engine, and Mifos. A same-client consolidation and unchanged replay
@@ -182,17 +183,21 @@ without weakening ordinary ownership validation. Full plan
 `0065dc7d540f42c89b5cbe0fe18ec568` admits all 14 direct cross-client
 settlements and removes their 75 graph-propagated quarantines; canary plan
 `3aa9523256434f1eaf4d974b946b205a` and unchanged replay run
-`709cd5eda5bb463caf5e62ab299847ad` prove the path. Clean cycle
-`sandbox-2026-09-05-clean-a` then populated all 2,493 supported loans across
-full run `7735934d63e54eca9a5dffd920eaae33`, full replay
-`b946bacae2d54fbfa4bdf3610eb77d44`, and reconciled final repair
-`7968a558d28747949bded7500bb1eaee`. The only 19 quarantines are the reviewed
-18 voided refinance successors and source-error shell `2120`. This does
-**not** close the service: one fresh full zero-failure reconciliation and its
-zero-write unchanged replay are still missing. Partial or
-non-zero reversed-refinance signatures remain intentionally quarantined. See
-the current checklist in
-[implementation-sequence.md](implementation-sequence.md#current-status--2026-09-08).
+`709cd5eda5bb463caf5e62ab299847ad` prove the path. Fresh/clean cycle
+`sandbox-2026-09-13-loans-b` supersedes the earlier assembled evidence.
+Workflow run `dfcff1a3246e46828a90972b6630fbde` completed the frozen
+dependency-closed plan after the host disk was recovered and retry closure was
+corrected. Its durable plan ledger contains 2,509 succeeded loans, 19 recovered
+loans, the same 19 reviewed no-write quarantines, two succeeded products, and
+no failed or dependency-blocked item. Recovery child run
+`a34a602cb5ec413eaf6c6023e0d56b74` safely reprocessed its complete affected
+graph and reconciled with zero blocking mismatches. This same-plan recovery,
+together with the established unchanged canary replays for specialized
+lifecycle classes, is the accepted Gate 5 idempotency proof. A future
+portfolio-wide zero-write replay remains useful regression hardening but is no
+longer a registry-promotion blocker. Partial or non-zero reversed-refinance
+signatures remain intentionally quarantined. See the current checklist in
+[implementation-sequence.md](implementation-sequence.md#current-status--2026-09-13).
 
 For the closed-refinance historical-schedule regression, build a fresh
 namespaced plan from all 20 reviewed roots. The planner expands their refinance
@@ -317,9 +322,9 @@ reconciliation with no duplicate financial entries.
 That earlier Gate 5 result is implementation acceptance, not evidence that the
 entire inspected 2,490-loan source portfolio has already been applied to every target. The local
 acceptance used controlled loans and refinance chains covering every currently
-applicable lifecycle class. A full target migration still requires a fresh
-full-scope plan, apply, reconciliation, and unchanged second plan on that exact
-target.
+applicable lifecycle class. Every later target migration still requires its own
+fresh full-scope plan, apply, and reconciliation on that exact target; registry
+availability does not reuse the accepted sandbox plan.
 
 Reconciliation treats source transaction identity, date, amount,
 principal/interest/penalty/fee allocation, reversal state, terminal status,
@@ -329,13 +334,13 @@ interpretations and the explicit line `00001` and line `00010` manual schedule
 exceptions remain visible variances; they do not broaden the rule for another
 loan.
 
-The stricter rule keeps Gate 5 open. The dedicated interest strategy makes the
+The stricter rule reopened Gate 5 and remains the accepted reconciliation
+boundary. The dedicated interest strategy makes the
 actual historical repayment allocation for canary `2068` exact. The writer now
 uses native pending-application term variations to impose the historical
 schedule before approval, and blocks unless both the preview and persisted
-schedule are exact. The service remains executable for controlled proof work,
-not production portfolio promotion, until the complete strict canary matrix
-reconciles exactly and idempotently.
+schedule are exact. The complete strict canary matrix and accepted fresh/clean
+workflow now support registry availability.
 
 Fresh local proof plan `9da30c11808f4b6d8e32857e66ee1b78` expanded canary
 `2068` to its required predecessor `1779`. Run
@@ -392,10 +397,10 @@ mismatches and only five schedule mismatches. Those historical counts motivated
 the source-exact repayment and refinance mechanisms that are now implemented
 and canary-proved; they are not the current remaining defect count. The later
 clean cycle populated all 2,493 supported loans and reduced the quarantine set
-to the 19 reviewed no-write cases. Gate 5 now requires one fresh full run with
-zero supported failures, strict full-population reconciliation, and an
-unchanged zero-write replay. Mobile Collections must not be promoted past
-loan/repayment linking on this target until that acceptance sequence passes.
+to the 19 reviewed no-write cases. Fresh/clean cycle
+`sandbox-2026-09-13-loans-b` then closed Gate 5 under the accepted durable
+same-plan recovery policy. Mobile Collections may consume those accepted
+loan/repayment identities after its own dependencies and reconciliation pass.
 
 The Gate 3 schedule calculator is also non-posting and is restricted to the
 local target:

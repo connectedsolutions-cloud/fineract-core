@@ -10,6 +10,8 @@ FINERACT_PORT="${FINERACT_PORT:-8443}"
 STOP_TIMEOUT_SECONDS="${FINERACT_PROCESS_STOP_TIMEOUT_SECONDS:-60}"
 PID_FILE="${FINERACT_PROCESS_PID_FILE:-$ROOT/.fineract-devrun.pid}"
 LOG_FILE="${FINERACT_PROCESS_LOG_FILE:-$ROOT/logs/fineract-devrun.log}"
+LOG_ROTATE_SIZE="${FINERACT_PROCESS_LOG_ROTATE_SIZE:-50M}"
+LOG_FILE_COUNT="${FINERACT_PROCESS_LOG_FILE_COUNT:-4}"
 
 usage() {
   cat <<'EOF'
@@ -30,6 +32,9 @@ die() {
   exit 2
 }
 [[ "$STOP_TIMEOUT_SECONDS" =~ ^[0-9]+$ ]] || die "Stop timeout must be an integer"
+[[ "$LOG_ROTATE_SIZE" =~ ^[1-9][0-9]*[BKMG]$ ]] || \
+  die "Log rotation size must be a positive integer followed by B, K, M, or G"
+[[ "$LOG_FILE_COUNT" =~ ^[1-9][0-9]*$ ]] || die "Log file count must be a positive integer"
 command -v lsof >/dev/null 2>&1 || die "Required command not found: lsof"
 
 listener_pids() {
@@ -82,7 +87,9 @@ stop_fineract() {
 }
 
 start_fineract() {
-  local launcher_pid
+  local launcher_pid rotatelogs_bin
+  rotatelogs_bin="${FINERACT_PROCESS_ROTATELOGS_BIN:-$(command -v rotatelogs || true)}"
+  [[ -x "$rotatelogs_bin" ]] || die "Required command not found or not executable: rotatelogs"
   if describe_status >/dev/null 2>&1; then
     echo "Fineract is already running"
     return
@@ -99,7 +106,9 @@ start_fineract() {
   mkdir -p "$(dirname "$LOG_FILE")"
   (
     cd "$ROOT"
-    nohup ./gradlew devRun >>"$LOG_FILE" 2>&1 </dev/null &
+    nohup ./gradlew devRun \
+      > >("$rotatelogs_bin" -n "$LOG_FILE_COUNT" "$LOG_FILE" "$LOG_ROTATE_SIZE") \
+      2>&1 </dev/null &
     echo "$!" >"$PID_FILE"
   )
   launcher_pid="$(<"$PID_FILE")"

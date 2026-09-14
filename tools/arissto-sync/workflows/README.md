@@ -100,6 +100,10 @@ baseline cycle is established. Retention never prunes rows inside the newest
 cycle, and replacement is refused while any cataloged workflow is queued or
 running.
 
+The durable `.arissto-sync/change-tracker.sqlite3` database is outside this
+cycle-retention boundary. Commit/change records, impacted loan IDs, and decisions
+remain available across fresh/clean runs; only operational cycle state is removed.
+
 ## Definitions
 
 - `local-full-sync`: every executable registry service in one dependency-complete

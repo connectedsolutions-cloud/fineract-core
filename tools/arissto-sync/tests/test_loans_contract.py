@@ -22,7 +22,7 @@ class LoansContractTests(unittest.TestCase):
         loans = service_report("loans")["service"]
         mobile = service_report("mobile-collections")["service"]
 
-        self.assertEqual(loans["status"], "blocked")
+        self.assertEqual(loans["status"], "available")
         self.assertTrue(loans["executable"])
         self.assertEqual(loans["cli_block"], "loans")
         self.assertEqual(set(loans["commands"]), {
@@ -75,21 +75,21 @@ class LoansContractTests(unittest.TestCase):
         self.assertIn("`ACTUAL` splits a cross-year interval", contract)
         self.assertIn("mixed 360/365 schedule", contract)
 
-    def test_docs_distinguish_local_acceptance_from_full_target_migration(self):
+    def test_docs_record_full_target_acceptance_evidence(self):
         readme = README.read_text(encoding="utf-8")
         contract = CONTRACT.read_text(encoding="utf-8")
         sequence = IMPLEMENTATION_SEQUENCE.read_text(encoding="utf-8")
 
-        self.assertIn("implementation acceptance, not evidence", readme)
-        self.assertIn("not a full-target portfolio apply", sequence)
+        self.assertIn("Registry status: `available`", readme)
+        self.assertIn("Overall status: available", sequence)
         self.assertIn("blocks on count, number, date, principal, interest", contract)
-        self.assertIn("Gate 5 was completed under", sequence)
+        self.assertIn("Gate 5: exact reconciliation and promotion — complete", sequence)
         self.assertNotIn("MONTO_OTROS` and contributions remain subject", readme)
 
     def test_orchestration_freezes_loans_before_mobile_financial_boundary(self):
         orchestration = ORCHESTRATION.read_text(encoding="utf-8")
 
-        self.assertIn("Current manual loans-to-mobile-collections flow", orchestration)
+        self.assertIn("Current loans-to-mobile-collections flow", orchestration)
         self.assertIn("loans --> mobile", orchestration)
         self.assertIn("Mobile Collections never repairs a missing loan repayment", orchestration)
         self.assertIn("222099940104 CUOTAS PENDIENTES DE", orchestration)
@@ -313,7 +313,7 @@ class LoansContractTests(unittest.TestCase):
 
         self.assertIn("Gate 1: read-only source inspection", sequence)
         self.assertIn("Gate 3: native lifecycle spikes", sequence)
-        self.assertIn("order that must remain intact", sequence)
+        self.assertIn("evidence that must remain intact", sequence)
 
     def test_gate_two_schema_is_minimal_and_uses_native_external_ids(self):
         config = json.loads((ROOT / "tools/arissto-sync/config/loans.json").read_text(encoding="utf-8"))

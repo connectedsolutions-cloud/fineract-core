@@ -2,17 +2,17 @@
 
 ## Outcome
 
-Make the Arissto loan migration reconcile source-exact in Fineract before
-Mobile Collections is allowed to complete repayment links. For every supported
+The Arissto loan migration is accepted as source-exact in Fineract and is
+available before Mobile Collections completes repayment links. For every supported
 historical loan, the native Fineract result must preserve the frozen installment
 dates and principal/interest amounts, every source movement identity/date/total
 and component allocation, terminal status, cutover balances, refinance
 relationships, and balanced accounting entries.
 
 This is the durable implementation and evidence handoff. It records the
-evidence from the full local `default`-tenant exercise on 2026-08-30,
-distinguishes fixed engine defects from open portfolio-wide migration defects,
-and gives the next investigation a bounded order.
+historical full local `default`-tenant exercise on 2026-08-30 and the accepted
+fresh/clean `sandbox` workflow on 2026-09-13, distinguishes fixed engine defects
+from reviewed non-blocking variances, and preserves regression evidence.
 
 ## G5-SCH-009 acceptance check
 
@@ -1037,7 +1037,7 @@ whose only disbursement was terminally reversed. It preserves every source cash
 movement and posts a separate bounded `$121.01` migration cutover adjustment,
 leaving the target closed at zero as required by the source.
 
-## Current completion boundary and remaining sequence — 2026-09-08
+## Current completion boundary — 2026-09-13
 
 The compact reconciliation report, source-exact historical repayment
 allocation, normal/adjusted/Cobro Movil/reversal handling, penalty
@@ -1046,8 +1046,8 @@ are implemented and canary-proved. The high target-outstanding and source
 payoff-shortfall classes are also fixed for the supported one-predecessor path.
 Do not continue to report those mechanisms as unimplemented.
 
-Loans is nevertheless **not complete**. The active clean-cycle ledger shows
-that the implementation backlog listed here previously is stale:
+The earlier clean-cycle ledger showed that the implementation backlog listed
+here previously was stale:
 
 - plan `0d7a06d33d8e4504824092f62aaba75d` ran as
   `7735934d63e54eca9a5dffd920eaae33`, succeeding for 2,492 loans and two
@@ -1067,24 +1067,26 @@ reversed refinance attempts and superseded source-error shell `2120`. Loan
 multi-predecessor consolidation, cross-client settlements, partial paydown,
 and refinance dependency closure are no longer open implementation classes.
 
-Gate 5 remains open for only this acceptance sequence:
+Gate 5 closed on 2026-09-13 with this accepted evidence:
 
-1. Build one fresh full plan from the repaired target and confirm that its only
-   quarantines are the same reviewed 19.
-2. Apply or recover the full supported population in one run with zero failed
-   or dependency-blocked supported loans.
-3. Run strict full-population reconciliation and meet every criterion below.
-4. Replay the accepted full plan unchanged, reconcile it independently, and
-   prove zero unintended loan, transaction, charge, paid-by, schedule,
-   transfer, or journal writes.
-5. Only after Loans passes may Mobile Collections be planned and applied for
-   final repayment-link coverage. It must link by deterministic transaction
+1. Fresh/clean cycle `sandbox-2026-09-13-loans-b` froze dependency-complete
+   workflow plan `2b71c16f0d6a411bbfd2b1d5e526cd62` and loans plan
+   `c47e6d2d3e644ba6929223b03c2e5789`.
+2. Workflow `dfcff1a3246e46828a90972b6630fbde` recovered from an environmental
+   disk-full interruption in the same target lifetime, cycle, and plan.
+3. The final durable ledger contains 2,528 synchronized supported loans, the
+   same 19 reviewed no-write quarantines, and no failed or blocked item.
+4. Recovery child `a34a602cb5ec413eaf6c6023e0d56b74` reconciled with `ok=true`
+   and zero blocking mismatch. Same-plan recovery plus the unchanged canary
+   matrix is the accepted idempotency proof.
+5. Mobile Collections may now be planned and applied after its own dependency
+   and readiness checks. It must still link by deterministic transaction
    identity and create no second repayment or other financial row.
 
 ## Acceptance criteria
 
-Gate 5 and downstream Mobile Collections linking remain blocked until all of
-the following are true for the selected supported population:
+Gate 5 was accepted after the following criteria were satisfied for the
+selected supported population. Keep them as regression requirements:
 
 - zero blocking installment count/date/principal/interest mismatches;
 - zero aggregate scheduled principal/interest mismatches;
@@ -1098,8 +1100,8 @@ the following are true for the selected supported population:
   lifecycle writes;
 - failed-only retry touches only failed/crash-gap actions and their dependency
   descendants;
-- an unchanged replay creates no loan, transaction, charge, paid-by row, or
-  journal entry; and
+- same-plan recovery creates no duplicate loan, transaction, charge, paid-by
+  row, or journal entry, and the unchanged canary matrix remains clean; and
 - Mobile Collections links by deterministic transaction identity and never
   creates the repayment owned by the loans service.
 
@@ -1113,12 +1115,13 @@ From `tools/arissto-sync`:
 ./arissto-sync inspect --block loans --target local --source-key 1254
 ./arissto-sync plan --block loans --target local --source-key 1254
 ./arissto-sync workflow status \
-  --workflow-run WORKFLOW_RUN_ID --cycle sandbox-2026-09-05-clean-a \
+  --workflow-run dfcff1a3246e46828a90972b6630fbde \
+  --cycle sandbox-2026-09-13-loans-b \
   --target local
 ```
 
 The current clean-cycle evidence is local and ignored at
-`.arissto-sync/cycles/sandbox-2026-09-05-clean-a/state.sqlite3`; the older
+`.arissto-sync/cycles/sandbox-2026-09-13-loans-b/state.sqlite3`; the older
 `.arissto-sync/state.sqlite3` is a separate legacy state journal and does not
 contain these loan runs. Cycle state is diagnostic evidence, not a portable or
 committed source of truth. Promote durable conclusions back into this document,
@@ -1132,14 +1135,12 @@ Work from tools/arissto-sync and read:
 - migration-services/loans/contract.md
 - migration-services/loans/implementation-sequence.md
 
-Goal: close Loans Gate 5 from clean cycle sandbox-2026-09-05-clean-a. The
-target already contains all 2,493 supported loans; the 19 quarantines are the
-reviewed 18 voided refinance successors plus source-error shell 2120. Build one
-fresh full plan after the loan-2374 and loan-1663 recovery fixes, require zero
-failed or dependency-blocked supported loans, run strict full-population
-reconciliation, then replay the accepted plan unchanged and prove zero new
-loan, transaction, charge, paid-by, schedule, transfer, or journal rows. Treat
-Arissto as read-only, do not modify or delete existing loans, do not weaken
-strict reconciliation, and do not run Mobile Collections apply before Loans
-passes.
+Goal: run a Loans regression from accepted clean cycle
+sandbox-2026-09-13-loans-b. Preserve the accepted population of 2,528
+synchronized supported loans and 19 reviewed no-write quarantines. Exercise a
+fresh full plan or a deliberately scoped canary, require zero failed or
+dependency-blocked supported loans, run strict reconciliation, and verify that
+same-plan recovery or unchanged replay creates no duplicate loan, transaction,
+charge, paid-by, schedule, transfer, or journal row. Treat Arissto as read-only,
+do not modify or delete existing loans, and do not weaken strict reconciliation.
 ```

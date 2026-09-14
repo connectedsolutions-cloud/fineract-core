@@ -425,7 +425,7 @@ class MigrationServiceRegistryTests(unittest.TestCase):
         loans = service_report("loans")["service"]
         mobile = service_report("mobile-collections")["service"]
 
-        self.assertEqual(loans["status"], "blocked")
+        self.assertEqual(loans["status"], "available")
         self.assertTrue(loans["executable"])
         self.assertEqual(loans["cli_block"], "loans")
         self.assertEqual(loans["configuration"], "config/loans.json")

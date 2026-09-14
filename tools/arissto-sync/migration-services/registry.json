@@ -209,7 +209,7 @@
       "id": "loans",
       "name": "Loans",
       "kind": "sync-block",
-      "status": "blocked",
+      "status": "available",
       "executable": true,
       "cli_block": "loans",
       "depends_on": [
@@ -220,7 +220,7 @@
         "mobile-collections",
         "dte-history"
       ],
-      "description": "Implements reviewed Arissto loan products and native loan lifecycles, including source-exact schedules and transaction allocations, reversals, personal-guarantor relationships with source multiplicity preserved, Cobro Movil payment routing, terminal cutover adjustments, single-loan refinancing, multi-loan consolidation, reviewed cross-client and partial-paydown settlements, and independent per-loan promoter, account-executive, and collections-manager assignments. Native loan officer remains optional. A clean local cycle populated all 2,493 supported loans with 19 reviewed no-write quarantines. Gate 5 remains open only for one fresh zero-failure full-population reconciliation and its unchanged zero-write replay.",
+      "description": "Available after the accepted fresh/clean local loans workflow in cycle sandbox-2026-09-13-loans-b. The dependency-complete clients, employees, and loans workflow completed against the disposable sandbox tenant with 2,509 succeeded loans, 19 idempotently recovered loans, 19 reviewed no-write quarantines, two succeeded products, no failed or dependency-blocked plan items, and strict recovery reconciliation with zero blocking mismatches. Same-plan recovery after the environmental disk-full interruption, together with the established unchanged canary matrix, is the accepted Gate 5 idempotency evidence. The service implements reviewed Arissto loan products and native loan lifecycles, including source-exact schedules and transaction allocations, reversals, personal-guarantor relationships with source multiplicity preserved, Cobro Movil payment routing, terminal cutover adjustments, single-loan refinancing, multi-loan consolidation, reviewed cross-client and partial-paydown settlements, and independent per-loan promoter, account-executive, and collections-manager assignments. Native loan officer remains optional.",
       "documentation": "migration-services/loans/README.md",
       "detail_documents": [
         "migration-services/loans/contract.md",

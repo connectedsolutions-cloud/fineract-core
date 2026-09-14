@@ -335,21 +335,14 @@ class WorkflowDefinitionTests(unittest.TestCase):
         )
         self.assertEqual(report["warnings"], [])
 
-    def test_credit_workflow_allows_blocked_but_executable_loan_acceptance(self):
+    def test_credit_workflow_treats_available_loans_as_ready(self):
         definition = load_workflow("local-credit-collections")
         report = inspect_workflow(definition)
         self.assertTrue(report["ready"])
         self.assertEqual(definition.accounting_cutoff_policy, "activate-frozen-plan")
         self.assertEqual(report["blockers"], [])
-        self.assertIn(
-            {
-                "service_id": "loans",
-                "code": "service-unavailable",
-                "status": "blocked",
-                "allowed_by": "allow-executable",
-            },
-            report["warnings"],
-        )
+        self.assertNotIn("loans", {warning["service_id"] for warning in report["warnings"]})
+        self.assertIn("dte-history", {warning["service_id"] for warning in report["warnings"]})
 
     def test_accounting_cutoff_is_created_and_activated_idempotently(self):
         api = SimpleNamespace()
@@ -622,11 +615,11 @@ class WorkflowDefinitionTests(unittest.TestCase):
         credit_warnings = {
             warning["service_id"] for warning in catalog["local-credit-collections"]["warnings"]
         }
-        self.assertEqual(credit_warnings, {"loans", "dte-history"})
+        self.assertEqual(credit_warnings, {"dte-history"})
         full_warnings = {
             warning["service_id"] for warning in catalog["local-full-sync"]["warnings"]
         }
-        self.assertEqual(full_warnings, {"loans", "dte-history", "accounting-journal-entries"})
+        self.assertEqual(full_warnings, {"dte-history", "accounting-journal-entries"})
 
     def test_allow_executable_policy_never_allows_non_executable_service(self):
         definition = load_workflow("local-credit-collections")
@@ -793,7 +786,7 @@ class WorkflowStateTests(unittest.TestCase):
             },
         })
 
-    def test_credit_workflow_plan_freezes_allowed_blocked_service_warning(self):
+    def test_credit_workflow_plan_warns_only_for_remaining_blocked_service(self):
         with patch("arissto_sync.orchestration.preflight", return_value={"ok": True}):
             _plan_id, document = build_workflow_plan(
                 self.settings, self.state, "local-credit-collections", self.cycle_id
@@ -802,7 +795,7 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertEqual(document["readiness"]["blockers"], [])
         self.assertEqual(
             {warning["service_id"] for warning in document["readiness"]["warnings"]},
-            {"loans", "dte-history"},
+            {"dte-history"},
         )
 
     def test_full_sync_defaults_to_full_ledger_and_can_freeze_a_period(self):

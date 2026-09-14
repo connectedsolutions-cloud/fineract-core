@@ -6,6 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+from .change_tracker import migrate_legacy_change_tracking
 from .config import Settings
 from .state import State, now
 
@@ -85,6 +86,10 @@ class CycleCatalog:
                 raise ValueError(
                     f"Cannot replace sync cycle {previous['id']!r} while it has an active workflow"
                 )
+        migrate_legacy_change_tracking(
+            self.base_state_path,
+            [Path(cycle["state_path"]) for cycle in self.list()],
+        )
         state = State(state_path)
         try:
             state.initialize_cycle(cycle_id, target_name, target_fingerprint, baseline_ref, created_at)

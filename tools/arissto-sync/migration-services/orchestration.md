@@ -186,14 +186,15 @@ membership preservation run first so financial projection never precedes the
 lossless audit record. Employees, PEP, family references, and client-staff
 assignments are not prerequisites for these two share services.
 
-## Current manual loans-to-mobile-collections flow
+## Current loans-to-mobile-collections flow
 
 The final loan and Cobro Movil migration is executable through the local-only
-`local-credit-collections` workflow. During controlled acceptance, the workflow
-may run Loans while its registry status remains `blocked` because the service is
-still explicitly `executable`; the workflow plan records this as an allowed
-readiness warning. This does not promote Loans to `available`, bypass inspection
-or reconciliation, or permit a non-executable service to run.
+`local-credit-collections` workflow. Loans is registry-`available` after the
+accepted fresh/clean cycle `sandbox-2026-09-13-loans-b`; workflow planning no
+longer emits an unavailable-service warning for it. Availability does not bypass
+target inspection, immutable planning, dependency gates, apply journaling, or
+strict reconciliation. Downstream services retain their own independent
+readiness status and may still produce an allowed local acceptance warning.
 
 ```mermaid
 flowchart LR
