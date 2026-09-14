@@ -89,6 +89,7 @@ public interface LoanApiConstants {
     String collateralParameterName = "collateral";
     String collateralsParameterName = "collaterals";
     String clientCollateralIdParameterName = "clientCollateralId";
+    String valuationIdParameterName = "valuationId";
 
     String quantityParameterName = "quantity";
     String syncDisbursementWithMeetingParameterName = "syncDisbursementWithMeeting";

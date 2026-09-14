@@ -84,6 +84,9 @@ import org.apache.fineract.portfolio.client.exception.ClientNotActiveException;
 import org.apache.fineract.portfolio.collateralmanagement.domain.ClientCollateralManagement;
 import org.apache.fineract.portfolio.collateralmanagement.domain.ClientCollateralManagementRepositoryWrapper;
 import org.apache.fineract.portfolio.collateralmanagement.domain.CollateralManagementDomain;
+import org.apache.fineract.portfolio.collateralmanagement.domain.CollateralValuation;
+import org.apache.fineract.portfolio.collateralmanagement.exception.LoanCollateralManagementNotFoundException;
+import org.apache.fineract.portfolio.collateralmanagement.service.CollateralDetailService;
 import org.apache.fineract.portfolio.collateralmanagement.service.LoanCollateralAssembler;
 import org.apache.fineract.portfolio.common.domain.DaysInYearCustomStrategyType;
 import org.apache.fineract.portfolio.common.domain.DaysInYearType;
@@ -96,6 +99,7 @@ import org.apache.fineract.portfolio.loanaccount.api.LoanApiConstants;
 import org.apache.fineract.portfolio.loanaccount.data.DisbursementData;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanCollateralManagement;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanCollateralManagementRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanEvent;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanLifecycleStateMachine;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleTransactionProcessorFactory;
@@ -209,6 +213,8 @@ public final class LoanApplicationValidator {
     private final LoanUtilService loanUtilService;
     private final EntityDatatableChecksWritePlatformService entityDatatableChecksWritePlatformService;
     private final LoanMapper loanMapper;
+    private final CollateralDetailService collateralDetailService;
+    private final LoanCollateralManagementRepository loanCollateralManagementRepository;
 
     public void validateForCreate(final Loan loan) {
         final LocalDate expectedFirstRepaymentOnDate = loan.getExpectedFirstRepaymentOnDate();
@@ -569,7 +575,8 @@ public final class LoanApplicationValidator {
 
                         }.getType();
                         final Set<String> supportedParameters = new HashSet<>(
-                                Arrays.asList(LoanApiConstants.clientCollateralIdParameterName, LoanApiConstants.quantityParameterName));
+                                Arrays.asList(LoanApiConstants.clientCollateralIdParameterName, LoanApiConstants.quantityParameterName,
+                                        LoanApiConstants.valuationIdParameterName));
                         final JsonArray array = topLevelJsonElement.get(LoanApiConstants.collateralParameterName).getAsJsonArray();
                         for (int i = 1; i <= array.size(); i++) {
                             final JsonObject collateralItemElement = array.get(i - 1).getAsJsonObject();
@@ -592,6 +599,22 @@ public final class LoanApplicationValidator {
 
                             final ClientCollateralManagement clientCollateralManagement = this.clientCollateralManagementRepositoryWrapper
                                     .getCollateral(clientCollateralId);
+
+                            if (clientId != null && !clientCollateralManagement.getClient().getId().equals(clientId)) {
+                                throw new GeneralPlatformDomainRuleException("error.msg.loan.collateral.client.mismatch",
+                                        "The selected collateral does not belong to the loan client");
+                            }
+
+                            final Long valuationId = this.fromApiJsonHelper.extractLongNamed(LoanApiConstants.valuationIdParameterName,
+                                    collateralItemElement);
+                            if (valuationId != null) {
+                                CollateralValuation valuation = collateralDetailService.requireFinalValuation(clientCollateralId,
+                                        valuationId);
+                                if (!valuation.getCurrencyCode().equals(loanProduct.getCurrency().getCode())) {
+                                    throw new GeneralPlatformDomainRuleException("error.msg.loan.collateral.valuation.currency.mismatch",
+                                            "The collateral valuation currency must match the loan currency");
+                                }
+                            }
 
                             if (clientCollateralId != null
                                     && BigDecimal.valueOf(0).compareTo(clientCollateralManagement.getQuantity()) >= 0) {
@@ -836,6 +859,10 @@ public final class LoanApplicationValidator {
                 if (!collateral.isEmpty()) {
                     BigDecimal totalValue = BigDecimal.ZERO;
                     for (LoanCollateralManagement collateralManagement : collateral) {
+                        if (collateralManagement.getEligibleValue() != null) {
+                            totalValue = totalValue.add(collateralManagement.getEligibleValue());
+                            continue;
+                        }
                         final CollateralManagementDomain collateralManagementDomain = collateralManagement.getClientCollateralManagement()
                                 .getCollaterals();
                         BigDecimal totalCollateral = collateralManagement.getQuantity().multiply(collateralManagementDomain.getBasePrice())
@@ -1238,8 +1265,9 @@ public final class LoanApplicationValidator {
                             final Type collateralParameterTypeOfMap = new TypeToken<Map<String, Object>>() {
 
                             }.getType();
-                            final Set<String> supportedParameters = new HashSet<>(Arrays.asList(LoanApiConstants.idParameterName,
-                                    LoanApiConstants.clientCollateralIdParameterName, LoanApiConstants.quantityParameterName));
+                            final Set<String> supportedParameters = new HashSet<>(
+                                    Arrays.asList(LoanApiConstants.idParameterName, LoanApiConstants.clientCollateralIdParameterName,
+                                            LoanApiConstants.quantityParameterName, LoanApiConstants.valuationIdParameterName));
                             final JsonArray array = topLevelJsonElement.get(LoanApiConstants.collateralParameterName).getAsJsonArray();
                             if (!array.isEmpty()) {
                                 BigDecimal totalAmount = BigDecimal.ZERO;
@@ -1267,12 +1295,45 @@ public final class LoanApplicationValidator {
                                             .parameterAtIndexArray(LoanApiConstants.quantityParameterName, i).value(quantity).notNull()
                                             .positiveAmount();
 
-                                    if (clientCollateralId != null || quantity != null) {
-                                        BigDecimal baseAmount = this.clientCollateralManagementRepositoryWrapper
-                                                .getCollateral(clientCollateralId).getCollaterals().getBasePrice();
-                                        BigDecimal pctToBase = this.clientCollateralManagementRepositoryWrapper
-                                                .getCollateral(clientCollateralId).getCollaterals().getPctToBase();
-                                        BigDecimal total = baseAmount.multiply(pctToBase).multiply(quantity);
+                                    if (clientCollateralId != null && quantity != null) {
+                                        ClientCollateralManagement clientCollateral = this.clientCollateralManagementRepositoryWrapper
+                                                .getCollateral(clientCollateralId);
+                                        if (clientId != null && !clientCollateral.getClient().getId().equals(clientId)) {
+                                            throw new GeneralPlatformDomainRuleException("error.msg.loan.collateral.client.mismatch",
+                                                    "The selected collateral does not belong to the loan client");
+                                        }
+                                        final Long valuationId = this.fromApiJsonHelper
+                                                .extractLongNamed(LoanApiConstants.valuationIdParameterName, collateralItemElement);
+                                        if (valuationId == null && id != null) {
+                                            LoanCollateralManagement existing = loanCollateralManagementRepository.findById(id)
+                                                    .orElseThrow(() -> new LoanCollateralManagementNotFoundException(id));
+                                            if (!existing.getLoanData().getId().equals(loan.getId())
+                                                    || !existing.getClientCollateralManagement().getId().equals(clientCollateralId)) {
+                                                throw new GeneralPlatformDomainRuleException(
+                                                        "error.msg.loan.collateral.existing.pledge.mismatch",
+                                                        "The existing loan collateral does not match the requested loan and client collateral");
+                                            }
+                                            if (existing.getEligibleValue() != null && existing.getQuantity().signum() > 0) {
+                                                BigDecimal scaledEligibleValue = existing.getEligibleValue().multiply(quantity)
+                                                        .divide(existing.getQuantity(), MoneyHelper.getMathContext());
+                                                totalAmount = totalAmount.add(scaledEligibleValue);
+                                                continue;
+                                            }
+                                        }
+                                        BigDecimal baseAmount = clientCollateral.getCollaterals().getBasePrice();
+                                        if (valuationId != null) {
+                                            CollateralValuation valuation = collateralDetailService
+                                                    .requireFinalValuation(clientCollateralId, valuationId);
+                                            if (!valuation.getCurrencyCode().equals(loanProduct.getCurrency().getCode())) {
+                                                throw new GeneralPlatformDomainRuleException(
+                                                        "error.msg.loan.collateral.valuation.currency.mismatch",
+                                                        "The collateral valuation currency must match the loan currency");
+                                            }
+                                            baseAmount = valuation.getTotalValue();
+                                        }
+                                        BigDecimal pctToBase = clientCollateral.getCollaterals().getPctToBase();
+                                        BigDecimal total = baseAmount.multiply(pctToBase).multiply(quantity)
+                                                .divide(BigDecimal.valueOf(100));
                                         totalAmount = totalAmount.add(total);
                                     }
                                 }

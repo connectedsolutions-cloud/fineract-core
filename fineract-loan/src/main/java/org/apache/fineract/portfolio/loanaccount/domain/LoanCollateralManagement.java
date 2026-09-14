@@ -24,6 +24,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import org.apache.fineract.infrastructure.core.domain.AbstractPersistableCustom;
 import org.apache.fineract.portfolio.collateralmanagement.domain.ClientCollateralManagement;
 import org.apache.fineract.portfolio.loanaccount.data.LoanCollateralManagementData;
@@ -49,6 +50,18 @@ public class LoanCollateralManagement extends AbstractPersistableCustom<Long> {
     @ManyToOne(optional = false)
     @JoinColumn(name = "client_collateral_id", nullable = false)
     private ClientCollateralManagement clientCollateralManagement;
+
+    @Column(name = "valuation_id")
+    private Long valuationId;
+
+    @Column(name = "pledged_value", scale = 6, precision = 19)
+    private BigDecimal pledgedValue;
+
+    @Column(name = "eligible_value", scale = 6, precision = 19)
+    private BigDecimal eligibleValue;
+
+    @Column(name = "valuation_date")
+    private LocalDate valuationDate;
 
     public LoanCollateralManagement() {
 
@@ -117,8 +130,32 @@ public class LoanCollateralManagement extends AbstractPersistableCustom<Long> {
         return this.isReleased;
     }
 
+    public void applyValuationSnapshot(Long valuationId, BigDecimal pledgedValue, BigDecimal eligibleValue, LocalDate valuationDate) {
+        this.valuationId = valuationId;
+        this.pledgedValue = pledgedValue;
+        this.eligibleValue = eligibleValue;
+        this.valuationDate = valuationDate;
+    }
+
+    public Long getValuationId() {
+        return valuationId;
+    }
+
+    public BigDecimal getPledgedValue() {
+        return pledgedValue;
+    }
+
+    public BigDecimal getEligibleValue() {
+        return eligibleValue;
+    }
+
+    public LocalDate getValuationDate() {
+        return valuationDate;
+    }
+
     public LoanCollateralManagementData toCommand() {
-        return new LoanCollateralManagementData(this.clientCollateralManagement.getId(), this.getQuantity(), null, null, getId());
+        return new LoanCollateralManagementData(this.clientCollateralManagement.getId(), this.getQuantity(), null, null, getId(),
+                valuationId, pledgedValue, eligibleValue, valuationDate);
     }
 
 }

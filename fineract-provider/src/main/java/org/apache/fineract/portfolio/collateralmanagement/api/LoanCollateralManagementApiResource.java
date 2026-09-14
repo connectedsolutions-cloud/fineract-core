@@ -24,9 +24,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.commands.domain.CommandWrapper;
@@ -45,6 +47,21 @@ public class LoanCollateralManagementApiResource {
 
     private final PortfolioCommandSourceWritePlatformService commandsSourceWritePlatformService;
     private final LoanCollateralManagementReadPlatformService loanCollateralManagementReadPlatformService;
+
+    @POST
+    @Path("{loanId}")
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Operation(description = "Attach source-exact collateral to an existing loan", summary = "Attach migrated loan collateral")
+    public CommandProcessingResult sourceExactAttachLoanCollateral(@PathParam("loanId") final Long loanId,
+            @QueryParam("command") final String command, final String apiRequestBodyAsJson) {
+        if (!"sourceExactAttach".equals(command)) {
+            throw new IllegalArgumentException("Unsupported loan collateral command");
+        }
+        final CommandWrapper commandWrapper = new CommandWrapperBuilder().sourceExactAttachLoanCollateral(loanId)
+                .withJson(apiRequestBodyAsJson).build();
+        return this.commandsSourceWritePlatformService.logCommandSource(commandWrapper);
+    }
 
     @DELETE
     @Path("{id}")

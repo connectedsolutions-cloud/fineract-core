@@ -19,6 +19,7 @@
 package org.apache.fineract.portfolio.collateralmanagement.data;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.apache.fineract.portfolio.loanaccount.data.LoanCollateralManagementData;
@@ -38,14 +39,28 @@ public final class LoanCollateralResponseData {
 
     private Long clientCollateralId;
 
+    private Long valuationId;
+
+    private BigDecimal pledgedValue;
+
+    private BigDecimal eligibleValue;
+
+    private LocalDate valuationDate;
+
     public static LoanCollateralResponseData instanceOf(final LoanCollateralManagement loanCollateralManagement, final BigDecimal total,
             final BigDecimal totalCollateral) {
-        return new LoanCollateralResponseData(loanCollateralManagement.getId(), loanCollateralManagement.getQuantity(), total,
-                totalCollateral, loanCollateralManagement.getClientCollateralManagement().getId());
+        final BigDecimal effectiveTotal = loanCollateralManagement.getPledgedValue() == null ? total
+                : loanCollateralManagement.getPledgedValue();
+        final BigDecimal effectiveEligibleTotal = loanCollateralManagement.getEligibleValue() == null ? totalCollateral
+                : loanCollateralManagement.getEligibleValue();
+        return new LoanCollateralResponseData(loanCollateralManagement.getId(), loanCollateralManagement.getQuantity(), effectiveTotal,
+                effectiveEligibleTotal, loanCollateralManagement.getClientCollateralManagement().getId(),
+                loanCollateralManagement.getValuationId(), loanCollateralManagement.getPledgedValue(),
+                loanCollateralManagement.getEligibleValue(), loanCollateralManagement.getValuationDate());
     }
 
     public LoanCollateralManagementData toCommand() {
-        return new LoanCollateralManagementData(this.clientCollateralId, this.quantity, this.total, this.totalCollateral,
-                this.collateralId);
+        return new LoanCollateralManagementData(this.clientCollateralId, this.quantity, this.total, this.totalCollateral, this.collateralId,
+                this.valuationId, this.pledgedValue, this.eligibleValue, this.valuationDate);
     }
 }

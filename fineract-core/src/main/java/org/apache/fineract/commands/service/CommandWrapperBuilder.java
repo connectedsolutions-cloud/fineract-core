@@ -2212,6 +2212,15 @@ public class CommandWrapperBuilder {
         return this;
     }
 
+    public CommandWrapperBuilder sourceExactAttachLoanCollateral(final Long loanId) {
+        this.actionName = "SOURCEEXACTATTACH";
+        this.entityName = "LOAN_COLLATERAL_PRODUCT";
+        this.entityId = null;
+        this.loanId = loanId;
+        this.href = "/loan-collateral-management/" + loanId + "?command=sourceExactAttach";
+        return this;
+    }
+
     public CommandWrapperBuilder deleteCollateral(final Long loanId, final Long collateralId) {
         this.actionName = "DELETE";
         this.entityName = "COLLATERAL";

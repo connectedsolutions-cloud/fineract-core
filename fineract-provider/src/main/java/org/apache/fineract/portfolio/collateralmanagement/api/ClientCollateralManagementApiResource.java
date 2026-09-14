@@ -113,6 +113,9 @@ public class ClientCollateralManagementApiResource {
             @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = ClientCollateralManagementApiResourceSwagger.PostClientCollateralResponse.class))) })
     public CommandProcessingResult addCollateral(@PathParam("clientId") @Parameter(description = "clientId") final Long clientId,
             @Parameter(hidden = true) ClientCollateralRequest clientCollateralRequest) {
+        if (clientCollateralRequest.asset() != null || clientCollateralRequest.initialValuation() != null) {
+            this.context.authenticatedUser().validateHasPermissionTo(CollateralDetailApiResource.MANAGE_PERMISSION);
+        }
         final CommandWrapper commandWrapper = new CommandWrapperBuilder().addClientCollateralProduct(clientId)
                 .withJson(apiJsonSerializerDataService.serialize(clientCollateralRequest)).build();
 

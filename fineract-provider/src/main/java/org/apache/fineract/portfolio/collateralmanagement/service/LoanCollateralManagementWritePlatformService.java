@@ -24,4 +24,6 @@ import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 public interface LoanCollateralManagementWritePlatformService {
 
     CommandProcessingResult deleteLoanCollateral(JsonCommand command);
+
+    CommandProcessingResult sourceExactAttachLoanCollateral(JsonCommand command);
 }

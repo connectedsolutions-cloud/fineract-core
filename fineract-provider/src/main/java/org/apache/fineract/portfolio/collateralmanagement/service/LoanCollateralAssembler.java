@@ -30,6 +30,7 @@ import org.apache.fineract.infrastructure.codes.domain.CodeValueRepositoryWrappe
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
 import org.apache.fineract.portfolio.collateralmanagement.domain.ClientCollateralManagement;
 import org.apache.fineract.portfolio.collateralmanagement.domain.ClientCollateralManagementRepositoryWrapper;
+import org.apache.fineract.portfolio.collateralmanagement.domain.CollateralValuation;
 import org.apache.fineract.portfolio.collateralmanagement.exception.LoanCollateralManagementNotFoundException;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanCollateralManagement;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanCollateralManagementRepository;
@@ -42,6 +43,7 @@ public class LoanCollateralAssembler {
     private final CodeValueRepositoryWrapper codeValueRepository;
     private final LoanCollateralManagementRepository loanCollateralRepository;
     private final ClientCollateralManagementRepositoryWrapper clientCollateralManagementRepositoryWrapper;
+    private final CollateralDetailService collateralDetailService;
 
     public Set<LoanCollateralManagement> fromParsedJson(final JsonElement element) {
 
@@ -60,6 +62,7 @@ public class LoanCollateralAssembler {
                 final ClientCollateralManagement clientCollateral = this.clientCollateralManagementRepositoryWrapper
                         .getCollateral(collateralId);
                 final BigDecimal quantity = this.fromApiJsonHelper.extractBigDecimalNamed("quantity", collateralItemElement, locale);
+                final Long valuationId = this.fromApiJsonHelper.extractLongNamed("valuationId", collateralItemElement);
                 BigDecimal updatedClientQuantity = null;
 
                 if (id == null) {
@@ -68,7 +71,9 @@ public class LoanCollateralAssembler {
                         throw new InvalidAmountOfCollateralQuantity(quantity);
                     }
                     clientCollateral.updateQuantity(updatedClientQuantity);
-                    collateralItems.add(LoanCollateralManagement.from(clientCollateral, quantity));
+                    LoanCollateralManagement loanCollateral = LoanCollateralManagement.from(clientCollateral, quantity);
+                    applyValuationSnapshot(loanCollateral, clientCollateral, quantity, valuationId);
+                    collateralItems.add(loanCollateral);
                 } else {
                     LoanCollateralManagement loanCollateralManagement = this.loanCollateralRepository.findById(id)
                             .orElseThrow(() -> new LoanCollateralManagementNotFoundException(id));
@@ -84,12 +89,29 @@ public class LoanCollateralAssembler {
                     }
 
                     clientCollateral.updateQuantity(updatedClientQuantity);
-                    collateralItems
-                            .add(LoanCollateralManagement.fromExisting(clientCollateral, quantity, loanCollateralManagement.getLoanData(),
-                                    loanCollateralManagement.getLoanTransaction(), loanCollateralManagement.getId()));
+                    LoanCollateralManagement updated = LoanCollateralManagement.fromExisting(clientCollateral, quantity,
+                            loanCollateralManagement.getLoanData(), loanCollateralManagement.getLoanTransaction(),
+                            loanCollateralManagement.getId());
+                    updated.applyValuationSnapshot(loanCollateralManagement.getValuationId(), loanCollateralManagement.getPledgedValue(),
+                            loanCollateralManagement.getEligibleValue(), loanCollateralManagement.getValuationDate());
+                    if (valuationId != null) {
+                        applyValuationSnapshot(updated, clientCollateral, quantity, valuationId);
+                    }
+                    collateralItems.add(updated);
                 }
             }
         }
         return collateralItems;
+    }
+
+    private void applyValuationSnapshot(LoanCollateralManagement loanCollateral, ClientCollateralManagement clientCollateral,
+            BigDecimal quantity, Long valuationId) {
+        if (valuationId == null) {
+            return;
+        }
+        CollateralValuation valuation = collateralDetailService.requireFinalValuation(clientCollateral.getId(), valuationId);
+        BigDecimal pledgedValue = valuation.getTotalValue().multiply(quantity);
+        BigDecimal eligibleValue = pledgedValue.multiply(clientCollateral.getCollaterals().getPctToBase()).divide(BigDecimal.valueOf(100));
+        loanCollateral.applyValuationSnapshot(valuationId, pledgedValue, eligibleValue, valuation.getValuationDate());
     }
 }

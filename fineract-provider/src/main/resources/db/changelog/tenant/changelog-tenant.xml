@@ -360,6 +360,8 @@
     <include file="parts/0338_index_gl_journal_reference_number.xml" relativeToChangelogFile="true" />
     <include file="parts/0339_add_source_exact_fee_charge_identity.xml" relativeToChangelogFile="true" />
     <include file="parts/0340_add_source_exact_transient_charge_allocation.xml" relativeToChangelogFile="true" />
+    <include file="parts/0341_add_collateral_details.xml" relativeToChangelogFile="true" />
     <include file="parts/0342_add_family_member_type_flag.xml" relativeToChangelogFile="true" />
     <include file="parts/0343_add_savings_account_parties.xml" relativeToChangelogFile="true" />
+    <include file="parts/0345_add_source_exact_collateral_attach_permission.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

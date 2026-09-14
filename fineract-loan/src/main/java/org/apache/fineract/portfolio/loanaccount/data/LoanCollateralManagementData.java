@@ -19,11 +19,11 @@
 package org.apache.fineract.portfolio.loanaccount.data;
 
 import java.math.BigDecimal;
-import lombok.AllArgsConstructor;
+import java.time.LocalDate;
 import lombok.Data;
+import org.springframework.integration.annotation.Default;
 
 @Data
-@AllArgsConstructor
 public class LoanCollateralManagementData {
 
     private Long clientCollateralId;
@@ -35,4 +35,31 @@ public class LoanCollateralManagementData {
     private BigDecimal totalCollateral;
 
     private Long id;
+
+    private Long valuationId;
+
+    private BigDecimal pledgedValue;
+
+    private BigDecimal eligibleValue;
+
+    private LocalDate valuationDate;
+
+    @Default
+    public LoanCollateralManagementData(Long clientCollateralId, BigDecimal quantity, BigDecimal total, BigDecimal totalCollateral, Long id,
+            Long valuationId, BigDecimal pledgedValue, BigDecimal eligibleValue, LocalDate valuationDate) {
+        this.clientCollateralId = clientCollateralId;
+        this.quantity = quantity;
+        this.total = total;
+        this.totalCollateral = totalCollateral;
+        this.id = id;
+        this.valuationId = valuationId;
+        this.pledgedValue = pledgedValue;
+        this.eligibleValue = eligibleValue;
+        this.valuationDate = valuationDate;
+    }
+
+    public LoanCollateralManagementData(Long clientCollateralId, BigDecimal quantity, BigDecimal total, BigDecimal totalCollateral,
+            Long id) {
+        this(clientCollateralId, quantity, total, totalCollateral, id, null, null, null, null);
+    }
 }

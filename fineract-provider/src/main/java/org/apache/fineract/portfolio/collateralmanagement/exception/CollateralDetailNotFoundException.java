@@ -16,19 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.fineract.portfolio.collateralmanagement.data;
+package org.apache.fineract.portfolio.collateralmanagement.exception;
 
-import java.io.Serial;
-import java.io.Serializable;
-import java.math.BigDecimal;
+import org.apache.fineract.infrastructure.core.exception.AbstractPlatformResourceNotFoundException;
 
-public record ClientCollateralRequest(BigDecimal quantity, Long collateralId, String locale, CollateralDetailData.AssetRequest asset,
-        CollateralDetailData.ValuationRequest initialValuation) implements Serializable {
+public class CollateralDetailNotFoundException extends AbstractPlatformResourceNotFoundException {
 
-    @Serial
-    private static final long serialVersionUID = 1L;
-
-    public ClientCollateralRequest(BigDecimal quantity, Long collateralId, String locale) {
-        this(quantity, collateralId, locale, null, null);
+    public CollateralDetailNotFoundException(String resource, Long id) {
+        super("error.msg.collateral." + resource + ".not.found", "Collateral " + resource + " with identifier " + id + " does not exist",
+                id);
     }
 }

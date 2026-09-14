@@ -1595,6 +1595,8 @@ final class LoansApiResourceSwagger {
             public Long clientCollateralId;
             @Schema(example = "1")
             public BigDecimal quantity;
+            @Schema(example = "1", description = "Optional final appraisal to freeze on this loan collateral pledge")
+            public Long valuationId;
         }
 
         static final class PutLoansLoanIdDisbursementData {

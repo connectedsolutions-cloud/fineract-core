@@ -65,7 +65,7 @@ public class ClientCollateralManagementRepositoryWrapper {
             BigDecimal quantity = clientCollateralManagement.getQuantity();
             BigDecimal total = clientCollateralManagement.getTotal();
             BigDecimal totalCollateralValue = clientCollateralManagement.getTotalCollateral(total);
-            if (prodId != null && clientCollateralManagement.getCollaterals().getCurrency().getCode().equals(currency)) {
+            if (prodId == null || clientCollateralManagement.getCollaterals().getCurrency().getCode().equals(currency)) {
                 clientCollateralManagementDataSet
                         .add(ClientCollateralManagementData.instance(clientCollateralManagement.getCollaterals().getName(), quantity, total,
                                 totalCollateralValue, clientId, null, clientCollateralManagement.getId()));

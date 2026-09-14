@@ -18,6 +18,8 @@
  */
 package org.apache.fineract.portfolio.collateralmanagement.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -32,6 +34,7 @@ import org.apache.fineract.infrastructure.core.data.DataValidatorBuilder;
 import org.apache.fineract.infrastructure.core.exception.PlatformApiDataValidationException;
 import org.apache.fineract.portfolio.client.domain.Client;
 import org.apache.fineract.portfolio.client.domain.ClientRepositoryWrapper;
+import org.apache.fineract.portfolio.collateralmanagement.data.ClientCollateralRequest;
 import org.apache.fineract.portfolio.collateralmanagement.domain.ClientCollateralManagement;
 import org.apache.fineract.portfolio.collateralmanagement.domain.ClientCollateralManagementRepositoryWrapper;
 import org.apache.fineract.portfolio.collateralmanagement.domain.CollateralManagementDomain;
@@ -47,6 +50,8 @@ public class ClientCollateralManagementWritePlatformServiceImpl implements Clien
     private final ClientCollateralManagementRepositoryWrapper clientCollateralManagementRepositoryWrapper;
     private final CollateralManagementRepositoryWrapper collateralManagementRepositoryWrapper;
     private final ClientRepositoryWrapper clientRepositoryWrapper;
+    private final ObjectMapper objectMapper;
+    private final CollateralDetailService collateralDetailService;
 
     @Transactional
     @Override
@@ -63,8 +68,29 @@ public class ClientCollateralManagementWritePlatformServiceImpl implements Clien
         final ClientCollateralManagement clientCollateralManagement = ClientCollateralManagement.createNew(quantity, client,
                 collateralManagementData);
         this.clientCollateralManagementRepositoryWrapper.saveAndFlush(clientCollateralManagement);
+        final ClientCollateralRequest request = readRequest(command.json());
+        if (request.initialValuation() != null && request.asset() == null) {
+            throw new PlatformApiDataValidationException(List.of(ApiParameterError.parameterError(
+                    "error.msg.client.collateral.asset.required", "asset is required when initialValuation is supplied", "asset")));
+        }
+        if (request.asset() != null) {
+            this.collateralDetailService.upsertAsset(command.getClientId(), clientCollateralManagement.getId(), request.asset());
+            if (request.initialValuation() != null) {
+                this.collateralDetailService.createValuation(command.getClientId(), clientCollateralManagement.getId(),
+                        request.initialValuation());
+            }
+        }
         return new CommandProcessingResultBuilder().withCommandId(command.commandId()).withClientId(command.getClientId())
                 .withEntityId(clientCollateralManagement.getId()).build();
+    }
+
+    private ClientCollateralRequest readRequest(String json) {
+        try {
+            return this.objectMapper.readValue(json, ClientCollateralRequest.class);
+        } catch (JsonProcessingException exception) {
+            throw new PlatformApiDataValidationException(List.of(ApiParameterError.parameterError(
+                    "error.msg.client.collateral.invalid.json", "The client collateral request could not be parsed", "body")));
+        }
     }
 
     private void validateForCreation(final JsonCommand command) {

@@ -18,6 +18,7 @@
  */
 package org.apache.fineract.portfolio.collateralmanagement.starter;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.fineract.infrastructure.codes.domain.CodeValueRepositoryWrapper;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
@@ -29,6 +30,7 @@ import org.apache.fineract.portfolio.collateralmanagement.service.ClientCollater
 import org.apache.fineract.portfolio.collateralmanagement.service.ClientCollateralManagementReadPlatformServiceImpl;
 import org.apache.fineract.portfolio.collateralmanagement.service.ClientCollateralManagementWritePlatformService;
 import org.apache.fineract.portfolio.collateralmanagement.service.ClientCollateralManagementWritePlatformServiceImpl;
+import org.apache.fineract.portfolio.collateralmanagement.service.CollateralDetailService;
 import org.apache.fineract.portfolio.collateralmanagement.service.CollateralManagementReadPlatformService;
 import org.apache.fineract.portfolio.collateralmanagement.service.CollateralManagementReadPlatformServiceImpl;
 import org.apache.fineract.portfolio.collateralmanagement.service.CollateralManagementWritePlatformService;
@@ -40,6 +42,7 @@ import org.apache.fineract.portfolio.collateralmanagement.service.LoanCollateral
 import org.apache.fineract.portfolio.collateralmanagement.service.LoanCollateralManagementWritePlatformServiceImpl;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanCollateralManagementRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepository;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanRepositoryWrapper;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -61,9 +64,10 @@ public class CollateralManagementConfiguration {
     @ConditionalOnMissingBean(ClientCollateralManagementWritePlatformService.class)
     public ClientCollateralManagementWritePlatformService clientCollateralManagementWritePlatformService(
             ClientCollateralManagementRepositoryWrapper clientCollateralManagementRepositoryWrapper,
-            CollateralManagementRepositoryWrapper collateralManagementRepositoryWrapper, ClientRepositoryWrapper clientRepositoryWrapper) {
+            CollateralManagementRepositoryWrapper collateralManagementRepositoryWrapper, ClientRepositoryWrapper clientRepositoryWrapper,
+            ObjectMapper objectMapper, CollateralDetailService collateralDetailService) {
         return new ClientCollateralManagementWritePlatformServiceImpl(clientCollateralManagementRepositoryWrapper,
-                collateralManagementRepositoryWrapper, clientRepositoryWrapper);
+                collateralManagementRepositoryWrapper, clientRepositoryWrapper, objectMapper, collateralDetailService);
     }
 
     @Bean
@@ -86,9 +90,10 @@ public class CollateralManagementConfiguration {
     @ConditionalOnMissingBean(LoanCollateralAssembler.class)
     public LoanCollateralAssembler loanCollateralAssembler(FromJsonHelper fromApiJsonHelper, CodeValueRepositoryWrapper codeValueRepository,
             LoanCollateralManagementRepository loanCollateralRepository,
-            ClientCollateralManagementRepositoryWrapper clientCollateralManagementRepositoryWrapper) {
+            ClientCollateralManagementRepositoryWrapper clientCollateralManagementRepositoryWrapper,
+            CollateralDetailService collateralDetailService) {
         return new LoanCollateralAssembler(fromApiJsonHelper, codeValueRepository, loanCollateralRepository,
-                clientCollateralManagementRepositoryWrapper);
+                clientCollateralManagementRepositoryWrapper, collateralDetailService);
     }
 
     @Bean
@@ -102,8 +107,9 @@ public class CollateralManagementConfiguration {
     @ConditionalOnMissingBean(LoanCollateralManagementWritePlatformService.class)
     public LoanCollateralManagementWritePlatformService loanCollateralManagementWritePlatformService(
             LoanCollateralManagementRepository loanCollateralManagementRepository,
-            ClientCollateralManagementRepositoryWrapper clientCollateralManagementRepositoryWrapper) {
+            ClientCollateralManagementRepositoryWrapper clientCollateralManagementRepositoryWrapper,
+            LoanRepositoryWrapper loanRepositoryWrapper, CollateralDetailService collateralDetailService) {
         return new LoanCollateralManagementWritePlatformServiceImpl(loanCollateralManagementRepository,
-                clientCollateralManagementRepositoryWrapper);
+                clientCollateralManagementRepositoryWrapper, loanRepositoryWrapper, collateralDetailService);
     }
 }

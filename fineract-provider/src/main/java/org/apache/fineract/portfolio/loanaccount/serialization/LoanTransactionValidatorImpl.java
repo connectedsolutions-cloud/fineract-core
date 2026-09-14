@@ -1178,6 +1178,10 @@ public class LoanTransactionValidatorImpl implements LoanTransactionValidator {
         BigDecimal totalCollateral = BigDecimal.ZERO;
 
         for (LoanCollateralManagement loanCollateralManagement : loanCollateralManagements) {
+            if (loanCollateralManagement.getEligibleValue() != null) {
+                totalCollateral = totalCollateral.add(loanCollateralManagement.getEligibleValue());
+                continue;
+            }
             BigDecimal quantity = loanCollateralManagement.getQuantity();
             BigDecimal pctToBase = loanCollateralManagement.getClientCollateralManagement().getCollaterals().getPctToBase();
             BigDecimal basePrice = loanCollateralManagement.getClientCollateralManagement().getCollaterals().getBasePrice();

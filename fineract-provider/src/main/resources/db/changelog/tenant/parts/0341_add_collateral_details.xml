@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one or more
+    contributor license agreements. See the NOTICE file distributed with
+    this work for additional information regarding copyright ownership.
+    The ASF licenses this file to you under the Apache License, Version 2.0
+    (the "License"); you may not use this file except in compliance with
+    the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0341-1-add-collateral-details" author="credesal">
+        <createTable tableName="m_client_collateral_asset">
+            <column name="id" type="BIGINT" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="client_collateral_id" type="BIGINT"><constraints nullable="false" unique="true" uniqueConstraintName="uq_client_collateral_asset"/></column>
+            <column name="external_id" type="VARCHAR(100)"/>
+            <column name="asset_type" type="VARCHAR(20)"><constraints nullable="false"/></column>
+            <column name="description" type="VARCHAR(500)"/>
+            <column name="owned_by_client" type="BOOLEAN"/>
+            <column name="owner_relationship" type="VARCHAR(100)"/>
+            <column name="status" type="VARCHAR(20)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+            <column name="createdby_id" type="BIGINT"/>
+            <column name="created_date" type="DATETIME"/>
+            <column name="lastmodifiedby_id" type="BIGINT"/>
+            <column name="lastmodified_date" type="DATETIME"/>
+        </createTable>
+        <addUniqueConstraint tableName="m_client_collateral_asset" columnNames="external_id" constraintName="uq_collateral_asset_external_id"/>
+        <addForeignKeyConstraint baseTableName="m_client_collateral_asset" baseColumnNames="client_collateral_id"
+                                 referencedTableName="m_client_collateral_management" referencedColumnNames="id"
+                                 constraintName="fk_collateral_asset_client_collateral"/>
+        <addForeignKeyConstraint baseTableName="m_client_collateral_asset" baseColumnNames="createdby_id"
+                                 referencedTableName="m_appuser" referencedColumnNames="id" constraintName="fk_collateral_asset_createdby"/>
+        <addForeignKeyConstraint baseTableName="m_client_collateral_asset" baseColumnNames="lastmodifiedby_id"
+                                 referencedTableName="m_appuser" referencedColumnNames="id" constraintName="fk_collateral_asset_modifiedby"/>
+
+        <createTable tableName="m_client_collateral_vehicle">
+            <column name="asset_id" type="BIGINT"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="manufacture_year" type="INT"/>
+            <column name="make" type="VARCHAR(100)"/>
+            <column name="model" type="VARCHAR(100)"/>
+            <column name="plate" type="VARCHAR(50)"/>
+            <column name="color" type="VARCHAR(50)"/>
+            <column name="engine_number" type="VARCHAR(100)"/>
+            <column name="chassis_number" type="VARCHAR(100)"/>
+            <column name="vin" type="VARCHAR(100)"/>
+            <column name="vehicle_type_cv_id" type="BIGINT"/>
+            <column name="vehicle_class" type="VARCHAR(100)"/>
+            <column name="capacity" type="VARCHAR(100)"/>
+            <column name="registration_expiry_date" type="DATE"/>
+            <column name="quality_cv_id" type="BIGINT"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_client_collateral_vehicle" baseColumnNames="asset_id"
+                                 referencedTableName="m_client_collateral_asset" referencedColumnNames="id"
+                                 constraintName="fk_collateral_vehicle_asset" onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="m_client_collateral_vehicle" baseColumnNames="vehicle_type_cv_id"
+                                 referencedTableName="m_code_value" referencedColumnNames="id" constraintName="fk_collateral_vehicle_type"/>
+        <addForeignKeyConstraint baseTableName="m_client_collateral_vehicle" baseColumnNames="quality_cv_id"
+                                 referencedTableName="m_code_value" referencedColumnNames="id" constraintName="fk_collateral_vehicle_quality"/>
+
+        <createTable tableName="m_client_collateral_property">
+            <column name="asset_id" type="BIGINT"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="property_type_cv_id" type="BIGINT"/>
+            <column name="property_description" type="VARCHAR(1000)"/>
+            <column name="address" type="VARCHAR(500)"/>
+            <column name="department_code" type="VARCHAR(20)"/>
+            <column name="municipality_code" type="VARCHAR(20)"/>
+            <column name="registry_number" type="VARCHAR(100)"/>
+            <column name="property_nature" type="VARCHAR(50)"/>
+            <column name="area" type="DECIMAL(19,6)"/>
+            <column name="area_unit" type="VARCHAR(30)"/>
+            <column name="ownership_rights" type="VARCHAR(500)"/>
+            <column name="has_liens" type="BOOLEAN"/>
+            <column name="has_judicial_attachment" type="BOOLEAN"/>
+            <column name="municipal_clearance_status" type="VARCHAR(50)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_client_collateral_property" baseColumnNames="asset_id"
+                                 referencedTableName="m_client_collateral_asset" referencedColumnNames="id"
+                                 constraintName="fk_collateral_property_asset" onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="m_client_collateral_property" baseColumnNames="property_type_cv_id"
+                                 referencedTableName="m_code_value" referencedColumnNames="id" constraintName="fk_collateral_property_type"/>
+
+        <createTable tableName="m_collateral_valuation">
+            <column name="id" type="BIGINT" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="asset_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="external_id" type="VARCHAR(100)"/>
+            <column name="valuation_type" type="VARCHAR(20)"><constraints nullable="false"/></column>
+            <column name="valuation_date" type="DATE"><constraints nullable="false"/></column>
+            <column name="currency_code" type="VARCHAR(3)"><constraints nullable="false"/></column>
+            <column name="total_value" type="DECIMAL(19,6)"><constraints nullable="false"/></column>
+            <column name="land_value" type="DECIMAL(19,6)"/>
+            <column name="construction_value" type="DECIMAL(19,6)"/>
+            <column name="market_value" type="DECIMAL(19,6)"/>
+            <column name="sale_value" type="DECIMAL(19,6)"/>
+            <column name="appraiser" type="VARCHAR(200)"/>
+            <column name="appraisal_company" type="VARCHAR(200)"/>
+            <column name="appraiser_opinion" type="VARCHAR(1000)"/>
+            <column name="appraisal_cost" type="DECIMAL(19,6)"/>
+            <column name="status" type="VARCHAR(20)" defaultValue="DRAFT"><constraints nullable="false"/></column>
+            <column name="supersedes_valuation_id" type="BIGINT"/>
+            <column name="createdby_id" type="BIGINT"/>
+            <column name="created_date" type="DATETIME"/>
+            <column name="lastmodifiedby_id" type="BIGINT"/>
+            <column name="lastmodified_date" type="DATETIME"/>
+        </createTable>
+        <addUniqueConstraint tableName="m_collateral_valuation" columnNames="external_id" constraintName="uq_collateral_valuation_external_id"/>
+        <createIndex tableName="m_collateral_valuation" indexName="idx_collateral_valuation_asset_date">
+            <column name="asset_id"/><column name="valuation_date"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="m_collateral_valuation" baseColumnNames="asset_id"
+                                 referencedTableName="m_client_collateral_asset" referencedColumnNames="id"
+                                 constraintName="fk_collateral_valuation_asset"/>
+        <addForeignKeyConstraint baseTableName="m_collateral_valuation" baseColumnNames="supersedes_valuation_id"
+                                 referencedTableName="m_collateral_valuation" referencedColumnNames="id"
+                                 constraintName="fk_collateral_valuation_supersedes"/>
+        <addForeignKeyConstraint baseTableName="m_collateral_valuation" baseColumnNames="currency_code"
+                                 referencedTableName="m_currency" referencedColumnNames="code" constraintName="fk_collateral_valuation_currency"/>
+        <addForeignKeyConstraint baseTableName="m_collateral_valuation" baseColumnNames="createdby_id"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 constraintName="fk_collateral_valuation_createdby"/>
+        <addForeignKeyConstraint baseTableName="m_collateral_valuation" baseColumnNames="lastmodifiedby_id"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 constraintName="fk_collateral_valuation_modifiedby"/>
+
+        <createTable tableName="m_collateral_registration">
+            <column name="id" type="BIGINT" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="asset_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="loan_collateral_id" type="BIGINT"/>
+            <column name="external_id" type="VARCHAR(100)"/>
+            <column name="responsible_staff_id" type="BIGINT"/>
+            <column name="presentation_date" type="DATE"/>
+            <column name="registration_date" type="DATE"/>
+            <column name="registration_number" type="VARCHAR(100)"/>
+            <column name="status" type="VARCHAR(50)"/>
+            <column name="loan_amount" type="DECIMAL(19,6)"/>
+            <column name="purchase_amount" type="DECIMAL(19,6)"/>
+            <column name="contract_type" type="VARCHAR(100)"/>
+            <column name="notes" type="VARCHAR(1000)"/>
+            <column name="createdby_id" type="BIGINT"/>
+            <column name="created_date" type="DATETIME"/>
+            <column name="lastmodifiedby_id" type="BIGINT"/>
+            <column name="lastmodified_date" type="DATETIME"/>
+        </createTable>
+        <addUniqueConstraint tableName="m_collateral_registration" columnNames="external_id" constraintName="uq_collateral_registration_external_id"/>
+        <createIndex tableName="m_collateral_registration" indexName="idx_collateral_registration_asset">
+            <column name="asset_id"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="m_collateral_registration" baseColumnNames="asset_id"
+                                 referencedTableName="m_client_collateral_asset" referencedColumnNames="id"
+                                 constraintName="fk_collateral_registration_asset"/>
+        <addForeignKeyConstraint baseTableName="m_collateral_registration" baseColumnNames="loan_collateral_id"
+                                 referencedTableName="m_loan_collateral_management" referencedColumnNames="id"
+                                 constraintName="fk_collateral_registration_loan_collateral"/>
+        <addForeignKeyConstraint baseTableName="m_collateral_registration" baseColumnNames="responsible_staff_id"
+                                 referencedTableName="m_staff" referencedColumnNames="id" constraintName="fk_collateral_registration_staff"/>
+        <addForeignKeyConstraint baseTableName="m_collateral_registration" baseColumnNames="createdby_id"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 constraintName="fk_collateral_registration_createdby"/>
+        <addForeignKeyConstraint baseTableName="m_collateral_registration" baseColumnNames="lastmodifiedby_id"
+                                 referencedTableName="m_appuser" referencedColumnNames="id"
+                                 constraintName="fk_collateral_registration_modifiedby"/>
+
+        <addColumn tableName="m_loan_collateral_management">
+            <column name="valuation_id" type="BIGINT"/>
+            <column name="pledged_value" type="DECIMAL(19,6)"/>
+            <column name="eligible_value" type="DECIMAL(19,6)"/>
+            <column name="valuation_date" type="DATE"/>
+        </addColumn>
+        <addForeignKeyConstraint baseTableName="m_loan_collateral_management" baseColumnNames="valuation_id"
+                                 referencedTableName="m_collateral_valuation" referencedColumnNames="id"
+                                 constraintName="fk_loan_collateral_valuation"/>
+    </changeSet>
+
+    <changeSet id="0341-2-add-read-collateral-detail-permission" author="credesal">
+        <preConditions onFail="MARK_RAN"><sqlCheck expectedResult="0">SELECT COUNT(1) FROM m_permission WHERE code = 'READ_COLLATERAL_DETAILS'</sqlCheck></preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="portfolio"/><column name="code" value="READ_COLLATERAL_DETAILS"/>
+            <column name="entity_name" value="COLLATERAL_DETAILS"/><column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+    <changeSet id="0341-2b-add-manage-collateral-detail-permission" author="credesal">
+        <preConditions onFail="MARK_RAN"><sqlCheck expectedResult="0">SELECT COUNT(1) FROM m_permission WHERE code = 'MANAGE_COLLATERAL_DETAILS'</sqlCheck></preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="portfolio"/><column name="code" value="MANAGE_COLLATERAL_DETAILS"/>
+            <column name="entity_name" value="COLLATERAL_DETAILS"/><column name="action_name" value="MANAGE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="0341-3-add-collateral-vehicle-type-code" author="credesal">
+        <preConditions onFail="MARK_RAN"><sqlCheck expectedResult="0">SELECT COUNT(1) FROM m_code WHERE code_name = 'Collateral vehicle type'</sqlCheck></preConditions>
+        <insert tableName="m_code"><column name="code_name" value="Collateral vehicle type"/><column name="is_system_defined" valueBoolean="false"/></insert>
+    </changeSet>
+    <changeSet id="0341-4-add-collateral-quality-code" author="credesal">
+        <preConditions onFail="MARK_RAN"><sqlCheck expectedResult="0">SELECT COUNT(1) FROM m_code WHERE code_name = 'Collateral asset quality'</sqlCheck></preConditions>
+        <insert tableName="m_code"><column name="code_name" value="Collateral asset quality"/><column name="is_system_defined" valueBoolean="false"/></insert>
+    </changeSet>
+    <changeSet id="0341-5-add-collateral-property-type-code" author="credesal">
+        <preConditions onFail="MARK_RAN"><sqlCheck expectedResult="0">SELECT COUNT(1) FROM m_code WHERE code_name = 'Collateral property type'</sqlCheck></preConditions>
+        <insert tableName="m_code"><column name="code_name" value="Collateral property type"/><column name="is_system_defined" valueBoolean="false"/></insert>
+    </changeSet>
+</databaseChangeLog>

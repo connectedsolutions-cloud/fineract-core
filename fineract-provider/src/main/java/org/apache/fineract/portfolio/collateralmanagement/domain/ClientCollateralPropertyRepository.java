@@ -16,19 +16,8 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.fineract.portfolio.collateralmanagement.data;
+package org.apache.fineract.portfolio.collateralmanagement.domain;
 
-import java.io.Serial;
-import java.io.Serializable;
-import java.math.BigDecimal;
+import org.springframework.data.jpa.repository.JpaRepository;
 
-public record ClientCollateralRequest(BigDecimal quantity, Long collateralId, String locale, CollateralDetailData.AssetRequest asset,
-        CollateralDetailData.ValuationRequest initialValuation) implements Serializable {
-
-    @Serial
-    private static final long serialVersionUID = 1L;
-
-    public ClientCollateralRequest(BigDecimal quantity, Long collateralId, String locale) {
-        this(quantity, collateralId, locale, null, null);
-    }
-}
+public interface ClientCollateralPropertyRepository extends JpaRepository<ClientCollateralProperty, Long> {}
