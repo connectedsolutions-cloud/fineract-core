@@ -274,6 +274,27 @@ class WorkflowDefinitionTests(unittest.TestCase):
         self.assertEqual(counts, {"create": 3})
         apply.assert_not_called()
 
+    def test_service_runtime_reuses_recovered_loans_child_for_reconciliation_only_retry(self):
+        runtime = object.__new__(ServiceRuntime)
+        runtime.settings = SimpleNamespace()
+        runtime.loan_controls = None
+        runtime.contracts = {"loans": object()}
+        runtime.state = SimpleNamespace(
+            run=lambda _run_id: {
+                "block": "loans", "plan_id": "plan-1",
+                "summary": {"loans_recovered": 2},
+            },
+            plan=lambda _plan_id: {"document": {"actions": [{"source_key": "loan:1"}]}},
+            plan_run_items=lambda _plan_id: [{"source_key": "loan:1", "status": "recovered"}],
+        )
+
+        with patch("arissto_sync.service_runtime.apply_loan_plan") as apply:
+            run_id, counts = runtime.retry("loans", "run-1")
+
+        self.assertEqual(run_id, "run-1")
+        self.assertEqual(counts, {"loans_recovered": 2})
+        apply.assert_not_called()
+
     def test_ready_workflow_uses_registry_dependencies_and_stable_tie_order(self):
         report = inspect_workflow(load_workflow("local-party-profile"))
         self.assertTrue(report["ready"])

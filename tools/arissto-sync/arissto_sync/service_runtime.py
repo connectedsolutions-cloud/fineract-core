@@ -273,6 +273,11 @@ class ServiceRuntime:
             keys = loan_retry_keys(
                 loan_plan["document"]["actions"], self.state.plan_run_items(plan_id)
             )
+            if not keys:
+                # Apply already recovered every planned loan and only strict
+                # reconciliation remains. Reuse the exact child run so the
+                # workflow cannot mistake an empty retry for a successful one.
+                return previous_run_id, dict(previous.get("summary", {}))
             return apply_loan_plan(
                 self.settings, self.state, contract, plan_id, production_confirmation,
                 keys, controls=self.loan_controls,

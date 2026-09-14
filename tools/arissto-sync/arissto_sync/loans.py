@@ -980,6 +980,25 @@ def _loan_status_matches(source_state: str, target_status: dict[str, Any]) -> bo
     return False
 
 
+def _successful_full_close_predecessors(
+    actions: list[dict[str, Any]], plan_items: list[dict[str, Any]],
+) -> set[str]:
+    """Return loans expected to be closed by a successful refinance successor."""
+    successful = {
+        item["source_key"] for item in plan_items
+        if item["status"] in {"succeeded", "recovered", "unchanged", "reconciled"}
+    }
+    predecessors: set[str] = set()
+    for action in actions:
+        if action.get("entity_type") != "loan" or action["source_key"] not in successful:
+            continue
+        refinance = (action.get("lifecycle") or {}).get("refinance") or {}
+        for settlement in _refinance_settlements(refinance):
+            if settlement.get("settlement_type") == "FULL_CLOSE":
+                predecessors.add(loan_action_key(settlement["predecessor_source_key"]))
+    return predecessors
+
+
 def _reversal_signature(row: dict[str, Any]) -> tuple[Decimal, ...]:
     return tuple(_amount(row.get(column)) for column in REVERSAL_COMPONENTS)
 
@@ -3288,8 +3307,6 @@ def _selected_loan_actions(
         raise RuntimeError(f"Retry keys are absent from the loans plan: {unknown}")
     explicitly_selected = set(only_keys)
     selected = set(explicitly_selected)
-    for key in list(selected):
-        selected.update(by_key[key].get("depends_on", []))
     # A product explicitly selected because it failed must bring its dependent
     # loans into the retry. A healthy product added only as a prerequisite of a
     # failed loan must not expand that retry to every loan sharing the product.
@@ -3300,6 +3317,18 @@ def _selected_loan_actions(
         action["source_key"] for action in actions
         if selected_products.intersection(action.get("depends_on", []))
     )
+    # Include the full prerequisite closure. Refinance chains may be several
+    # loans deep; selecting only the immediate predecessor makes that
+    # predecessor appear to have an unmet dependency and blocks the entire
+    # retry before any failed loan is attempted.
+    changed = True
+    while changed:
+        changed = False
+        for key in list(selected):
+            dependencies = set(by_key[key].get("depends_on", []))
+            if not dependencies.issubset(selected):
+                selected.update(dependencies)
+                changed = True
     return [action for action in actions if action["source_key"] in selected]
 
 
@@ -4911,7 +4940,11 @@ def reconcile_loans(
     plan = state.plan(run["plan_id"])
     if plan["contract_hash"] != contract.digest:
         raise RuntimeError("Loans contract changed after the run")
-    actions = {row["source_key"]: row for row in plan["document"]["actions"]}
+    plan_actions = plan["document"]["actions"]
+    actions = {row["source_key"]: row for row in plan_actions}
+    full_close_predecessors = _successful_full_close_predecessors(
+        plan_actions, state.plan_run_items(run["plan_id"]),
+    )
     items = state.run_items(run_id)
     api = FineractApi(settings.target)
     mismatches: list[dict[str, Any]] = []
@@ -4988,6 +5021,9 @@ def reconcile_loans(
         )
         target_status = loan.get("status") or {}
         status_matches = _loan_status_matches(expected["source_state"], target_status)
+        if action["source_key"] in full_close_predecessors:
+            status_id = int(target_status.get("id") or -1)
+            status_matches = bool(target_status.get("closed")) or status_id in {600, 601, 602, 700}
         if terminal_disbursement_reversal and expected["source_state"] == "3":
             status_matches = int(target_status.get("id") or -1) == 200
         if not status_matches:

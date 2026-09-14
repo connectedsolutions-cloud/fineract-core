@@ -405,7 +405,23 @@ class State:
         for row in rows:
             item = dict(row)
             previous = latest.get(item["source_key"])
-            if previous is None or previous["status"] not in terminal_statuses:
+            # A dependency-blocked retry never attempted the item, so it must
+            # not erase an earlier failure that still needs recovery. This is
+            # especially important for loans, where an incomplete prerequisite
+            # closure can otherwise turn every retry root into a permanent
+            # blocked leaf.
+            preserves_failed_retry_root = (
+                previous is not None
+                and previous["status"] == "failed"
+                and item["status"] == "blocked"
+            )
+            if (
+                previous is None
+                or (
+                    previous["status"] not in terminal_statuses
+                    and not preserves_failed_retry_root
+                )
+            ):
                 latest[item["source_key"]] = item
         return list(latest.values())
 

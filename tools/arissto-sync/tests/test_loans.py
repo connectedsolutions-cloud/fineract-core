@@ -41,6 +41,7 @@ from arissto_sync.loans import (
     _source_exact_schedule_variations,
     _with_fineract_recovery,
     _selected_loan_actions,
+    _successful_full_close_predecessors,
     apply_loan_plan,
     build_loan_plan,
     build_loan_product_payload,
@@ -3855,6 +3856,54 @@ class LoanInspectionTests(unittest.TestCase):
             [action["source_key"] for action in selected], ["product:00001", "loan:24"]
         )
 
+    def test_failed_loan_retry_includes_complete_prerequisite_chain(self):
+        actions = [
+            {"source_key": "product:00001", "entity_type": "product", "depends_on": []},
+            {
+                "source_key": "loan:1", "entity_type": "loan",
+                "depends_on": ["product:00001"],
+            },
+            {
+                "source_key": "loan:2", "entity_type": "loan",
+                "depends_on": ["product:00001", "loan:1"],
+            },
+            {
+                "source_key": "loan:3", "entity_type": "loan",
+                "depends_on": ["product:00001", "loan:2"],
+            },
+        ]
+
+        selected = _selected_loan_actions(actions, {"loan:3"})
+
+        self.assertEqual(
+            [action["source_key"] for action in selected],
+            ["product:00001", "loan:1", "loan:2", "loan:3"],
+        )
+
+    def test_successful_refinance_marks_full_close_predecessor_as_terminal(self):
+        actions = [
+            {
+                "source_key": "loan:2", "entity_type": "loan",
+                "lifecycle": {"refinance": {"settlements": [{
+                    "predecessor_source_key": "1", "settlement_type": "FULL_CLOSE",
+                }]}},
+            },
+            {
+                "source_key": "loan:3", "entity_type": "loan",
+                "lifecycle": {"refinance": {"settlements": [{
+                    "predecessor_source_key": "2", "settlement_type": "FULL_CLOSE",
+                }]}},
+            },
+        ]
+        items = [
+            {"source_key": "loan:2", "status": "recovered"},
+            {"source_key": "loan:3", "status": "failed"},
+        ]
+
+        self.assertEqual(
+            _successful_full_close_predecessors(actions, items), {"loan:1"}
+        )
+
     def test_intrinsic_quarantine_propagates_across_whole_refinance_component(self):
         actions = [
             {
@@ -3955,6 +4004,34 @@ class LoanInspectionTests(unittest.TestCase):
                     [{"source_key": "loan:1"}, {"source_key": "loan:2"}], journal
                 ),
                 {"loan:2"},
+            )
+
+    def test_plan_retry_journal_does_not_downgrade_failure_to_blocked(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = State(Path(directory) / "state.sqlite3")
+            plan_id = state.save_plan(
+                "target", "loans", "source", "contract", {"actions": []}
+            )
+            plan = state.plan(plan_id)
+            failed_run = state.start_run(plan)
+            state.record_item(
+                failed_run, "loan:1", "create-loan", "hash-1", "failed", error_code="boom"
+            )
+            blocked_retry = state.start_run(plan)
+            state.record_item(
+                blocked_retry, "loan:1", "create-loan", "hash-1", "blocked",
+                error_code="loan_dependency_failed",
+            )
+
+            journal = state.plan_run_items(plan_id)
+
+            self.assertEqual(
+                {item["source_key"]: item["status"] for item in journal},
+                {"loan:1": "failed"},
+            )
+            self.assertEqual(
+                loan_retry_keys([{"source_key": "loan:1"}], journal),
+                {"loan:1"},
             )
 
     def test_namespaced_plan_keys_prevent_product_and_loan_collision(self):
