@@ -456,7 +456,8 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                         transferExternalId = ExternalId.empty();
                     }
                     settlementTotal = settlementTotal.add(settlementAmount);
-                    disburseLoanToLoan(loan, command, settlement, settlementAmount, repaymentExternalId, transferExternalId, allocation);
+                    disburseLoanToLoan(loan, command, settlement, settlementAmount, repaymentExternalId, transferExternalId, allocation,
+                            sourceExactSettlement == null ? null : sourceExactSettlement.feeChargeExternalId());
                     if (sourceExactSettlement != null && sourceExactSettlement.legacyCrossClient()) {
                         settlement.recordLegacyCrossClientEvidence(sourceExactSettlement.authorizationBasis(),
                                 sourceExactSettlement.sourceSystem(), sourceExactSettlement.sourceLiquidationId(),
@@ -2008,7 +2009,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
 
     private void disburseLoanToLoan(final Loan loan, final JsonCommand command, final LoanRefinancingSettlement settlement,
             final BigDecimal amount, final ExternalId repaymentExternalId, final ExternalId transferExternalId,
-            final SourceExactRepaymentAllocation sourceExactAllocation) {
+            final SourceExactRepaymentAllocation sourceExactAllocation, final String sourceExactFeeChargeExternalId) {
         final LocalDate transactionDate = command.localDateValueOfParameterNamed("actualDisbursementDate");
 
         final Locale locale = command.extractLocale();
@@ -2016,7 +2017,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         final AccountTransferDTO accountTransferDTO = new AccountTransferDTO(transactionDate, amount, PortfolioAccountType.LOAN,
                 PortfolioAccountType.LOAN, loan.getId(), settlement.getLoanIdToClose(), "Loan Refinancing", locale, fmt,
                 LoanTransactionType.DISBURSEMENT.getValue(), LoanTransactionType.REPAYMENT.getValue(), transferExternalId, loan, null,
-                repaymentExternalId, sourceExactAllocation);
+                repaymentExternalId, sourceExactAllocation, sourceExactFeeChargeExternalId);
         AccountTransferDetails accountTransferDetails = this.accountTransfersWritePlatformService.repayLoanWithTopup(accountTransferDTO);
         final Long repaymentTransactionId = accountTransferDetails.getAccountTransferTransactions().stream()
                 .map(transaction -> transaction.getToLoanTransaction()).filter(Objects::nonNull).map(LoanTransaction::getId).findFirst()
@@ -2074,7 +2075,8 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                                     command.stringValueOfParameterNamed(LoanApiConstants.sourceExactTopupRepaymentExternalIdParameterName)),
                             ExternalIdFactory.produce(
                                     command.stringValueOfParameterNamed(LoanApiConstants.sourceExactTopupTransferExternalIdParameterName)),
-                            false, null, null, null, null, null, null, "FULL_CLOSE"));
+                            false, null, null, null, null, null, null, "FULL_CLOSE",
+                            command.stringValueOfParameterNamed(LoanApiConstants.sourceExactFeeChargeExternalIdParameterName)));
             return result;
         }
         for (JsonElement rowElement : rows) {
@@ -2097,7 +2099,8 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                             optionalString(row, LoanApiConstants.refinancingSourceLiquidationId),
                             optionalString(row, LoanApiConstants.refinancingSourcePayoffMovementId),
                             optionalString(row, LoanApiConstants.refinancingSourceOperatorId),
-                            optionalDate(row, LoanApiConstants.refinancingSourcePayoffDate), settlementType));
+                            optionalDate(row, LoanApiConstants.refinancingSourcePayoffDate), settlementType,
+                            optionalString(row, LoanApiConstants.sourceExactFeeChargeExternalIdParameterName)));
             if (previous != null) {
                 throw new GeneralPlatformDomainRuleException("error.msg.loan.refinancing.predecessor.duplicate",
                         "Predecessor loan %s appears more than once", predecessorLoanId);
@@ -2115,9 +2118,15 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     private record SourceExactRefinancingSettlement(Long predecessorLoanId, SourceExactRepaymentAllocation allocation,
             ExternalId repaymentExternalId, ExternalId transferExternalId, boolean legacyCrossClient, String authorizationBasis,
             String sourceSystem, String sourceLiquidationId, String sourcePayoffMovementId, String sourceOperatorId,
-            LocalDate sourcePayoffDate, String settlementType) {
+            LocalDate sourcePayoffDate, String settlementType, String feeChargeExternalId) {
 
         private SourceExactRefinancingSettlement {
+            final boolean hasFee = allocation.feeCharges().signum() > 0;
+            final boolean hasFeeIdentity = StringUtils.isNotBlank(feeChargeExternalId);
+            if (hasFee != hasFeeIdentity) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.refinancing.fee.charge.invalid",
+                        "A source-exact refinancing fee requires exactly one historical charge identity");
+            }
             if (legacyCrossClient && (!"LEGACY_SOURCE_LIQUIDATION".equals(authorizationBasis) || !"ARISSTO".equals(sourceSystem)
                     || StringUtils.isAnyBlank(sourceLiquidationId, sourcePayoffMovementId, sourceOperatorId) || sourcePayoffDate == null)) {
                 throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.legacy.cross.client.evidence.invalid",

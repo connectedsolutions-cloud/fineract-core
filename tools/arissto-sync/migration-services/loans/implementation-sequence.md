@@ -385,6 +385,34 @@ The operational gate remains open until a fresh scoped or full loans run on a
 restarted Fineract instance reports zero occurrences of both failure signatures
 and passes strict reconciliation.
 
+#### 2026-09-13 fresh full-run refinance closure and intervening reversed-fee regression
+
+Fresh workflow run `3cf02db449354b81bed3a2da9fbff3b2`, loan run
+`397584515a58487f9b65d3a8ea1bf965`, synchronized 1,987 loans and exposed 271
+root failures. They form two implementation defects, not 271 distinct source
+data exceptions:
+
+- 270 refinance successors stopped because every affected full-close action had
+  at least one fee-bearing predecessor settlement. Fineract allocated the fee
+  to the repayment schedule but the refinancing command did not carry the
+  historical charge identity, leaving the named charge unpaid and the
+  zero-summary predecessor in `ACTIVE` status. Those failures dependency-blocked
+  another 270 successors.
+- loan `889` stopped when a source-reversed `$0.14` fee temporarily consumed
+  schedule fee capacity before its later reversal. A subsequent named `$0.30`
+  fee could represent only `$0.16`, leaving exactly `$0.14` unallocated.
+
+The remediation keeps the source-exact fail-closed boundary. Refinance
+settlements now require the one exact historical fee charge identity and pass it
+through the atomic loan-to-loan repayment. Named source-exact fees materialize
+only missing schedule capacity before assigning the declared charge owner. This
+lets Fineract's ordinary lifecycle state machine close a proven `FULL_CLOSE`
+predecessor; it does not force-close a loan with a real remaining component.
+Focused sync-engine and 25-test transaction-processor suites pass, as do loan
+and provider compilation. Acceptance remains open until a restarted Fineract
+instance completes a fresh scoped refinance/loan-`889` proof and then a fresh
+full run with strict reconciliation.
+
 #### `G5-SCH-009` clean-run stale-insurance implementation note
 
 The engine now derives `closed-stale-source-insurance-residue` from the full

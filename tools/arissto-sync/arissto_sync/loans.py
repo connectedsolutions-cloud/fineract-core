@@ -4199,6 +4199,22 @@ def _refinance_settlements(refinance: dict[str, Any] | None) -> list[dict[str, A
     return [refinance]
 
 
+def _refinance_fee_charge_external_id(settlement: dict[str, Any]) -> str | None:
+    fee_allocation = _amount(settlement["payoff_allocation"]["fee"])
+    if fee_allocation <= 0:
+        return None
+    fee_charges = settlement.get("historical_insurance_charges") or []
+    if len(fee_charges) != 1:
+        raise RuntimeError(
+            f"refinance_fee_charge_identity_ambiguous:{settlement['payoff_external_id']}"
+        )
+    if _amount(fee_charges[0]["amount"]) != fee_allocation:
+        raise RuntimeError(
+            f"refinance_fee_charge_amount_mismatch:{settlement['payoff_external_id']}"
+        )
+    return str(fee_charges[0]["external_id"])
+
+
 def _apply_loan_lifecycle(
     api: FineractApi, action: dict[str, Any], product_id: int, attempt_key: str | None = None,
 ) -> tuple[int, bool]:
@@ -4379,6 +4395,9 @@ def _apply_loan_lifecycle(
                             "locale": "en",
                             "settlementType": settlement.get("settlement_type", "FULL_CLOSE"),
                         }
+                        fee_charge_external_id = _refinance_fee_charge_external_id(settlement)
+                        if fee_charge_external_id is not None:
+                            settlement_payload["feeChargeExternalId"] = fee_charge_external_id
                         evidence = settlement.get("legacy_cross_client_evidence")
                         if evidence:
                             settlement_payload.update({

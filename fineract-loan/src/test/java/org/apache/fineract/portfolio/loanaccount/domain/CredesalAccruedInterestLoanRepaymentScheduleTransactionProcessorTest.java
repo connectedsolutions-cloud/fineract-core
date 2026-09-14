@@ -386,6 +386,33 @@ class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest {
     }
 
     @Test
+    void namedSourceExactFeeMaterializesCapacityConsumedByEarlierTransientHistory() {
+        final BigDecimal scheduleCapacity = new BigDecimal("0.16");
+        final BigDecimal requestedFee = new BigDecimal("0.30");
+        final LoanRepaymentScheduleInstallment installment = installment(1, LocalDate.of(2025, 4, 24), LocalDate.of(2025, 5, 12),
+                BigDecimal.ZERO, BigDecimal.ZERO, scheduleCapacity);
+        final LoanTransaction repayment = repayment(LocalDate.of(2025, 5, 12), requestedFee);
+        final String chargeExternalId = "ARISSTO:CRD-INS:200251:0000009908:0011";
+        repayment.markAsSourceExactAllocation(
+                new SourceExactRepaymentAllocation(BigDecimal.ZERO, BigDecimal.ZERO, requestedFee, BigDecimal.ZERO), chargeExternalId);
+        final LoanCharge charge = new LoanCharge();
+        charge.setExternalId(new ExternalId(chargeExternalId));
+        charge.setAmount(requestedFee);
+        charge.setAmountPaid(BigDecimal.ZERO);
+        charge.setAmountWaived(BigDecimal.ZERO);
+        charge.setAmountWrittenOff(BigDecimal.ZERO);
+        charge.setAmountOutstanding(requestedFee);
+        charge.setPaid(false);
+
+        processor.processTransaction(repayment, CURRENCY, List.of(installment), new HashSet<>(List.of(charge)), null);
+
+        assertMoney("0.30", repayment.getFeeChargesPortion(CURRENCY));
+        assertMoney("0.30", charge.getAmountPaid(CURRENCY));
+        assertMoney("0.00", charge.getAmountOutstanding(CURRENCY));
+        assertEquals(1, repayment.getLoanChargesPaid().size());
+    }
+
+    @Test
     void sourceExactReplayFindsItsInactivePaidChargeOutsideTheActiveChargeSet() {
         final BigDecimal fee = new BigDecimal("2.18");
         final LoanRepaymentScheduleInstallment installment = installment(1, LocalDate.of(2026, 5, 28), DUE_DATE, BigDecimal.ZERO,

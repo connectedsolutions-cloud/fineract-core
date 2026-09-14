@@ -34,6 +34,7 @@ from arissto_sync.loans import (
     _loan_legacy_timeline_differences,
     _proof_namespace_lifecycle,
     _refinance_component_bridge,
+    _refinance_fee_charge_external_id,
     _loan_schedule_differences,
     _propagate_intrinsic_refinance_quarantines,
     _resolve_or_create_loan_product,
@@ -65,6 +66,24 @@ CONFIG = Path(__file__).resolve().parents[1] / "config" / "loans.json"
 
 
 class LoanInspectionTests(unittest.TestCase):
+    def test_refinance_fee_requires_and_returns_exact_historical_charge_identity(self):
+        settlement = {
+            "payoff_external_id": "ARISSTO:CRD-MOV:42",
+            "payoff_allocation": {"fee": "0.21"},
+            "historical_insurance_charges": [{
+                "amount": "0.21", "external_id": "ARISSTO:CRD-INS:7:42:1",
+            }],
+        }
+
+        self.assertEqual(
+            _refinance_fee_charge_external_id(settlement),
+            "ARISSTO:CRD-INS:7:42:1",
+        )
+
+        settlement["historical_insurance_charges"][0]["amount"] = "0.20"
+        with self.assertRaisesRegex(RuntimeError, "refinance_fee_charge_amount_mismatch"):
+            _refinance_fee_charge_external_id(settlement)
+
     def test_historical_insurance_settlement_requires_the_declared_charge_to_close(self):
         lifecycle = {"events": [{"role": "repayment", "source_reversed": False, "historical_insurance_charges": [{
             "external_id": "ARISSTO:CRD-INS:7:101:1", "amount": "0.72",

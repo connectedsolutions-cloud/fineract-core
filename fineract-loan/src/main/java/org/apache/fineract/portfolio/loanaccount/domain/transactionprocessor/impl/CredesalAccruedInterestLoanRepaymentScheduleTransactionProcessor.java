@@ -70,7 +70,7 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
         }
         if (loanTransaction.isSourceExactAllocation()) {
             materializeSourceExactPostDueInterest(loanTransaction, currency, installments);
-            materializeSourceExactTransientCharges(loanTransaction, currency, installments);
+            materializeSourceExactDeclaredCharges(loanTransaction, currency, installments);
             return processSourceExactRepayment(loanTransaction, currency, installments, charges);
         }
         return super.processTransaction(loanTransaction, currency, installments, charges, amountToProcess);
@@ -154,9 +154,11 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
                 .addPostDueInterest(loanTransaction.getTransactionDate(), sourcePostDueInterest);
     }
 
-    private void materializeSourceExactTransientCharges(final LoanTransaction loanTransaction, final MonetaryCurrency currency,
+    private void materializeSourceExactDeclaredCharges(final LoanTransaction loanTransaction, final MonetaryCurrency currency,
             final List<LoanRepaymentScheduleInstallment> installments) {
-        if (!loanTransaction.isSourceExactTransientChargeAllocation() || installments.isEmpty()) {
+        final String feeChargeExternalId = loanTransaction.getSourceExactFeeChargeExternalId();
+        final boolean hasNamedFeeCharge = feeChargeExternalId != null && !feeChargeExternalId.isBlank();
+        if ((!loanTransaction.isSourceExactTransientChargeAllocation() && !hasNamedFeeCharge) || installments.isEmpty()) {
             return;
         }
         final Money requestedFee = loanTransaction.getSourceExactFeeChargesPortion(currency);

@@ -59,6 +59,7 @@ public class AccountTransferDTO {
     private final Boolean isExceptionForBalanceCheck;
     private final ExternalId toLoanTransactionExternalId;
     private final SourceExactRepaymentAllocation sourceExactRepaymentAllocation;
+    private final String sourceExactFeeChargeExternalId;
 
     public AccountTransferDTO(final LocalDate transactionDate, final BigDecimal transactionAmount,
             final PortfolioAccountType fromAccountType, final PortfolioAccountType toAccountType, final Long fromAccountId,
@@ -94,6 +95,7 @@ public class AccountTransferDTO {
         this.isExceptionForBalanceCheck = isExceptionForBalanceCheck;
         this.toLoanTransactionExternalId = ExternalId.empty();
         this.sourceExactRepaymentAllocation = null;
+        this.sourceExactFeeChargeExternalId = null;
     }
 
     public AccountTransferDTO(final LocalDate transactionDate, final BigDecimal transactionAmount,
@@ -111,6 +113,17 @@ public class AccountTransferDTO {
             final Integer fromTransferType, final Integer toTransferType, final ExternalId txnExternalId, final Loan fromLoan,
             final Loan toLoan, final ExternalId toLoanTransactionExternalId,
             final SourceExactRepaymentAllocation sourceExactRepaymentAllocation) {
+        this(transactionDate, transactionAmount, fromAccountType, toAccountType, fromAccountId, toAccountId, description, locale, fmt,
+                fromTransferType, toTransferType, txnExternalId, fromLoan, toLoan, toLoanTransactionExternalId,
+                sourceExactRepaymentAllocation, null);
+    }
+
+    public AccountTransferDTO(final LocalDate transactionDate, final BigDecimal transactionAmount,
+            final PortfolioAccountType fromAccountType, final PortfolioAccountType toAccountType, final Long fromAccountId,
+            final Long toAccountId, final String description, final Locale locale, final DateTimeFormatter fmt,
+            final Integer fromTransferType, final Integer toTransferType, final ExternalId txnExternalId, final Loan fromLoan,
+            final Loan toLoan, final ExternalId toLoanTransactionExternalId,
+            final SourceExactRepaymentAllocation sourceExactRepaymentAllocation, final String sourceExactFeeChargeExternalId) {
         this.transactionDate = transactionDate;
         this.transactionAmount = transactionAmount;
         this.fromAccountType = fromAccountType;
@@ -138,6 +151,7 @@ public class AccountTransferDTO {
         this.isExceptionForBalanceCheck = null;
         this.toLoanTransactionExternalId = toLoanTransactionExternalId;
         this.sourceExactRepaymentAllocation = sourceExactRepaymentAllocation;
+        this.sourceExactFeeChargeExternalId = sourceExactFeeChargeExternalId;
     }
 
     public LocalDate getTransactionDate() {
@@ -246,6 +260,10 @@ public class AccountTransferDTO {
 
     public SourceExactRepaymentAllocation getSourceExactRepaymentAllocation() {
         return this.sourceExactRepaymentAllocation;
+    }
+
+    public String getSourceExactFeeChargeExternalId() {
+        return this.sourceExactFeeChargeExternalId;
     }
 
 }
