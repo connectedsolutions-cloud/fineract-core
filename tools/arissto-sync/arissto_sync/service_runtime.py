@@ -53,6 +53,11 @@ from .native_share_engine import (
 from .native_shares import BLOCK as NATIVE_SHARES_BLOCK, NativeShareContract, inspect_native_shares
 from .pep import BLOCK as PEP_BLOCK, PepContract, apply_pep_plan, build_pep_plan, inspect_pep, reconcile_pep
 from .savings import BLOCK as SAVINGS_BLOCK, SavingsContract, inspect_savings
+from .savings_account_parties import (
+    BLOCK as SAVINGS_ACCOUNT_PARTIES_BLOCK, SavingsAccountPartyContract,
+    apply_savings_account_party_plan, build_savings_account_party_plan,
+    inspect_savings_account_parties, reconcile_savings_account_parties,
+)
 from .savings_engine import apply_savings_plan, build_savings_plan, reconcile_savings
 from .state import State
 
@@ -85,6 +90,7 @@ class ServiceRuntime:
             NATIVE_SHARES_BLOCK: NativeShareContract.load(self.settings.native_share_mapping_path),
             AML_ALERT_BLOCK: AmlAlertContract.load(self.settings.aml_alert_mapping_path),
             SAVINGS_BLOCK: SavingsContract.load(self.settings.savings_mapping_path),
+            SAVINGS_ACCOUNT_PARTIES_BLOCK: SavingsAccountPartyContract.load(ROOT / "config/savings_account_parties.json"),
             LOANS_BLOCK: LoanContract.load(ROOT / "config/loans.json"),
             MOBILE_COLLECTION_BLOCK: MobileCollectionContract.load(
                 self.settings.mobile_collection_mapping_path
@@ -116,6 +122,8 @@ class ServiceRuntime:
             return report
         if block == SAVINGS_BLOCK:
             return inspect_savings(self.settings, contract)
+        if block == SAVINGS_ACCOUNT_PARTIES_BLOCK:
+            return inspect_savings_account_parties(self.settings, contract)
         if block == AML_ALERT_BLOCK:
             return inspect_aml_alerts(self.settings, contract)
         if block == MEMBERSHIP_BLOCK:
@@ -163,6 +171,8 @@ class ServiceRuntime:
             return build_native_share_plan(self.settings, self.state, contract, None)
         if block == SAVINGS_BLOCK:
             return build_savings_plan(self.settings, self.state, contract, None, False)
+        if block == SAVINGS_ACCOUNT_PARTIES_BLOCK:
+            return build_savings_account_party_plan(self.settings, self.state, contract, None)
         if block == AML_ALERT_BLOCK:
             return build_aml_alert_plan(self.settings, self.state, contract, None)
         if block == MEMBERSHIP_BLOCK:
@@ -191,6 +201,8 @@ class ServiceRuntime:
             return apply_aml_alert_plan(self.settings, self.state, contract, plan_id, production_confirmation)
         if block == SAVINGS_BLOCK:
             return apply_savings_plan(self.settings, self.state, contract, plan_id, production_confirmation)
+        if block == SAVINGS_ACCOUNT_PARTIES_BLOCK:
+            return apply_savings_account_party_plan(self.settings, self.state, contract, plan_id, production_confirmation)
         if block == NATIVE_SHARES_BLOCK:
             return apply_native_share_plan(self.settings, self.state, contract, plan_id, production_confirmation)
         if block == MEMBERSHIP_BLOCK:
@@ -231,6 +243,8 @@ class ServiceRuntime:
             return reconcile_aml_alerts(self.settings, self.state, contract, run_id)
         if block == SAVINGS_BLOCK:
             return reconcile_savings(self.settings, self.state, contract, run_id)
+        if block == SAVINGS_ACCOUNT_PARTIES_BLOCK:
+            return reconcile_savings_account_parties(self.settings, self.state, contract, run_id)
         if block == NATIVE_SHARES_BLOCK:
             return reconcile_native_shares(self.settings, self.state, contract, run_id)
         if block == MEMBERSHIP_BLOCK:
@@ -308,6 +322,7 @@ class ServiceRuntime:
         apply_functions = {
             AML_ALERT_BLOCK: apply_aml_alert_plan,
             SAVINGS_BLOCK: apply_savings_plan,
+            SAVINGS_ACCOUNT_PARTIES_BLOCK: apply_savings_account_party_plan,
             NATIVE_SHARES_BLOCK: apply_native_share_plan,
             MEMBERSHIP_BLOCK: apply_membership_plan,
             EMPLOYEE_BLOCK: apply_employee_plan,

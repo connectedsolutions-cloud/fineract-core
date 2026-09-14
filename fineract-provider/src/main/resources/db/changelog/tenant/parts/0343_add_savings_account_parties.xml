@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements. See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to you under the Apache License, Version 2.0.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0343-1-savings-beneficiaries" author="credesal">
+        <createTable tableName="credesal_savings_beneficiary">
+            <column name="id" type="BIGINT" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="savings_account_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="linked_client_id" type="BIGINT"/>
+            <column name="external_id" type="VARCHAR(100)"/>
+            <column name="given_name" type="VARCHAR(50)"><constraints nullable="false"/></column>
+            <column name="surname" type="VARCHAR(50)"/>
+            <column name="allocation_percentage" type="DECIMAL(5,2)"><constraints nullable="false"/></column>
+            <column name="date_of_birth" type="DATE"/>
+            <column name="source_age" type="VARCHAR(15)"/>
+            <column name="dui" type="VARCHAR(20)"/>
+            <column name="relationship" type="VARCHAR(50)"/>
+            <column name="address" type="VARCHAR(254)"/>
+            <column name="phone" type="VARCHAR(15)"/>
+            <column name="communicate_designation" type="BOOLEAN"/>
+            <column name="source_hash" type="VARCHAR(64)"/>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true"><constraints nullable="false"/></column>
+            <column name="created_at" type="DATETIME"><constraints nullable="false"/></column>
+            <column name="updated_at" type="DATETIME"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_savings_beneficiary" baseColumnNames="savings_account_id"
+                                 constraintName="FK_cr_sav_bene_account" referencedTableName="m_savings_account" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="credesal_savings_beneficiary" baseColumnNames="linked_client_id"
+                                 constraintName="FK_cr_sav_bene_client" referencedTableName="m_client" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="credesal_savings_beneficiary" columnNames="external_id"
+                             constraintName="UK_cr_sav_bene_external"/>
+        <createIndex tableName="credesal_savings_beneficiary" indexName="IX_cr_sav_bene_account">
+            <column name="savings_account_id"/><column name="is_active"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0343-2-savings-authorized-persons" author="credesal">
+        <createTable tableName="credesal_savings_authorized_person">
+            <column name="id" type="BIGINT" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="savings_account_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="linked_client_id" type="BIGINT"/>
+            <column name="external_id" type="VARCHAR(100)"/>
+            <column name="given_name" type="VARCHAR(50)"><constraints nullable="false"/></column>
+            <column name="surname" type="VARCHAR(50)"/>
+            <column name="date_of_birth" type="DATE"/>
+            <column name="dui" type="VARCHAR(20)"/>
+            <column name="relationship" type="VARCHAR(50)"/>
+            <column name="address" type="VARCHAR(254)"/>
+            <column name="phone" type="VARCHAR(15)"/>
+            <column name="print_on_contract" type="BOOLEAN"/>
+            <column name="print_on_passbook" type="BOOLEAN"/>
+            <column name="signature_reference" type="VARCHAR(255)"/>
+            <column name="source_hash" type="VARCHAR(64)"/>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true"><constraints nullable="false"/></column>
+            <column name="created_at" type="DATETIME"><constraints nullable="false"/></column>
+            <column name="updated_at" type="DATETIME"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_savings_authorized_person" baseColumnNames="savings_account_id"
+                                 constraintName="FK_cr_sav_auth_account" referencedTableName="m_savings_account" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="credesal_savings_authorized_person" baseColumnNames="linked_client_id"
+                                 constraintName="FK_cr_sav_auth_client" referencedTableName="m_client" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="credesal_savings_authorized_person" columnNames="external_id"
+                             constraintName="UK_cr_sav_auth_external"/>
+        <createIndex tableName="credesal_savings_authorized_person" indexName="IX_cr_sav_auth_account">
+            <column name="savings_account_id"/><column name="is_active"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

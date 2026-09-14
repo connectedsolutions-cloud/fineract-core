@@ -85,8 +85,9 @@ hard quarantine; all owners are still preserved in
 `credesal_savings_migration_owner`. The engine must never duplicate principal
 into one native account per owner.
 
-Beneficiaries and authorized users are a later subphase. They must be inspected
-and mapped separately; they do not change financial account ownership.
+Beneficiaries and authorized persons are owned by the separate
+[`savings-account-parties`](../savings-account-parties/README.md) service after
+the native account exists. They do not change financial account ownership.
 
 ## Movement classification
 

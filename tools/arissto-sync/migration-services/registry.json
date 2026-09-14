@@ -183,6 +183,27 @@
       }
     },
     {
+      "id": "savings-account-parties",
+      "name": "Savings account beneficiaries and authorized persons",
+      "kind": "sync-block",
+      "status": "blocked",
+      "executable": false,
+      "cli_block": "savings-account-parties",
+      "depends_on": ["savings-deposits"],
+      "description": "Synchronizes AHO_BENEFICIARIO and AHO_AUTORIZADO as account-scoped beneficiary and authorized-person collections on the current mapped Fineract deposit account. Implementation is present but remains blocked until migration 0343 is deployed and a controlled local plan/apply/reconcile run is accepted.",
+      "documentation": "migration-services/savings-account-parties/README.md",
+      "detail_documents": ["migration-services/savings-account-parties/contract.md"],
+      "configuration": "config/savings_account_parties.json",
+      "commands": {
+        "inspect": "./arissto-sync inspect --block savings-account-parties --target TARGET",
+        "plan": "./arissto-sync plan --block savings-account-parties --target TARGET [--source-key 'AHO_ACCOUNT_PARTIES|ID_EMPRESA|ID_SUCURSAL|ID_CUENTA_AHORRO']",
+        "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
+        "retry": "./arissto-sync retry --run RUN_ID --failed-only --target TARGET",
+        "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
+        "status": "./arissto-sync status --block savings-account-parties --target TARGET"
+      }
+    },
+    {
       "id": "native-share-capital",
       "name": "Native share capital",
       "kind": "sync-block",

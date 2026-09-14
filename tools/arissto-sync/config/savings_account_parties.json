@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "depends_on": ["savings-deposits"],
+  "source": {
+    "beneficiary_table": "AHO_BENEFICIARIO",
+    "authorized_person_table": "AHO_AUTORIZADO",
+    "account_table": "AHO_CUENTA_AHORRO"
+  },
+  "target": {
+    "beneficiary_table": "credesal_savings_beneficiary",
+    "authorized_person_table": "credesal_savings_authorized_person",
+    "account_map_table": "credesal_savings_migration_account",
+    "api_root": "depositaccounts"
+  },
+  "identity": {
+    "beneficiary_prefix": "ARISSTO:AHO-BEN:",
+    "authorized_person_prefix": "ARISSTO:AHO-AUTH:"
+  },
+  "rules": {
+    "beneficiary_allocations_must_total": "100.00",
+    "empty_beneficiary_collection_allowed": true,
+    "authorized_person_grants_transaction_authority": false,
+    "linked_client_policy": "deferred-unless-exact-reviewed-identity",
+    "signature_image_policy": "deferred-empty-source-column"
+  }
+}

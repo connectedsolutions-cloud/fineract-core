@@ -127,6 +127,14 @@ from .orchestration import (
 from .service_registry import service_report
 from .retention import APPLY_CONFIRMATION, apply_retention, retention_plan
 from .savings import BLOCK as SAVINGS_BLOCK, SavingsContract, inspect_savings
+from .savings_account_parties import (
+    BLOCK as SAVINGS_ACCOUNT_PARTIES_BLOCK,
+    SavingsAccountPartyContract,
+    apply_savings_account_party_plan,
+    build_savings_account_party_plan,
+    inspect_savings_account_parties,
+    reconcile_savings_account_parties,
+)
 from .savings_engine import apply_savings_plan, build_savings_plan, reconcile_savings
 from .savings_lifecycle_proof import prove_vista_lifecycle
 from .fixed_deposit_lifecycle_proof import prove_dpf_lifecycle
@@ -272,7 +280,7 @@ def parser() -> argparse.ArgumentParser:
             block_choices = (
                 "clients", PEP_BLOCK, FAMILY_REFERENCES_BLOCK, PERSONAL_FAMILY_REFERENCES_BLOCK, EMPLOYEE_BLOCK,
                 CLIENT_STAFF_ASSIGNMENT_BLOCK,
-                MEMBERSHIP_BLOCK, AML_ALERT_BLOCK, SAVINGS_BLOCK, LOANS_BLOCK, MOBILE_COLLECTION_BLOCK,
+                MEMBERSHIP_BLOCK, AML_ALERT_BLOCK, SAVINGS_BLOCK, SAVINGS_ACCOUNT_PARTIES_BLOCK, LOANS_BLOCK, MOBILE_COLLECTION_BLOCK,
                 NATIVE_SHARES_BLOCK, DTE_HISTORY_BLOCK,
             )
             if name in {"inspect", "plan"}:
@@ -307,7 +315,7 @@ def parser() -> argparse.ArgumentParser:
                 choices=("clients", PEP_BLOCK, FAMILY_REFERENCES_BLOCK, PERSONAL_FAMILY_REFERENCES_BLOCK, EMPLOYEE_BLOCK,
                          CLIENT_STAFF_ASSIGNMENT_BLOCK,
                          MEMBERSHIP_BLOCK, SAVINGS_BLOCK, AML_ALERT_BLOCK, LOANS_BLOCK, MOBILE_COLLECTION_BLOCK,
-                         NATIVE_SHARES_BLOCK, DTE_HISTORY_BLOCK, ACCOUNTING_BLOCK),
+                         NATIVE_SHARES_BLOCK, DTE_HISTORY_BLOCK, ACCOUNTING_BLOCK, SAVINGS_ACCOUNT_PARTIES_BLOCK),
             )
     apply = commands.add_parser("apply")
     apply.add_argument("--target", choices=("local", "prod"), required=True)
@@ -632,6 +640,7 @@ def main(argv=None) -> int:
         native_share_contract = NativeShareContract.load(settings.native_share_mapping_path)
         aml_alert_contract = AmlAlertContract.load(settings.aml_alert_mapping_path)
         savings_contract = SavingsContract.load(settings.savings_mapping_path)
+        savings_account_party_contract = SavingsAccountPartyContract.load(ROOT / "config/savings_account_parties.json")
         loan_contract = LoanContract.load(ROOT / "config/loans.json")
         mobile_collection_contract = MobileCollectionContract.load(settings.mobile_collection_mapping_path)
         dte_history_contract = DteHistoryContract.load(settings.dte_history_mapping_path)
@@ -748,6 +757,7 @@ def main(argv=None) -> int:
             contract = (mobile_collection_contract if args.block == MOBILE_COLLECTION_BLOCK
                         else dte_history_contract if args.block == DTE_HISTORY_BLOCK
                         else native_share_contract if args.block == NATIVE_SHARES_BLOCK
+                        else savings_account_party_contract if args.block == SAVINGS_ACCOUNT_PARTIES_BLOCK
                         else savings_contract if args.block == SAVINGS_BLOCK
                         else aml_alert_contract if args.block == AML_ALERT_BLOCK
                         else membership_contract if args.block == MEMBERSHIP_BLOCK
@@ -761,6 +771,8 @@ def main(argv=None) -> int:
                       else inspect_dte_history(settings, contract) if args.block == DTE_HISTORY_BLOCK
                       else inspect_native_shares(settings, contract, args.source_key)
                       if args.block == NATIVE_SHARES_BLOCK
+                      else inspect_savings_account_parties(settings, contract)
+                      if args.block == SAVINGS_ACCOUNT_PARTIES_BLOCK
                       else inspect_savings(settings, contract) if args.block == SAVINGS_BLOCK
                       else inspect_aml_alerts(settings, contract) if args.block == AML_ALERT_BLOCK
                       else inspect_membership(settings, contract) if args.block == MEMBERSHIP_BLOCK
@@ -809,6 +821,10 @@ def main(argv=None) -> int:
             elif args.block == SAVINGS_BLOCK:
                 plan_id, document = build_savings_plan(
                     settings, state, savings_contract, args.source_key, args.repair_existing_drift
+                )
+            elif args.block == SAVINGS_ACCOUNT_PARTIES_BLOCK:
+                plan_id, document = build_savings_account_party_plan(
+                    settings, state, savings_account_party_contract, args.source_key
                 )
             elif args.repair_existing_drift:
                 raise ValueError("--repair-existing-drift is supported only for savings-deposits")
@@ -866,6 +882,10 @@ def main(argv=None) -> int:
             elif plan["block"] == SAVINGS_BLOCK:
                 run_id, counts = apply_savings_plan(
                     settings, state, savings_contract, args.plan, args.confirm_production
+                )
+            elif plan["block"] == SAVINGS_ACCOUNT_PARTIES_BLOCK:
+                run_id, counts = apply_savings_account_party_plan(
+                    settings, state, savings_account_party_contract, args.plan, args.confirm_production
                 )
             elif plan["block"] == NATIVE_SHARES_BLOCK:
                 run_id, counts = apply_native_share_plan(
@@ -934,6 +954,10 @@ def main(argv=None) -> int:
                 result = reconcile_savings(settings, state, savings_contract, args.run)
                 state.record_reconciliation(args.run, result)
                 emit(result)
+            elif run["block"] == SAVINGS_ACCOUNT_PARTIES_BLOCK:
+                result = reconcile_savings_account_parties(settings, state, savings_account_party_contract, args.run)
+                state.record_reconciliation(args.run, result)
+                emit(result)
             elif run["block"] == NATIVE_SHARES_BLOCK:
                 result = reconcile_native_shares(settings, state, native_share_contract, args.run)
                 state.record_reconciliation(args.run, result)
@@ -995,6 +1019,10 @@ def main(argv=None) -> int:
             elif previous["block"] == SAVINGS_BLOCK:
                 run_id, counts = apply_savings_plan(
                     settings, state, savings_contract, previous["plan_id"], args.confirm_production, keys
+                )
+            elif previous["block"] == SAVINGS_ACCOUNT_PARTIES_BLOCK:
+                run_id, counts = apply_savings_account_party_plan(
+                    settings, state, savings_account_party_contract, previous["plan_id"], args.confirm_production, keys
                 )
             elif previous["block"] == NATIVE_SHARES_BLOCK:
                 run_id, counts = apply_native_share_plan(
