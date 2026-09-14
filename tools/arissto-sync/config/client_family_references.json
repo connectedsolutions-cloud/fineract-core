@@ -33,6 +33,7 @@
   "notes": [
     "The service includes both Arissto CLIENTE and SOCIO classifications because both resolve to Fineract m_client.",
     "The complete source name is preserved in firstname; surname boundaries are not inferred.",
+    "Rows from AFI_REF_FAMILIAR_SOCIO are explicitly marked isFamilyMember=true.",
     "Gender, dependency, age, birth date, profession, marital status, and qualification remain null because AFI_REF_FAMILIAR_SOCIO does not establish them.",
     "Missing source rows are reported as stale and are never deleted automatically."
   ]

@@ -108,6 +108,7 @@ preserve historical occupants of that slot.
 | `DIRECCION` | new `address` | Preserve as legacy-owned plain text. |
 | `PARENTESCO` | `relationship_cv_id` | Resolve through an explicit normalized mapping; never hard-code target IDs. |
 | `PARENTESCO` | new `source_relationship` | Preserve the exact trimmed original text for audit and unmapped-value review. |
+| source classification | new `is_family_member` | `true` for family/family-reference rows; personal-reference rows use `false`. Existing rows default to `true`. |
 | no verified source | `gender_cv_id` | Null; do not infer gender from a gendered relationship word or name. |
 | no verified source | `is_dependent` | Null; being a reference does not prove dependency. |
 | no verified source | marital status, profession, qualification, birth date, age | Null. |
@@ -131,6 +132,9 @@ code; this contract is not a second schema source of truth.
 6. The deserializer throws accumulated validation errors.
 7. The versioned relationship bootstrap and unique external-ID constraint are
    applied through normal Fineract Liquibase startup.
+8. A non-null `is_family_member` flag is exposed by create, read, update, bulk
+   client creation, and the Credesal client UI. Existing rows default to
+   `true`; personal references must explicitly send `false`.
 
 The Credesal frontend already reads the native resource. Displaying every
 preserved audit field and improving manual editing for unknown surname/gender

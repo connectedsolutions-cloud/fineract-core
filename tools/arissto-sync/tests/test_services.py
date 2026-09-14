@@ -20,6 +20,7 @@ class MigrationServiceRegistryTests(unittest.TestCase):
             [(service["id"], service["cli_block"]) for service in executable],
             [("clients", "clients"), ("client-pep", "client-pep"),
              ("client-family-references", "client-family-references"),
+             ("client-personal-family-references", "client-personal-family-references"),
              ("employees", "employees"),
              ("client-staff-assignments", "client-staff-assignments"),
              ("membership-share-capital", "membership-share-capital"),
@@ -343,6 +344,18 @@ class MigrationServiceRegistryTests(unittest.TestCase):
         self.assertEqual(report["service"]["cli_block"], "client-family-references")
         self.assertEqual(report["service"]["depends_on"], ["clients"])
         self.assertIn("inspect", report["service"]["commands"])
+
+    def test_personal_family_references_service_is_acceptance_gated_and_depends_on_clients(self):
+        service = service_report("client-personal-family-references")["service"]
+        self.assertEqual(service["status"], "blocked")
+        self.assertTrue(service["executable"])
+        self.assertEqual(service["depends_on"], ["clients"])
+        self.assertEqual(service["configuration"], "config/client_personal_family_references.json")
+        args = parser().parse_args([
+            "plan", "--target", "local", "--block", "client-personal-family-references",
+            "--source-key", "personal:C0001:1",
+        ])
+        self.assertEqual(args.block, "client-personal-family-references")
 
     def test_employee_service_is_available_after_local_reconciliation(self):
         report = service_report("employees")["service"]

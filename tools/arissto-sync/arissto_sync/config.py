@@ -84,6 +84,7 @@ class Settings:
     state_path: Path
     mapping_path: Path
     family_reference_mapping_path: Path
+    personal_family_reference_mapping_path: Path
     pep_mapping_path: Path
     employee_mapping_path: Path
     client_staff_assignment_mapping_path: Path
@@ -127,6 +128,9 @@ def load_settings(target: str, env_file: str | None = None) -> Settings:
     state = configured_state_path(env_file)
     mapping = Path(os.getenv("ARISSTO_SYNC_CLIENT_MAPPING", "config/clients.json"))
     family_mapping = Path(os.getenv("ARISSTO_SYNC_FAMILY_REFERENCE_MAPPING", "config/client_family_references.json"))
+    personal_family_mapping = Path(os.getenv(
+        "ARISSTO_SYNC_PERSONAL_FAMILY_REFERENCE_MAPPING", "config/client_personal_family_references.json"
+    ))
     pep_mapping = Path(os.getenv("ARISSTO_SYNC_CLIENT_PEP_MAPPING", "config/client_pep.json"))
     employee_mapping = Path(os.getenv("ARISSTO_SYNC_EMPLOYEE_MAPPING", "config/employees.json"))
     client_staff_assignment_mapping = Path(os.getenv(
@@ -147,6 +151,7 @@ def load_settings(target: str, env_file: str | None = None) -> Settings:
     return Settings(source, target_config, state,
                     mapping if mapping.is_absolute() else ROOT / mapping,
                     family_mapping if family_mapping.is_absolute() else ROOT / family_mapping,
+                    personal_family_mapping if personal_family_mapping.is_absolute() else ROOT / personal_family_mapping,
                     pep_mapping if pep_mapping.is_absolute() else ROOT / pep_mapping,
                     employee_mapping if employee_mapping.is_absolute() else ROOT / employee_mapping,
                     client_staff_assignment_mapping if client_staff_assignment_mapping.is_absolute()

@@ -1,0 +1,49 @@
+{
+  "block": "client-personal-family-references",
+  "source": {
+    "party_table": "AFI_SOCIO",
+    "company_key": "ID_EMPRESA",
+    "branch_key": "ID_SUCURSAL",
+    "party_key": "ID_SOCIO",
+    "external_key": "NUMERO_AFILIACION",
+    "relationship_table": "AFI_RELACION_FAMILIAR",
+    "personal": {
+      "table": "AFI_REF_PERSONAL_SOCIO",
+      "reference_key": "ID_REF_SOCIO",
+      "external_id_prefix": "arissto:afi_ref_personal:"
+    },
+    "family": {
+      "table": "AFI_FAMILIA_SOCIO",
+      "reference_key": "ID_FAMILIA_SOCIO",
+      "external_id_prefix": "arissto:afi_familia_socio:"
+    }
+  },
+  "target": {
+    "table": "m_family_members",
+    "relationship_code": "RELATIONSHIP"
+  },
+  "relationship_map": {
+    "Padre/Madre": ["MADRE", "MAMA", "MAMÁ", "PADRE", "PAPA", "PAPÁ", "PADRASTRO", "MADRASTRA", "MADRE POLITICA", "PADRE POLITICO"],
+    "Hermano": ["HERMANO", "HERMANA"],
+    "hijo": ["HIJO", "HIJA"],
+    "Primo(a)": ["PRIMO", "PRIMA"],
+    "Esposo(a)/Pareja": ["ESPOSO", "ESPOSA", "CONYUGE", "CONYUGUE", "PAREJA", "COMPAÑERA DE VIDA", "COMPAÑERO DE VIDA"],
+    "Tío(a)": ["TIO", "TIA", "TÍO", "TÍA"],
+    "Sobrino(a)": ["SOBRINO", "SOBRINA"],
+    "Cuñado(a)": ["CUÑADO", "CUÑADA"],
+    "Suegro(a)": ["SUEGRO", "SUEGRA"],
+    "Yerno/Nuera": ["YERNO", "NUERA"],
+    "Abuelo(a)": ["ABUELO", "ABUELA"],
+    "Nieto(a)": ["NIETO", "NIETA"],
+    "Amigo": ["AMIGO", "AMIGA"],
+    "Familiar": ["PARIENTE", "FAMILIAR", "COMADRE"],
+    "Sin especificar": [""]
+  },
+  "notes": [
+    "AFI_REF_PERSONAL_SOCIO rows are written with isFamilyMember=false and use the Sin especificar relationship code because TIPO_REFERENCIA is a reference category, not kinship.",
+    "TIPO_REFERENCIA is preserved in sourceRelationship; financial amount and lifecycle fields remain source-only and are not represented as family-member attributes.",
+    "AFI_FAMILIA_SOCIO rows are written with isFamilyMember=true and use free-text PARENTESCO with AFI_RELACION_FAMILIAR as fallback.",
+    "AFI_FAMILIA_SOCIO is currently empty, so populated-row acceptance remains a future gate.",
+    "Missing source rows are reported as stale and are never deleted automatically."
+  ]
+}

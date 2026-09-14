@@ -29,6 +29,7 @@ from .dte_history import (
 from .engine import apply_plan, build_plan, inspect_clients, reconcile
 from .family_references import (
     BLOCK as FAMILY_REFERENCES_BLOCK, FamilyReferenceContract,
+    PERSONAL_FAMILY_REFERENCES_BLOCK, PersonalFamilyReferenceContract,
     apply_family_reference_plan, build_family_reference_plan,
     inspect_family_references, reconcile_family_references,
 )
@@ -73,6 +74,9 @@ class ServiceRuntime:
             "clients": ClientContract.load(self.settings.mapping_path),
             PEP_BLOCK: PepContract.load(self.settings.pep_mapping_path),
             FAMILY_REFERENCES_BLOCK: FamilyReferenceContract.load(self.settings.family_reference_mapping_path),
+            PERSONAL_FAMILY_REFERENCES_BLOCK: PersonalFamilyReferenceContract.load(
+                self.settings.personal_family_reference_mapping_path
+            ),
             EMPLOYEE_BLOCK: EmployeeContract.load(self.settings.employee_mapping_path),
             CLIENT_STAFF_ASSIGNMENT_BLOCK: ClientStaffAssignmentContract.load(
                 self.settings.client_staff_assignment_mapping_path
@@ -120,7 +124,7 @@ class ServiceRuntime:
             return inspect_client_staff_assignments(self.settings, contract)
         if block == EMPLOYEE_BLOCK:
             return inspect_employees(self.settings, contract)
-        if block == FAMILY_REFERENCES_BLOCK:
+        if block in {FAMILY_REFERENCES_BLOCK, PERSONAL_FAMILY_REFERENCES_BLOCK}:
             return inspect_family_references(self.settings, contract)
         if block == PEP_BLOCK:
             return inspect_pep(self.settings, contract)
@@ -167,7 +171,7 @@ class ServiceRuntime:
             return build_client_staff_assignment_plan(self.settings, self.state, contract, None)
         if block == EMPLOYEE_BLOCK:
             return build_employee_plan(self.settings, self.state, contract, None)
-        if block == FAMILY_REFERENCES_BLOCK:
+        if block in {FAMILY_REFERENCES_BLOCK, PERSONAL_FAMILY_REFERENCES_BLOCK}:
             return build_family_reference_plan(self.settings, self.state, contract, None)
         if block == PEP_BLOCK:
             return build_pep_plan(self.settings, self.state, contract, None)
@@ -197,7 +201,7 @@ class ServiceRuntime:
             return apply_client_staff_assignment_plan(
                 self.settings, self.state, contract, plan_id, production_confirmation
             )
-        if block == FAMILY_REFERENCES_BLOCK:
+        if block in {FAMILY_REFERENCES_BLOCK, PERSONAL_FAMILY_REFERENCES_BLOCK}:
             return apply_family_reference_plan(self.settings, self.state, contract, plan_id, production_confirmation)
         if block == PEP_BLOCK:
             return apply_pep_plan(self.settings, self.state, contract, plan_id, production_confirmation)
@@ -235,7 +239,7 @@ class ServiceRuntime:
             return reconcile_employees(self.settings, self.state, contract, run_id)
         if block == CLIENT_STAFF_ASSIGNMENT_BLOCK:
             return reconcile_client_staff_assignments(self.settings, self.state, contract, run_id)
-        if block == FAMILY_REFERENCES_BLOCK:
+        if block in {FAMILY_REFERENCES_BLOCK, PERSONAL_FAMILY_REFERENCES_BLOCK}:
             return reconcile_family_references(self.settings, self.state, contract, run_id)
         if block == PEP_BLOCK:
             return reconcile_pep(self.settings, self.state, contract, run_id)
@@ -309,6 +313,7 @@ class ServiceRuntime:
             EMPLOYEE_BLOCK: apply_employee_plan,
             CLIENT_STAFF_ASSIGNMENT_BLOCK: apply_client_staff_assignment_plan,
             FAMILY_REFERENCES_BLOCK: apply_family_reference_plan,
+            PERSONAL_FAMILY_REFERENCES_BLOCK: apply_family_reference_plan,
             PEP_BLOCK: apply_pep_plan,
             MOBILE_COLLECTION_BLOCK: apply_mobile_collection_plan,
             "clients": apply_plan,

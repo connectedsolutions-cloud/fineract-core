@@ -86,6 +86,7 @@ public class ClientFamilyMembersWritePlatformServiceImpl implements ClientFamily
         String sourceRelationship = null;
         Long age = null;
         Boolean isDependent = null;
+        Boolean isFamilyMember = true;
         LocalDate dateOfBirth = null;
 
         this.context.authenticatedUser();
@@ -103,6 +104,10 @@ public class ClientFamilyMembersWritePlatformServiceImpl implements ClientFamily
         sourceRelationship = command.stringValueOfParameterNamedAllowingNull("sourceRelationship");
         age = command.longValueOfParameterNamed("age");
         isDependent = command.booleanObjectValueOfParameterNamed("isDependent");
+        if (command.parameterExists("isFamilyMember")) {
+            final Boolean requestedFamilyMember = command.booleanObjectValueOfParameterNamed("isFamilyMember");
+            isFamilyMember = requestedFamilyMember == null ? true : requestedFamilyMember;
+        }
 
         if (command.longValueOfParameterNamed("relationshipId") != null) {
             relationshipId = command.longValueOfParameterNamed("relationshipId");
@@ -127,8 +132,8 @@ public class ClientFamilyMembersWritePlatformServiceImpl implements ClientFamily
         dateOfBirth = command.localDateValueOfParameterNamed("dateOfBirth");
 
         ClientFamilyMembers clientFamilyMembers = ClientFamilyMembers.fromJson(client, firstName, middleName, lastName, qualification,
-                mobileNumber, secondaryMobileNumber, address, externalId, sourceRelationship, age, isDependent, relationship, maritalStatus,
-                gender, dateOfBirth, profession);
+                mobileNumber, secondaryMobileNumber, address, externalId, sourceRelationship, age, isDependent, isFamilyMember,
+                relationship, maritalStatus, gender, dateOfBirth, profession);
 
         this.clientFamilyRepository.saveAndFlush(clientFamilyMembers);
 
@@ -159,6 +164,7 @@ public class ClientFamilyMembersWritePlatformServiceImpl implements ClientFamily
         String sourceRelationship = null;
         Long age = null;
         Boolean isDependent = null;
+        Boolean isFamilyMember = true;
 
         this.context.authenticatedUser();
 
@@ -189,6 +195,7 @@ public class ClientFamilyMembersWritePlatformServiceImpl implements ClientFamily
             sourceRelationship = null;
             age = null;
             isDependent = null;
+            isFamilyMember = true;
 
             apiJsonDeserializer.validateForCreate(members.toString());
 
@@ -238,6 +245,10 @@ public class ClientFamilyMembersWritePlatformServiceImpl implements ClientFamily
                 isDependent = member.get("isDependent").getAsBoolean();
             }
 
+            if (member.get("isFamilyMember") != null && !member.get("isFamilyMember").isJsonNull()) {
+                isFamilyMember = member.get("isFamilyMember").getAsBoolean();
+            }
+
             if (member.get("relationshipId") != null) {
                 relationshipId = member.get("relationshipId").getAsLong();
                 relationship = this.codeValueRepository.getReferenceById(relationshipId);
@@ -278,8 +289,8 @@ public class ClientFamilyMembersWritePlatformServiceImpl implements ClientFamily
             }
 
             familyMember = ClientFamilyMembers.fromJson(client, firstName, middleName, lastName, qualification, mobileNumber,
-                    secondaryMobileNumber, address, externalId, sourceRelationship, age, isDependent, relationship, maritalStatus, gender,
-                    dateOfBirth, profession);
+                    secondaryMobileNumber, address, externalId, sourceRelationship, age, isDependent, isFamilyMember, relationship,
+                    maritalStatus, gender, dateOfBirth, profession);
 
             this.clientFamilyRepository.saveAndFlush(familyMember);
 
@@ -369,6 +380,13 @@ public class ClientFamilyMembersWritePlatformServiceImpl implements ClientFamily
         if (command.parameterExists("isDependent")) {
             isDependent = command.booleanObjectValueOfParameterNamed("isDependent");
             clientFamilyMember.setIsDependent(isDependent);
+        }
+
+        if (command.parameterExists("isFamilyMember")) {
+            final Boolean isFamilyMember = command.booleanObjectValueOfParameterNamed("isFamilyMember");
+            if (isFamilyMember != null) {
+                clientFamilyMember.setIsFamilyMember(isFamilyMember);
+            }
         }
 
         if (command.longValueOfParameterNamed("relationshipId") != null) {

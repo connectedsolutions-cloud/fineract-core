@@ -63,6 +63,8 @@ from .dte_history import (
 from .family_references import (
     BLOCK as FAMILY_REFERENCES_BLOCK,
     FamilyReferenceContract,
+    PERSONAL_FAMILY_REFERENCES_BLOCK,
+    PersonalFamilyReferenceContract,
     apply_family_reference_plan,
     build_family_reference_plan,
     inspect_family_references,
@@ -268,7 +270,8 @@ def parser() -> argparse.ArgumentParser:
         cmd.add_argument("--target", choices=("local", "prod"), required=name != "inspect")
         if name in {"inspect", "plan"}:
             block_choices = (
-                "clients", PEP_BLOCK, FAMILY_REFERENCES_BLOCK, EMPLOYEE_BLOCK, CLIENT_STAFF_ASSIGNMENT_BLOCK,
+                "clients", PEP_BLOCK, FAMILY_REFERENCES_BLOCK, PERSONAL_FAMILY_REFERENCES_BLOCK, EMPLOYEE_BLOCK,
+                CLIENT_STAFF_ASSIGNMENT_BLOCK,
                 MEMBERSHIP_BLOCK, AML_ALERT_BLOCK, SAVINGS_BLOCK, LOANS_BLOCK, MOBILE_COLLECTION_BLOCK,
                 NATIVE_SHARES_BLOCK, DTE_HISTORY_BLOCK,
             )
@@ -301,7 +304,8 @@ def parser() -> argparse.ArgumentParser:
         if name == "status":
             cmd.add_argument(
                 "--block",
-                choices=("clients", PEP_BLOCK, FAMILY_REFERENCES_BLOCK, EMPLOYEE_BLOCK, CLIENT_STAFF_ASSIGNMENT_BLOCK,
+                choices=("clients", PEP_BLOCK, FAMILY_REFERENCES_BLOCK, PERSONAL_FAMILY_REFERENCES_BLOCK, EMPLOYEE_BLOCK,
+                         CLIENT_STAFF_ASSIGNMENT_BLOCK,
                          MEMBERSHIP_BLOCK, SAVINGS_BLOCK, AML_ALERT_BLOCK, LOANS_BLOCK, MOBILE_COLLECTION_BLOCK,
                          NATIVE_SHARES_BLOCK, DTE_HISTORY_BLOCK, ACCOUNTING_BLOCK),
             )
@@ -616,6 +620,9 @@ def main(argv=None) -> int:
             state.set_accounting_cutoff(args.cutoff_date)
         client_contract = ClientContract.load(settings.mapping_path)
         family_contract = FamilyReferenceContract.load(settings.family_reference_mapping_path)
+        personal_family_contract = PersonalFamilyReferenceContract.load(
+            settings.personal_family_reference_mapping_path
+        )
         pep_contract = PepContract.load(settings.pep_mapping_path)
         employee_contract = EmployeeContract.load(settings.employee_mapping_path)
         client_staff_assignment_contract = ClientStaffAssignmentContract.load(
@@ -746,6 +753,7 @@ def main(argv=None) -> int:
                         else membership_contract if args.block == MEMBERSHIP_BLOCK
                         else client_staff_assignment_contract if args.block == CLIENT_STAFF_ASSIGNMENT_BLOCK
                         else employee_contract if args.block == EMPLOYEE_BLOCK
+                        else personal_family_contract if args.block == PERSONAL_FAMILY_REFERENCES_BLOCK
                         else family_contract if args.block == FAMILY_REFERENCES_BLOCK
                         else pep_contract if args.block == PEP_BLOCK else client_contract)
             report = (inspect_mobile_collections(settings, contract)
@@ -759,7 +767,8 @@ def main(argv=None) -> int:
                       else inspect_client_staff_assignments(settings, contract)
                       if args.block == CLIENT_STAFF_ASSIGNMENT_BLOCK
                       else inspect_employees(settings, contract) if args.block == EMPLOYEE_BLOCK
-                      else inspect_family_references(settings, contract) if args.block == FAMILY_REFERENCES_BLOCK
+                      else inspect_family_references(settings, contract)
+                      if args.block in {FAMILY_REFERENCES_BLOCK, PERSONAL_FAMILY_REFERENCES_BLOCK}
                       else inspect_pep(settings, contract) if args.block == PEP_BLOCK
                       else inspect_clients(settings, contract))
             state.save_inspection(settings.target.name, settings.target.fingerprint, args.block,
@@ -815,6 +824,10 @@ def main(argv=None) -> int:
                 )
             elif args.block == FAMILY_REFERENCES_BLOCK:
                 plan_id, document = build_family_reference_plan(settings, state, family_contract, args.source_key)
+            elif args.block == PERSONAL_FAMILY_REFERENCES_BLOCK:
+                plan_id, document = build_family_reference_plan(
+                    settings, state, personal_family_contract, args.source_key
+                )
             elif args.block == PEP_BLOCK:
                 plan_id, document = build_pep_plan(settings, state, pep_contract, args.source_key)
             else:
@@ -874,6 +887,10 @@ def main(argv=None) -> int:
                 run_id, counts = apply_family_reference_plan(
                     settings, state, family_contract, args.plan, args.confirm_production
                 )
+            elif plan["block"] == PERSONAL_FAMILY_REFERENCES_BLOCK:
+                run_id, counts = apply_family_reference_plan(
+                    settings, state, personal_family_contract, args.plan, args.confirm_production
+                )
             elif plan["block"] == PEP_BLOCK:
                 run_id, counts = apply_pep_plan(
                     settings, state, pep_contract, args.plan, args.confirm_production
@@ -931,6 +948,8 @@ def main(argv=None) -> int:
                 ))
             elif run["block"] == FAMILY_REFERENCES_BLOCK:
                 emit(reconcile_family_references(settings, state, family_contract, args.run))
+            elif run["block"] == PERSONAL_FAMILY_REFERENCES_BLOCK:
+                emit(reconcile_family_references(settings, state, personal_family_contract, args.run))
             elif run["block"] == PEP_BLOCK:
                 emit(reconcile_pep(settings, state, pep_contract, args.run))
             elif run["block"] == LOANS_BLOCK:
@@ -997,6 +1016,10 @@ def main(argv=None) -> int:
             elif previous["block"] == FAMILY_REFERENCES_BLOCK:
                 run_id, counts = apply_family_reference_plan(
                     settings, state, family_contract, previous["plan_id"], args.confirm_production, keys
+                )
+            elif previous["block"] == PERSONAL_FAMILY_REFERENCES_BLOCK:
+                run_id, counts = apply_family_reference_plan(
+                    settings, state, personal_family_contract, previous["plan_id"], args.confirm_production, keys
                 )
             elif previous["block"] == PEP_BLOCK:
                 run_id, counts = apply_pep_plan(

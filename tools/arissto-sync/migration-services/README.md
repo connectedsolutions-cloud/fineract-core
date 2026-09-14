@@ -39,6 +39,7 @@ From `tools/arissto-sync`:
 ./arissto-sync services --service clients
 ./arissto-sync services --service client-pep
 ./arissto-sync services --service client-family-references
+./arissto-sync services --service client-personal-family-references
 ./arissto-sync services --service employees
 ./arissto-sync services --service client-staff-assignments
 ./arissto-sync services --service membership-share-capital

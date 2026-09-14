@@ -330,10 +330,13 @@ class WorkflowDefinitionTests(unittest.TestCase):
             report["ordered_services"],
             [
                 "clients", "employees", "client-staff-assignments",
-                "client-pep", "client-family-references",
+                "client-pep", "client-family-references", "client-personal-family-references",
             ],
         )
-        self.assertEqual(report["warnings"], [])
+        self.assertEqual(
+            {warning["service_id"] for warning in report["warnings"]},
+            {"client-personal-family-references"},
+        )
 
     def test_credit_workflow_treats_available_loans_as_ready(self):
         definition = load_workflow("local-credit-collections")
@@ -619,7 +622,10 @@ class WorkflowDefinitionTests(unittest.TestCase):
         full_warnings = {
             warning["service_id"] for warning in catalog["local-full-sync"]["warnings"]
         }
-        self.assertEqual(full_warnings, {"dte-history", "accounting-journal-entries"})
+        self.assertEqual(
+            full_warnings,
+            {"client-personal-family-references", "dte-history", "accounting-journal-entries"},
+        )
 
     def test_allow_executable_policy_never_allows_non_executable_service(self):
         definition = load_workflow("local-credit-collections")
@@ -1078,6 +1084,7 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertEqual(latest["clients"]["status"], "failed")
         self.assertEqual(latest["client-pep"]["status"], "blocked")
         self.assertEqual(latest["client-family-references"]["status"], "blocked")
+        self.assertEqual(latest["client-personal-family-references"]["status"], "blocked")
         self.assertEqual(latest["employees"]["status"], "completed")
         self.assertTrue(any(failure["source_key"] == "123" for failure in report["failures"]))
         self.assertTrue(any(link["relationship"] == "blocked-by" for link in report["failure_links"]))

@@ -9,7 +9,7 @@
       "executable": true,
       "cli_block": "clients",
       "depends_on": [],
-      "post_sync_services": ["client-pep", "client-family-references"],
+      "post_sync_services": ["client-pep", "client-family-references", "client-personal-family-references"],
       "description": "Migrates reviewed AFI_SOCIO natural-person identity and non-PEP KYC/profile data into Fineract core client fields, identifiers, and Credesal datatables, including plain-text home/work addresses; products are excluded.",
       "documentation": "migration-services/clients/README.md",
       "detail_documents": [
@@ -72,6 +72,27 @@
         "apply_after_clients": "./arissto-sync apply --plan CLIENT_PLAN_ID --target TARGET --with-family-references",
         "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
         "status": "./arissto-sync status --block client-family-references --target TARGET"
+      }
+    },
+    {
+      "id": "client-personal-family-references",
+      "name": "Client personal and family references",
+      "kind": "sync-block",
+      "status": "blocked",
+      "executable": true,
+      "cli_block": "client-personal-family-references",
+      "depends_on": ["clients"],
+      "description": "Synchronizes AFI_REF_PERSONAL_SOCIO as personal references and AFI_FAMILIA_SOCIO as detailed family rows into native Fineract family members with distinct durable identities and the isFamilyMember classification flag. Local execution remains acceptance-gated.",
+      "documentation": "migration-services/client-personal-family-references/README.md",
+      "detail_documents": ["migration-services/client-personal-family-references/contract.md"],
+      "configuration": "config/client_personal_family_references.json",
+      "commands": {
+        "inspect": "./arissto-sync inspect --block client-personal-family-references --target TARGET",
+        "plan": "./arissto-sync plan --block client-personal-family-references --target TARGET --source-key personal:NUMERO_AFILIACION:ID_REF_SOCIO",
+        "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
+        "retry": "./arissto-sync retry --run RUN_ID --failed-only --target TARGET",
+        "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
+        "status": "./arissto-sync status --block client-personal-family-references --target TARGET"
       }
     },
     {

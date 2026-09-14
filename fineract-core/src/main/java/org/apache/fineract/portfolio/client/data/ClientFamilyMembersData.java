@@ -74,6 +74,8 @@ public final class ClientFamilyMembersData implements Serializable {
 
     private final Boolean isDependent;
 
+    private final Boolean isFamilyMember;
+
     // template holder
     private final Collection<CodeValueData> relationshipIdOptions;
     private final Collection<CodeValueData> genderIdOptions;

@@ -69,6 +69,9 @@ public class ClientFamilyMembers extends AbstractPersistableCustom<Long> {
     @Column(name = "is_dependent")
     private Boolean isDependent;
 
+    @Column(name = "is_family_member", nullable = false)
+    private Boolean isFamilyMember;
+
     @ManyToOne
     @JoinColumn(name = "relationship_cv_id")
     private CodeValue relationship;
@@ -91,8 +94,8 @@ public class ClientFamilyMembers extends AbstractPersistableCustom<Long> {
     private ClientFamilyMembers(final Client client, final String firstName, final String middleName, final String lastName,
             final String qualification, final String mobileNumber, final String secondaryMobileNumber, final String address,
             final String externalId, final String sourceRelationship, final Long age, final Boolean isDependent,
-            final CodeValue relationship, final CodeValue maritalStatus, final CodeValue gender, final LocalDate dateOfBirth,
-            final CodeValue profession) {
+            final Boolean isFamilyMember, final CodeValue relationship, final CodeValue maritalStatus, final CodeValue gender,
+            final LocalDate dateOfBirth, final CodeValue profession) {
 
         this.client = client;
         this.firstName = firstName;
@@ -106,6 +109,7 @@ public class ClientFamilyMembers extends AbstractPersistableCustom<Long> {
         this.externalId = externalId;
         this.sourceRelationship = sourceRelationship;
         this.isDependent = isDependent;
+        this.isFamilyMember = isFamilyMember;
         this.relationship = relationship;
         this.maritalStatus = maritalStatus;
         this.gender = gender;
@@ -120,10 +124,11 @@ public class ClientFamilyMembers extends AbstractPersistableCustom<Long> {
     public static ClientFamilyMembers fromJson(final Client client, final String firstName, final String middleName, final String lastName,
             final String qualification, final String mobileNumber, final String secondaryMobileNumber, final String address,
             final String externalId, final String sourceRelationship, final Long age, final Boolean isDependent,
-            final CodeValue relationship, final CodeValue maritalStatus, final CodeValue gender, final LocalDate dateOfBirth,
-            final CodeValue profession) {
+            final Boolean isFamilyMember, final CodeValue relationship, final CodeValue maritalStatus, final CodeValue gender,
+            final LocalDate dateOfBirth, final CodeValue profession) {
         return new ClientFamilyMembers(client, firstName, middleName, lastName, qualification, mobileNumber, secondaryMobileNumber, address,
-                externalId, sourceRelationship, age, isDependent, relationship, maritalStatus, gender, dateOfBirth, profession);
+                externalId, sourceRelationship, age, isDependent, isFamilyMember, relationship, maritalStatus, gender, dateOfBirth,
+                profession);
     }
 
     public Client getClient() {
@@ -260,6 +265,14 @@ public class ClientFamilyMembers extends AbstractPersistableCustom<Long> {
 
     public void setIsDependent(Boolean isDependent) {
         this.isDependent = isDependent;
+    }
+
+    public Boolean getIsFamilyMember() {
+        return this.isFamilyMember;
+    }
+
+    public void setIsFamilyMember(Boolean isFamilyMember) {
+        this.isFamilyMember = isFamilyMember;
     }
 
 }

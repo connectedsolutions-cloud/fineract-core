@@ -56,6 +56,7 @@ public final class ClientFamilyMemberCommandFromApiJsonDeserializer {
     public static final String SOURCE_RELATIONSHIP = "sourceRelationship";
     public static final String AGE = "age";
     public static final String IS_DEPENDENT = "isDependent";
+    public static final String IS_FAMILY_MEMBER = "isFamilyMember";
     public static final String RELATIONSHIP_ID = "relationshipId";
     public static final String MARITAL_STATUS_ID = "maritalStatusId";
     public static final String GENDER_ID = "genderId";
@@ -64,9 +65,10 @@ public final class ClientFamilyMemberCommandFromApiJsonDeserializer {
     public static final String LOCALE = "locale";
     public static final String DATE_FORMAT = "dateFormat";
     public static final String FAMILY_MEMBERS = "familyMembers";
-    private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList(ID, CLIENT_ID, FIRST_NAME, MIDDLE_NAME, LAST_NAME,
-            QUALIFICATION, MOBILE_NUMBER, AGE, IS_DEPENDENT, SECONDARY_MOBILE_NUMBER, ADDRESS, EXTERNAL_ID, SOURCE_RELATIONSHIP,
-            RELATIONSHIP_ID, MARITAL_STATUS_ID, GENDER_ID, DATE_OF_BIRTH, PROFESSION_ID, LOCALE, DATE_FORMAT, FAMILY_MEMBERS));
+    private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(
+            Arrays.asList(ID, CLIENT_ID, FIRST_NAME, MIDDLE_NAME, LAST_NAME, QUALIFICATION, MOBILE_NUMBER, AGE, IS_DEPENDENT,
+                    IS_FAMILY_MEMBER, SECONDARY_MOBILE_NUMBER, ADDRESS, EXTERNAL_ID, SOURCE_RELATIONSHIP, RELATIONSHIP_ID,
+                    MARITAL_STATUS_ID, GENDER_ID, DATE_OF_BIRTH, PROFESSION_ID, LOCALE, DATE_FORMAT, FAMILY_MEMBERS));
     public static final String FAMILY_MEMBERS1 = "FamilyMembers";
     private final FromJsonHelper fromApiJsonHelper;
 
@@ -162,6 +164,11 @@ public final class ClientFamilyMemberCommandFromApiJsonDeserializer {
             baseDataValidator.reset().parameter(IS_DEPENDENT).value(isDependent).notNull();
         }
 
+        if (this.fromApiJsonHelper.extractBooleanNamed(IS_FAMILY_MEMBER, element) != null) {
+            final Boolean isFamilyMember = this.fromApiJsonHelper.extractBooleanNamed(IS_FAMILY_MEMBER, element);
+            baseDataValidator.reset().parameter(IS_FAMILY_MEMBER).value(isFamilyMember).notNull();
+        }
+
         if (this.fromApiJsonHelper.extractLongNamed(RELATIONSHIP_ID, element) != null) {
             final long relationshipId = this.fromApiJsonHelper.extractLongNamed(RELATIONSHIP_ID, element);
             baseDataValidator.reset().parameter(RELATIONSHIP_ID).value(relationshipId).notBlank().longGreaterThanZero();
@@ -251,6 +258,11 @@ public final class ClientFamilyMemberCommandFromApiJsonDeserializer {
         validateOptionalString(baseDataValidator, element, ADDRESS, 254);
         validateOptionalString(baseDataValidator, element, EXTERNAL_ID, 100);
         validateOptionalString(baseDataValidator, element, SOURCE_RELATIONSHIP, 50);
+
+        if (this.fromApiJsonHelper.extractBooleanNamed(IS_FAMILY_MEMBER, element) != null) {
+            final Boolean isFamilyMember = this.fromApiJsonHelper.extractBooleanNamed(IS_FAMILY_MEMBER, element);
+            baseDataValidator.reset().parameter(IS_FAMILY_MEMBER).value(isFamilyMember).notNull();
+        }
 
         if (this.fromApiJsonHelper.extractLongNamed(RELATIONSHIP_ID, element) != null) {
             final long relationshipId = this.fromApiJsonHelper.extractLongNamed(RELATIONSHIP_ID, element);

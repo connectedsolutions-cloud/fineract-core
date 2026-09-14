@@ -48,6 +48,9 @@ It explicitly excludes:
   family-member resource and exposed through its API.
 - The source address, second phone, and original relationship text are preserved in
   versioned Fineract fields/API properties.
+- A versioned `isFamilyMember` API property distinguishes family rows (`true`)
+  from personal references (`false`) while preserving `true` as the default for
+  existing integrations.
 - The family-member API create/update validation and nullable-field behavior
   described in the contract were corrected.
 - The target `RELATIONSHIP` code values are bootstrapped with a reviewed,

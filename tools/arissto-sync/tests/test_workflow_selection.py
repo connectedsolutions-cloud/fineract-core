@@ -21,7 +21,7 @@ class WorkflowSelectionTests(unittest.TestCase):
         report = inspect_workflow(definition)
 
         self.assertTrue(report["ready"])
-        self.assertEqual(len(report["ordered_services"]), 13)
+        self.assertEqual(len(report["ordered_services"]), 14)
         self.assertIn("membership-share-capital", report["ordered_services"])
         self.assertIn("native-share-capital", report["ordered_services"])
         self.assertIn("aml-alerts", report["ordered_services"])
@@ -77,6 +77,18 @@ class WorkflowSelectionTests(unittest.TestCase):
             "requested_services": ["client-staff-assignments"],
             "included_services": ["clients", "employees", "client-staff-assignments"],
         })
+
+    def test_personal_family_reference_selection_adds_only_clients(self):
+        selected = select_workflow_services(
+            load_workflow("local-party-profile"), ["client-personal-family-references"]
+        )
+        report = inspect_workflow(selected)
+
+        self.assertTrue(report["ready"])
+        self.assertEqual(report["ordered_services"], ["clients", "client-personal-family-references"])
+        self.assertEqual(selected.document["selection"]["included_services"], [
+            "clients", "client-personal-family-references",
+        ])
 
     def test_loans_selection_adds_only_its_prerequisites(self):
         selected = select_workflow_services(

@@ -60,6 +60,7 @@ class FamilyReferenceContractTests(unittest.TestCase):
         self.assertIsNone(payload["secondaryMobileNumber"])
         self.assertEqual(payload["address"], "San Salvador")
         self.assertEqual(payload["sourceRelationship"], "MAMÁ")
+        self.assertTrue(payload["isFamilyMember"])
         for field in ("lastName", "genderId", "isDependent", "age", "dateOfBirth", "professionId"):
             self.assertIsNone(payload[field])
 

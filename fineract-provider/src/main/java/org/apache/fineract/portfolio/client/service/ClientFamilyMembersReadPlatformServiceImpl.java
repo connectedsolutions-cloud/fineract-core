@@ -56,7 +56,7 @@ public class ClientFamilyMembersReadPlatformServiceImpl implements ClientFamilyM
                     + "fmb.lastname AS lastName,fmb.qualification AS qualification,fmb.mobile_number as mobileNumber,"
                     + "fmb.secondary_mobile_number as secondaryMobileNumber,fmb.address as address,fmb.external_id as externalId,"
                     + "fmb.source_relationship as sourceRelationship,fmb.age as age,fmb.is_dependent as isDependent,"
-                    + "cv.code_value AS relationship,fmb.relationship_cv_id AS relationshipId,"
+                    + "fmb.is_family_member as isFamilyMember," + "cv.code_value AS relationship,fmb.relationship_cv_id AS relationshipId,"
                     + "c.code_value AS maritalStatus,fmb.marital_status_cv_id AS maritalStatusId,"
                     + "c1.code_value AS gender, fmb.gender_cv_id AS genderId, fmb.date_of_birth AS dateOfBirth, c2.code_value AS profession, fmb.profession_cv_id AS professionId"
                     + " FROM m_family_members fmb" + " LEFT JOIN m_code_value cv ON fmb.relationship_cv_id=cv.id"
@@ -79,6 +79,7 @@ public class ClientFamilyMembersReadPlatformServiceImpl implements ClientFamilyM
             final String sourceRelationship = rs.getString("sourceRelationship");
             final Long age = JdbcSupport.getLong(rs, "age");
             final Boolean isDependent = rs.getObject("isDependent", Boolean.class);
+            final Boolean isFamilyMember = rs.getObject("isFamilyMember", Boolean.class);
             final String relationship = rs.getString("relationship");
             final long relationshipId = rs.getLong("relationshipId");
             final String maritalStatus = rs.getString("maritalStatus");
@@ -92,8 +93,9 @@ public class ClientFamilyMembersReadPlatformServiceImpl implements ClientFamilyM
             return ClientFamilyMembersData.builder().id(id).clientId(clientId).firstName(firstName).middleName(middleName)
                     .lastName(lastName).qualification(qualification).mobileNumber(mobileNumber).secondaryMobileNumber(secondaryMobileNumber)
                     .address(address).externalId(externalId).sourceRelationship(sourceRelationship).age(age).isDependent(isDependent)
-                    .relationship(relationship).relationshipId(relationshipId).maritalStatus(maritalStatus).maritalStatusId(maritalStatusId)
-                    .gender(gender).genderId(genderId).dateOfBirth(dateOfBirth).profession(profession).professionId(professionId).build();
+                    .isFamilyMember(isFamilyMember).relationship(relationship).relationshipId(relationshipId).maritalStatus(maritalStatus)
+                    .maritalStatusId(maritalStatusId).gender(gender).genderId(genderId).dateOfBirth(dateOfBirth).profession(profession)
+                    .professionId(professionId).build();
         }
     }
 
@@ -133,8 +135,8 @@ public class ClientFamilyMembersReadPlatformServiceImpl implements ClientFamilyM
         final List<CodeValueData> professionOptions = new ArrayList<>(
                 this.codeValueReadPlatformService.retrieveCodeValuesByCode("PROFESSION"));
 
-        return ClientFamilyMembersData.builder().relationshipIdOptions(relationshipOptions).genderIdOptions(genderOptions)
-                .maritalStatusIdOptions(maritalStatusOptions).professionIdOptions(professionOptions).build();
+        return ClientFamilyMembersData.builder().isFamilyMember(true).relationshipIdOptions(relationshipOptions)
+                .genderIdOptions(genderOptions).maritalStatusIdOptions(maritalStatusOptions).professionIdOptions(professionOptions).build();
     }
 
 }
