@@ -408,7 +408,9 @@ class Launcher:
         registry = json.loads((ROOT / "migration-services" / "registry.json").read_text(encoding="utf-8"))
         catalog = {service["id"]: service for service in registry["services"]}
         for workflow in workflow_report.get("workflows", []):
-            workflow["default"] = workflow["id"] == "local-full-sync"
+            workflow["default_for_mode"] = workflow["id"] in {
+                "local-full-sync", "local-full-resync",
+            }
             workflow["services"] = [
                 {
                     "id": service_id,
@@ -477,6 +479,9 @@ class Launcher:
     def prepare(self, document: dict[str, Any]) -> dict[str, Any]:
         cycle_id = self._identifier(document.get("cycle_id"), "cycle ID")
         workflow_id = self._identifier(document.get("workflow_id"), "workflow ID")
+        run_mode = str(document.get("run_mode") or "fresh-clean")
+        if run_mode not in {"fresh-clean", "full-resync"}:
+            raise ValueError("Local planning supports fresh-clean or full-resync")
         requested_services = document.get("services")
         if not isinstance(requested_services, list) or not requested_services:
             raise ValueError("Select at least one workflow service")
@@ -485,16 +490,21 @@ class Launcher:
             raise ValueError("Selected workflow services must be unique")
         cycle = self.store.cycle(cycle_id)
         if cycle["status"] != "open" or cycle["target_name"] != "local":
-            raise ValueError("A fresh/clean run requires an open local sync cycle")
+            raise ValueError(f"A {run_mode} run requires an open local sync cycle")
         with self.launch_lock:
             if self.store.active_runs(cycle_id):
                 raise ValueError("This cycle already has a queued or running workflow")
-            available = {item["id"] for item in self.options()["workflows"] if item.get("ready")}
+            available = {
+                item["id"] for item in self.options()["workflows"]
+                if item.get("ready")
+                and "local" in item.get("targets", [])
+                and run_mode in item.get("run_modes", [])
+            }
             if workflow_id not in available:
-                raise ValueError("The selected workflow is not ready to run")
+                raise ValueError("The selected workflow is not ready for this run mode")
             arguments = [
                 "workflow", "plan", "--workflow", workflow_id,
-                "--cycle", cycle_id, "--target", "local",
+                "--cycle", cycle_id, "--target", "local", "--run-mode", run_mode,
             ]
             for service_id in requested_services:
                 arguments.extend(["--include-service", service_id])

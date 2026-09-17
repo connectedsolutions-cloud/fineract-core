@@ -95,7 +95,7 @@ public class ShareProductDividendAssembler {
                 final PurchasedSharesStatusType status = PurchasedSharesStatusType
                         .fromInt(purchasedSharesData.getStatus().getId().intValue());
                 final PurchasedSharesStatusType type = PurchasedSharesStatusType.fromInt(purchasedSharesData.getType().getId().intValue());
-                if (status.isApproved() && !type.isChargePayment()) {
+                if (status.isApproved() && (type.isPurchased() || type.isRedeemed())) {
 
                     LocalDate shareStartDate = purchasedSharesData.getPurchasedDate();
                     if (DateUtils.isBefore(shareStartDate, lastDividendPostDate)) {

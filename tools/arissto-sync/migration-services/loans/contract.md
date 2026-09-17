@@ -116,9 +116,11 @@ Each client collateral is created atomically through
 `POST /clients/{clientId}/collaterals` with its asset detail and initial final
 valuation. Retry resolves it through the asset external ID before writing, so a
 timeout after a successful create cannot duplicate it. The resulting
-`clientCollateralId`, `valuationId`, and quantity are included in the native
-loan application. Existing loans must have the exact same collateral set or
-apply fails closed.
+`clientCollateralId`, `valuationId`, and quantity are attached through the
+permission-gated `sourceExactAttach` migration command only after the native
+loan application exists. This separates collateral reservation from the larger
+loan-create transaction. New and recovered loans must have the exact same
+collateral set or apply fails closed.
 
 Plans contain only source IDs, type/subtype, stable external IDs, appraisal
 date/value, and a hash of the full payload. Addresses, vehicle identifiers,
@@ -126,13 +128,20 @@ registry numbers, owner detail, and appraisal narrative are re-read only after
 the apply-time source hash guard passes and are held in memory for the API
 write. They are never persisted in the plan or run ledger.
 
+Local proof namespaces apply to the loan, transaction, collateral asset, and
+collateral valuation external IDs together. A scoped canary therefore creates
+an isolated collateral set and never reuses a canonical asset left by an older
+failed or completed run.
+
 The current `CRD_GARANTIA_VALUO` and `CRD_GARANTIA_INSCRIPCION` populations are
 empty. If either child table becomes populated, inspection blocks the loans
 service until ordering, supersession, and loan-association semantics are
 reviewed. The parent row's current appraisal is mapped as the selected `FINAL`
-valuation for now. A collateral row with no appraisal date, a non-positive
-value, an unsupported type/subtype, or aggregate appraised value below the
-approved principal quarantines only its loan. Source vehicle-type and quality
+valuation for now. Its appraisal date is optional, and aggregate appraised
+value may cover only part of the approved principal. Zero and negative source
+valuation amounts are preserved exactly and do not quarantine the collateral,
+loan, or refinance chain. An unsupported type/subtype still quarantines only
+its loan. Source vehicle-type and quality
 codes remain unmapped until their catalog semantics are verified; the reviewed
 subtype label is retained in the descriptive vehicle/property field instead.
 
@@ -559,6 +568,13 @@ complete monthly, monotonic, non-restructured, non-deferred signature sets
 disbursement but later reissued an effective disbursement, that paired reversal
 does not suppress the bounded terminal cutover adjustment. A loan whose only
 disbursement was terminally reversed remains excluded from that adjustment.
+The terminal adjustment is a non-cash, source-exact goodwill transaction. At
+apply time the engine computes the principal, interest, fee, and penalty deltas
+between Fineract's post-replay balances and the terminal component balances
+frozen from Arissto, submits all four portions explicitly, and then re-reads the
+loan. Apply and reconciliation fail unless every component and the terminal
+status match Arissto. Fineract must not choose the adjustment allocation from a
+single undifferentiated total.
 
 Loan `2068` remains the known diagnostic for Arissto's mixed 360/365 schedule
 formula. The dedicated transaction strategy makes its actual late repayment
@@ -733,6 +749,20 @@ unearned future interest for Fineract's migration-only terminal goodwill
 credit. For this identity only, the adjustment safety ceiling is derived from
 the frozen source-schedule total instead of approved principal. Exact source
 payments, component allocations, zero terminal balances, closed status,
+balanced journals, and idempotent replay remain mandatory.
+
+Loan `1638` uses the same identity-scoped early-payoff cutover rule for its own
+independently reviewed source shape. Its `3,500.00` principal is fully allocated
+by the frozen Arissto movements, while its 48-installment source schedule carries
+`5,785.14` of contractual interest and `101.28` of other scheduled amounts.
+Arissto closes the loan with every component balance at zero; after the exact
+source movements are replayed, Fineract retains `4,524.83`, all as interest:
+`4,291.13` of unpaid contractual future interest plus `233.70` of post-due
+interest materialized by Fineract while replaying the dated source payments.
+The migration-only terminal goodwill event is therefore an explicit
+interest-only `4,524.83` bridge to Arissto's zero interest balance, bounded by
+the frozen `9,386.42` source-schedule total rather than approved principal.
+Source cash, component allocations, zero terminal balances, closed status,
 balanced journals, and idempotent replay remain mandatory.
 
 Loan `1441` is explicitly not a manual-adjustment exception. Its first source

@@ -18,7 +18,7 @@ the general ledger, trial balance, balance sheet, income statement, and
 agency/consolidated balances directly from native Fineract journal rows, while
 native Fineract owns all accounting dated on or after the cutoff.
 
-## Current state on 2026-09-07
+## Current state on 2026-09-14
 
 | Area | State | Evidence or remaining work |
 |---|---|---|
@@ -29,7 +29,7 @@ native Fineract owns all accounting dated on or after the cutoff.
 | Frozen cutoff in sync plans | Gate 2 workflow binding delivered | Workflow child plans retain the date/timezone plus the exact ACTIVE tenant configuration revision and hash. Apply/retry verifies that binding before execution and again before completion. |
 | Agency dimension and native-office policy | Ready for implementation | Per-line source `001` maps to native office ID 1 and JSON string tag `"1"`; `002` maps to native office ID 2 and tag `"2"`. One transaction may contain both offices. |
 | Source eligibility policy | Decided | Only populated, balanced status-`3` journals dated on or after the demonstrated zero origin of 2022-11-18 are eligible by status/integrity. Synthetic opening and residual journals are forbidden. Reversals, annual liquidation, legacy text, agency, currency, report presentation, post-cutover correction, and historical-origin policies are frozen in contract version 14. |
-| Accounting inspector, planner, writer, retry, and reconciler | G3, G4, G6, G7, and G8 complete | The registry exposes `inspect`, deterministic explicit-key and bounded-period `plan`, atomic `apply`, failed-only `retry`, direct-journal `reconcile`, and `status`. Period `00028` passed exact target parity plus the independent `CNT_MAYOR` closing control. The service remains `planned` and `executable: false` until the later release gates are complete. |
+| Accounting inspector, planner, writer, retry, and reconciler | Available locally; G11-G12 remain production gates | The registry exposes `inspect`, deterministic explicit-key and bounded-period `plan`, atomic `apply`, failed-only `retry`, direct-journal `reconcile`, and `status`. Period `00028` passed exact target parity plus the independent `CNT_MAYOR` closing control, and the G10 harness was accepted. The service is available for reviewed local workflows; two G11 clean cycles and G12 still govern production promotion. |
 | Historical-journal provenance schema/API | G6 API complete; G5 database-path acceptance pending | Tenant migration `0336` creates lossless header/line provenance, complete source-key and target-line uniqueness, reconciliation/report indexes, and the restricted provenance-read permission. The dedicated API atomically persists native journal lines and provenance with idempotent replay. A supported-database clean/upgrade run is still required before closing G5. |
 | Report parity | G9 journal-derived proof complete; source-output acceptance pending | The native `credesalfinancialreports` API and presentation snapshot passed independent 2024 journal-derived parity across consolidated and both agency scopes. All 12 selector/sign/rollup cases and 16,728 GL lines matched; the imported type-`003` boundary changed the expected pre/post-close rows and agency additivity had zero findings. Exact row-level comparison with authoritative Arissto statement output, including the known `CNT_MAYOR` year-end differences, remains required. Cash flow has no approved source or target contract yet. |
 
@@ -317,8 +317,9 @@ source keys, joins period/type/account metadata, classifies structural and
 cutoff issues with stable reason codes, and emits no raw journal prose or
 amounts. Source-only inspection requires no Fineract profile. Supplying a
 target adds bulk COA, office, closure, and installed-provenance comparisons;
-neither mode writes Arissto or Fineract. The registry remains `planned` and
-`executable: false`.
+neither mode writes Arissto or Fineract. At this historical G3 snapshot the
+registry was still `planned` and `executable: false`; the current status is
+summarized at the top of this document and in `registry.json`.
 
 ### Work
 
@@ -362,8 +363,9 @@ Each plan independently freezes the source schema, source content, contract,
 COA mapping, agency mapping, policy/planner version, target fingerprint, target
 baseline, cutoff binding, action payload, and complete plan hashes. Requested
 missing, invalid, on/after-cutoff, target-drifted, and already imported keys are
-represented explicitly rather than dropped. The registry remains
-non-executable and no accounting writer exists.
+represented explicitly rather than dropped. At this historical G4 snapshot the
+registry was still non-executable and no accounting writer existed; later gates
+implemented and accepted the local writer.
 
 The explicit-key determinism exit gate is satisfied by focused tests, the full
 sync-engine suite, and two live read-only plans with identical hashes recorded
@@ -708,7 +710,7 @@ timestamp, row labels/order, and extracted values with the evidence.
 | `2220050501` two-cent trace | Ready now | Requires journal, daily-major, monthly-major, and final statement-row comparison. No migration adjustment is authorized by the discrepancy alone. |
 | January 2025 carry-forward | Complete on the populated sandbox | The read-only trace compares December `SALDO_FINAL` with January period-`00054` `SALDO_INICIAL` for every used posting/presentation account and with Fineract's journal-derived opening. A January UI export is not required and no carried balance is imported as a journal. |
 | Cash-flow statement | Not ready | Arissto's discovered cash-flow template has no usable account mapping, its populated balance tables are empty, and no native Credesal cash-flow report contract exists. An authoritative export/calculation contract must be approved before implementation or parity testing. |
-| Repeatability and release acceptance | Deferred to G11 | Run the complete accepted report suite in both clean migration cycles. Production remains blocked through G12. |
+| Repeatability and release acceptance | Deferred to G11 | Run the complete accepted report suite in both clean migration cycles. Local service availability is established; production remains blocked through G12. |
 
 Open G10-G12 gates therefore do not prevent running the December diagnostic
 comparisons now. They do prevent treating one populated local tenant as final

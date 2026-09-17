@@ -1,4 +1,5 @@
 import os
+import subprocess
 import tempfile
 import unittest
 from datetime import date, datetime, timezone
@@ -8,7 +9,7 @@ from unittest.mock import Mock, patch
 
 import requests
 
-from arissto_sync.cli import parser
+from arissto_sync.cli import main, parser
 from arissto_sync.connections import FineractError
 from arissto_sync.cycles import CycleCatalog, workflow_history_across_cycles
 from arissto_sync.dte_history import DteApplyControls
@@ -50,6 +51,7 @@ class FakeRuntime:
         self.prepared = []
         self.planned = []
         self.retried = []
+        self.production_confirmations = []
 
     def contract_hash(self, block):
         return f"contract-{block}{self.contract_suffix}"
@@ -77,6 +79,7 @@ class FakeRuntime:
         return plan_id, document
 
     def apply(self, block, plan_id, production_confirmation=None):
+        self.production_confirmations.append(production_confirmation)
         plan = self.state.plan(plan_id)
         run_id = self.state.start_run(plan)
         failed = block == "clients" and self.fail_clients
@@ -104,6 +107,104 @@ class FakeRuntime:
 
 
 class WorkflowDefinitionTests(unittest.TestCase):
+    def test_local_full_resync_selects_every_available_service(self):
+        definition = load_workflow("local-full-resync")
+        report = inspect_workflow(definition, target="local", run_mode="full-resync")
+
+        self.assertTrue(report["ready"])
+        self.assertEqual(report["targets"], ["local"])
+        self.assertEqual(report["run_modes"], ["full-resync"])
+        self.assertEqual(len(report["ordered_services"]), 15)
+        self.assertIn("loans", report["ordered_services"])
+        self.assertIn("savings-deposits", report["ordered_services"])
+        self.assertIn("savings-account-parties", report["ordered_services"])
+        self.assertIn("dte-history", report["ordered_services"])
+        self.assertIn("accounting-journal-entries", report["ordered_services"])
+
+    def test_production_workflow_is_explicitly_full_resync_only(self):
+        definition = load_workflow("prod-party-resync")
+        report = inspect_workflow(definition, target="prod", run_mode="full-resync")
+        self.assertTrue(report["ready"])
+        self.assertEqual(report["targets"], ["prod"])
+        self.assertEqual(report["run_modes"], ["full-resync"])
+        local = inspect_workflow(definition, target="local", run_mode="fresh-clean")
+        self.assertFalse(local["ready"])
+        self.assertEqual(
+            {item["code"] for item in local["blockers"]},
+            {"target-not-supported", "run-mode-not-supported"},
+        )
+        broad = inspect_workflow(
+            load_workflow("local-full-sync"), target="prod", run_mode="full-resync",
+        )
+        unsupported = {
+            item["service_id"] for item in broad["blockers"]
+            if item["code"] == "full-resync-unsupported"
+        }
+        self.assertEqual(unsupported, set())
+
+    def test_production_full_resync_selects_all_available_services(self):
+        definition = load_workflow("prod-full-resync")
+        report = inspect_workflow(definition, target="prod", run_mode="full-resync")
+
+        self.assertTrue(report["ready"])
+        self.assertEqual(report["targets"], ["prod"])
+        self.assertEqual(report["run_modes"], ["full-resync"])
+        self.assertEqual(len(report["ordered_services"]), 15)
+        self.assertEqual(
+            report["ordered_services"],
+            list(load_workflow("local-full-resync").services),
+        )
+
+    def test_production_workflow_cli_requires_explicit_mode_and_confirmation_fields(self):
+        planned = parser().parse_args([
+            "workflow", "plan", "--workflow", "prod-party-resync",
+            "--target", "prod", "--run-mode", "full-resync",
+            "--confirm-production", "prod-fingerprint",
+        ])
+        self.assertIsNone(planned.cycle)
+        self.assertEqual(planned.run_mode, "full-resync")
+        self.assertEqual(planned.confirm_production, "prod-fingerprint")
+        scheduled = parser().parse_args([
+            "workflow", "run", "--workflow", "prod-party-resync",
+            "--target", "prod", "--confirm-production", "prod-fingerprint",
+        ])
+        self.assertEqual(scheduled.run_mode, "full-resync")
+        self.assertEqual(scheduled.confirm_production, "prod-fingerprint")
+
+    def test_local_checkpoint_cli_requires_cycle_but_not_production_confirmation(self):
+        checkpoint = parser().parse_args([
+            "workflow", "checkpoint", "bootstrap",
+            "--workflow", "local-full-resync", "--service", "clients",
+            "--run", "child-run", "--target", "local", "--cycle", "cycle-a",
+        ])
+        self.assertEqual(checkpoint.target, "local")
+        self.assertEqual(checkpoint.cycle, "cycle-a")
+        self.assertIsNone(checkpoint.confirm_production)
+
+    def test_synchronous_production_run_plans_and_executes_without_a_cycle(self):
+        settings = SimpleNamespace(
+            state_path=Path("/tmp/test-production-state.sqlite3"),
+            target=SimpleNamespace(name="prod", fingerprint="prod-fingerprint"),
+        )
+        state = Mock()
+        state.workflow_plan.return_value = {"id": "plan-1"}
+        state.create_workflow_run.return_value = "workflow-run-1"
+        report = {"workflow_run": {"status": "completed"}, "steps": []}
+        with (
+            patch("arissto_sync.cli.load_settings", return_value=settings),
+            patch("arissto_sync.cli.State", return_value=state),
+            patch("arissto_sync.cli.build_workflow_plan", return_value=("plan-1", {})) as build,
+            patch("arissto_sync.cli.execute_workflow", return_value=report) as execute,
+            patch("arissto_sync.cli.emit"),
+        ):
+            code = main([
+                "workflow", "run", "--workflow", "prod-party-resync",
+                "--target", "prod", "--confirm-production", "prod-fingerprint",
+            ])
+        self.assertEqual(code, 0)
+        self.assertIsNone(build.call_args.args[3])
+        execute.assert_called_once_with(settings, state, "workflow-run-1")
+
     def test_local_process_control_defaults_use_guarded_gradle_lifecycle(self):
         with patch.dict(os.environ, {
             "ARISSTO_SYNC_FINERACT_STOP_COMMAND": "",
@@ -335,7 +436,7 @@ class WorkflowDefinitionTests(unittest.TestCase):
         )
         self.assertEqual(
             {warning["service_id"] for warning in report["warnings"]},
-            {"client-personal-family-references"},
+            set(),
         )
 
     def test_credit_workflow_treats_available_loans_as_ready(self):
@@ -344,8 +445,7 @@ class WorkflowDefinitionTests(unittest.TestCase):
         self.assertTrue(report["ready"])
         self.assertEqual(definition.accounting_cutoff_policy, "activate-frozen-plan")
         self.assertEqual(report["blockers"], [])
-        self.assertNotIn("loans", {warning["service_id"] for warning in report["warnings"]})
-        self.assertIn("dte-history", {warning["service_id"] for warning in report["warnings"]})
+        self.assertEqual(report["warnings"], [])
 
     def test_accounting_cutoff_is_created_and_activated_idempotently(self):
         api = SimpleNamespace()
@@ -609,23 +709,14 @@ class WorkflowDefinitionTests(unittest.TestCase):
         self.assertEqual(report, {"performed": False, "actions": []})
         api.request.assert_not_called()
 
-    def test_workflow_catalog_surfaces_ready_and_blocked_definitions(self):
+    def test_workflow_catalog_has_no_service_availability_warnings(self):
         catalog = {item["id"]: item for item in list_workflows()["workflows"]}
         self.assertTrue(catalog["local-party-profile"]["ready"])
         self.assertTrue(catalog["local-membership-financial"]["ready"])
         self.assertTrue(catalog["local-credit-collections"]["ready"])
         self.assertTrue(catalog["local-full-sync"]["ready"])
-        credit_warnings = {
-            warning["service_id"] for warning in catalog["local-credit-collections"]["warnings"]
-        }
-        self.assertEqual(credit_warnings, {"dte-history"})
-        full_warnings = {
-            warning["service_id"] for warning in catalog["local-full-sync"]["warnings"]
-        }
-        self.assertEqual(
-            full_warnings,
-            {"client-personal-family-references", "dte-history", "accounting-journal-entries"},
-        )
+        self.assertEqual(catalog["local-credit-collections"]["warnings"], [])
+        self.assertEqual(catalog["local-full-sync"]["warnings"], [])
 
     def test_allow_executable_policy_never_allows_non_executable_service(self):
         definition = load_workflow("local-credit-collections")
@@ -659,6 +750,8 @@ class WorkflowDefinitionTests(unittest.TestCase):
         run.assert_called_once()
         self.assertEqual(run.call_args.args[0], ["restart-fineract", "--local"])
         self.assertFalse(run.call_args.kwargs.get("shell", False))
+        self.assertIs(run.call_args.kwargs["stdout"], subprocess.DEVNULL)
+        self.assertIs(run.call_args.kwargs["stderr"], subprocess.DEVNULL)
         sleep.assert_called_once_with(1)
 
     def test_guarded_local_reset_stops_restores_and_restarts(self):
@@ -702,6 +795,241 @@ class WorkflowDefinitionTests(unittest.TestCase):
         settings.target.tenant = "sandbox"
         with self.assertRaisesRegex(ValueError, "must be exactly sandbox:fineract_default"):
             reset_local_fineract(settings, "sandbox", "sandbox:fineract_sandbox")
+
+
+class ProductionCheckpointTests(unittest.TestCase):
+    services = (
+        "clients", "employees", "client-staff-assignments", "client-pep",
+        "client-family-references",
+    )
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.state = State(Path(self.directory.name) / "state.sqlite3")
+        self.fingerprint = "prod-fingerprint"
+        self.workflow_id = "prod-party-resync"
+        self.release = patch.dict(os.environ, {"ARISSTO_SYNC_RELEASE": "test-release"})
+        self.release.start()
+
+    def tearDown(self):
+        self.release.stop()
+        self.state.conn.close()
+        self.directory.cleanup()
+
+    def accepted_child_run(self, service_id):
+        plan_id = self.state.save_plan(
+            self.fingerprint, service_id, "source", f"contract-{service_id}",
+            {"applicable": True, "actions": []},
+        )
+        run_id = self.state.start_run(self.state.plan(plan_id))
+        self.state.finish_run(run_id, "completed", {"unchanged": 1})
+        self.state.record_reconciliation(run_id, {"ok": True, "counts": {"matched": 1}})
+        return run_id
+
+    def test_bootstrap_requires_and_preserves_successful_reconciliation(self):
+        run_id = self.accepted_child_run("clients")
+        checkpoint = self.state.bootstrap_sync_checkpoint(
+            self.fingerprint, self.workflow_id, "clients", run_id,
+        )
+        self.assertEqual(checkpoint["accepted_child_run_id"], run_id)
+        self.assertEqual(checkpoint["accepted_workflow_run_id"], f"bootstrap:{run_id}")
+        self.assertTrue(checkpoint["document"]["bootstrap"])
+        self.assertEqual(
+            checkpoint["document"]["accounting_cutoff"],
+            self.state.plan(checkpoint["accepted_child_plan_id"])["document"]["accounting_cutoff"],
+        )
+
+    def test_production_plan_refuses_missing_checkpoint_then_freezes_accepted_checkpoints(self):
+        settings = SimpleNamespace(
+            state_path=self.state.path,
+            target=SimpleNamespace(name="prod", fingerprint=self.fingerprint),
+        )
+        with (
+            patch("arissto_sync.orchestration.preflight", return_value={"ok": True}),
+            self.assertRaisesRegex(ValueError, "no accepted production checkpoint"),
+        ):
+            build_workflow_plan(
+                settings, self.state, self.workflow_id, None,
+                run_mode="full-resync", production_confirmation=self.fingerprint,
+            )
+
+        for service_id in self.services:
+            self.state.bootstrap_sync_checkpoint(
+                self.fingerprint, self.workflow_id, service_id,
+                self.accepted_child_run(service_id),
+            )
+        with patch("arissto_sync.orchestration.preflight", return_value={"ok": True}):
+            _plan_id, document = build_workflow_plan(
+                settings, self.state, self.workflow_id, None,
+                run_mode="full-resync", production_confirmation=self.fingerprint,
+            )
+        self.assertEqual(document["run_mode"], "full-resync")
+        self.assertNotIn("sync_cycle", document)
+        self.assertEqual(set(document["service_checkpoints"]), set(self.services))
+        self.assertTrue(document["production_authorization"]["confirmed"])
+
+    def test_production_execution_advances_each_checkpoint_after_reconciliation(self):
+        settings = SimpleNamespace(
+            state_path=self.state.path,
+            target=SimpleNamespace(name="prod", fingerprint=self.fingerprint),
+        )
+        for service_id in self.services:
+            self.state.bootstrap_sync_checkpoint(
+                self.fingerprint, self.workflow_id, service_id,
+                self.accepted_child_run(service_id),
+            )
+        with patch("arissto_sync.orchestration.preflight", return_value={"ok": True}):
+            plan_id, _document = build_workflow_plan(
+                settings, self.state, self.workflow_id, None,
+                run_mode="full-resync", production_confirmation=self.fingerprint,
+            )
+        workflow_run_id = self.state.create_workflow_run(self.state.workflow_plan(plan_id))
+        runtime = FakeRuntime(self.state, self.fingerprint)
+        with (
+            patch("arissto_sync.orchestration.ServiceRuntime", return_value=runtime),
+            patch(
+                "arissto_sync.orchestration.ensure_arissto_offices",
+                return_value={"performed": False, "actions": []},
+            ),
+        ):
+            report = execute_workflow(settings, self.state, workflow_run_id)
+
+        self.assertEqual(report["workflow_run"]["status"], "completed")
+        self.assertEqual(
+            runtime.production_confirmations,
+            [self.fingerprint] * len(self.services),
+        )
+        for service_id in self.services:
+            checkpoint = self.state.sync_checkpoint(
+                self.fingerprint, self.workflow_id, service_id,
+            )
+            self.assertEqual(checkpoint["accepted_workflow_run_id"], workflow_run_id)
+            self.assertFalse(checkpoint["document"].get("bootstrap", False))
+
+    def test_production_full_resync_freezes_all_service_checkpoints_and_cutoff(self):
+        workflow_id = "prod-full-resync"
+        services = load_workflow(workflow_id).services
+        for service_id in services:
+            self.state.bootstrap_sync_checkpoint(
+                self.fingerprint, workflow_id, service_id,
+                self.accepted_child_run(service_id),
+            )
+        settings = SimpleNamespace(
+            state_path=self.state.path,
+            target=SimpleNamespace(name="prod", fingerprint=self.fingerprint),
+        )
+
+        with patch("arissto_sync.orchestration.preflight", return_value={"ok": True}):
+            _plan_id, document = build_workflow_plan(
+                settings, self.state, workflow_id, None,
+                run_mode="full-resync", production_confirmation=self.fingerprint,
+            )
+
+        self.assertEqual(len(document["ordered_services"]), 15)
+        self.assertEqual(set(document["service_checkpoints"]), set(services))
+        self.assertEqual(
+            document["accounting_cutoff"],
+            next(iter(document["service_checkpoints"].values()))["document"]["accounting_cutoff"],
+        )
+
+    def test_production_full_resync_rejects_mixed_checkpoint_cutoffs(self):
+        workflow_id = "prod-full-resync"
+        for service_id, cutoff in (
+            ("clients", "2026-09-01"),
+            ("employees", "2026-09-02"),
+            ("client-staff-assignments", "2026-09-02"),
+        ):
+            self.state.set_accounting_cutoff(cutoff)
+            self.state.bootstrap_sync_checkpoint(
+                self.fingerprint, workflow_id, service_id,
+                self.accepted_child_run(service_id),
+            )
+        settings = SimpleNamespace(
+            state_path=self.state.path,
+            target=SimpleNamespace(name="prod", fingerprint=self.fingerprint),
+        )
+
+        with (
+            patch("arissto_sync.orchestration.preflight", return_value={"ok": True}),
+            self.assertRaisesRegex(ValueError, "Prod full-resync checkpoints do not share"),
+        ):
+            build_workflow_plan(
+                settings, self.state, workflow_id, None,
+                selected_services=["client-staff-assignments"], run_mode="full-resync",
+                production_confirmation=self.fingerprint,
+            )
+
+    def test_accounting_checkpoint_accepts_registry_service_id_and_engine_block(self):
+        plan_id = self.state.save_plan(
+            self.fingerprint, "accounting", "source", "contract-accounting",
+            {"applicable": True, "actions": []},
+        )
+        run_id = self.state.start_run(self.state.plan(plan_id))
+        self.state.finish_run(run_id, "completed", {"unchanged": 1})
+        self.state.record_reconciliation(run_id, {"ok": True, "counts": {"matched": 1}})
+
+        checkpoint = self.state.bootstrap_sync_checkpoint(
+            self.fingerprint, "prod-full-resync", "accounting-journal-entries", run_id,
+            child_block="accounting",
+        )
+
+        self.assertEqual(checkpoint["service_id"], "accounting-journal-entries")
+        self.assertEqual(checkpoint["accepted_child_run_id"], run_id)
+
+    def test_local_full_resync_plan_uses_cycle_state_and_accepted_checkpoints(self):
+        workflow_id = "local-full-resync"
+        cycle_id = "sandbox-cycle"
+        self.state.initialize_cycle(
+            cycle_id, "local", self.fingerprint, "sandbox-baseline", now(),
+        )
+        services = load_workflow(workflow_id).services
+        for service_id in services:
+            self.state.bootstrap_sync_checkpoint(
+                self.fingerprint, workflow_id, service_id,
+                self.accepted_child_run(service_id),
+            )
+        settings = SimpleNamespace(
+            state_path=self.state.path,
+            target=SimpleNamespace(name="local", fingerprint=self.fingerprint),
+        )
+        with patch("arissto_sync.orchestration.preflight", return_value={"ok": True}):
+            _plan_id, document = build_workflow_plan(
+                settings, self.state, workflow_id, cycle_id, run_mode="full-resync",
+            )
+
+        self.assertEqual(document["run_mode"], "full-resync")
+        self.assertEqual(document["sync_cycle"]["cycle_id"], cycle_id)
+        self.assertEqual(set(document["service_checkpoints"]), set(services))
+        self.assertEqual(
+            set(document["service_actions"].values()),
+            {"scan-and-apply-source-hash-delta"},
+        )
+        self.assertNotIn("production_authorization", document)
+
+    def test_local_full_resync_rejects_mixed_checkpoint_cutoffs(self):
+        workflow_id = "local-full-resync"
+        cycle_id = "sandbox-cycle"
+        self.state.initialize_cycle(
+            cycle_id, "local", self.fingerprint, "sandbox-baseline", now(),
+        )
+        for service_id, cutoff in (("clients", "2026-09-01"), ("employees", "2026-09-02")):
+            self.state.set_accounting_cutoff(cutoff)
+            self.state.bootstrap_sync_checkpoint(
+                self.fingerprint, workflow_id, service_id,
+                self.accepted_child_run(service_id),
+            )
+        settings = SimpleNamespace(
+            state_path=self.state.path,
+            target=SimpleNamespace(name="local", fingerprint=self.fingerprint),
+        )
+        with (
+            patch("arissto_sync.orchestration.preflight", return_value={"ok": True}),
+            self.assertRaisesRegex(ValueError, "do not share one accounting cutoff"),
+        ):
+            build_workflow_plan(
+                settings, self.state, workflow_id, cycle_id,
+                selected_services=["clients", "employees"], run_mode="full-resync",
+            )
 
 
 class WorkflowStateTests(unittest.TestCase):
@@ -773,7 +1101,7 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertEqual(runtime.prepared, list(self.definition.services))
         runtime_type.assert_called_once_with(
             self.settings, self.state, LoanApplyControls(workers=4, pause_seconds=45, recovery_attempts=5),
-            DteApplyControls(workers=2, batch_size=500), (),
+            DteApplyControls(workers=2, batch_size=500), (), None,
         )
 
     def test_workflow_plan_freezes_loan_runtime_controls(self):
@@ -792,17 +1120,14 @@ class WorkflowStateTests(unittest.TestCase):
             },
         })
 
-    def test_credit_workflow_plan_warns_only_for_remaining_blocked_service(self):
+    def test_credit_workflow_plan_has_no_unavailable_service_warnings(self):
         with patch("arissto_sync.orchestration.preflight", return_value={"ok": True}):
             _plan_id, document = build_workflow_plan(
                 self.settings, self.state, "local-credit-collections", self.cycle_id
             )
 
         self.assertEqual(document["readiness"]["blockers"], [])
-        self.assertEqual(
-            {warning["service_id"] for warning in document["readiness"]["warnings"]},
-            {"dte-history"},
-        )
+        self.assertEqual(document["readiness"]["warnings"], [])
 
     def test_full_sync_defaults_to_full_ledger_and_can_freeze_a_period(self):
         with patch("arissto_sync.orchestration.preflight", return_value={"ok": True}):

@@ -129,6 +129,7 @@ import org.apache.fineract.portfolio.loanaccount.data.GlimRepaymentTemplate;
 import org.apache.fineract.portfolio.loanaccount.data.LoanAccountData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanApprovalData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanApprovedAmountHistoryData;
+import org.apache.fineract.portfolio.loanaccount.data.LoanFreezeHistoryData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanChargeData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanCollateralManagementData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanSummaryData;
@@ -139,6 +140,8 @@ import org.apache.fineract.portfolio.loanaccount.data.PaidInAdvanceData;
 import org.apache.fineract.portfolio.loanaccount.data.RepaymentScheduleRelatedLoanData;
 import org.apache.fineract.portfolio.loanaccount.data.RepaymentScheduledItemData;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanApprovedAmountHistoryRepository;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanFreezeHistoryRepository;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanRepositoryWrapper;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanBuyDownFeeCalculationType;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanBuyDownFeeIncomeType;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanBuyDownFeeStrategy;
@@ -264,7 +267,7 @@ public class LoansApiResource {
             LoanApiConstants.datatables, LoanProductConstants.RATES_PARAM_NAME, LoanApiConstants.MULTIDISBURSE_DETAILS_PARAMNAME,
             LoanApiConstants.EMI_AMOUNT_VARIATIONS_PARAMNAME, LoanApiConstants.COLLECTION_PARAMNAME,
             LoanApiConstants.INTEREST_RECOGNITION_ON_DISBURSEMENT_DATE, LoanApiConstants.daysInYearCustomStrategyParameterName,
-            "readyForComite"));
+            "readyForComite", "isFrozen", "frozenOn", "freezeReason"));
 
     private static final Set<String> REPAYMENT_SCHEDULED_DATA_PARAMETERS = new HashSet<>(
             Arrays.asList("id", "clientId", "clientName", "amountToBeRepaid", "status"));
@@ -317,6 +320,8 @@ public class LoansApiResource {
     private final LoanSummaryProviderDelegate loanSummaryProviderDelegate;
     private final LoanCapitalizedIncomeBalanceRepository loanCapitalizedIncomeBalanceRepository;
     private final LoanApprovedAmountHistoryRepository loanApprovedAmountHistoryRepository;
+    private final LoanFreezeHistoryRepository loanFreezeHistoryRepository;
+    private final LoanRepositoryWrapper loanRepositoryWrapper;
 
     /*
      * This template API is used for loan approval, ideally this should be invoked on loan that are pending for
@@ -795,6 +800,18 @@ public class LoansApiResource {
     public String getDelinquencyTagHistory(@PathParam("loanId") @Parameter(description = "loanId", required = true) final Long loanId,
             @Context final UriInfo uriInfo) {
         return getDelinquencyTagHistory(loanId, null, uriInfo);
+    }
+
+    @GET
+    @Path("{loanId}/freezehistory")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Retrieve ordered loan freeze history")
+    public String getLoanFreezeHistory(@PathParam("loanId") @Parameter(description = "loanId", required = true) final Long loanId) {
+        context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME_FOR_PERMISSIONS);
+        loanRepositoryWrapper.findOneWithNotFoundDetection(loanId);
+        final List<LoanFreezeHistoryData> history = loanFreezeHistoryRepository.findDataByLoanIdOrderByEffectiveDateAscIdAsc(loanId);
+        return toApiJsonSerializer.serialize(history);
     }
 
     // External id related APIs
@@ -1393,6 +1410,10 @@ public class LoansApiResource {
             commandRequest = builder.sourceExactRefinancingDisburseLoanApplication(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "sourceExactActiveSchedule")) {
             commandRequest = builder.importSourceExactActiveSchedule(resolvedLoanId).build();
+        } else if (CommandParameterUtil.is(commandParam, "sourceExactAccrualCatchup")) {
+            commandRequest = builder.materializeSourceExactAccruals(resolvedLoanId).build();
+        } else if (CommandParameterUtil.is(commandParam, "freeze")) {
+            commandRequest = builder.freezeLoan(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "disburseToSavings")) {
             commandRequest = builder.disburseLoanToSavingsApplication(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "disburseWithoutAutoDownPayment")) {

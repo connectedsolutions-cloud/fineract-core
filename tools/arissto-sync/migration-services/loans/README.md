@@ -61,8 +61,10 @@ transaction, but must never create the same repayment again.
   hashes only; source addresses, vehicle identifiers, registry details, and
   appraisal narrative exist only in the guarded in-memory apply payload.
 - Current parent guarantees support mortgage land/housing and pledged
-  vehicle/motorcycle records. Missing appraisal dates, non-positive or
-  under-covering values, and unknown types quarantine the affected loan. Any
+  vehicle/motorcycle records. Appraisal dates are optional and collateral may
+  cover only part of the approved principal. Non-positive source valuation
+  amounts are preserved exactly. Unknown types still quarantine the affected
+  loan. Any
   future rows in `CRD_GARANTIA_VALUO` or `CRD_GARANTIA_INSCRIPCION` block the
   service until their chronology is reviewed.
 - The single proved zero-cash Arissto component reallocation uses the separately
@@ -290,6 +292,16 @@ automatic retry. The same controls are available on `retry`. Composed workflows
 accept them on `workflow plan` and freeze the resolved values into the parent
 plan so detached start and resume retain the same policy.
 
+For every active periodic-accrual loan, the lifecycle ends with the
+permission-gated `sourceExactAccrualCatchup` command. The command requires the
+matching Arissto loan identity and the exact active cutoff frozen in the plan.
+It materializes missing accrual transactions only through the day before the
+cutoff under the authenticated operational-migration context, so historical
+native GL remains suppressed. This step is idempotent and must complete before
+Loan COB is resumed. Ordinary COB retains native cutoff enforcement and handles
+only cutoff-and-later accounting; it never silently suppresses a pre-cutoff
+posting.
+
 Inspect every frozen Arissto lifecycle event beside the matching Fineract loan
 transaction without writing to either system:
 
@@ -449,3 +461,13 @@ See [contract.md](contract.md) for the source-to-native contract and
 order and production acceptance boundary. The canonical cross-service run
 order is in
 [orchestration.md](../orchestration.md#current-manual-loans-to-mobile-collections-flow).
+
+## Full re-sync
+
+Local `full-resync` is supported through `local-full-resync`. The planner
+compares each frozen loan lifecycle hash with its durable local mapping. An exact
+mapped loan becomes `unchanged-loan` and produces no lifecycle write. New or
+changed loans enter the existing idempotent create/recovery path, which preserves
+external identities and replay guards. Source absence never deletes a loan or
+financial event, unsupported changes fail or quarantine, and the checkpoint
+advances only after strict reconciliation.

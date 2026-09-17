@@ -384,6 +384,19 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
     @Column(name = "is_npa", nullable = false)
     private boolean isNpa;
 
+    @Column(name = "is_frozen", nullable = false)
+    private boolean isFrozen;
+
+    @Column(name = "frozen_on")
+    private LocalDate frozenOn;
+
+    @Column(name = "freeze_reason", length = 500)
+    private String freezeReason;
+
+    @OrderBy(value = "effectiveDate, id")
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "loan", fetch = FetchType.LAZY)
+    private List<LoanFreezeHistory> freezeHistory = new ArrayList<>();
+
     @Setter()
     @Column(name = "accrued_till")
     private LocalDate accruedTill;
@@ -1450,6 +1463,39 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
         return this.isNpa;
     }
 
+    public void freeze(final LocalDate effectiveDate, final String reason, final String sourceEventExternalId) {
+        this.isFrozen = true;
+        this.frozenOn = effectiveDate;
+        this.freezeReason = reason;
+        this.freezeHistory.add(new LoanFreezeHistory(this, LoanFreezeAction.FREEZE, effectiveDate, reason, sourceEventExternalId));
+    }
+
+    public void unfreeze(final LocalDate effectiveDate, final String reason, final String sourceEventExternalId) {
+        this.isFrozen = false;
+        this.frozenOn = null;
+        this.freezeReason = null;
+        this.freezeHistory.add(new LoanFreezeHistory(this, LoanFreezeAction.UNFREEZE, effectiveDate, reason, sourceEventExternalId));
+    }
+
+    public boolean isFrozenOn(final LocalDate date) {
+        if (date == null) {
+            return false;
+        }
+        LoanFreezeAction effectiveAction = null;
+        LocalDate effectiveActionDate = null;
+        for (final LoanFreezeHistory event : this.freezeHistory) {
+            if (!event.getEffectiveDate().isAfter(date)
+                    && (effectiveActionDate == null || !event.getEffectiveDate().isBefore(effectiveActionDate))) {
+                effectiveAction = event.getAction();
+                effectiveActionDate = event.getEffectiveDate();
+            }
+        }
+        if (effectiveAction != null) {
+            return effectiveAction == LoanFreezeAction.FREEZE;
+        }
+        return this.isFrozen && (this.frozenOn == null || !date.isBefore(this.frozenOn));
+    }
+
     public Integer getLoanRepaymentScheduleInstallmentsSize() {
         return this.repaymentScheduleInstallments.size();
     }
@@ -1714,6 +1760,7 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
         checkAndFetchLazyCollection(this.collateral);
         checkAndFetchLazyCollection(this.loanOfficerHistory);
         checkAndFetchLazyCollection(this.loanCollateralManagements);
+        checkAndFetchLazyCollection(this.freezeHistory);
     }
 
     private void checkAndFetchLazyCollection(Collection lazyCollection) {

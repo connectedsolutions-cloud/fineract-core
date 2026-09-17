@@ -57,8 +57,9 @@
     "valuation_external_id": "ARISSTO:CRD-VAL:{ID_SOLICITUD_GARANTIA}",
     "quantity": "1.00",
     "child_history_policy": "block-if-populated-until-chronology-reviewed",
-    "missing_valuation_date_policy": "quarantine-loan",
-    "undercovered_loan_policy": "quarantine-loan"
+    "missing_valuation_date_policy": "allow",
+    "non_positive_valuation_policy": "allow",
+    "undercovered_loan_policy": "allow"
   },
   "product_contract": {
     "target_table": "m_product_loan",
@@ -232,6 +233,10 @@
       "fixed_emi_amount": "205.31",
       "expected_first_source_core_installment": "205.29",
       "schedule_writer": "fineract-source-exact-active-schedule-v1"
+    },
+    "1638": {
+      "classification": "reviewed-early-payoff-future-interest-cutover",
+      "terminal_adjustment_maximum_source": "source-schedule-total"
     }
   },
   "active_manual_schedule_imports": {

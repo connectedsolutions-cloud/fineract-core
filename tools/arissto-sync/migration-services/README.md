@@ -19,6 +19,7 @@ This directory is the single front door for migration-service information:
 | Service list, lifecycle, executability, and document pointers | `registry.json` |
 | Business scope and operator workflow | `<service-id>/README.md` |
 | Detailed source-to-target mapping, readiness, quarantine, and reconciliation contract | `<service-id>/contract.md` |
+| Reviewed exclusions, deferrals, and retirement decisions | [`scope-decisions.md`](scope-decisions.md) |
 | Completed delivery gates and independent production sequence, when needed | `<service-id>/implementation-sequence.md` |
 | Multi-service dependency and daily-run orchestration design | `orchestration.md` |
 | Reusable shape for a future service | `_template.md` |
@@ -29,6 +30,11 @@ Do not copy source-research narratives into this directory. Link to the relevant
 learning note and record only the migration decision here. Likewise, do not
 store service status, plan snapshots, or operator instructions in the
 exploration repository. Cross-project facts should have reciprocal links.
+
+When a source table or business flow is deliberately skipped, add one stable
+decision ID to [`scope-decisions.md`](scope-decisions.md) and link that ID from
+the affected service contract. This keeps exclusions discoverable without
+duplicating their enforcement details.
 
 ## Check available services
 
@@ -44,9 +50,12 @@ From `tools/arissto-sync`:
 ./arissto-sync services --service client-staff-assignments
 ./arissto-sync services --service membership-share-capital
 ./arissto-sync services --service savings-deposits
+./arissto-sync services --service savings-account-parties
 ./arissto-sync services --service native-share-capital
+./arissto-sync services --service native-share-yield
 ./arissto-sync services --service aml-alerts
 ./arissto-sync services --service loans
+./arissto-sync services --service dte-history
 ./arissto-sync services --service mobile-collections
 ./arissto-sync services --service accounting-journal-entries
 ```

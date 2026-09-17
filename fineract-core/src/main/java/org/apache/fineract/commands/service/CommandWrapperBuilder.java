@@ -898,6 +898,24 @@ public class CommandWrapperBuilder {
         return this;
     }
 
+    public CommandWrapperBuilder materializeSourceExactAccruals(final Long loanId) {
+        this.actionName = "SOURCEEXACTACCRUALCATCHUP";
+        this.entityName = "LOAN";
+        this.entityId = null;
+        this.loanId = loanId;
+        this.href = "/loans/" + loanId + "?command=sourceExactAccrualCatchup";
+        return this;
+    }
+
+    public CommandWrapperBuilder freezeLoan(final Long loanId) {
+        this.actionName = "FREEZE";
+        this.entityName = "LOAN";
+        this.entityId = loanId;
+        this.loanId = loanId;
+        this.href = "/loans/" + loanId + "?command=freeze";
+        return this;
+    }
+
     public CommandWrapperBuilder sourceExactLoanGoodwillCreditTransaction(final Long loanId) {
         this.actionName = "SOURCEEXACTGOODWILLCREDIT";
         this.entityName = "LOAN";

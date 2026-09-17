@@ -520,7 +520,9 @@ public final class AccountingConstants {
         SHARES_REFERENCE(1), //
         SHARES_SUSPENSE(2), //
         INCOME_FROM_FEES(3), //
-        SHARES_EQUITY(4); //
+        SHARES_EQUITY(4), //
+        YIELD_EXPENSE(5), //
+        YIELD_PAYABLE(6); //
 
         private final Integer value;
 

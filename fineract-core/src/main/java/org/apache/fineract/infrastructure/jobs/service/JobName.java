@@ -38,6 +38,7 @@ public enum JobName {
     GENERATE_RD_SCEHDULE("Generate Mandatory Savings Schedule"), //
     GENERATE_LOANLOSS_PROVISIONING("Generate Loan Loss Provisioning"), //
     POST_DIVIDENTS_FOR_SHARES("Post Dividends For Shares"), //
+    ACCRUE_SHARE_YIELD("Accrue Share Yield"), //
     UPDATE_SAVINGS_DORMANT_ACCOUNTS("Update Savings Dormant Accounts"), //
     ADD_PERIODIC_ACCRUAL_ENTRIES_FOR_LOANS_WITH_INCOME_POSTED_AS_TRANSACTIONS(
             "Add Accrual Transactions For Loans With Income Posted As Transactions"), //

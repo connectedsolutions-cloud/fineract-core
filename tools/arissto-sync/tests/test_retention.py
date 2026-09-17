@@ -104,7 +104,7 @@ class RetentionTests(unittest.TestCase):
                 self.catalog.get(cycle["id"])
         self.assertTrue(Path(cycles[-1]["state_path"]).is_file())
 
-    def test_production_keeps_only_latest_run_globally_and_all_mappings(self):
+    def test_production_preserves_run_plan_and_failure_identities_while_compacting_items(self):
         state = State(self.base_state)
         fingerprint = "prod-fingerprint"
         try:
@@ -137,11 +137,11 @@ class RetentionTests(unittest.TestCase):
             retained_runs = state.conn.execute(
                 "SELECT id FROM runs WHERE target_fingerprint=?", (fingerprint,)
             ).fetchall()
-            self.assertEqual([row[0] for row in retained_runs], [run_ids[-1]])
-            self.assertEqual(state.conn.execute("SELECT COUNT(*) FROM items").fetchone()[0], 1)
-            self.assertEqual(state.conn.execute("SELECT COUNT(*) FROM plans").fetchone()[0], 1)
+            self.assertEqual(len(retained_runs), 4)
+            self.assertEqual(state.conn.execute("SELECT COUNT(*) FROM items").fetchone()[0], 2)
+            self.assertEqual(state.conn.execute("SELECT COUNT(*) FROM plans").fetchone()[0], 4)
             self.assertEqual(state.conn.execute("SELECT COUNT(*) FROM mappings").fetchone()[0], 2)
-            self.assertEqual(state.conn.execute("SELECT COUNT(*) FROM inspections").fetchone()[0], 1)
+            self.assertEqual(state.conn.execute("SELECT COUNT(*) FROM inspections").fetchone()[0], 2)
         finally:
             state.conn.close()
 

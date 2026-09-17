@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "id": "prod-party-resync",
+  "description": "Checkpointed production re-sync for reviewed client and employee source-owned fields.",
+  "targets": ["prod"],
+  "run_modes": ["full-resync"],
+  "services": [
+    "clients",
+    "employees",
+    "client-staff-assignments",
+    "client-pep",
+    "client-family-references"
+  ],
+  "ordering": "registry-topological",
+  "scope": {"mode": "full-block"},
+  "stop_policy": "dependency-gated",
+  "retry_policy": "resume-failed-step",
+  "accounting_cutoff_policy": "snapshot-only",
+  "unavailable_services": "reject"
+}

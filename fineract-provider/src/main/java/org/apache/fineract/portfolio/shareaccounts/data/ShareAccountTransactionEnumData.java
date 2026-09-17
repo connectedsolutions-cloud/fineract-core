@@ -32,6 +32,7 @@ public class ShareAccountTransactionEnumData implements Serializable {
     private final boolean isPurchased;
     private final boolean isRedeemed;
     private final boolean isChargePayment;
+    private final boolean isYieldAccrual;
 
     public ShareAccountTransactionEnumData(final Long id, final String code, final String value) {
         this.id = id;
@@ -43,6 +44,7 @@ public class ShareAccountTransactionEnumData implements Serializable {
         this.isPurchased = Long.valueOf(500).equals(this.id);
         this.isRedeemed = Long.valueOf(600).equals(this.id);
         this.isChargePayment = Long.valueOf(700).equals(this.id);
+        this.isYieldAccrual = Long.valueOf(800).equals(this.id);
     }
 
     public Long getId() {
@@ -79,6 +81,10 @@ public class ShareAccountTransactionEnumData implements Serializable {
 
     public boolean isChargePayment() {
         return this.isChargePayment;
+    }
+
+    public boolean isYieldAccrual() {
+        return this.isYieldAccrual;
     }
 
 }

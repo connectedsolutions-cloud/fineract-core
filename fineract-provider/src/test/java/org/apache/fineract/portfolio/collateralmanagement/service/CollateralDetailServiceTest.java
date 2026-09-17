@@ -150,6 +150,33 @@ class CollateralDetailServiceTest {
     }
 
     @Test
+    void valuationDateIsOptional() {
+        when(assetRepository.findByClientCollateralId(10L)).thenReturn(Optional.of(asset));
+        when(currencyRepository.findOneByCode("USD")).thenReturn(mock(ApplicationCurrency.class));
+        when(valuationRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        ValuationRequest request = new ValuationRequest(null, "INITIAL", null, "usd", new BigDecimal("4500"), null, null, null,
+                null, null, null, null, null, "FINAL");
+
+        var result = service.createValuation(3L, 10L, request);
+
+        assertNull(result.valuationDate());
+        assertEquals(new BigDecimal("4500"), result.totalValue());
+    }
+
+    @Test
+    void nonPositiveValuationIsPreserved() {
+        when(assetRepository.findByClientCollateralId(10L)).thenReturn(Optional.of(asset));
+        when(currencyRepository.findOneByCode("USD")).thenReturn(mock(ApplicationCurrency.class));
+        when(valuationRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        ValuationRequest request = new ValuationRequest(null, "INITIAL", null, "usd", new BigDecimal("-100"), null, null, null,
+                null, null, null, null, null, "FINAL");
+
+        var result = service.createValuation(3L, 10L, request);
+
+        assertEquals(new BigDecimal("-100"), result.totalValue());
+    }
+
+    @Test
     void finalValuationCannotBeEditedInPlace() {
         when(assetRepository.findByClientCollateralId(10L)).thenReturn(Optional.of(asset));
         CollateralValuation previous = valuation("FINAL", new BigDecimal("7000"));

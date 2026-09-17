@@ -333,7 +333,8 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
                 loan.getId(), loan.isOpen(), loan.isNpa(), loan.isChargedOff(), loan.isPeriodicAccrualAccountingEnabledOnLoanProduct(),
                 loan.isContractTermination());
 
-        if ((!isFinal && !loan.isOpen()) || loan.isNpa() || loan.isChargedOff() || !loan.isPeriodicAccrualAccountingEnabledOnLoanProduct()
+        if ((!isFinal && !loan.isOpen()) || loan.isNpa() || loan.isChargedOff() || loan.isFrozenOn(tillDate)
+                || !loan.isPeriodicAccrualAccountingEnabledOnLoanProduct()
                 || loan.isContractTermination()) {
             log.info("EXITING addAccruals early for loan [{}]: loan state check failed", loan.getId());
             return;

@@ -253,8 +253,8 @@ public class CollateralDetailService {
     }
 
     private void applyValuation(CollateralValuation valuation, ValuationRequest request) {
-        if (request == null || request.valuationDate() == null || request.totalValue() == null || request.totalValue().signum() <= 0) {
-            throw rule("valuation.invalid", "valuationDate and a positive totalValue are required");
+        if (request == null || request.totalValue() == null) {
+            throw rule("valuation.invalid", "totalValue is required");
         }
         String type = normalized(request.valuationType(), "valuationType");
         requireOneOf(type, VALUATION_TYPES, "valuationType");

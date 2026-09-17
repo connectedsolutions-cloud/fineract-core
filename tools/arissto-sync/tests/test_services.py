@@ -25,6 +25,7 @@ class MigrationServiceRegistryTests(unittest.TestCase):
              ("client-staff-assignments", "client-staff-assignments"),
              ("membership-share-capital", "membership-share-capital"),
              ("savings-deposits", "savings-deposits"),
+             ("savings-account-parties", "savings-account-parties"),
              ("native-share-capital", "native-share-capital"),
              ("aml-alerts", "aml-alerts"),
              ("loans", "loans"),
@@ -38,9 +39,23 @@ class MigrationServiceRegistryTests(unittest.TestCase):
         self.assertEqual(report["service"]["status"], "available")
         self.assertTrue(report["service"]["executable"])
 
-    def test_accounting_journal_entries_is_planned_but_executable_for_local_acceptance(self):
+    def test_accepted_services_are_available_and_share_yield_remains_gated(self):
+        services = load_registry()["services"]
+        self.assertEqual(len(services), 16)
+        accepted = [service for service in services if service["id"] != "native-share-yield"]
+        self.assertTrue(all(service["status"] == "available" for service in accepted))
+        self.assertTrue(all(service["executable"] for service in accepted))
+        self.assertTrue(all(
+            service.get("full_resync", {}).get("status") == "supported"
+            for service in accepted
+        ))
+        share_yield = next(service for service in services if service["id"] == "native-share-yield")
+        self.assertEqual(share_yield["status"], "blocked")
+        self.assertFalse(share_yield["executable"])
+
+    def test_accounting_journal_entries_is_available_for_local_workflows(self):
         service = service_report("accounting-journal-entries")["service"]
-        self.assertEqual(service["status"], "planned")
+        self.assertEqual(service["status"], "available")
         self.assertTrue(service["executable"])
         self.assertEqual(service["category"], "accounting")
         self.assertEqual(service["cli_block"], "accounting")
@@ -345,9 +360,9 @@ class MigrationServiceRegistryTests(unittest.TestCase):
         self.assertEqual(report["service"]["depends_on"], ["clients"])
         self.assertIn("inspect", report["service"]["commands"])
 
-    def test_personal_family_references_service_is_acceptance_gated_and_depends_on_clients(self):
+    def test_personal_family_references_service_is_available_and_depends_on_clients(self):
         service = service_report("client-personal-family-references")["service"]
-        self.assertEqual(service["status"], "blocked")
+        self.assertEqual(service["status"], "available")
         self.assertTrue(service["executable"])
         self.assertEqual(service["depends_on"], ["clients"])
         self.assertEqual(service["configuration"], "config/client_personal_family_references.json")
@@ -369,9 +384,9 @@ class MigrationServiceRegistryTests(unittest.TestCase):
         report = service_report("loans")["service"]
         self.assertEqual(report["depends_on"], ["clients", "employees"])
 
-    def test_dte_history_is_an_executable_blocked_client_and_loan_dependent(self):
+    def test_dte_history_is_an_available_client_and_loan_dependent(self):
         report = service_report("dte-history")["service"]
-        self.assertEqual(report["status"], "blocked")
+        self.assertEqual(report["status"], "available")
         self.assertTrue(report["executable"])
         self.assertEqual(report["depends_on"], ["clients", "loans"])
         self.assertEqual(report["configuration"], "config/dte_history.json")

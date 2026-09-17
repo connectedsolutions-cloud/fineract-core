@@ -103,3 +103,12 @@ field ownership, and quarantine rules. See
 delivery gates and the required independent production sequence. The canonical
 cross-service loans-to-mobile operating order is in
 [orchestration.md](../orchestration.md#current-manual-loans-to-mobile-collections-flow).
+
+## Full re-sync
+
+Local `full-resync` is supported through `local-full-resync`. Routes,
+assignments, accounts, batches, and receipts are compared by their durable
+source identities and payload hashes. New and changed metadata is upserted,
+exact matches are no-write, source absence never deletes operational history,
+and native loan or repayment transactions remain outside this service's write
+ownership. The checkpoint advances only after exact reconciliation.

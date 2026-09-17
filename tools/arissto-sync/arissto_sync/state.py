@@ -99,6 +99,14 @@ CREATE TABLE IF NOT EXISTS workflow_event_links (
  relationship TEXT NOT NULL,
  PRIMARY KEY(event_id, related_event_id, relationship)
 );
+CREATE TABLE IF NOT EXISTS sync_checkpoints (
+ target_fingerprint TEXT NOT NULL, workflow_id TEXT NOT NULL, service_id TEXT NOT NULL,
+ accepted_workflow_run_id TEXT NOT NULL, accepted_child_run_id TEXT NOT NULL,
+ accepted_child_plan_id TEXT NOT NULL, contract_hash TEXT NOT NULL,
+ source_fingerprint TEXT NOT NULL, accepted_at TEXT NOT NULL,
+ document TEXT NOT NULL DEFAULT '{}',
+ PRIMARY KEY(target_fingerprint, workflow_id, service_id)
+);
 CREATE INDEX IF NOT EXISTS workflow_runs_status_idx
  ON workflow_runs(target_fingerprint, status, created_at);
 CREATE INDEX IF NOT EXISTS workflow_steps_run_idx
@@ -109,6 +117,8 @@ CREATE INDEX IF NOT EXISTS workflow_events_run_idx
  ON workflow_events(workflow_run_id, sequence);
 CREATE INDEX IF NOT EXISTS workflow_events_failure_idx
  ON workflow_events(workflow_failure_id);
+CREATE INDEX IF NOT EXISTS sync_checkpoints_run_idx
+ ON sync_checkpoints(accepted_workflow_run_id, service_id);
 """
 
 
@@ -461,6 +471,107 @@ class State:
         value["ok"] = bool(value["ok"])
         value["summary"] = json.loads(value["summary"])
         return value
+
+    def sync_checkpoint(
+        self, target_fingerprint: str, workflow_id: str, service_id: str,
+    ) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            "SELECT * FROM sync_checkpoints WHERE target_fingerprint=? AND workflow_id=? AND service_id=?",
+            (target_fingerprint, workflow_id, service_id),
+        ).fetchone()
+        if not row:
+            return None
+        value = dict(row)
+        value["document"] = json.loads(value["document"])
+        return value
+
+    def sync_checkpoints(self, target_fingerprint: str, workflow_id: str) -> list[dict[str, Any]]:
+        values = []
+        for row in self.conn.execute(
+            "SELECT * FROM sync_checkpoints WHERE target_fingerprint=? AND workflow_id=? "
+            "ORDER BY service_id",
+            (target_fingerprint, workflow_id),
+        ):
+            value = dict(row)
+            value["document"] = json.loads(value["document"])
+            values.append(value)
+        return values
+
+    def advance_sync_checkpoint(
+        self, target_fingerprint: str, workflow_id: str, service_id: str,
+        workflow_run_id: str, child_run_id: str, document: dict[str, Any] | None = None,
+        child_block: str | None = None,
+    ) -> dict[str, Any]:
+        workflow_run = self.workflow_run(workflow_run_id)
+        if workflow_run["target_fingerprint"] != target_fingerprint:
+            raise ValueError("Workflow run belongs to a different target fingerprint")
+        child_run = self.run(child_run_id)
+        expected_block = child_block or service_id
+        if child_run["target_fingerprint"] != target_fingerprint or child_run["block"] != expected_block:
+            raise ValueError("Child run belongs to a different target or service")
+        reconciliation = self.run_reconciliation(child_run_id)
+        if not reconciliation or not reconciliation["ok"]:
+            raise ValueError("A checkpoint requires a successful child reconciliation")
+        child_plan = self.plan(child_run["plan_id"])
+        accepted_at = now()
+        payload = document or {}
+        self.conn.execute(
+            "INSERT INTO sync_checkpoints(target_fingerprint,workflow_id,service_id,"
+            "accepted_workflow_run_id,accepted_child_run_id,accepted_child_plan_id,contract_hash,"
+            "source_fingerprint,accepted_at,document) VALUES(?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(target_fingerprint,workflow_id,service_id) DO UPDATE SET "
+            "accepted_workflow_run_id=excluded.accepted_workflow_run_id,"
+            "accepted_child_run_id=excluded.accepted_child_run_id,"
+            "accepted_child_plan_id=excluded.accepted_child_plan_id,"
+            "contract_hash=excluded.contract_hash,source_fingerprint=excluded.source_fingerprint,"
+            "accepted_at=excluded.accepted_at,document=excluded.document",
+            (
+                target_fingerprint, workflow_id, service_id, workflow_run_id, child_run_id,
+                child_plan["id"], child_plan["contract_hash"], child_plan["source_fingerprint"],
+                accepted_at, json.dumps(payload, sort_keys=True, default=str),
+            ),
+        )
+        self.conn.commit()
+        return self.sync_checkpoint(target_fingerprint, workflow_id, service_id) or {}
+
+    def bootstrap_sync_checkpoint(
+        self, target_fingerprint: str, workflow_id: str, service_id: str,
+        child_run_id: str, document: dict[str, Any] | None = None,
+        child_block: str | None = None,
+    ) -> dict[str, Any]:
+        child_run = self.run(child_run_id)
+        expected_block = child_block or service_id
+        if child_run["target_fingerprint"] != target_fingerprint or child_run["block"] != expected_block:
+            raise ValueError("Bootstrap run belongs to a different target or service")
+        reconciliation = self.run_reconciliation(child_run_id)
+        if not reconciliation or not reconciliation["ok"]:
+            raise ValueError("Checkpoint bootstrap requires a successful reconciliation")
+        child_plan = self.plan(child_run["plan_id"])
+        accepted_at = now()
+        payload = {
+            **(document or {}),
+            "bootstrap": True,
+            "accounting_cutoff": child_plan["document"].get("accounting_cutoff"),
+        }
+        self.conn.execute(
+            "INSERT INTO sync_checkpoints(target_fingerprint,workflow_id,service_id,"
+            "accepted_workflow_run_id,accepted_child_run_id,accepted_child_plan_id,contract_hash,"
+            "source_fingerprint,accepted_at,document) VALUES(?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(target_fingerprint,workflow_id,service_id) DO UPDATE SET "
+            "accepted_workflow_run_id=excluded.accepted_workflow_run_id,"
+            "accepted_child_run_id=excluded.accepted_child_run_id,"
+            "accepted_child_plan_id=excluded.accepted_child_plan_id,"
+            "contract_hash=excluded.contract_hash,source_fingerprint=excluded.source_fingerprint,"
+            "accepted_at=excluded.accepted_at,document=excluded.document",
+            (
+                target_fingerprint, workflow_id, service_id, f"bootstrap:{child_run_id}",
+                child_run_id, child_plan["id"], child_plan["contract_hash"],
+                child_plan["source_fingerprint"], accepted_at,
+                json.dumps(payload, sort_keys=True, default=str),
+            ),
+        )
+        self.conn.commit()
+        return self.sync_checkpoint(target_fingerprint, workflow_id, service_id) or {}
 
     def add_link(self, target: str, block: str, source_key: str, target_id: str) -> None:
         self.conn.execute("INSERT OR REPLACE INTO links VALUES(?,?,?,?,?)", (target, block, source_key, target_id, now()))

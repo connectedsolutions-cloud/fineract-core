@@ -64,6 +64,10 @@ public class CashBasedAccountingProcessorForShares implements AccountingProcesso
                 this.helper.createCashBasedJournalEntriesForSharesCharges(office, currencyCode, CashAccountsForShares.SHARES_REFERENCE,
                         CashAccountsForShares.INCOME_FROM_FEES, shareProductId, paymentTypeId, shareAccountId, transactionId,
                         transactionDate, amount, feePayments);
+            } else if (transactionDTO.getTransactionType().isYieldAccrual()) {
+                this.helper.createJournalEntriesForShares(office, currencyCode, CashAccountsForShares.YIELD_EXPENSE.getValue(),
+                        CashAccountsForShares.YIELD_PAYABLE.getValue(), shareProductId, null, shareAccountId, transactionId,
+                        transactionDate, amount);
             }
         }
 

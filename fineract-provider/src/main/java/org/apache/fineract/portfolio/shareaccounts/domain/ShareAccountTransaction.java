@@ -129,6 +129,11 @@ public class ShareAccountTransaction extends AbstractPersistableCustom<Long> {
         return new ShareAccountTransaction(transactionDate, totalShares, unitPrice, status, type, amount, chargeAmount, amountPaid);
     }
 
+    public static ShareAccountTransaction createYieldAccrualTransaction(final LocalDate transactionDate, final BigDecimal bookedAmount) {
+        return new ShareAccountTransaction(transactionDate, null, null, PurchasedSharesStatusType.APPROVED.getValue(),
+                PurchasedSharesStatusType.YIELD_ACCRUAL.getValue(), bookedAmount, null, bookedAmount);
+    }
+
     public LocalDate getPurchasedDate() {
         return this.transactionDate;
     }
@@ -183,6 +188,11 @@ public class ShareAccountTransaction extends AbstractPersistableCustom<Long> {
     public boolean isChargeTransaction() {
         return this.status.equals(PurchasedSharesStatusType.APPROVED.getValue())
                 && this.type.equals(PurchasedSharesStatusType.CHARGE_PAYMENT.getValue());
+    }
+
+    public boolean isYieldAccrualTransaction() {
+        return this.status.equals(PurchasedSharesStatusType.APPROVED.getValue())
+                && this.type.equals(PurchasedSharesStatusType.YIELD_ACCRUAL.getValue());
     }
 
     public boolean isPurchaseRejectedTransaction() {

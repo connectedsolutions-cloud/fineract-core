@@ -44,6 +44,7 @@ import org.apache.fineract.portfolio.loanaccount.domain.LoanCharge;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanChargePaidBy;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallment;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType;
 import org.apache.fineract.portfolio.loanaccount.domain.SourceExactRepaymentAllocation;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.PostDueAccruedInterestCalculator;
 import org.apache.fineract.portfolio.loanaccount.serialization.LoanChargeValidator;
@@ -268,6 +269,25 @@ class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest {
         assertTrue(replayCopy.isSourceExactAllocation());
         assertMoney("12.03", replayCopy.getSourceExactPrincipalPortion(CURRENCY));
         assertMoney("1.15", replayCopy.getSourceExactInterestPortion(CURRENCY));
+    }
+
+    @Test
+    void sourceExactTerminalGoodwillCanClearOnlyTheFrozenInterestDelta() {
+        final BigDecimal interestDelta = new BigDecimal("4524.83");
+        final LoanRepaymentScheduleInstallment installment = installment(BigDecimal.ZERO, interestDelta);
+        final LoanTransaction adjustment = LoanTransaction.repaymentType(LoanTransactionType.GOODWILL_CREDIT, office,
+                Money.of(CURRENCY, interestDelta), null, DUE_DATE, ExternalId.empty(), null);
+        adjustment.updateLoan(loan);
+        adjustment.markAsSourceExactAllocation(
+                new SourceExactRepaymentAllocation(BigDecimal.ZERO, interestDelta, BigDecimal.ZERO, BigDecimal.ZERO));
+
+        processor.processTransaction(adjustment, CURRENCY, List.of(installment), new HashSet<>(), null);
+
+        assertMoney("0.00", adjustment.getPrincipalPortion(CURRENCY));
+        assertMoney("4524.83", adjustment.getInterestPortion(CURRENCY));
+        assertMoney("0.00", adjustment.getFeeChargesPortion(CURRENCY));
+        assertMoney("0.00", adjustment.getPenaltyChargesPortion(CURRENCY));
+        assertMoney("4524.83", installment.getInterestPaid(CURRENCY));
     }
 
     @Test

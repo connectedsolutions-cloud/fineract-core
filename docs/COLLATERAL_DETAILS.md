@@ -14,16 +14,20 @@ m_collateral_management
             -> selected m_collateral_valuation + immutable value snapshot
 ```
 
-The schema is introduced by tenant migration `0341_add_collateral_details.xml`.
+The schema is introduced by tenant migration `0341_add_collateral_details.xml`;
+`0346_allow_collateral_valuation_without_date.xml` makes appraisal dates optional.
 
 ## Lifecycle rules
 
 - A client-collateral row has at most one asset-detail row.
 - An asset type is `VEHICLE`, `PROPERTY`, or `OTHER`. Vehicle and property subtype rows are mutually exclusive.
 - Appraisals are `DRAFT`, `FINAL`, or `SUPERSEDED`. Only drafts may be edited in place.
+- An appraisal requires a total value, but its appraisal date is optional. Zero
+  and negative historical values are accepted and preserved without blocking a loan.
 - A final appraisal is corrected by the `supersede` command, which creates a linked final reappraisal and preserves the prior record.
 - Loan collateral may select a final appraisal. Fineract stores `valuation_id`, `pledged_value`, `eligible_value`, and `valuation_date` on the pledge so later reappraisals cannot change a historical approval or disbursement decision.
 - A new loan pledge without `valuationId` continues to use collateral-product base price and eligibility percentage. When an older client updates an existing valued pledge without resending `valuationId`, Fineract preserves the stored snapshot and scales it only if quantity changes.
+- A pledge may cover only part of the loan principal; collateral value is not a minimum-loan-amount constraint.
 - Final appraisals and registration history do not have delete endpoints.
 
 Migration `0341` also creates the administrator-managed code groups `Collateral vehicle type`, `Collateral asset quality`, and `Collateral property type`. Vehicle/property requests that supply code-value IDs must use values from the corresponding group; the migration deliberately does not invent business labels.

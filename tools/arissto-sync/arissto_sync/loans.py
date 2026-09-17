@@ -271,10 +271,12 @@ class LoanContract:
             raise ValueError("Loans mapping has an unreviewed collateral subtype scope")
         if collateral_contract.get("child_history_policy") != "block-if-populated-until-chronology-reviewed":
             raise ValueError("Collateral child history must remain blocked until its chronology is reviewed")
-        if collateral_contract.get("missing_valuation_date_policy") != "quarantine-loan":
-            raise ValueError("Collateral without an appraisal date must quarantine its loan")
-        if collateral_contract.get("undercovered_loan_policy") != "quarantine-loan":
-            raise ValueError("Undercovered collateral must quarantine its loan")
+        if collateral_contract.get("missing_valuation_date_policy") not in {"allow", "quarantine-loan"}:
+            raise ValueError("Collateral missing-valuation-date policy must be reviewed")
+        if collateral_contract.get("non_positive_valuation_policy") not in {"allow", "quarantine-loan"}:
+            raise ValueError("Collateral non-positive-valuation policy must be reviewed")
+        if collateral_contract.get("undercovered_loan_policy") not in {"allow", "quarantine-loan"}:
+            raise ValueError("Collateral undercoverage policy must be reviewed")
         product_contract = value["product_contract"]
         if product_contract.get("target_baseline") != "empty-business-data":
             raise ValueError("Loans product planning must assume an empty business-data target")
@@ -442,6 +444,10 @@ class LoanContract:
             "expected_schedule_rows": 5,
         }
         expected_native_creation_overrides["805"] = {
+            "classification": "reviewed-early-payoff-future-interest-cutover",
+            "terminal_adjustment_maximum_source": "source-schedule-total",
+        }
+        expected_native_creation_overrides["1638"] = {
             "classification": "reviewed-early-payoff-future-interest-cutover",
             "terminal_adjustment_maximum_source": "source-schedule-total",
         }
@@ -2029,9 +2035,9 @@ def _collateral_runtime_contract(
             continue
         valuation_date = _optional_iso_date(row.get("FECHA_VALUO"), "collateral valuation")
         valuation_total = _amount(row.get("VALUO_TOTAL") or row.get("VALOR_ESTIMADO"))
-        if valuation_date is None:
+        if valuation_date is None and collateral_contract["missing_valuation_date_policy"] == "quarantine-loan":
             quarantines.append(f"collateral_valuation_date_missing:{source_id}")
-        if valuation_total <= 0:
+        if valuation_total <= 0 and collateral_contract["non_positive_valuation_policy"] == "quarantine-loan":
             quarantines.append(f"collateral_valuation_total_invalid:{source_id}")
         total_value += max(valuation_total, Decimal("0.00"))
         asset_external_id = collateral_contract["asset_external_id"].format(
@@ -2119,7 +2125,11 @@ def _collateral_runtime_contract(
         summaries.append(summary)
         runtime.append({**summary, "asset": asset_payload, "valuation": valuation_payload})
     principal = _amount(loan.get("MONTO_APROBADO"))
-    if summaries and total_value < principal:
+    if (
+        summaries
+        and total_value < principal
+        and collateral_contract["undercovered_loan_policy"] == "quarantine-loan"
+    ):
         quarantines.append(f"collateral_valuation_under_covers_principal:{format(total_value, 'f')}:{format(principal, 'f')}")
     return summaries, runtime, quarantines
 
@@ -2482,7 +2492,7 @@ def _build_loan_lifecycle_action(
                     ID_CREDITO=loan_id
                 ),
                 "date": payoff["date"],
-                "amount_policy": "exact_target_outstanding_after_source_events",
+                "amount_policy": "exact_target_component_delta_to_source_terminal_balances",
                 "maximum_amount": format(maximum_amount, "f"),
                 "classification": "explicit_migration_cutover_adjustment",
             }
@@ -3163,6 +3173,7 @@ def _build_loan_lifecycle_action(
         "terminal_adjustment": terminal_adjustment,
         "cutover_insurance_charge": cutover_insurance_charge,
         "recurring_insurance_charge": recurring_insurance_charge,
+        "migration_cutover_date": migration_cutover_date,
         "closed_stale_insurance_residue_policy": closed_stale_insurance_residue_policy,
         "expected": {
             "source_state": _clean(loan.get("source_state")),
@@ -3200,10 +3211,30 @@ def _proof_external_id(namespace: str, external_id: str) -> str:
     return value
 
 
+def _proof_namespace_collaterals(
+    collaterals: list[dict[str, Any]], namespace: str,
+) -> list[dict[str, Any]]:
+    result = json.loads(json.dumps(collaterals))
+    for collateral in result:
+        for field in ("asset_external_id", "valuation_external_id"):
+            if collateral.get(field):
+                collateral[field] = _proof_external_id(namespace, collateral[field])
+        asset = collateral.get("asset")
+        if asset and asset.get("externalId"):
+            asset["externalId"] = _proof_external_id(namespace, asset["externalId"])
+        valuation = collateral.get("valuation")
+        if valuation and valuation.get("externalId"):
+            valuation["externalId"] = _proof_external_id(namespace, valuation["externalId"])
+    return result
+
+
 def _proof_namespace_lifecycle(lifecycle: dict[str, Any], namespace: str) -> dict[str, Any]:
     result = json.loads(json.dumps(lifecycle))
     result["application_payload"]["externalId"] = _proof_external_id(
         namespace, result["application_payload"]["externalId"]
+    )
+    result["collaterals"] = _proof_namespace_collaterals(
+        result.get("collaterals") or [], namespace,
     )
     for event in result["events"]:
         for field, value in list(event.items()):
@@ -3498,6 +3529,7 @@ def compose_loan_plan(
 def build_loan_plan(
     settings: Settings, state: State, contract: LoanContract, source_keys: list[str] | None = None,
     proof_namespace: str | None = None, migration_cutover_date: str | None = None,
+    *, skip_unchanged: bool = False,
 ) -> tuple[str, dict[str, Any]]:
     if proof_namespace:
         if settings.target.name != "local":
@@ -3517,12 +3549,31 @@ def build_loan_plan(
         settings, contract, loans, source_products, target, blockers, source_keys, source_lifecycles,
         proof_namespace, migration_cutover_date,
     )
+    if skip_unchanged:
+        _mark_unchanged_mapped_loans(document, state, settings.target.fingerprint)
     document["schema_signature"] = inspections[0]["schema_signature"]
     document["target_schema_signature"] = inspections[0]["target_schema_signature"]
     plan_id = state.save_plan(
         settings.target.fingerprint, BLOCK, document["source_fingerprint"], contract.digest, document
     )
     return plan_id, document
+
+
+def _mark_unchanged_mapped_loans(
+    document: dict[str, Any], state: State, target_fingerprint: str,
+) -> None:
+    """Turn exact mapped loan matches into zero-write full-resync actions."""
+    for action in document["actions"]:
+        if action.get("entity_type") != "loan" or action.get("action") != "recover-loan":
+            continue
+        mapping = state.mapping(target_fingerprint, BLOCK, action["source_key"])
+        if (
+            mapping
+            and mapping["source_hash"] == action["source_hash"]
+            and str(mapping["target_id"]) == str(action.get("target_id"))
+        ):
+            action["action"] = "unchanged-loan"
+    document["counts"] = dict(Counter(action["action"] for action in document["actions"]))
 
 
 def _loan_apply_guard(
@@ -3615,6 +3666,9 @@ def _loan_apply_guard(
             _, runtime_collaterals, _ = _collateral_runtime_contract(
                 contract, current, source_lifecycles.get(int(action["entity_source_key"])) or {},
             )
+            proof_namespace = (document.get("scope") or {}).get("proof_namespace")
+            if proof_namespace:
+                runtime_collaterals = _proof_namespace_collaterals(runtime_collaterals, proof_namespace)
             action["_runtime_collaterals"] = runtime_collaterals
         else:
             raise RuntimeError(f"Unsupported loans plan action type: {action.get('entity_type')}")
@@ -4105,6 +4159,35 @@ def _loan_outstanding_allocation(loan: dict[str, Any]) -> dict[str, Decimal]:
     return allocation
 
 
+def _terminal_adjustment_allocation(
+    loan: dict[str, Any], expected: dict[str, Any],
+) -> dict[str, Decimal]:
+    target = _loan_outstanding_allocation(loan)
+    source_terminal = {
+        "principal": _amount(expected["principal_balance"]),
+        "interest": _amount(expected["interest_balance"]),
+        "fee": _amount(expected["fee_balance"]),
+        "penalty": _amount(expected["penalty_balance"]),
+    }
+    allocation = {
+        component: target[component] - source_terminal[component]
+        for component in target
+    }
+    target_below_source = {
+        component: format(amount, "f")
+        for component, amount in allocation.items()
+        if amount < Decimal("-0.01")
+    }
+    if target_below_source:
+        raise RuntimeError(
+            f"loan_cutover_target_components_below_source:{json.dumps(target_below_source, sort_keys=True)}"
+        )
+    return {
+        component: max(amount, Decimal("0.00"))
+        for component, amount in allocation.items()
+    }
+
+
 def _find_loan_transaction(
     api: FineractApi, loan: dict[str, Any], external_id: str,
 ) -> dict[str, Any] | None:
@@ -4546,6 +4629,34 @@ def _ensure_source_exact_active_schedule(
     return refreshed
 
 
+def _ensure_source_exact_accrual_catchup(
+    api: FineractApi, loan: dict[str, Any], action: dict[str, Any], attempt_key: str | None,
+) -> dict[str, Any]:
+    cutoff_date = action["lifecycle"].get("migration_cutover_date")
+    if not cutoff_date:
+        raise RuntimeError("loan_plan_predates_source_exact_accrual_catchup")
+    loan_id = int(loan["id"])
+    api.request(
+        "POST",
+        f"loans/{loan_id}",
+        {
+            "sourceSystem": SOURCE_SYSTEM,
+            "sourceLoanExternalId": action["external_id"],
+            "cutoffDate": cutoff_date,
+            "dateFormat": "yyyy-MM-dd",
+            "locale": "en",
+        },
+        query={"command": "sourceExactAccrualCatchup"},
+        idempotency_key=_attempt_idempotency_key(
+            f"{action['external_id']}:source-exact-accrual-catchup:{cutoff_date}", attempt_key,
+        ),
+    )
+    refreshed = _find_loan(api, action["external_id"])
+    if refreshed is None:
+        raise RuntimeError("loan_missing_after_source_exact_accrual_catchup")
+    return refreshed
+
+
 def _verify_transaction_amount(transaction: dict[str, Any], event: dict[str, Any]) -> None:
     if _amount(transaction.get("amount")) != _amount(event["amount"]):
         raise RuntimeError(
@@ -4784,8 +4895,6 @@ def _apply_loan_lifecycle(
     if existing is None:
         payload = {key: value for key, value in lifecycle["application_payload"].items() if value is not None}
         payload["productId"] = int(product_id)
-        if loan_collaterals:
-            payload["collateral"] = loan_collaterals
         refinance = lifecycle.get("refinance")
         predecessors = []
         if refinance:
@@ -4858,10 +4967,9 @@ def _apply_loan_lifecycle(
     loan_id = int(existing["id"])
     existing = _ensure_pending_native_creation_override(api, existing, action, attempt_key)
     _validate_existing_loan(existing, action, product_id)
-    if recovered:
-        existing = _ensure_existing_loan_collateral_attachments(
-            api, existing, loan_collaterals, action["external_id"], attempt_key,
-        )
+    existing = _ensure_existing_loan_collateral_attachments(
+        api, existing, loan_collaterals, action["external_id"], attempt_key,
+    )
     _validate_existing_loan_collaterals(existing, loan_collaterals)
     staff_assignment = lifecycle.get("staff_assignment")
     if staff_assignment is None:
@@ -5161,7 +5269,8 @@ def _apply_loan_lifecycle(
         if existing_adjustment is None and status in {600, 601, 602, 700}:
             existing_adjustment = _find_loan_transaction(api, loan, adjustment["external_id"])
         if existing_adjustment is None and status == 300:
-            amount = _amount((loan.get("summary") or {}).get("totalOutstanding"))
+            allocation = _terminal_adjustment_allocation(loan, lifecycle["expected"])
+            amount = sum(allocation.values(), Decimal("0.00"))
             maximum = _amount(adjustment["maximum_amount"])
             if amount > maximum:
                 raise RuntimeError(
@@ -5172,15 +5281,24 @@ def _apply_loan_lifecycle(
                 api.request(
                     "POST", f"loans/{loan_id}/transactions", {
                         "transactionDate": adjustment["date"], "transactionAmount": format(amount, "f"),
-                        "externalId": adjustment["external_id"], "dateFormat": "yyyy-MM-dd", "locale": "en",
+                        "externalId": adjustment["external_id"],
+                        "principalPortion": format(allocation["principal"], "f"),
+                        "interestPortion": format(allocation["interest"], "f"),
+                        "feeChargesPortion": format(allocation["fee"], "f"),
+                        "penaltyChargesPortion": format(allocation["penalty"], "f"),
+                        "dateFormat": "yyyy-MM-dd", "locale": "en",
                     }, query={"command": adjustment["command"]},
                     idempotency_key=_attempt_idempotency_key(adjustment["external_id"], attempt_key),
                 )
         loan = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
         status = int((loan.get("status") or {}).get("id") or -1)
-        outstanding = _amount((loan.get("summary") or {}).get("totalOutstanding"))
-        if status not in {600, 601, 602, 700} or outstanding > Decimal("0.01"):
-            raise RuntimeError(f"loan_cutover_adjustment_did_not_close:{status}:{outstanding}")
+        terminal_deltas = _terminal_adjustment_allocation(loan, lifecycle["expected"])
+        remaining = sum(terminal_deltas.values(), Decimal("0.00"))
+        if status not in {600, 601, 602, 700} or remaining > Decimal("0.01"):
+            raise RuntimeError(f"loan_cutover_adjustment_did_not_close:{status}:{remaining}")
+
+    if lifecycle.get("migration_cutover_date") and int((loan.get("status") or {}).get("id") or -1) == 300:
+        _ensure_source_exact_accrual_catchup(api, loan, action, attempt_key)
     return loan_id, recovered
 
 
@@ -5401,6 +5519,16 @@ def apply_loan_plan(
             ready: list[tuple[dict[str, Any], int]] = []
             progressed = False
             for key, action in list(pending.items()):
+                if action["action"] == "unchanged-loan":
+                    state.record_item(
+                        run_id, key, action["action"], action["source_hash"],
+                        "unchanged", action.get("target_id"),
+                    )
+                    counts["loans_unchanged"] += 1
+                    loan_outcomes[key] = True
+                    del pending[key]
+                    progressed = True
+                    continue
                 # A frozen quarantine action is itself the terminal disposition.
                 # It must not be converted into a dependency failure merely
                 # because another member of the same refinance component was
@@ -5617,7 +5745,7 @@ def reconcile_loans(
                 or _amount(target_collateral["quantity"]) != Decimal("1.00")
                 or _amount(target_collateral["pledged_value"]) != expected_value
                 or _amount(target_collateral["eligible_value"]) != expected_value
-                or _iso_date(target_collateral["valuation_date"], "loan collateral valuation")
+                or _optional_iso_date(target_collateral["valuation_date"], "loan collateral valuation")
                 != expected_collateral["valuation_date"]
             ):
                 mismatches.append({
@@ -5719,17 +5847,21 @@ def reconcile_loans(
             "totalUnpaidPayableDueInterest",
             "totalUnpaidPayableNotDueInterest",
         )
+        source_accrued_interest = _amount(expected["interest_balance"])
         missing_accrued_interest_fields = [
             field for field in accrued_interest_fields if field not in summary
         ]
-        if missing_accrued_interest_fields:
+        approved_without_accrual_projection = (
+            int(target_status.get("id") or -1) == 200
+            and source_accrued_interest == Decimal("0.00")
+        )
+        if missing_accrued_interest_fields and not approved_without_accrual_projection:
             mismatches.append({
                 "source_key": item["source_key"],
                 "kind": "target_accrued_interest_projection_missing",
                 "fields": missing_accrued_interest_fields,
             })
-        else:
-            source_accrued_interest = _amount(expected["interest_balance"])
+        elif not missing_accrued_interest_fields:
             target_accrued_interest = sum(
                 (_amount(summary.get(field)) for field in accrued_interest_fields),
                 Decimal("0.00"),
@@ -5803,10 +5935,14 @@ def reconcile_loans(
                         "movement": event["source_movement_id"],
                     })
                 continue
-            transaction = _find_reconciliation_transaction(api, loan, event)
             is_topup_disbursement = bool(
                 refinance and event["role"] == "disbursement"
                 and event["external_id"] == refinance["disbursement_external_id"]
+            )
+            transaction = (
+                _find_loan_transaction(api, loan, event["external_id"])
+                if is_topup_disbursement
+                else _find_reconciliation_transaction(api, loan, event)
             )
             if transaction is None and not is_topup_disbursement:
                 mismatches.append({
@@ -5917,12 +6053,50 @@ def reconcile_loans(
                         "amount": "0.00", "classification": terminal_adjustment["classification"],
                     })
             else:
+                adjustment_allocation = {
+                    "principal": _amount(adjustment_transaction.get("principalPortion")),
+                    "interest": _amount(adjustment_transaction.get("interestPortion")),
+                    "fee": _amount(adjustment_transaction.get("feeChargesPortion")),
+                    "penalty": _amount(adjustment_transaction.get("penaltyChargesPortion")),
+                }
+                adjustment_amount = _amount(adjustment_transaction.get("amount"))
+                if sum(adjustment_allocation.values(), Decimal("0.00")) != adjustment_amount:
+                    mismatches.append({
+                        "source_key": item["source_key"],
+                        "kind": "cutover_adjustment_component_total",
+                        "external_id": terminal_adjustment["external_id"],
+                        "amount": format(adjustment_amount, "f"),
+                        "allocation": {
+                            key: format(value, "f") for key, value in adjustment_allocation.items()
+                        },
+                    })
                 adjustments.append({
                     "source_key": item["source_key"], "applied": True,
                     "external_id": terminal_adjustment["external_id"],
-                    "amount": format(_amount(adjustment_transaction.get("amount")), "f"),
+                    "amount": format(adjustment_amount, "f"),
+                    "allocation": {
+                        key: format(value, "f") for key, value in adjustment_allocation.items()
+                    },
                     "classification": terminal_adjustment["classification"],
                 })
+
+            terminal_component_fields = {
+                "principal": ("principal_balance", "principalOutstanding"),
+                "interest": ("interest_balance", "interestOutstanding"),
+                "fee": ("fee_balance", "feeChargesOutstanding"),
+                "penalty": ("penalty_balance", "penaltyChargesOutstanding"),
+            }
+            for component, (source_field, target_field) in terminal_component_fields.items():
+                source_amount = _amount(expected[source_field])
+                target_amount = _amount(summary.get(target_field))
+                if abs(source_amount - target_amount) > Decimal("0.01"):
+                    mismatches.append({
+                        "source_key": item["source_key"],
+                        "kind": "terminal_component_balance",
+                        "component": component,
+                        "source": format(source_amount, "f"),
+                        "target": format(target_amount, "f"),
+                    })
 
         journals = api.request("GET", "journalentries", query={"loanId": int(loan["id"]), "limit": 10000})
         journal_rows = journals.get("pageItems") or journals.get("content") or []

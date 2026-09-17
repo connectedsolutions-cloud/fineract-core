@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "source": {
+    "accrual_table": "FNC_PROVISIONES",
+    "certificate_table": "AFI_CERTIFICADO"
+  },
+  "yield": {
+    "source_product_type": 4,
+    "source_share_type": 2,
+    "annual_rate": "7.00",
+    "accrual_start_date": "2024-11-12",
+    "day_count_convention": "ACTUAL_ACTUAL",
+    "rounding": "HALF_UP_2"
+  },
+  "target": {
+    "product_external_id": "arissto-share-preferred",
+    "expense_gl_code": "7110040100",
+    "payable_gl_code": "222099940101"
+  },
+  "expected": {
+    "minimum_accrual_rows": 24491,
+    "minimum_certificates": 42
+  },
+  "required_permissions": [
+    "CREATE_YIELDCONFIG_SHAREPRODUCT",
+    "SOURCEEXACTYIELDACCRUAL_SHAREACCOUNT",
+    "SETTLEYIELD_SHAREACCOUNT",
+    "USE_ARISSTO_OPERATIONAL_MIGRATION"
+  ]
+}

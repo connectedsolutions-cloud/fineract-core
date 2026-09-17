@@ -68,7 +68,6 @@ import org.apache.fineract.organisation.holiday.domain.Holiday;
 import org.apache.fineract.organisation.holiday.domain.HolidayRepository;
 import org.apache.fineract.organisation.holiday.domain.HolidayStatusType;
 import org.apache.fineract.organisation.holiday.service.HolidayUtil;
-import org.apache.fineract.organisation.monetary.domain.MoneyHelper;
 import org.apache.fineract.organisation.workingdays.domain.WorkingDays;
 import org.apache.fineract.organisation.workingdays.domain.WorkingDaysRepositoryWrapper;
 import org.apache.fineract.organisation.workingdays.service.WorkingDaysUtil;
@@ -83,11 +82,9 @@ import org.apache.fineract.portfolio.client.domain.ClientRepositoryWrapper;
 import org.apache.fineract.portfolio.client.exception.ClientNotActiveException;
 import org.apache.fineract.portfolio.collateralmanagement.domain.ClientCollateralManagement;
 import org.apache.fineract.portfolio.collateralmanagement.domain.ClientCollateralManagementRepositoryWrapper;
-import org.apache.fineract.portfolio.collateralmanagement.domain.CollateralManagementDomain;
 import org.apache.fineract.portfolio.collateralmanagement.domain.CollateralValuation;
 import org.apache.fineract.portfolio.collateralmanagement.exception.LoanCollateralManagementNotFoundException;
 import org.apache.fineract.portfolio.collateralmanagement.service.CollateralDetailService;
-import org.apache.fineract.portfolio.collateralmanagement.service.LoanCollateralAssembler;
 import org.apache.fineract.portfolio.common.domain.DaysInYearCustomStrategyType;
 import org.apache.fineract.portfolio.common.domain.DaysInYearType;
 import org.apache.fineract.portfolio.common.service.Validator;
@@ -109,7 +106,6 @@ import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.AdvancedPaymentScheduleTransactionProcessor;
 import org.apache.fineract.portfolio.loanaccount.exception.ExceedingTrancheCountException;
 import org.apache.fineract.portfolio.loanaccount.exception.InvalidAmountOfCollateralQuantity;
-import org.apache.fineract.portfolio.loanaccount.exception.InvalidAmountOfCollaterals;
 import org.apache.fineract.portfolio.loanaccount.exception.InvalidLoanStateTransitionException;
 import org.apache.fineract.portfolio.loanaccount.exception.LoanApplicationDateException;
 import org.apache.fineract.portfolio.loanaccount.exception.LoanApplicationNotInSubmittedAndPendingApprovalStateCannotBeModified;
@@ -204,7 +200,6 @@ public final class LoanApplicationValidator {
     private final FineractEntityRelationRepository fineractEntityRelationRepository;
     private final LoanRepositoryWrapper loanRepositoryWrapper;
     private final LoanProductReadPlatformService loanProductReadPlatformService;
-    private final LoanCollateralAssembler collateralAssembler;
     private final WorkingDaysRepositoryWrapper workingDaysRepository;
     private final HolidayRepository holidayRepository;
     private final SavingsAccountRepositoryWrapper savingsAccountRepository;
@@ -744,7 +739,6 @@ public final class LoanApplicationValidator {
 
             checkForProductMixRestrictions(element);
             validateDisbursementDetails(loanProduct, element);
-            validateCollateral(element);
             // validate if disbursement date is a holiday or a non-working day
             validateDisbursementDateIsOnNonWorkingDay(expectedDisbursementDate);
             Long officeId = resolveOfficeId(client, group);
@@ -845,36 +839,6 @@ public final class LoanApplicationValidator {
         if (!allowTransactionsOnHoliday && HolidayUtil.isHoliday(expectedDisbursementDate, holidays)) {
             final String errorMessage = "Expected disbursement date cannot be on a holiday";
             throw new LoanApplicationDateException("disbursement.date.on.holiday", errorMessage, expectedDisbursementDate);
-        }
-    }
-
-    private void validateCollateral(JsonElement element) {
-        final BigDecimal amount = this.fromApiJsonHelper
-                .extractBigDecimalWithLocaleNamed(LoanApiConstants.disbursementPrincipalParameterName, element);
-        final String loanTypeStr = this.fromApiJsonHelper.extractStringNamed(LoanApiConstants.loanTypeParameterName, element);
-        if (!StringUtils.isBlank(loanTypeStr)) {
-            final AccountType loanAccountType = AccountType.fromName(loanTypeStr);
-            if (loanAccountType.isIndividualAccount()) {
-                Set<LoanCollateralManagement> collateral = this.collateralAssembler.fromParsedJson(element);
-                if (!collateral.isEmpty()) {
-                    BigDecimal totalValue = BigDecimal.ZERO;
-                    for (LoanCollateralManagement collateralManagement : collateral) {
-                        if (collateralManagement.getEligibleValue() != null) {
-                            totalValue = totalValue.add(collateralManagement.getEligibleValue());
-                            continue;
-                        }
-                        final CollateralManagementDomain collateralManagementDomain = collateralManagement.getClientCollateralManagement()
-                                .getCollaterals();
-                        BigDecimal totalCollateral = collateralManagement.getQuantity().multiply(collateralManagementDomain.getBasePrice())
-                                .multiply(collateralManagementDomain.getPctToBase())
-                                .divide(BigDecimal.valueOf(100), MoneyHelper.getMathContext());
-                        totalValue = totalValue.add(totalCollateral);
-                    }
-                    if (amount.compareTo(totalValue) > 0) {
-                        throw new InvalidAmountOfCollaterals(totalValue);
-                    }
-                }
-            }
         }
     }
 
@@ -1270,7 +1234,6 @@ public final class LoanApplicationValidator {
                                             LoanApiConstants.quantityParameterName, LoanApiConstants.valuationIdParameterName));
                             final JsonArray array = topLevelJsonElement.get(LoanApiConstants.collateralParameterName).getAsJsonArray();
                             if (!array.isEmpty()) {
-                                BigDecimal totalAmount = BigDecimal.ZERO;
                                 for (int i = 1; i <= array.size(); i++) {
                                     final JsonObject collateralItemElement = array.get(i - 1).getAsJsonObject();
 
@@ -1313,14 +1276,7 @@ public final class LoanApplicationValidator {
                                                         "error.msg.loan.collateral.existing.pledge.mismatch",
                                                         "The existing loan collateral does not match the requested loan and client collateral");
                                             }
-                                            if (existing.getEligibleValue() != null && existing.getQuantity().signum() > 0) {
-                                                BigDecimal scaledEligibleValue = existing.getEligibleValue().multiply(quantity)
-                                                        .divide(existing.getQuantity(), MoneyHelper.getMathContext());
-                                                totalAmount = totalAmount.add(scaledEligibleValue);
-                                                continue;
-                                            }
                                         }
-                                        BigDecimal baseAmount = clientCollateral.getCollaterals().getBasePrice();
                                         if (valuationId != null) {
                                             CollateralValuation valuation = collateralDetailService
                                                     .requireFinalValuation(clientCollateralId, valuationId);
@@ -1329,16 +1285,8 @@ public final class LoanApplicationValidator {
                                                         "error.msg.loan.collateral.valuation.currency.mismatch",
                                                         "The collateral valuation currency must match the loan currency");
                                             }
-                                            baseAmount = valuation.getTotalValue();
                                         }
-                                        BigDecimal pctToBase = clientCollateral.getCollaterals().getPctToBase();
-                                        BigDecimal total = baseAmount.multiply(pctToBase).multiply(quantity)
-                                                .divide(BigDecimal.valueOf(100));
-                                        totalAmount = totalAmount.add(total);
                                     }
-                                }
-                                if (principal != null && principal.compareTo(totalAmount) > 0) {
-                                    throw new InvalidAmountOfCollaterals(totalAmount);
                                 }
                             }
                         } else {

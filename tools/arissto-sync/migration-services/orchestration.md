@@ -1,10 +1,11 @@
 # Composed sync workflow design
 
 This document is the canonical design for composing independently runnable
-Arissto-to-Fineract services into repeatable multi-block workflows. The CLI now
-implements manually started, local-only workflow planning, detached execution,
-status, failure history, and resume. It remains a one-shot local process rather
-than a hosted service, permanent worker, scheduler, or Fineract runtime component.
+Arissto-to-Fineract services into repeatable multi-block workflows. The CLI
+implements local fresh/clean, resumed, and checkpointed full re-sync workflows
+plus a fail-closed production full re-sync control plane. Production execution remains a one-shot process
+invoked by an external scheduler; it is not a permanent worker or Fineract
+runtime component.
 
 Clean local acceptance cycles must capture and restore the disposable tenant
 database as documented in
@@ -84,6 +85,16 @@ Financial workflow definitions select `activate-frozen-plan`. Before their
 first service step, the runner idempotently creates or updates a matching draft
 cutoff and activates it. A matching active cutoff is reused; a mismatched active
 or sealed cutoff stops the workflow before financial writes.
+
+The frozen date is the first date owned by native Fineract accounting. Loan
+migration accrual catch-up stops at the preceding date, and Fineract Loan COB
+owns the cutoff date and later. Arissto may calculate the cutoff date afterward
+for reconciliation, but that result is comparison-only and must never be
+imported as another accrual. For the full ownership rule, end-of-day example,
+source-freeze requirement, and difference-resolution policy, see
+[`ARISSTO_SYNC_RUN_MODES.md`](../../../../docs/ARISSTO_SYNC_RUN_MODES.md#accounting-ownership-at-cutover)
+and
+[`FINERACT_PRE_CUTOFF_NATIVE_ACCOUNTING_GUARD.md`](../../../../docs/FINERACT_PRE_CUTOFF_NATIVE_ACCOUNTING_GUARD.md#cutover-day-ownership-and-accrual-reconciliation).
 
 ## Workflow-scoped target prerequisites
 
@@ -331,6 +342,8 @@ The local CLI exposes:
 ./arissto-sync workflow cycle create --cycle CYCLE_ID --baseline-ref BASELINE_REF --target local
 ./arissto-sync workflow plan --workflow local-party-profile --cycle CYCLE_ID --target local
 ./arissto-sync workflow plan --workflow local-credit-collections --include-service loans --cycle CYCLE_ID --target local
+./arissto-sync workflow checkpoint bootstrap --workflow local-full-resync --service SERVICE --run ACCEPTED_CHILD_RUN_ID --cycle CYCLE_ID --target local
+./arissto-sync workflow plan --workflow local-full-resync --cycle CYCLE_ID --target local --run-mode full-resync
 ./arissto-sync workflow start --workflow-plan WORKFLOW_PLAN_ID --cycle CYCLE_ID --target local
 ./arissto-sync workflow status --workflow-run WORKFLOW_RUN_ID --cycle CYCLE_ID --target local
 ./arissto-sync workflow resume --workflow-run WORKFLOW_RUN_ID --cycle CYCLE_ID --target local
@@ -432,7 +445,7 @@ rows, or destination payloads.
 
 ## Daily automation requirements
 
-Before unattended production use, the workflow runner needs:
+The production control plane now provides:
 
 - a per-target workflow lock so two daily runs cannot overlap;
 - a fresh preflight and immutable target fingerprint for the complete run;
@@ -440,7 +453,13 @@ Before unattended production use, the workflow runner needs:
 - structured output suitable for monitoring and a non-zero failure exit code;
 - a reviewed production authorization mechanism that does not bypass the
   existing fingerprint confirmation;
-- a notification destination and retention policy for failures and summaries;
+- durable checkpoints advanced only after successful reconciliation;
+- retained plan/run/failure identities with compactable successful payloads; and
+- a container plus systemd one-shot/timer deployment under `deploy/`.
+
+Before enabling an unattended timer, operations still needs:
+
+- an approved notification destination for failed systemd units;
 - a documented source-consistency policy for changes made in Arissto while a
   multi-block run is in progress; and
 - bounded execution time and API/database load measurements.
@@ -451,11 +470,24 @@ new relationship whose client or employee was not present in an earlier stage;
 the next daily run should converge it. The runner must report this explicitly,
 not guess or create dependencies out of order.
 
-## Local implementation acceptance
+## Implementation acceptance
 
 The runner and persistence model are implemented and covered by unit tests for
 dependency ordering, forced reconciliation failure, independent sibling progress,
 causal failure links, dead-process detection, and safe resume without repeating a
-completed sibling. Operational acceptance still requires a controlled complete
-local pass and an unchanged second pass. Production orchestration, scheduling,
-and parallel root execution are outside the local scope.
+completed sibling. Local full re-sync reuses the open cycle's mappings and
+accepted child runs; it refuses missing checkpoints and turns exact mapped
+records, including loans, into no-write actions. Production checkpoint, target,
+authorization, and retention behavior is also unit-tested. Operational
+acceptance still requires a controlled production-like pass and an unchanged
+second pass before the timer is enabled.
+Production exposes two reviewed definitions. `prod-party-resync` retains the
+narrow party-domain option. `prod-full-resync` selects all 15 available services
+and applies the same checkpointed delta contracts as the local full re-sync,
+with production fingerprint confirmation and versioned-release enforcement.
+All checkpoints selected by a production plan must share one immutable
+accounting cutoff. Publishing the definition does not enable or promote the
+timer: operations must complete the production-like gates, bootstrap accepted
+production checkpoints, review the immutable plan, and explicitly select the
+full workflow in the deployment environment. Parallel root execution remains
+out of scope.

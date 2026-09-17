@@ -43,29 +43,38 @@ function renderLaunchSetup() {
   const hasActiveRun = (options.active_runs || []).length > 0;
   const suggested = options.suggested_cycle || {};
   const existingRequest = state.launch.request || {};
+  const runMode = state.launch.runMode || existingRequest.run_mode || "fresh-clean";
+  const fresh = runMode === "fresh-clean";
+  const workflows = options.workflows.filter((workflow) =>
+    (workflow.targets || []).includes("local") && (workflow.run_modes || []).includes(runMode));
+  const openCycles = (options.cycles || []).filter((cycle) => cycle.status === "open" && cycle.target_name === "local");
+  const defaultWorkflow = workflows.find((workflow) => workflow.default_for_mode) || workflows.find((workflow) => workflow.ready);
+  const cycleOptions = openCycles.map((cycle) => `<option value="${escapeHtml(cycle.id)}" ${cycle.id === existingRequest.cycle_id ? "selected" : ""}>${escapeHtml(cycle.id)} · ${escapeHtml(cycle.baseline_ref)}</option>`).join("");
   $("#launchContent").innerHTML = `
-    <div class="launch-step"><span>1</span><div><strong>Set up a fresh/clean run</strong><p>This mode requires a newly restored local Fineract baseline and a new sync cycle.</p></div></div>
+    <div class="launch-step"><span>1</span><div><strong>${fresh ? "Set up a fresh/clean run" : "Set up a full re-sync"}</strong><p>${fresh ? "This mode restores a baseline and creates a new sync cycle." : "This mode keeps the current sandbox and applies only new or changed source records after accepted checkpoints."}</p></div></div>
     <div class="launch-form">
-      <label><span>Workflow</span><select id="launchWorkflow">${options.workflows.map((workflow) => `<option value="${escapeHtml(workflow.id)}" ${workflow.ready ? "" : "disabled"} ${workflow.default && workflow.ready ? "selected" : ""}>${escapeHtml(workflow.id)}${workflow.ready ? "" : " — not ready"}</option>`).join("")}</select></label>
+      <label><span>Run mode</span><select id="launchRunMode"><option value="fresh-clean" ${fresh ? "selected" : ""}>Fresh/clean run</option><option value="full-resync" ${fresh ? "" : "selected"}>Full re-sync</option></select></label>
+      <label><span>Workflow</span><select id="launchWorkflow">${workflows.map((workflow) => `<option value="${escapeHtml(workflow.id)}" ${workflow.ready ? "" : "disabled"} ${workflow.id === defaultWorkflow?.id && workflow.ready ? "selected" : ""}>${escapeHtml(workflow.id)}${workflow.ready ? "" : " — not ready"}</option>`).join("")}</select></label>
       <p id="workflowDescription" class="field-help"></p>
       <fieldset class="service-fieldset"><legend>Include in this run</legend><p>Choose the outcomes you want. Required prerequisites are added automatically and cannot be removed while a dependent service is checked.</p><div id="servicePicker" class="service-picker"></div><div id="serviceSelectionSummary" class="selection-summary"></div></fieldset>
-      <label><span>Fresh/clean sync cycle</span><input id="launchCycle" value="${escapeHtml(existingRequest.cycle_id || suggested.id)}" ${state.launch.cycleCreated ? "disabled" : ""} /><small>Creates new tracking state after the target baseline is restored. Creating the cycle alone does not clean Fineract.</small></label>
-      <label><span>Baseline reference</span><input id="launchBaseline" value="${escapeHtml(existingRequest.baseline_ref || suggested.baseline_ref)}" ${state.launch.cycleCreated ? "disabled" : ""} /><small>Name the snapshot or restore point currently loaded in local Fineract.</small></label>
+      ${fresh ? `<label><span>Fresh/clean sync cycle</span><input id="launchCycle" value="${escapeHtml(existingRequest.cycle_id || suggested.id)}" ${state.launch.cycleCreated ? "disabled" : ""} /><small>Creates new tracking state after the target baseline is restored. Creating the cycle alone does not clean Fineract.</small></label>
+      <label><span>Baseline reference</span><input id="launchBaseline" value="${escapeHtml(existingRequest.baseline_ref || suggested.baseline_ref)}" ${state.launch.cycleCreated ? "disabled" : ""} /><small>Name the snapshot or restore point currently loaded in local Fineract.</small></label>` : `<label><span>Existing sync cycle</span><select id="launchCycle">${cycleOptions}</select><small>Re-sync reuses this cycle's mappings and accepted checkpoints. It does not reset Fineract.</small></label>`}
       <label><span>Accounting cutoff <em>optional</em></span><input id="launchCutoff" type="date" /><small>Leave blank to use the plan creation date in America/El_Salvador.</small></label>
       <label><span>Ledger source period <em>optional</em></span><input id="launchAccountingPeriod" value="${escapeHtml(existingRequest.accounting_period || "")}" placeholder="Leave blank for full ledger" /><small>When the planned ledger service is selected, blank runs the complete pre-cutoff ledger; enter a period only to narrow the test.</small></label>
-      <div class="reset-option">
+      ${fresh ? `<div class="reset-option">
         <label class="baseline-confirm"><input id="resetTarget" type="checkbox" ${existingRequest.reset_target ? "checked" : ""} ${state.launch.cycleCreated ? "disabled" : ""} /><span><strong>Restore the local Fineract baseline now</strong><small>Use this unless the whole disposable tenant was already restored immediately before this fresh/clean run.</small></span></label>
         <div id="resetFields" class="reset-fields ${existingRequest.reset_target ? "" : "hidden"}">
           <label><span>Disposable tenant</span><input id="resetTenant" value="${escapeHtml(existingRequest.reset_tenant || "sandbox")}" ${state.launch.cycleCreated ? "disabled" : ""} /></label>
           <label><span>Reset confirmation</span><input id="resetConfirmation" placeholder="sandbox:fineract_sandbox" value="${escapeHtml(existingRequest.reset_confirmation || "")}" autocomplete="off" ${state.launch.cycleCreated ? "disabled" : ""} /><small>Enter the exact TENANT:DATABASE value required by the reset tool.</small></label>
         </div>
       </div>
-      <label id="baselineConfirmRow" class="baseline-confirm"><input id="baselineConfirm" type="checkbox" ${state.launch.cycleCreated ? "checked disabled" : ""} /><span>${state.launch.cycleCreated ? "Fresh/clean cycle created for this verified baseline." : "I confirm the whole disposable Fineract tenant was restored immediately before this run and contains no earlier sync data."}</span></label>
+      <label id="baselineConfirmRow" class="baseline-confirm"><input id="baselineConfirm" type="checkbox" ${state.launch.cycleCreated ? "checked disabled" : ""} /><span>${state.launch.cycleCreated ? "Fresh/clean cycle created for this verified baseline." : "I confirm the whole disposable Fineract tenant was restored immediately before this run and contains no earlier sync data."}</span></label>` : `<div class="launch-safety"><strong>No reset or historical replay.</strong><span>Every selected service must already have an accepted checkpoint in this cycle. Unchanged source hashes become no-write actions.</span></div>`}
     </div>
-    ${hasActiveRun ? '<div class="warning-banner"><strong>A workflow is already active.</strong><span>Wait for it to finish before starting a fresh/clean cycle.</span></div>' : ""}
-    <div class="launch-safety"><strong>Review before launch.</strong><span>We create the cycle and prepare the local plan first. Approving that reviewed plan immediately launches the sync. Arissto remains read-only.</span></div>
+    ${!fresh && !openCycles.length ? '<div class="warning-banner"><strong>No open local cycle.</strong><span>Complete an initial fresh/clean migration before planning a full re-sync.</span></div>' : ""}
+    ${hasActiveRun ? `<div class="warning-banner"><strong>A workflow is already active.</strong><span>Wait for it to finish before starting this ${fresh ? "fresh/clean run" : "full re-sync"}.</span></div>` : ""}
+    <div class="launch-safety"><strong>Review before launch.</strong><span>${fresh ? "We create the cycle and prepare the local plan first." : "We preserve the current target and prepare a checkpointed delta plan."} Approving that reviewed plan immediately launches the sync. Arissto remains read-only.</span></div>
     <div id="launchError"></div>
-    <div class="dialog-actions"><button class="secondary-button" value="cancel">Cancel</button><button id="preparePlanButton" class="primary-button" type="button" disabled>${state.launch.cycleCreated ? "Prepare plan" : "Create cycle & prepare plan"}</button></div>`;
+    <div class="dialog-actions"><button class="secondary-button" value="cancel">Cancel</button><button id="preparePlanButton" class="primary-button" type="button" disabled>${fresh && !state.launch.cycleCreated ? "Create cycle & prepare plan" : "Prepare plan"}</button></div>`;
 
   const updateWorkflow = () => {
     const workflow = options.workflows.find((item) => item.id === $("#launchWorkflow").value);
@@ -77,6 +86,7 @@ function renderLaunchSetup() {
     renderServicePicker(workflow);
   };
   const updateResetChoice = () => {
+    if (!fresh) return;
     const resetting = $("#resetTarget").checked;
     $("#resetFields").classList.toggle("hidden", !resetting);
     $("#baselineConfirmRow").classList.toggle("hidden", resetting);
@@ -87,11 +97,22 @@ function renderLaunchSetup() {
     });
     updatePrepareAvailability();
   };
+  $("#launchRunMode").addEventListener("change", (event) => {
+    state.launch.runMode = event.target.value;
+    state.launch.requestedServices = new Set();
+    state.launch.workflowId = null;
+    state.launch.cycleCreated = false;
+    renderLaunchSetup();
+  });
   $("#launchWorkflow").addEventListener("change", updateWorkflow);
-  $("#baselineConfirm").addEventListener("change", updatePrepareAvailability);
-  $("#resetTarget").addEventListener("change", updateResetChoice);
-  $("#resetTenant").addEventListener("input", updatePrepareAvailability);
-  $("#resetConfirmation").addEventListener("input", updatePrepareAvailability);
+  if (fresh) {
+    $("#baselineConfirm").addEventListener("change", updatePrepareAvailability);
+    $("#resetTarget").addEventListener("change", updateResetChoice);
+    $("#resetTenant").addEventListener("input", updatePrepareAvailability);
+    $("#resetConfirmation").addEventListener("input", updatePrepareAvailability);
+  } else {
+    $("#launchCycle").addEventListener("change", updatePrepareAvailability);
+  }
   $("#launchAccountingPeriod").addEventListener("input", updatePrepareAvailability);
   updateWorkflow();
   updateResetChoice();
@@ -115,12 +136,13 @@ function dependencyClosure(workflow, requested) {
 function updatePrepareAvailability() {
   const workflow = state.launch.options.workflows.find((item) => item.id === $("#launchWorkflow")?.value);
   const included = dependencyClosure(workflow, state.launch.requestedServices || new Set());
-  const resetting = $("#resetTarget")?.checked;
+  const fresh = (state.launch.runMode || "fresh-clean") === "fresh-clean";
+  const resetting = fresh && $("#resetTarget")?.checked;
   const tenant = $("#resetTenant")?.value.trim() || "";
   const resetConfirmation = $("#resetConfirmation")?.value.trim() || "";
-  const confirmed = resetting
+  const confirmed = fresh ? (resetting
     ? tenant !== "default" && /^[A-Za-z][A-Za-z0-9_-]*$/.test(tenant) && resetConfirmation.startsWith(`${tenant}:`)
-    : $("#baselineConfirm")?.checked;
+    : $("#baselineConfirm")?.checked) : Boolean($("#launchCycle")?.value);
   const active = (state.launch.options.active_runs || []).length > 0;
   const ledgerPeriod = $("#launchAccountingPeriod")?.value.trim() || "";
   const ledgerPeriodReady = !ledgerPeriod || /^[0-9A-Za-z_-]{1,64}$/.test(ledgerPeriod);
@@ -156,7 +178,7 @@ async function openLaunchDialog() {
   dialog.showModal();
   $("#launchContent").innerHTML = '<div class="dialog-loading">Checking open cycles and workflows…</div>';
   try {
-    state.launch = { options: await api("/api/launch/options"), plan: null, cycleCreated: false };
+    state.launch = { options: await api("/api/launch/options"), plan: null, cycleCreated: false, runMode: "fresh-clean" };
     renderLaunchSetup();
   } catch (error) {
     $("#launchContent").innerHTML = `<div class="error-banner">${escapeHtml(error.message)}</div>`;
@@ -168,19 +190,20 @@ async function preparePlan() {
   button.disabled = true;
   button.textContent = "Preparing plan…";
   const request = {
+    run_mode: state.launch.runMode || "fresh-clean",
     workflow_id: $("#launchWorkflow").value,
     cycle_id: $("#launchCycle").value,
-    baseline_ref: $("#launchBaseline").value,
+    baseline_ref: $("#launchBaseline")?.value || "",
     cutoff_date: $("#launchCutoff").value,
     accounting_period: $("#launchAccountingPeriod").value.trim(),
     services: Array.from(state.launch.requestedServices),
-    reset_target: $("#resetTarget").checked,
-    reset_tenant: $("#resetTenant").value.trim(),
-    reset_confirmation: $("#resetConfirmation").value.trim(),
+    reset_target: $("#resetTarget")?.checked || false,
+    reset_tenant: $("#resetTenant")?.value.trim() || "",
+    reset_confirmation: $("#resetConfirmation")?.value.trim() || "",
   };
   try {
     state.launch.request = request;
-    if (!state.launch.cycleCreated) {
+    if (request.run_mode === "fresh-clean" && !state.launch.cycleCreated) {
       button.textContent = request.reset_target ? "Resetting Fineract…" : "Creating cycle…";
       await api("/api/sync-cycles", {
         method: "POST",
@@ -205,9 +228,9 @@ async function preparePlan() {
     state.launch.plan = plan;
     renderPlanReview();
   } catch (error) {
-    launchError(`${state.launch.cycleCreated ? "The fresh cycle was created, but the plan was not prepared. " : ""}${error.message}`);
+    launchError(`${request.run_mode === "fresh-clean" && state.launch.cycleCreated ? "The fresh cycle was created, but the plan was not prepared. " : ""}${error.message}`);
     button.disabled = false;
-    button.textContent = state.launch.cycleCreated ? "Retry plan" : "Create cycle & prepare plan";
+    button.textContent = request.run_mode === "fresh-clean" && !state.launch.cycleCreated ? "Create cycle & prepare plan" : "Retry plan";
   }
 }
 
@@ -218,10 +241,11 @@ function renderPlanReview() {
     <div class="launch-step"><span>2</span><div><strong>Review and launch</strong><p>The plan passed preflight and is saved. Approving it starts the detached workflow immediately against local Fineract.</p></div></div>
     <div class="plan-review">
       <div><span>Workflow</span><strong>${escapeHtml(plan.workflow_id)}</strong></div>
+      <div><span>Run mode</span><strong>${escapeHtml(plan.run_mode)}</strong></div>
       <div><span>Cycle</span><strong>${escapeHtml(state.launch.request.cycle_id)}</strong></div>
       <div><span>Cutoff</span><strong>${escapeHtml(plan.accounting_cutoff?.date || "—")}</strong></div>
       <div><span>Target</span><strong>Local only</strong></div>
-      <div><span>Baseline reset</span><strong>${state.launch.request.reset_target ? `Completed · ${escapeHtml(state.launch.request.reset_tenant)}` : "Already restored"}</strong></div>
+      <div><span>Target handling</span><strong>${plan.run_mode === "full-resync" ? "Preserved · checkpointed delta" : state.launch.request.reset_target ? `Baseline restored · ${escapeHtml(state.launch.request.reset_tenant)}` : "Baseline already restored"}</strong></div>
     </div>
     <div class="service-sequence"><span>Service sequence</span><div>${(plan.ordered_services || []).map((service, index) => `<span><b>${index + 1}</b>${escapeHtml(service)}</span>`).join("")}</div></div>
     <p class="selection-note">Requested: ${(plan.definition?.selection?.requested_services || plan.ordered_services || []).map(escapeHtml).join(", ")}. Prerequisites are frozen into this plan.</p>
@@ -251,7 +275,7 @@ async function startRun() {
     state.launch.result = result;
     $("#launchContent").innerHTML = `
       <div class="launch-success-mark">✓</div><div class="launch-success"><p class="eyebrow">Workflow queued</p><h3>${escapeHtml(state.launch.plan.workflow_id)}</h3><p>The detached local runner has started. Progress and failures will appear here as they are recorded.</p><code>${escapeHtml(result.workflow_run_id)}</code></div>
-      <div class="dialog-actions"><button class="secondary-button" value="cancel">Close</button><button id="viewNewRun" class="primary-button" type="button">View fresh/clean run</button></div>`;
+      <div class="dialog-actions"><button class="secondary-button" value="cancel">Close</button><button id="viewNewRun" class="primary-button" type="button">View sync run</button></div>`;
     $("#viewNewRun").addEventListener("click", async () => {
       await loadRuns(false);
       const run = state.runs.find((item) => item.id === result.workflow_run_id);

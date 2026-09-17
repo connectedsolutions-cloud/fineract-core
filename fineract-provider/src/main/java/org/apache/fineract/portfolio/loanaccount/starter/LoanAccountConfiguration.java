@@ -18,6 +18,7 @@
  */
 package org.apache.fineract.portfolio.loanaccount.starter;
 
+import org.apache.fineract.accounting.cutoff.AccountingCutoffMigrationValidationService;
 import org.apache.fineract.cob.service.LoanAccountLockService;
 import org.apache.fineract.infrastructure.accountnumberformat.domain.AccountNumberFormatRepositoryWrapper;
 import org.apache.fineract.infrastructure.codes.domain.CodeValueRepository;
@@ -460,6 +461,7 @@ public class LoanAccountConfiguration {
             LoanJournalEntryPoster journalEntryPoster, LoanAdjustmentService loanAdjustmentService, LoanMapper loanMapper,
             LoanTransactionProcessingService loanTransactionProcessingService, final LoanBalanceService loanBalanceService,
             LoanTransactionService loanTransactionService, LoanChargeService loanChargeService,
+            AccountingCutoffMigrationValidationService accountingCutoffMigrationValidationService,
             LoanOriginalApprovalSubmissionSnapshotHelper loanOriginalApprovalSubmissionSnapshotHelper) {
         return new LoanWritePlatformServiceJpaRepositoryImpl(context, loanTransactionValidator, loanUpdateCommandFromApiJsonDeserializer,
                 loanRepositoryWrapper, loanAccountDomainService, noteRepository, loanTransactionRepository,
@@ -475,7 +477,8 @@ public class LoanAccountConfiguration {
                 loanAccrualsProcessingService, loanOfficerValidator, loanDownPaymentTransactionValidator, loanDisbursementService,
                 loanScheduleService, loanChargeValidator, loanSimulationValidator, loanOfficerService, reprocessLoanTransactionsService,
                 loanAccountService, journalEntryPoster, loanAdjustmentService, loanMapper, loanTransactionProcessingService,
-                loanBalanceService, loanTransactionService, loanChargeService, loanOriginalApprovalSubmissionSnapshotHelper);
+                loanBalanceService, loanTransactionService, loanChargeService, accountingCutoffMigrationValidationService,
+                loanOriginalApprovalSubmissionSnapshotHelper);
     }
 
     @Bean

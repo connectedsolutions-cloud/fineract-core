@@ -21,9 +21,10 @@ class WorkflowSelectionTests(unittest.TestCase):
         report = inspect_workflow(definition)
 
         self.assertTrue(report["ready"])
-        self.assertEqual(len(report["ordered_services"]), 14)
+        self.assertEqual(len(report["ordered_services"]), 15)
         self.assertIn("membership-share-capital", report["ordered_services"])
         self.assertIn("native-share-capital", report["ordered_services"])
+        self.assertIn("savings-account-parties", report["ordered_services"])
         self.assertIn("aml-alerts", report["ordered_services"])
         self.assertEqual(report["ordered_services"][-1], "accounting-journal-entries")
 

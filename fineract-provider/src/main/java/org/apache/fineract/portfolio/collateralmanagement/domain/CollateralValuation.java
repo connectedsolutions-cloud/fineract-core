@@ -45,7 +45,7 @@ public class CollateralValuation extends AbstractPersistableCustom<Long> {
     private String externalId;
     @Column(name = "valuation_type", nullable = false, length = 20)
     private String valuationType;
-    @Column(name = "valuation_date", nullable = false)
+    @Column(name = "valuation_date")
     private LocalDate valuationDate;
     @Column(name = "currency_code", nullable = false, length = 3)
     private String currencyCode;

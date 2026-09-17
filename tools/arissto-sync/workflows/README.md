@@ -1,6 +1,6 @@
-# Local workflow orchestration
+# Workflow orchestration
 
-This directory owns the machine-readable definitions for local, dependency-driven
+This directory owns the machine-readable definitions for dependency-driven
 Arissto-to-Fineract sync workflows. See `migration-services/orchestration.md` for
 the operating and safety contract.
 
@@ -22,7 +22,11 @@ the Fineract API when the accounts already exist. It never seeds the chart of
 accounts, never replaces a conflicting mapping, verifies each result, and records
 the actions before any service step begins.
 
-Version 1 is deliberately local-only, sequential, full-block, and fail-closed.
+Version 1 is sequential, full-block, and fail-closed. Local definitions may
+support fresh/clean, resumed migration, or checkpointed `full-resync`. A
+production definition may support only `full-resync`. Every service selected
+by either local or production full re-sync must explicitly declare a reviewed
+full re-sync contract.
 By default, services whose registry status is not `available`, or whose dependencies
 were not selected, prevent a workflow plan from being created. A reviewed local
 acceptance workflow may use `unavailable_services: allow-executable` to exercise its
@@ -106,12 +110,28 @@ remain available across fresh/clean runs; only operational cycle state is remove
 
 ## Definitions
 
-- `local-full-sync`: every executable registry service in one dependency-complete
-  local workflow. The planned accounting journal service is enabled as the final
-  local acceptance step and remains visibly marked with a readiness warning.
+- `prod-party-resync`: production-only, checkpointed source-hash delta sync for
+  Clients, Employees, current client-staff assignments, PEP, and accepted family
+  references. It does not reset the target, perform deletes, or include financial
+  services. Each service requires an accepted production reconciliation
+  checkpoint before planning.
+- `prod-full-resync`: production-only, checkpointed delta sync for all 15
+  registry-available services in the same dependency order as
+  `local-full-resync`. It preserves the production target, freezes the accepted
+  accounting cutoff shared by every checkpoint, skips unchanged source hashes,
+  and requires exact fingerprint confirmation plus a versioned release. Its
+  existence does not enable the production timer; deployment promotion remains
+  a separate reviewed operation.
+
+- `local-full-sync`: all 15 available registry services in one dependency-complete
+  local workflow. Accounting journal entries run as the final local step.
   Dashboard runs default to the complete bounded pre-cutoff ledger; operators may
   supply a source period to narrow a test. This is the dashboard default for a
   fresh run.
+- `local-full-resync`: all 15 registry services in one checkpointed
+  local delta workflow. It requires the current open cycle and one accepted
+  reconciliation checkpoint per selected service, preserves the sandbox target,
+  skips unchanged source hashes, and does not infer deletions.
 - `local-party-profile`: clients, employees, current client-level promoter,
   account-executive and collections-manager assignments, PEP, and family
   references.
@@ -119,8 +139,8 @@ remain available across fresh/clean runs; only operational cycle state is remove
   and native shares.
 - `local-credit-collections`: clients, employees, client-level staff assignments,
   savings, loans (including the separate loan-level staff assignment), and Mobile
-  Collections. This is the reviewed local acceptance flow and permits executable
-  registry-blocked services to run; all runtime gates still apply.
+  Collections plus fiscal DTE history. All selected services are registry-available;
+  runtime inspection and reconciliation gates still apply.
 
 ## Failure identity and privacy
 

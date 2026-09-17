@@ -99,6 +99,7 @@
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanCollateralManagement</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanCreditAllocationRule</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanDisbursementDetails</class>
+        <class>org.apache.fineract.portfolio.loanaccount.domain.LoanFreezeHistory</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanInstallmentCharge</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanInterestRecalcualtionAdditionalDetails</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanInterestRecalculationDetails</class>

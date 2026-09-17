@@ -1,12 +1,15 @@
 import unittest
 from decimal import Decimal
 from pathlib import Path
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from arissto_sync.savings_account_parties import (
     SavingsAccountPartyContract,
+    apply_savings_account_party_plan,
     authorized_payload,
     beneficiary_payload,
+    build_savings_account_party_plan,
     collections,
     digest,
 )
@@ -87,6 +90,52 @@ class SavingsAccountPartyContractTests(unittest.TestCase):
     def test_migration_is_registered_in_tenant_changelog(self):
         self.assertTrue(MIGRATION.exists())
         self.assertIn(MIGRATION.name, TENANT_CHANGELOG.read_text(encoding="utf-8"))
+
+    def test_planner_fingerprints_the_source_config(self):
+        source = object()
+        settings = SimpleNamespace(source=source, target=SimpleNamespace(fingerprint="target-fingerprint"))
+        state = Mock()
+        state.save_plan.return_value = "plan-id"
+        inspection = {"ready": True, "schema_signature": "schema-signature", "blockers": []}
+
+        with (
+            patch("arissto_sync.savings_account_parties.inspect_savings_account_parties", return_value=inspection),
+            patch("arissto_sync.savings_account_parties.collections", return_value={}),
+            patch("arissto_sync.savings_account_parties._target_accounts", return_value={}),
+            patch("arissto_sync.savings_account_parties.source_fingerprint", return_value="source-fingerprint") as fingerprint,
+        ):
+            plan_id, document = build_savings_account_party_plan(settings, state, self.contract)
+
+        self.assertEqual(plan_id, "plan-id")
+        self.assertEqual(document["source_fingerprint"], "source-fingerprint")
+        fingerprint.assert_called_once_with(source)
+
+    def test_apply_staleness_check_fingerprints_the_source_config(self):
+        source = object()
+        target = SimpleNamespace(name="local", fingerprint="target-fingerprint")
+        settings = SimpleNamespace(source=source, target=target)
+        state = Mock()
+        state.plan.return_value = {
+            "block": "savings-account-parties",
+            "target_fingerprint": "target-fingerprint",
+            "source_fingerprint": "source-fingerprint",
+            "contract_hash": self.contract.contract_hash,
+            "document": {"schema_signature": "schema-signature", "actions": []},
+        }
+        state.start_run.return_value = "run-id"
+        inspection = {"ready": True, "schema_signature": "schema-signature"}
+
+        with (
+            patch("arissto_sync.savings_account_parties.source_fingerprint", return_value="source-fingerprint") as fingerprint,
+            patch("arissto_sync.savings_account_parties.inspect_savings_account_parties", return_value=inspection),
+            patch("arissto_sync.savings_account_parties.collections", return_value={}),
+            patch("arissto_sync.savings_account_parties.FineractApi"),
+        ):
+            run_id, counts = apply_savings_account_party_plan(settings, state, self.contract, "plan-id")
+
+        self.assertEqual((run_id, counts), ("run-id", {}))
+        fingerprint.assert_called_once_with(source)
+        state.finish_run.assert_called_once_with("run-id", "completed", {})
 
 
 if __name__ == "__main__":

@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "id": "prod-full-resync",
+  "description": "Checkpointed production re-sync for all 15 services using reviewed source-hash delta contracts without resetting Fineract or replaying unchanged history.",
+  "targets": ["prod"],
+  "run_modes": ["full-resync"],
+  "services": [
+    "clients",
+    "employees",
+    "client-staff-assignments",
+    "client-pep",
+    "client-family-references",
+    "client-personal-family-references",
+    "membership-share-capital",
+    "savings-deposits",
+    "savings-account-parties",
+    "native-share-capital",
+    "aml-alerts",
+    "loans",
+    "dte-history",
+    "mobile-collections",
+    "accounting-journal-entries"
+  ],
+  "ordering": "registry-topological",
+  "scope": {"mode": "full-block"},
+  "stop_policy": "dependency-gated",
+  "retry_policy": "resume-failed-step",
+  "accounting_cutoff_policy": "snapshot-only",
+  "target_prerequisites": {
+    "financial_activity_mappings": [
+      {
+        "required_by_services": ["loans"],
+        "financial_activity_id": 100,
+        "gl_code": "1510",
+        "gl_classification": 1,
+        "gl_usage": 1
+      },
+      {
+        "required_by_services": ["savings-deposits"],
+        "financial_activity_id": 200,
+        "gl_code": "2130050101",
+        "gl_classification": 2,
+        "gl_usage": 1
+      }
+    ]
+  },
+  "unavailable_services": "reject"
+}

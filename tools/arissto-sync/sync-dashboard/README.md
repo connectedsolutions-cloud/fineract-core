@@ -23,9 +23,9 @@ that recur unchanged are marked persistent rather than automatically declared
 structural. Service attempt numbers are workflow executions created by resume or
 automatic recovery; they do not imply that every entity was blindly retried.
 
-## Planning a fresh/clean run
+## Planning a fresh/clean run or full re-sync
 
-The dashboard currently supports the **Fresh/clean run** mode. It creates a
+The dashboard supports **Fresh/clean run** and local **Full re-sync** modes. A fresh run creates a
 fresh cycle after the whole disposable tenant has been restored from its
 captured baseline. The operator names the
 restored baseline and either confirms that local Fineract was already restored,
@@ -35,9 +35,12 @@ Fineract, invokes the whole-tenant baseline restore, restarts Fineract, verifies
 readiness, and only then creates the cycle. Without that option, cycle creation
 only records tracking state and does not reset Fineract.
 
-Do not use this flow for a **Full re-sync** or **Resumed sync**. Those modes keep
-the existing target and require different checkpoint and continuation rules;
-their contract is documented in
+Full re-sync selects an existing open cycle and never restores or resets the
+tenant. Every selected service must have an accepted checkpoint in that cycle;
+the saved plan freezes those checkpoints and applies only new or changed source
+hashes. Missing checkpoints, undeclared contracts, and unsupported drift fail
+closed. Resumed sync remains a CLI recovery operation for an incomplete run.
+The mode contracts are documented in
 [`ARISSTO_SYNC_RUN_MODES.md`](../../../../docs/ARISSTO_SYNC_RUN_MODES.md).
 Next, select the desired services and prepare the immutable plan. Approving the
 reviewed plan immediately launches the sync. Required dependencies are selected

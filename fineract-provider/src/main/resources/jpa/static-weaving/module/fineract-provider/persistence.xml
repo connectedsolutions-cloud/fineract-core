@@ -196,6 +196,7 @@
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanCollateralManagement</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanCreditAllocationRule</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanDisbursementDetails</class>
+        <class>org.apache.fineract.portfolio.loanaccount.domain.LoanFreezeHistory</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanInstallmentCharge</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanInterestRecalcualtionAdditionalDetails</class>
         <class>org.apache.fineract.portfolio.loanaccount.domain.LoanInterestRecalculationDetails</class>
@@ -358,6 +359,9 @@
         <class>org.apache.fineract.portfolio.shareaccounts.domain.ShareAccountChargePaidBy</class>
         <class>org.apache.fineract.portfolio.shareaccounts.domain.ShareAccountDividendDetails</class>
         <class>org.apache.fineract.portfolio.shareaccounts.domain.ShareAccountTransaction</class>
+        <class>org.apache.fineract.portfolio.shareaccounts.domain.ShareProductYieldConfiguration</class>
+        <class>org.apache.fineract.portfolio.shareaccounts.domain.ShareAccountYieldAccrual</class>
+        <class>org.apache.fineract.portfolio.shareaccounts.domain.ShareAccountYieldSettlement</class>
 
         <!-- Report Mailing Job -->
         <class>org.apache.fineract.infrastructure.reportmailingjob.domain.ReportMailingJob</class>

@@ -112,6 +112,10 @@ public final class SharesEnumerations {
                 data = new EnumOptionData(PurchasedSharesStatusType.CHARGE_PAYMENT.getValue().longValue(),
                         PurchasedSharesStatusType.CHARGE_PAYMENT.getCode(), "Charge Payment");
             break;
+            case YIELD_ACCRUAL:
+                data = new EnumOptionData(PurchasedSharesStatusType.YIELD_ACCRUAL.getValue().longValue(),
+                        PurchasedSharesStatusType.YIELD_ACCRUAL.getCode(), "Yield Accrual");
+            break;
 
         }
         return data;

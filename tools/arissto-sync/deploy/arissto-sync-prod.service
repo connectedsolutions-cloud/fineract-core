@@ -1,0 +1,18 @@
+[Unit]
+Description=Arissto to Fineract production full re-sync
+Documentation=file:/opt/arissto-sync/README.md
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+Environment=ARISSTO_SYNC_PROD_WORKFLOW=prod-party-resync
+EnvironmentFile=/etc/arissto-sync/service.env
+ExecStartPre=/usr/bin/docker image inspect ${ARISSTO_SYNC_IMAGE}
+ExecStart=/usr/bin/docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m --security-opt no-new-privileges --env-file /etc/arissto-sync/prod.env --mount type=bind,src=/var/lib/arissto-sync,dst=/var/lib/arissto-sync ${ARISSTO_SYNC_IMAGE} workflow run --workflow ${ARISSTO_SYNC_PROD_WORKFLOW} --target prod --run-mode full-resync --confirm-production ${ARISSTO_SYNC_PROD_CONFIRMATION}
+TimeoutStartSec=4h
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

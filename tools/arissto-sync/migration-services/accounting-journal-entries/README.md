@@ -2,8 +2,8 @@
 
 ## Status
 
-- Registry status: `planned`
-- Executable: `true` for reviewed local acceptance workflows
+- Registry status: `available`
+- Executable: `true`
 - Category: `accounting`
 - CLI block: `accounting` (`inspect`, explicit-key `plan`, `apply`, `retry`, `reconcile`, and `status`)
 - Source identity: `(ID_EMPRESA, ID_SUCURSAL, ID_PERIODO, ID_PARTIDA)`
@@ -17,11 +17,11 @@
 
 G3-G10 are complete. Source-backed journal, quarantine, retry, drift, dimension,
 and cutoff-date canaries have passed and are recorded in
-[`g10-canary-results.md`](g10-canary-results.md). The registry remains `planned`
-until the two Gate 11 clean cycles reproduce the accepted evidence. For those
-local sandbox runs, the dashboard exposes the service with a readiness warning
-and defaults to the complete bounded pre-cutoff ledger; an explicit source period
-can narrow a test when needed.
+[`g10-canary-results.md`](g10-canary-results.md). The service is available for
+reviewed local workflows. Gate 11 clean-cycle reproduction and Gate 12 remain
+production-promotion requirements. The dashboard defaults to the complete
+bounded pre-cutoff ledger; an explicit source period can narrow a test when
+needed.
 
 Create a read-only explicit-key plan with:
 
@@ -51,6 +51,14 @@ preserves provenance, and reconciles the resulting GL. Other migration services
 create the complete retained historical operational state with native Fineract
 GL suppressed. Native Fineract workflows become the sole accounting owner on
 the cutoff date.
+
+## Full re-sync
+
+Accounting full re-sync preserves the original accepted cutoff. New eligible
+pre-cutoff journals are imported atomically, exact source hashes are unchanged
+and produce no write, and changed hashes for an already imported immutable
+journal quarantine as drift. Source absence never deletes native journal rows.
+The checkpoint advances only after direct-journal reconciliation succeeds.
 
 ## Business scope
 

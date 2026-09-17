@@ -32,10 +32,10 @@ model. `m_invoice` retains only the irreducible import origin, immutable source
 hash, and raw lifecycle flags; `m_invoice_summary.total_iva` holds ordinary IVA
 as a first-class fiscal value.
 
-The service is registered as `blocked` but executable so it can participate in
-reviewed local workflows while Loans remains gated. Promote it to `available`
-only after confirming `target.ambiente`, applying Liquibase migration 0335, and
-completing a full local apply, exact reconciliation, and unchanged replay.
+The service is registered as `available`. Runtime inspection still requires a
+configured `target.ambiente`, Liquibase migration 0335, and reconciled Clients
+and Loans dependencies; those are fail-closed execution prerequisites rather
+than registry-status blockers.
 
 ```bash
 ./arissto-sync inspect --block dte-history --target local
@@ -60,3 +60,11 @@ defaults are `ARISSTO_SYNC_DTE_WORKERS` and `ARISSTO_SYNC_DTE_BATCH_SIZE`.
 Source evidence is owned by the exploration note
 `credesal-db-space/docs/learnings/fiscal-dte.md`; the executable mapping and
 safety boundary are defined in [contract.md](contract.md).
+
+## Full re-sync
+
+DTE history is append-only. A new generation code is imported, an exact source
+hash is unchanged and produces no write, and a changed hash for an existing
+immutable invoice is a conflict that fails closed. Source absence never deletes
+an invoice or its children. The checkpoint advances only after exact
+reconciliation.

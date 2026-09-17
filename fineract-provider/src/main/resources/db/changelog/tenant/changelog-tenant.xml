@@ -363,5 +363,10 @@
     <include file="parts/0341_add_collateral_details.xml" relativeToChangelogFile="true" />
     <include file="parts/0342_add_family_member_type_flag.xml" relativeToChangelogFile="true" />
     <include file="parts/0343_add_savings_account_parties.xml" relativeToChangelogFile="true" />
+    <include file="parts/0344_add_loan_freeze_control.xml" relativeToChangelogFile="true" />
     <include file="parts/0345_add_source_exact_collateral_attach_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0346_allow_collateral_valuation_without_date.xml" relativeToChangelogFile="true" />
+    <include file="parts/0347_repair_loan_cob_business_step_order.xml" relativeToChangelogFile="true" />
+    <include file="parts/0348_add_source_exact_accrual_catchup_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0349_add_native_share_yield.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

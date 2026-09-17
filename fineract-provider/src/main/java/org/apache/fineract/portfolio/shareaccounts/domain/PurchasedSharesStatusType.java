@@ -26,7 +26,8 @@ public enum PurchasedSharesStatusType {
     REJECTED(400, "purchasedSharesStatusType.rejected"), //
     PURCHASED(500, "purchasedSharesType.purchased"), //
     REDEEMED(600, "purchasedSharesType.redeemed"), //
-    CHARGE_PAYMENT(700, "charge.payment"); //
+    CHARGE_PAYMENT(700, "charge.payment"), //
+    YIELD_ACCRUAL(800, "shareYield.accrual"); //
 
     private final Integer value;
     private final String code;
@@ -58,6 +59,9 @@ public enum PurchasedSharesStatusType {
             case 700:
                 enumeration = PurchasedSharesStatusType.CHARGE_PAYMENT;
             break;
+            case 800:
+                enumeration = PurchasedSharesStatusType.YIELD_ACCRUAL;
+            break;
         }
         return enumeration;
     }
@@ -84,5 +88,13 @@ public enum PurchasedSharesStatusType {
 
     public boolean isChargePayment() {
         return this.value.equals(PurchasedSharesStatusType.CHARGE_PAYMENT.getValue());
+    }
+
+    public boolean isRedeemed() {
+        return this.value.equals(PurchasedSharesStatusType.REDEEMED.getValue());
+    }
+
+    public boolean isYieldAccrual() {
+        return this.value.equals(PurchasedSharesStatusType.YIELD_ACCRUAL.getValue());
     }
 }

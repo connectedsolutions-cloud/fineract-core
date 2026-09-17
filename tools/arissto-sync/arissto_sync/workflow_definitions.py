@@ -26,6 +26,8 @@ class WorkflowDefinition:
     retry_policy: str
     unavailable_services: str
     accounting_cutoff_policy: str
+    targets: tuple[str, ...]
+    run_modes: tuple[str, ...]
     document: dict[str, Any]
     definition_hash: str
 
@@ -55,6 +57,23 @@ def load_workflow(identifier: str, root: Path = WORKFLOWS_PATH) -> WorkflowDefin
         raise ValueError("Workflow services must be a non-empty list of service IDs")
     if len(services) != len(set(services)):
         raise ValueError("Workflow services must be unique")
+    targets = value.get("targets", ["local"])
+    if (
+        not isinstance(targets, list) or not targets
+        or not all(target in {"local", "prod"} for target in targets)
+        or len(targets) != len(set(targets))
+    ):
+        raise ValueError("Workflow targets must contain unique local/prod values")
+    run_modes = value.get("run_modes", ["fresh-clean", "resumed"])
+    allowed_run_modes = {"fresh-clean", "full-resync", "resumed"}
+    if (
+        not isinstance(run_modes, list) or not run_modes
+        or not all(mode in allowed_run_modes for mode in run_modes)
+        or len(run_modes) != len(set(run_modes))
+    ):
+        raise ValueError("Workflow run_modes contain an unsupported or duplicate value")
+    if "prod" in targets and set(run_modes) != {"full-resync"}:
+        raise ValueError("Production workflows must support only full-resync")
     scope_mode = value.get("scope", {}).get("mode")
     if scope_mode != "full-block":
         raise ValueError("Local workflow version 1 supports only full-block scope")
@@ -112,17 +131,26 @@ def load_workflow(identifier: str, root: Path = WORKFLOWS_PATH) -> WorkflowDefin
         retry_policy=value["retry_policy"],
         unavailable_services=value["unavailable_services"],
         accounting_cutoff_policy=value.get("accounting_cutoff_policy", "snapshot-only"),
+        targets=tuple(targets),
+        run_modes=tuple(run_modes),
         document=value,
         definition_hash=_canonical_hash(value),
     )
 
 
-def inspect_workflow(definition: WorkflowDefinition, registry: dict[str, Any] | None = None) -> dict[str, Any]:
+def inspect_workflow(
+    definition: WorkflowDefinition, registry: dict[str, Any] | None = None,
+    target: str | None = None, run_mode: str | None = None,
+) -> dict[str, Any]:
     registry = registry or load_registry()
     catalog = {service["id"]: service for service in registry["services"]}
     selected = set(definition.services)
     blockers: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
+    if target is not None and target not in definition.targets:
+        blockers.append({"service_id": None, "code": "target-not-supported", "target": target})
+    if run_mode is not None and run_mode not in definition.run_modes:
+        blockers.append({"service_id": None, "code": "run-mode-not-supported", "run_mode": run_mode})
     for service_id in definition.services:
         service = catalog.get(service_id)
         if service is None:
@@ -136,6 +164,14 @@ def inspect_workflow(definition: WorkflowDefinition, registry: dict[str, Any] | 
                 warnings.append({**issue, "allowed_by": "allow-executable"})
             else:
                 blockers.append(issue)
+        if run_mode == "full-resync":
+            capability = service.get("full_resync", {})
+            if capability.get("status") != "supported":
+                blockers.append({
+                    "service_id": service_id,
+                    "code": "full-resync-unsupported",
+                    "status": capability.get("status", "undeclared"),
+                })
         missing = [dependency for dependency in service.get("depends_on", []) if dependency not in selected]
         if missing:
             blockers.append({
@@ -166,11 +202,15 @@ def inspect_workflow(definition: WorkflowDefinition, registry: dict[str, Any] | 
         "ready": not blockers,
         "blockers": blockers,
         "warnings": warnings,
+        "targets": list(definition.targets),
+        "run_modes": list(definition.run_modes),
     }
 
 
-def require_workflow_ready(definition: WorkflowDefinition) -> dict[str, Any]:
-    report = inspect_workflow(definition)
+def require_workflow_ready(
+    definition: WorkflowDefinition, target: str | None = None, run_mode: str | None = None,
+) -> dict[str, Any]:
+    report = inspect_workflow(definition, target=target, run_mode=run_mode)
     if not report["ready"]:
         codes = ", ".join(
             f"{item.get('service_id') or 'workflow'}:{item['code']}" for item in report["blockers"]
@@ -229,6 +269,8 @@ def select_workflow_services(
         retry_policy=definition.retry_policy,
         unavailable_services=definition.unavailable_services,
         accounting_cutoff_policy=definition.accounting_cutoff_policy,
+        targets=definition.targets,
+        run_modes=definition.run_modes,
         document=document,
         definition_hash=_canonical_hash(document),
     )
@@ -246,5 +288,7 @@ def list_workflows(root: Path = WORKFLOWS_PATH) -> dict[str, Any]:
             "ordered_services": report["ordered_services"],
             "blockers": report["blockers"],
             "warnings": report["warnings"],
+            "targets": list(definition.targets),
+            "run_modes": list(definition.run_modes),
         })
-    return {"version": 1, "target": "local", "workflows": workflows}
+    return {"version": 1, "workflows": workflows}

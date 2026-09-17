@@ -1,9 +1,10 @@
-# Arissto → Fineract local sync
+# Arissto → Fineract sync
 
-Local, manually started, one-way migration tooling. It is not a web application,
-hosted service, scheduler, or Fineract runtime component. Dependency-driven local
-workflows can run in a detached one-shot process and persist their progress in the
-same local SQLite state store.
+One-way migration and synchronization tooling. Local fresh/clean, resumed, and
+checkpointed full re-sync workflows can run in a detached process. Reviewed
+production full re-sync workflows run as synchronous one-shot jobs suitable for
+an external scheduler.
+The tool is not a Fineract runtime component and never writes to Arissto.
 
 For the verified client mapping, operator workflow, expected output, and current
 limitations, see the
@@ -114,7 +115,51 @@ The definitive cross-project contract is
 ambiguous terms **new run**, **full sync**, and **rerun** without naming one of
 these modes.
 
-The commands below describe the currently implemented fresh/clean workflow.
+Local full re-sync is defined by `local-full-resync`. It preserves the current
+sandbox target, reuses the open cycle's mappings, scans source hashes, and
+applies only new or changed records across all 15 registry-available services.
+Every selected service requires an accepted reconciliation checkpoint in that
+cycle. Source absence never authorizes deletion, and unsupported target drift
+fails closed.
+
+Production has two explicitly guarded full re-sync definitions. The narrower
+`prod-party-resync` remains available for Clients, Employees, current
+client-staff assignments, PEP, and accepted family references.
+`prod-full-resync` exposes the same dependency-complete 15-service delta graph
+used by local full re-sync. Both require a versioned release, the exact
+production fingerprint, and one accepted production reconciliation checkpoint
+per selected service. The production deployment stays on the smaller workflow
+until the full graph passes the production-like acceptance gates in
+[`deploy/README.md`](deploy/README.md).
+
+Bootstrap a local checkpoint from a successful child run in the current open
+cycle, then plan and start the delta workflow without resetting Fineract:
+
+```bash
+./arissto-sync workflow checkpoint bootstrap \
+  --workflow local-full-resync \
+  --service clients \
+  --run ACCEPTED_CHILD_RUN_ID \
+  --cycle CURRENT_CYCLE \
+  --target local
+
+./arissto-sync workflow plan \
+  --workflow local-full-resync \
+  --cycle CURRENT_CYCLE \
+  --target local \
+  --run-mode full-resync
+
+./arissto-sync workflow start \
+  --workflow-plan WORKFLOW_PLAN_ID \
+  --cycle CURRENT_CYCLE \
+  --target local
+```
+
+Repeat checkpoint bootstrap for every selected service. A service without a
+successful initial reconciliation is not eligible for full re-sync; complete
+its initial migration in the same target lifetime first.
+
+The commands below describe the fresh/clean workflow.
 Create an immutable local workflow plan after target preflight, then start it in
 a detached process:
 
@@ -245,18 +290,15 @@ IDs, and implementation decisions and is never a retention target. Before cycle
 replacement, legacy tracker rows found in surviving cycle or shared state
 databases are copied there idempotently.
 
-Production is handled separately inside the shared legacy state database. It
-retains durable operational mappings and links, plus only the single latest run
-globally and that run's plan and items. All older and unexecuted production plans,
-run history, items, and inspections are removed except for the newest inspection.
-The policy runs automatically after every production apply, leaving the completed
-or failed run available for reconciliation and retry until the next run. Use
-`--scope prod` to apply only that policy manually. Production
-fingerprints are discovered from recorded inspections; `--prod-fingerprint` can
-be repeated when an older fingerprint lacks inspection history.
+Production uses the shared state database. Retention preserves production plan,
+run, checkpoint, reconciliation, and failure identities so runs remain comparable
+per plan. It may compact successful historical plan payloads and superseded
+successful item rows; mappings, links, failed/quarantined items, and workflow
+summaries remain durable. Use `--scope prod` to preview or apply that policy.
 
-Workflow orchestration accepts only `--target local`. Individual block commands
-retain their existing explicit local/production behavior. A per-target file lock
+Workflow orchestration accepts local fresh/clean, resumed, and checkpointed
+full re-sync plans plus reviewed production full re-sync plans. Individual
+block commands retain their existing explicit local/production behavior. A per-target file lock
 prevents overlapping workflow writers, and a missing runner process converts a
 queued/running workflow into `interrupted` when status is inspected. Resume keeps
 completed steps and creates a new attempt only for failed, blocked, or interrupted
@@ -336,8 +378,9 @@ the parent clients exist or through the guarded `--with-pep` chain.
 The `employees` block implements the reviewed `PERSONAS_EMPRESA` to Fineract
 staff-profile contract. It writes core contact data and the complete legacy HR
 profile to `credesal_staff_profile`, while excluding application-user creation,
-credentials, permissions, and client/loan assignments. It remains registry-blocked until a controlled local
-API create/update/reconcile run succeeds. See
+credentials, permissions, and client/loan assignments. It is registered as
+`available` after its controlled local API create/update/reconcile acceptance.
+See
 [`migration-services/employees/README.md`](migration-services/employees/README.md).
 
 The canonical client key is the exact `AFI_SOCIO.NUMERO_AFILIACION`, stored

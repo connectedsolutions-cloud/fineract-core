@@ -117,6 +117,12 @@ preserve historical occupants of that slot.
 All migrated fields are legacy-owned. Target-generated database IDs remain
 new-system-owned and must never be copied between environments.
 
+After an accepted production reconciliation checkpoint exists,
+`prod-party-resync` may re-scan the complete accepted reference scope and apply
+only source-hash create/update deltas. A changed current reference slot updates
+its durable target identity; source absence never authorizes deletion. The
+checkpoint advances only after exact reconciliation.
+
 ## Implemented Fineract changes
 
 Implement these beside the versioned Fineract Liquibase migrations and API

@@ -97,6 +97,7 @@ Reconciliation requires the same source hash, legal identities, terminal
 status, exact loan transaction, exact client, and exact line count. Quarantines
 are reported but nonblocking; failed or mismatched records fail reconciliation.
 
-Registry status remains `blocked` until a controlled full local run reconciles,
-an unchanged replay succeeds, and the `01` environment configuration is
-explicitly confirmed for the historical population.
+Registry status is `available`. Controlled reconciliation, unchanged replay,
+and explicit `01` environment validation remain runtime acceptance checks and
+must fail closed when the target is not configured for the historical
+population.

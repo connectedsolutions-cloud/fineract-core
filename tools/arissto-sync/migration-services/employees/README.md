@@ -93,6 +93,9 @@ The accepted workflow was:
 Acceptance produced exact reconciliation and an idempotent second plan. The
 registry is therefore `available` with `executable: true` for reviewed runs.
 
-Production remains prohibited until local acceptance, independent production
-inspection, an explicit production plan, and fingerprint confirmation are all
-complete.
+Production requires independent inspection, an explicit plan, and fingerprint
+confirmation. After an accepted production reconciliation checkpoint is
+bootstrapped, `prod-party-resync` may re-scan the complete employee block and
+apply only source-hash create/update deltas. `unchanged` rows perform no target
+write, source deletion is not inferred, and the checkpoint advances only after
+exact reconciliation succeeds.

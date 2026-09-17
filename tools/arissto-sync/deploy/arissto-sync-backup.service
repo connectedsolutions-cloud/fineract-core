@@ -1,0 +1,11 @@
+[Unit]
+Description=Back up Arissto sync operational state
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/arissto-sync/service.env
+ExecStartPre=/usr/bin/docker image inspect ${ARISSTO_SYNC_IMAGE}
+ExecStart=/usr/bin/docker run --rm --read-only --tmpfs /tmp:rw,noexec,nosuid,size=32m --security-opt no-new-privileges --mount type=bind,src=/var/lib/arissto-sync,dst=/var/lib/arissto-sync,readonly --mount type=bind,src=/var/backups/arissto-sync,dst=/var/backups/arissto-sync ${ARISSTO_SYNC_IMAGE} backup --output-dir /var/backups/arissto-sync --keep-days 30
+TimeoutStartSec=10min

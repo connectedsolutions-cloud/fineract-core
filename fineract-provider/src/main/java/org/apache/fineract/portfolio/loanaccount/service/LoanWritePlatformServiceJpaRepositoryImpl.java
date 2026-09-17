@@ -51,6 +51,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.fineract.accounting.cutoff.AccountingCutoffMigrationValidationService;
 import org.apache.fineract.cob.exceptions.AccountLockCannotBeOverruledException;
 import org.apache.fineract.cob.service.LoanAccountLockService;
 import org.apache.fineract.infrastructure.codes.domain.CodeValue;
@@ -65,6 +66,7 @@ import org.apache.fineract.infrastructure.core.data.DataValidatorBuilder;
 import org.apache.fineract.infrastructure.core.domain.ExternalId;
 import org.apache.fineract.infrastructure.core.exception.ErrorHandler;
 import org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRuleException;
+import org.apache.fineract.infrastructure.core.exception.MultiException;
 import org.apache.fineract.infrastructure.core.exception.PlatformApiDataValidationException;
 import org.apache.fineract.infrastructure.core.exception.PlatformServiceUnavailableException;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
@@ -293,6 +295,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     private final LoanBalanceService loanBalanceService;
     private final LoanTransactionService loanTransactionService;
     private final LoanChargeService loanChargeService;
+    private final AccountingCutoffMigrationValidationService accountingCutoffMigrationValidationService;
     private final LoanOriginalApprovalSubmissionSnapshotHelper loanOriginalApprovalSubmissionSnapshotHelper;
 
     @Transactional
@@ -1316,6 +1319,61 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         changes.put(LoanApiConstants.sourceExactScheduleSourceSystemParamName, sourceSystem);
         changes.put(LoanApiConstants.sourceExactScheduleLoanExternalIdParamName, sourceLoanExternalId);
         changes.put(LoanApiConstants.sourceExactScheduleInstallmentsParamName, sourceRows.size());
+        return new CommandProcessingResultBuilder().withCommandId(command.commandId()).withLoanId(loan.getId()).withEntityId(loan.getId())
+                .withEntityExternalId(loan.getExternalId()).withOfficeId(loan.getOfficeId()).withClientId(loan.getClientId())
+                .withGroupId(loan.getGroupId()).with(changes).build();
+    }
+
+    @Transactional
+    @Override
+    public CommandProcessingResult materializeSourceExactAccruals(final Long loanId, final JsonCommand command) {
+        final Loan loan = this.loanAssembler.assembleFrom(loanId);
+        if (!loan.getStatus().isActive() || loan.isNpa() || loan.isChargedOff() || loan.isContractTermination()
+                || !CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor.STRATEGY_CODE
+                        .equals(loan.transactionProcessingStrategy())
+                || !loan.isPeriodicAccrualAccountingEnabledOnLoanProduct()) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.accrual.catchup.not.supported",
+                    "Source-exact accrual catch-up requires an active Credesal periodic-accrual loan");
+        }
+
+        final String sourceSystem = command.stringValueOfParameterNamed(LoanApiConstants.sourceExactScheduleSourceSystemParamName);
+        final String sourceLoanExternalId = command
+                .stringValueOfParameterNamed(LoanApiConstants.sourceExactScheduleLoanExternalIdParamName);
+        if (!"ARISSTO".equals(sourceSystem) || loan.getExternalId().isEmpty()
+                || !Objects.equals(loan.getExternalId().getValue(), sourceLoanExternalId)
+                || !isSourceExactScheduleExternalId(sourceLoanExternalId)) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.accrual.catchup.identity.invalid",
+                    "Source-exact accrual catch-up requires the matching Arissto loan identity");
+        }
+
+        final LocalDate requestedCutoffDate = command.localDateValueOfParameterNamed("cutoffDate");
+        this.accountingCutoffMigrationValidationService.requireExactActiveCutoff(requestedCutoffDate);
+
+        final LocalDate catchupThrough = requestedCutoffDate.minusDays(1);
+        if (loan.isFrozenOn(catchupThrough)) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.accrual.catchup.frozen",
+                    "Source-exact accrual catch-up must complete before the loan is frozen");
+        }
+        final LocalDate previousAccruedTill = loan.getAccruedTill();
+        if (previousAccruedTill == null || previousAccruedTill.isBefore(catchupThrough)) {
+            try {
+                this.loanAccrualsProcessingService.addPeriodicAccruals(catchupThrough, loan);
+            } catch (final MultiException exception) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.accrual.catchup.failed",
+                        "Source-exact accrual catch-up failed: {0}", exception.getMessage());
+            }
+            if (loan.getAccruedTill() == null || loan.getAccruedTill().isBefore(catchupThrough)) {
+                loan.setAccruedTill(catchupThrough);
+            }
+            this.loanRepositoryWrapper.saveAndFlush(loan);
+        }
+
+        final Map<String, Object> changes = new LinkedHashMap<>();
+        changes.put(LoanApiConstants.sourceExactScheduleSourceSystemParamName, sourceSystem);
+        changes.put(LoanApiConstants.sourceExactScheduleLoanExternalIdParamName, sourceLoanExternalId);
+        changes.put("cutoffDate", requestedCutoffDate);
+        changes.put("accruedTill", loan.getAccruedTill());
+        changes.put("alreadyCaughtUp", previousAccruedTill != null && !previousAccruedTill.isBefore(catchupThrough));
         return new CommandProcessingResultBuilder().withCommandId(command.commandId()).withLoanId(loan.getId()).withEntityId(loan.getId())
                 .withEntityExternalId(loan.getExternalId()).withOfficeId(loan.getOfficeId()).withClientId(loan.getClientId())
                 .withGroupId(loan.getGroupId()).with(changes).build();

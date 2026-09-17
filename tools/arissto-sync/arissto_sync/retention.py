@@ -370,8 +370,11 @@ def retention_plan(
                         )
                     )
         for fingerprint in sorted(fingerprints):
-            action = _production_action(base_state_path, fingerprint)
+            action = _historical_state_action(
+                base_state_path, target_fingerprints={fingerprint},
+            )
             if action:
+                action["scope"] = "production-history-compaction"
                 actions.append(action)
 
     destructive = [action for action in actions if not action["action"].startswith("blocked-")]

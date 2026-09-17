@@ -313,8 +313,8 @@ public class LoanTransactionValidatorImpl implements LoanTransactionValidator {
         baseDataValidator.reset().parameter(path + transferParameter).value(transferExternalId).notBlank().notExceedingLengthOf(100);
         final String feeChargeExternalId = this.fromApiJsonHelper
                 .extractStringNamed(LoanApiConstants.sourceExactFeeChargeExternalIdParameterName, element);
-        baseDataValidator.reset().parameter(path + LoanApiConstants.sourceExactFeeChargeExternalIdParameterName)
-                .value(feeChargeExternalId).ignoreIfNull().notBlank().notExceedingLengthOf(100);
+        baseDataValidator.reset().parameter(path + LoanApiConstants.sourceExactFeeChargeExternalIdParameterName).value(feeChargeExternalId)
+                .ignoreIfNull().notBlank().notExceedingLengthOf(100);
     }
 
     private void validateLegacyCrossClientEvidence(final DataValidatorBuilder baseDataValidator, final JsonElement element,

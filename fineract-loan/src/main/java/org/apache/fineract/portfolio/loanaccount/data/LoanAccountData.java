@@ -226,6 +226,9 @@ public class LoanAccountData {
     private Boolean inArrears;
     // TODO: avoid prefix "is"
     private Boolean isNPA;
+    private boolean isFrozen;
+    private LocalDate frozenOn;
+    private String freezeReason;
     private Collection<ChargeData> overdueCharges;
 
     private EnumOptionData daysInMonthType;
@@ -480,16 +483,16 @@ public class LoanAccountData {
             final BigDecimal feeChargesDueAtDisbursementCharged, final Boolean syncDisbursementWithMeeting, final Integer loanCounter,
             final Integer loanProductCounter, final Boolean multiDisburseLoan, Boolean canDefineInstallmentAmount,
             final BigDecimal fixedEmiAmont, final BigDecimal outstandingLoanBalance, final Boolean inArrears,
-            final Integer graceOnArrearsAgeing, final Boolean isNPA, final EnumOptionData daysInMonthType,
-            final EnumOptionData daysInYearType, final boolean isInterestRecalculationEnabled,
-            final LoanInterestRecalculationData interestRecalculationData, final Boolean createStandingInstructionAtDisbursement,
-            final Boolean isVariableInstallmentsAllowed, Integer minimumGap, Integer maximumGap, final EnumOptionData subStatus,
-            final boolean canUseForTopup, final boolean isTopup, final Long closureLoanId, final String closureLoanAccountNo,
-            final BigDecimal topupAmount, final boolean isEqualAmortization, final BigDecimal fixedPrincipalPercentagePerInstallment,
-            final DelinquencyRangeData delinquencyRange, final boolean disallowExpectedDisbursements, final boolean fraud,
-            LocalDate lastClosedBusinessDate, final Boolean isSimulation, final LocalDate simulatedDate,
-            final LocalDate simulationStartLastClosedBusinessDate, LocalDate overpaidOnDate, final boolean chargedOff,
-            final boolean enableDownPayment, final BigDecimal disbursedAmountPercentageForDownPayment,
+            final Integer graceOnArrearsAgeing, final Boolean isNPA, final boolean isFrozen, final LocalDate frozenOn,
+            final String freezeReason, final EnumOptionData daysInMonthType, final EnumOptionData daysInYearType,
+            final boolean isInterestRecalculationEnabled, final LoanInterestRecalculationData interestRecalculationData,
+            final Boolean createStandingInstructionAtDisbursement, final Boolean isVariableInstallmentsAllowed, Integer minimumGap,
+            Integer maximumGap, final EnumOptionData subStatus, final boolean canUseForTopup, final boolean isTopup,
+            final Long closureLoanId, final String closureLoanAccountNo, final BigDecimal topupAmount, final boolean isEqualAmortization,
+            final BigDecimal fixedPrincipalPercentagePerInstallment, final DelinquencyRangeData delinquencyRange,
+            final boolean disallowExpectedDisbursements, final boolean fraud, LocalDate lastClosedBusinessDate, final Boolean isSimulation,
+            final LocalDate simulatedDate, final LocalDate simulationStartLastClosedBusinessDate, LocalDate overpaidOnDate,
+            final boolean chargedOff, final boolean enableDownPayment, final BigDecimal disbursedAmountPercentageForDownPayment,
             final boolean enableAutoRepaymentForDownPayment, final boolean enableInstallmentLevelDelinquency,
             final EnumOptionData loanScheduleType, final EnumOptionData loanScheduleProcessingType, final Integer fixedLength,
             final StringEnumOptionData chargeOffBehaviour, final boolean isInterestRecognitionOnDisbursementDate,
@@ -529,8 +532,9 @@ public class LoanAccountData {
                 .setLoanProductCounter(loanProductCounter).setMultiDisburseLoan(multiDisburseLoan)
                 .setCanDefineInstallmentAmount(canDefineInstallmentAmount).setFixedEmiAmount(fixedEmiAmont)
                 .setMaxOutstandingLoanBalance(outstandingLoanBalance).setInArrears(inArrears).setGraceOnArrearsAgeing(graceOnArrearsAgeing)
-                .setIsNPA(isNPA).setDaysInMonthType(daysInMonthType).setDaysInYearType(daysInYearType)
-                .setInterestRecalculationEnabled(isInterestRecalculationEnabled).setInterestRecalculationData(interestRecalculationData)
+                .setIsNPA(isNPA).setFrozen(isFrozen).setFrozenOn(frozenOn).setFreezeReason(freezeReason).setDaysInMonthType(daysInMonthType)
+                .setDaysInYearType(daysInYearType).setInterestRecalculationEnabled(isInterestRecalculationEnabled)
+                .setInterestRecalculationData(interestRecalculationData)
                 .setCreateStandingInstructionAtDisbursement(createStandingInstructionAtDisbursement)
                 .setIsVariableInstallmentsAllowed(isVariableInstallmentsAllowed).setMinimumGap(minimumGap).setMaximumGap(maximumGap)
                 .setSubStatus(subStatus).setCanUseForTopup(canUseForTopup).setTopup(isTopup).setClosureLoanId(closureLoanId)

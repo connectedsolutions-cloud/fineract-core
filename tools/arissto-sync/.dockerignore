@@ -1,0 +1,10 @@
+.git
+.env
+.venv
+.arissto-sync
+__pycache__
+*.pyc
+*.pyo
+tests
+sync-dashboard
+deploy

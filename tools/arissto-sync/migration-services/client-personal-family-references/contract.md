@@ -95,7 +95,9 @@ family/personal flag through the API.
 ## Availability gate
 
 The current source contains 4,195 personal-reference rows for 1,013 owners;
-`AFI_FAMILIA_SOCIO` currently contains zero rows. Registry status remains
-`blocked` until a controlled disposable-local run proves the populated personal
-cohort and all standard idempotency/recovery checks. The empty detailed-family
-path is schema-tested but must be reaccepted when source rows first appear.
+`AFI_FAMILIA_SOCIO` currently contains zero rows. Controlled sandbox run
+`f4c1a333098444a4bcea324b06dc18d0` created and exactly reconciled all 4,195
+personal-reference rows, and follow-up plan
+`79b8c1e5a05e4aaaaf5696ef5054837a` classified the full cohort as unchanged.
+The service is therefore `available`. The empty detailed-family path is
+schema-tested but must be reaccepted when source rows first appear.

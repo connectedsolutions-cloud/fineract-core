@@ -50,7 +50,11 @@ class FakeLauncher(Launcher):
         return {"workflow_run_id": "b" * 32, "status": "queued"}
 
     def options(self):
-        return {"workflows": [{"id": "workflow-a", "ready": True}]}
+        return {"workflows": [{
+            "id": "workflow-a", "ready": True,
+            "targets": ["local"],
+            "run_modes": ["fresh-clean", "full-resync"],
+        }]}
 
 
 class DashboardStoreTest(unittest.TestCase):
@@ -66,6 +70,7 @@ class DashboardStoreTest(unittest.TestCase):
             "workflows": [
                 {"id": "local-credit-collections", "ready": True, "ordered_services": ["clients"]},
                 {"id": "local-full-sync", "ready": True, "ordered_services": ["clients"]},
+                {"id": "local-full-resync", "ready": True, "ordered_services": ["clients"]},
             ]
         }
         with (
@@ -75,8 +80,8 @@ class DashboardStoreTest(unittest.TestCase):
         ):
             options = launcher.options()
 
-        defaults = [item["id"] for item in options["workflows"] if item["default"]]
-        self.assertEqual(defaults, ["local-full-sync"])
+        defaults = [item["id"] for item in options["workflows"] if item["default_for_mode"]]
+        self.assertEqual(defaults, ["local-full-sync", "local-full-resync"])
 
     def test_step_item_count_prefers_frozen_plan_total(self):
         step = {
@@ -161,6 +166,17 @@ class DashboardStoreTest(unittest.TestCase):
         })
         self.assertEqual(result["status"], "queued")
         self.assertEqual(launcher.calls[-1][0][-2:], ["--target", "local"])
+
+    def test_launcher_forwards_local_full_resync_without_creating_a_cycle(self):
+        launcher = FakeLauncher()
+        launcher.prepare({
+            "cycle_id": "cycle-a", "workflow_id": "workflow-a",
+            "run_mode": "full-resync", "services": ["loans"],
+        })
+        arguments = launcher.calls[-1][0]
+        self.assertIn("--cycle", arguments)
+        self.assertEqual(arguments[arguments.index("--run-mode") + 1], "full-resync")
+        self.assertEqual(arguments[-2:], ["--include-service", "loans"])
 
     def test_ledger_selection_defaults_to_full_scope_and_can_forward_period(self):
         launcher = FakeLauncher()

@@ -113,3 +113,12 @@ relationship state remain in the source identity/payload, while
 
 Those capabilities may extend this schema later; none should reinterpret an
 imported Arissto alert or overwrite its source identity.
+
+## Full re-sync
+
+Local `full-resync` is supported through `local-full-resync`. Alert headers,
+subjects, and movement references are compared by immutable source identity and
+source hash. New and changed alerts are upserted, exact matches are no-write,
+and any change that would require removing a target child is quarantined. Source
+absence never deletes an imported alert, and the checkpoint advances only after
+reconciliation.

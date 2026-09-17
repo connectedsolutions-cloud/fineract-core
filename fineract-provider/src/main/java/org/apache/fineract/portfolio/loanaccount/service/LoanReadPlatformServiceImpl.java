@@ -1050,7 +1050,7 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
                     + " la.overdue_since_date_derived as overdueSinceDate, "
                     + " l.sync_disbursement_with_meeting as syncDisbursementWithMeeting,"
                     + " l.loan_counter as loanCounter, l.loan_product_counter as loanProductCounter,"
-                    + " l.is_npa as isNPA, l.days_in_month_enum as daysInMonth, l.days_in_year_enum as daysInYear, "
+                    + " l.is_npa as isNPA, l.is_frozen as isFrozen, l.frozen_on as frozenOn, l.freeze_reason as freezeReason, l.days_in_month_enum as daysInMonth, l.days_in_year_enum as daysInYear, "
                     + " l.interest_recalculation_enabled as isInterestRecalculationEnabled, "
                     + " lir.id as lirId, lir.loan_id as loanId, lir.compound_type_enum as compoundType, lir.reschedule_strategy_enum as rescheduleStrategy, "
                     + " lir.rest_frequency_type_enum as restFrequencyEnum, lir.rest_frequency_interval as restFrequencyInterval, "
@@ -1367,6 +1367,9 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
             final Integer loanProductCounter = JdbcSupport.getInteger(rs, "loanProductCounter");
             final BigDecimal fixedEmiAmount = JdbcSupport.getBigDecimalDefaultToNullIfZero(rs, "fixedEmiAmount");
             final Boolean isNPA = rs.getBoolean("isNPA");
+            final boolean isFrozen = rs.getBoolean("isFrozen");
+            final LocalDate frozenOn = JdbcSupport.getLocalDate(rs, "frozenOn");
+            final String freezeReason = rs.getString("freezeReason");
 
             final int daysInMonth = JdbcSupport.getInteger(rs, "daysInMonth");
             final EnumOptionData daysInMonthType = CommonEnumerations.daysInMonthType(daysInMonth);
@@ -1490,7 +1493,8 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
                     recurringMoratoriumOnPrincipalPeriods, graceOnInterestPayment, graceOnInterestCharged, interestChargedFromDate,
                     timeline, loanSummary, feeChargesDueAtDisbursementCharged, syncDisbursementWithMeeting, loanCounter, loanProductCounter,
                     multiDisburseLoan, canDefineInstallmentAmount, fixedEmiAmount, outstandingLoanBalance, inArrears, graceOnArrearsAgeing,
-                    isNPA, daysInMonthType, daysInYearType, isInterestRecalculationEnabled, interestRecalculationData,
+                    isNPA, isFrozen, frozenOn, freezeReason, daysInMonthType, daysInYearType, isInterestRecalculationEnabled,
+                    interestRecalculationData,
                     createStandingInstructionAtDisbursement, isvariableInstallmentsAllowed, minimumGap, maximumGap, loanSubStatus,
                     canUseForTopup, isTopup, closureLoanId, closureLoanAccountNo, topupAmount, isEqualAmortization,
                     fixedPrincipalPercentagePerInstallment, delinquencyRange, disallowExpectedDisbursements, isFraud,
@@ -1799,7 +1803,7 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
                 .append(" where " + sqlGenerator.subDate(sqlGenerator.currentBusinessDate(), "?", "day") + " > ls.duedate ")
                 .append(" and ls.completed_derived <> true and mc.charge_applies_to_enum =1 ")
                 .append(" and ls.recalculated_interest_component <> true ")
-                .append(" and mc.charge_time_enum = 9 and ml.loan_status_id = 300 ");
+                .append(" and mc.charge_time_enum = 9 and ml.loan_status_id = 300 and ml.is_frozen = false ");
 
         if (backdatePenalties) {
             return this.jdbcTemplate.query(sqlBuilder.toString(), rm, penaltyWaitPeriod);
@@ -1815,7 +1819,7 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
     public Collection<OverdueLoanScheduleData> retrieveAllOverdueInstallmentsForLoan(final Loan loan) {
         Collection<OverdueLoanScheduleData> list = new ArrayList<>();
 
-        if (!loan.isOpen()) {
+        if (!loan.isOpen() || loan.isFrozenOn(DateUtils.getBusinessLocalDate())) {
             return list;
         }
 

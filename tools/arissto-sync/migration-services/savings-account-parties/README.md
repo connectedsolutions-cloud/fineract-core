@@ -2,12 +2,12 @@
 
 ## Status
 
-- Registry status: `blocked`
+- Registry status: `available`
+- Executable: yes
 - CLI block: `savings-account-parties`
 - Dependency: `savings-deposits`
-- Blocker: deploy tenant migration `0343_add_savings_account_parties.xml`, restart
-  Fineract, and complete a reviewed local plan/apply/reconcile run before marking
-  this service executable.
+- Tenant prerequisite: migration `0343_add_savings_account_parties.xml` must be
+  present on the target; inspection fails closed when it is absent.
 
 ## Scope
 
@@ -49,7 +49,14 @@ No beneficiary-specific or authorized-person-specific permissions are created.
 ./arissto-sync status --block savings-account-parties --target local
 ```
 
-Apply is unavailable through composed workflows while the registry entry is
-non-executable. After local acceptance, change the registry status to
-`available`, set `executable` to `true`, and add the service after
-`savings-deposits` in the applicable workflows.
+The service is included after `savings-deposits` in `local-full-sync` and
+`local-full-resync`.
+
+## Full re-sync
+
+The account-scoped beneficiary and authorized-person collections are
+source-owned. An exact collection is unchanged and produces no write; a changed
+collection uses the deterministic replacement endpoint for that mapped savings
+account. Replacement may remove a stale member only inside these owned
+collections. It never deletes the savings account, client, owner, transaction,
+or other Fineract data. The checkpoint advances only after exact reconciliation.

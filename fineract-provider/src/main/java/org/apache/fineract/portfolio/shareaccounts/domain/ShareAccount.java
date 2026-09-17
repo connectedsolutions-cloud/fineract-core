@@ -347,6 +347,10 @@ public class ShareAccount extends AbstractPersistableCustom<Long> {
         return this.savingsAccount.getAccountNumber();
     }
 
+    public SavingsAccount getSavingsAccount() {
+        return this.savingsAccount;
+    }
+
     public void addAddtionalShares(Set<ShareAccountTransaction> additionalShares) {
         this.shareAccountTransactions.addAll(additionalShares);
     }
@@ -471,6 +475,11 @@ public class ShareAccount extends AbstractPersistableCustom<Long> {
     public void addChargeTransaction(ShareAccountTransaction chargeTransaction) {
         chargeTransaction.setShareAccount(this);
         this.shareAccountTransactions.add(chargeTransaction);
+    }
+
+    public void addYieldAccrualTransaction(ShareAccountTransaction yieldTransaction) {
+        yieldTransaction.setShareAccount(this);
+        this.shareAccountTransactions.add(yieldTransaction);
     }
 
     public Set<ShareAccountTransaction> getPendingForApprovalSharePurchaseTransactions() {

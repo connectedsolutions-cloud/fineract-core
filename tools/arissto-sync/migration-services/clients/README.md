@@ -134,3 +134,12 @@ production plan.
 ./arissto-sync apply --plan PLAN_ID --target prod \
   --confirm-production FINGERPRINT
 ```
+
+## Production full re-sync
+
+The `prod-party-resync` workflow may re-scan this complete source block after an
+accepted production reconciliation checkpoint exists. Planning compares the
+current normalized source hash with the durable target mapping and writes only
+`create`, `update`, or reviewed `deactivate` deltas; `unchanged` rows perform no
+target write. Source deletion is not inferred and remains unsupported. The
+checkpoint advances only after exact reconciliation succeeds.

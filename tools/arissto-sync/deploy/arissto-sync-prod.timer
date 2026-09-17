@@ -1,0 +1,12 @@
+[Unit]
+Description=Schedule the Arissto production full re-sync
+
+[Timer]
+OnCalendar=*-*-* 06:00:00 America/El_Salvador
+Persistent=true
+AccuracySec=1min
+RandomizedDelaySec=0
+Unit=arissto-sync-prod.service
+
+[Install]
+WantedBy=timers.target

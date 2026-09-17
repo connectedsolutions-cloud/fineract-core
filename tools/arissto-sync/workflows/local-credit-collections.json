@@ -34,5 +34,5 @@
       }
     ]
   },
-  "unavailable_services": "allow-executable"
+  "unavailable_services": "reject"
 }

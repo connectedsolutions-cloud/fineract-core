@@ -313,7 +313,7 @@ def build_savings_account_party_plan(settings: Settings, state: State, contract:
         counts[action] += 1
     document = {
         "version": 1, "block": BLOCK, "target_fingerprint": settings.target.fingerprint,
-        "source_fingerprint": source_fingerprint(settings), "contract_hash": contract.contract_hash,
+        "source_fingerprint": source_fingerprint(settings.source), "contract_hash": contract.contract_hash,
         "schema_signature": inspection["schema_signature"], "applicable": inspection["ready"],
         "readiness_blocker_count": len(inspection["blockers"]),
         "scope": {"mode": "explicit-source-keys" if source_keys else "full-block", "account_count": len(source)},
@@ -329,7 +329,7 @@ def apply_savings_account_party_plan(settings: Settings, state: State, contract:
     plan = state.plan(plan_id)
     if plan["block"] != BLOCK or plan["target_fingerprint"] != settings.target.fingerprint:
         raise RuntimeError("Plan belongs to a different block or target")
-    if plan["source_fingerprint"] != source_fingerprint(settings) or plan["contract_hash"] != contract.contract_hash:
+    if plan["source_fingerprint"] != source_fingerprint(settings.source) or plan["contract_hash"] != contract.contract_hash:
         raise RuntimeError("Plan is stale: source or savings-account-party contract changed")
     if settings.target.name == "prod" and production_confirmation != settings.target.fingerprint:
         raise RuntimeError(f"Production apply requires --confirm-production {settings.target.fingerprint}")

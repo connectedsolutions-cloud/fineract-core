@@ -30,7 +30,6 @@ import org.apache.fineract.infrastructure.DataIntegrityErrorHandler;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
-import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType;
 import org.apache.fineract.portfolio.loanaccount.service.LoanChargeWritePlatformService;
 import org.apache.fineract.portfolio.loanaccount.service.LoanWritePlatformService;
 import org.apache.fineract.useradministration.domain.AppUser;
@@ -98,7 +97,7 @@ class SourceExactRemainingLoanLifecycleCommandHandlerTest {
         CommandProcessingResult expected = CommandProcessingResult.empty();
         when(securityContext.authenticatedUser()).thenReturn(user);
         when(command.getLoanId()).thenReturn(42L);
-        when(writePlatformService.makeLoanRepayment(LoanTransactionType.GOODWILL_CREDIT, 42L, command, false)).thenAnswer(invocation -> {
+        when(writePlatformService.makeSourceExactLoanGoodwillCredit(42L, command)).thenAnswer(invocation -> {
             assertThat(postingContext.getOrigin()).isEqualTo(AccountingPostingOrigin.ARISSTO_OPERATIONAL_MIGRATION);
             return expected;
         });

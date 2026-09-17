@@ -803,8 +803,8 @@ public class LoanChargeWritePlatformServiceImpl implements LoanChargeWritePlatfo
             return;
         }
         Loan loan = this.loanAssembler.assembleFrom(loanId);
-        if (loan.isChargedOff()) {
-            log.warn("Adding charge to Loan: {} is not allowed. Loan Account is Charged-off", loanId);
+        if (loan.isChargedOff() || loan.isFrozenOn(DateUtils.getBusinessLocalDate())) {
+            log.warn("Adding an automatic overdue charge to Loan: {} is not allowed in its current state", loanId);
             return;
         }
         Optional<Charge> optPenaltyCharge = loan.getLoanProduct().getCharges().stream()
@@ -1054,7 +1054,7 @@ public class LoanChargeWritePlatformServiceImpl implements LoanChargeWritePlatfo
     @Override
     public void applyDelinquencyRangeChargesForLoan(final Long loanId) {
         Loan loan = this.loanAssembler.assembleFrom(loanId);
-        if (loan.isChargedOff() || !loan.getStatus().isActive()) {
+        if (loan.isChargedOff() || loan.isFrozenOn(DateUtils.getBusinessLocalDate()) || !loan.getStatus().isActive()) {
             return;
         }
         final LocalDate businessDate = DateUtils.getBusinessLocalDate();

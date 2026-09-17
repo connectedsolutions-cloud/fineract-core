@@ -11,6 +11,7 @@
     "client-personal-family-references",
     "membership-share-capital",
     "savings-deposits",
+    "savings-account-parties",
     "native-share-capital",
     "aml-alerts",
     "loans",
@@ -41,5 +42,5 @@
       }
     ]
   },
-  "unavailable_services": "allow-executable"
+  "unavailable_services": "reject"
 }

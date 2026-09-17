@@ -70,6 +70,12 @@ checks its hash, and verifies exact target state:
 The service is idempotent: after a fully reconciled run, replanning the same
 scope produces only `unchanged` actions.
 
+After an accepted production reconciliation checkpoint exists,
+`prod-party-resync` may re-scan the full PEP scope and apply only source-hash
+create/update deltas. Unknown values and unexpected target rows remain
+quarantines; source absence never authorizes deletion. The checkpoint advances
+only after exact reconciliation.
+
 ## Target prerequisite
 
 Fineract Liquibase migration `0248` creates and registers

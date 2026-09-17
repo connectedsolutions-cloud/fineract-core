@@ -14,5 +14,5 @@
   "scope": {"mode": "full-block"},
   "stop_policy": "dependency-gated",
   "retry_policy": "resume-failed-step",
-  "unavailable_services": "allow-executable"
+  "unavailable_services": "reject"
 }

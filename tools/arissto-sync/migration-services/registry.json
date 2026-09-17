@@ -7,6 +7,12 @@
       "kind": "sync-block",
       "status": "available",
       "executable": true,
+      "full_resync": {
+        "status": "supported",
+        "checkpoint": "accepted-reconciliation",
+        "ownership": "source-hash-delta",
+        "deletions": "not-supported"
+      },
       "cli_block": "clients",
       "depends_on": [],
       "post_sync_services": ["client-pep", "client-family-references", "client-personal-family-references"],
@@ -33,6 +39,12 @@
       "kind": "sync-block",
       "status": "available",
       "executable": true,
+      "full_resync": {
+        "status": "supported",
+        "checkpoint": "accepted-reconciliation",
+        "ownership": "source-hash-delta",
+        "deletions": "not-supported"
+      },
       "cli_block": "client-pep",
       "depends_on": ["clients"],
       "trigger": {
@@ -59,6 +71,12 @@
       "kind": "sync-block",
       "status": "available",
       "executable": true,
+      "full_resync": {
+        "status": "supported",
+        "checkpoint": "accepted-reconciliation",
+        "ownership": "source-hash-delta",
+        "deletions": "not-supported"
+      },
       "cli_block": "client-family-references",
       "depends_on": ["clients"],
       "description": "Synchronizes AFI_REF_FAMILIAR_SOCIO personal/family references for both Arissto CLIENTE and SOCIO parties into Fineract family members, with durable source identity, API-only writes, retry, and exact reconciliation; it can run independently or as an opt-in dependent step of client apply.",
@@ -78,11 +96,17 @@
       "id": "client-personal-family-references",
       "name": "Client personal and family references",
       "kind": "sync-block",
-      "status": "blocked",
+      "status": "available",
       "executable": true,
+      "full_resync": {
+        "status": "supported",
+        "checkpoint": "accepted-reconciliation",
+        "ownership": "source-hash-delta",
+        "deletions": "not-supported"
+      },
       "cli_block": "client-personal-family-references",
       "depends_on": ["clients"],
-      "description": "Synchronizes AFI_REF_PERSONAL_SOCIO as personal references and AFI_FAMILIA_SOCIO as detailed family rows into native Fineract family members with distinct durable identities and the isFamilyMember classification flag. Local execution remains acceptance-gated.",
+      "description": "Synchronizes AFI_REF_PERSONAL_SOCIO as personal references and AFI_FAMILIA_SOCIO as detailed family rows into native Fineract family members with distinct durable identities and the isFamilyMember classification flag. The populated personal-reference cohort passed controlled local apply, exact reconciliation, and unchanged replay acceptance.",
       "documentation": "migration-services/client-personal-family-references/README.md",
       "detail_documents": ["migration-services/client-personal-family-references/contract.md"],
       "configuration": "config/client_personal_family_references.json",
@@ -101,6 +125,12 @@
       "kind": "sync-block",
       "status": "available",
       "executable": true,
+      "full_resync": {
+        "status": "supported",
+        "checkpoint": "accepted-reconciliation",
+        "ownership": "source-hash-delta",
+        "deletions": "not-supported"
+      },
       "cli_block": "employees",
       "depends_on": [],
       "description": "Synchronizes the complete PERSONAS_EMPRESA profile into Fineract staff core plus credesal_staff_profile, including contact and sensitive HR data; app-user creation, credentials, permissions, and client/loan assignments remain separate.",
@@ -121,6 +151,12 @@
       "kind": "sync-block",
       "status": "available",
       "executable": true,
+      "full_resync": {
+        "status": "supported",
+        "checkpoint": "accepted-reconciliation",
+        "ownership": "source-hash-delta",
+        "deletions": "not-supported"
+      },
       "cli_block": "client-staff-assignments",
       "depends_on": ["clients", "employees"],
       "description": "Synchronizes AFI_SOCIO promoter, account-executive, and collections-manager relationships independently into a lossless one-to-one Fineract client extension after both clients and employees exist. It does not derive or modify Fineract's native loan-officer field. The revised contract is locally accepted for all 1,035 clients with exact reconciliation and unchanged replay.",
@@ -141,6 +177,12 @@
       "kind": "sync-block",
       "status": "available",
       "executable": true,
+      "full_resync": {
+        "status": "supported",
+        "checkpoint": "accepted-reconciliation",
+        "ownership": "source-hash-delta",
+        "deletions": "not-supported"
+      },
       "cli_block": "membership-share-capital",
       "depends_on": ["clients"],
       "description": "Preserves reviewed cooperative membership, share, certificate, contribution, dividend, governance, and current-party operational records in versioned Fineract extension tables; the narrowed current-party scope is locally reconciled and idempotent, while native financial shares remain isolated in the separately gated native-share-capital service.",
@@ -165,6 +207,12 @@
       "kind": "sync-block",
       "status": "available",
       "executable": true,
+      "full_resync": {
+        "status": "supported",
+        "checkpoint": "accepted-reconciliation",
+        "ownership": "source-hash-delta",
+        "deletions": "not-supported"
+      },
       "cli_block": "savings-deposits",
       "depends_on": ["clients"],
       "description": "Migrates Arissto VISTA savings and PLAZO fixed-term deposits into native Fineract products, accounts, transactions, interest/accrual, tax, transfer, closure, and accounting lifecycles; zero-principal submitted/unfunded DPFs are created as pending-approval account records without deposit postings or other financial side effects.",
@@ -186,11 +234,17 @@
       "id": "savings-account-parties",
       "name": "Savings account beneficiaries and authorized persons",
       "kind": "sync-block",
-      "status": "blocked",
-      "executable": false,
+      "status": "available",
+      "executable": true,
+      "full_resync": {
+        "status": "supported",
+        "checkpoint": "accepted-reconciliation",
+        "ownership": "account-scoped-source-hash-delta",
+        "deletions": "owned-collection-replacement"
+      },
       "cli_block": "savings-account-parties",
       "depends_on": ["savings-deposits"],
-      "description": "Synchronizes AHO_BENEFICIARIO and AHO_AUTORIZADO as account-scoped beneficiary and authorized-person collections on the current mapped Fineract deposit account. Implementation is present but remains blocked until migration 0343 is deployed and a controlled local plan/apply/reconcile run is accepted.",
+      "description": "Synchronizes AHO_BENEFICIARIO and AHO_AUTORIZADO as account-scoped beneficiary and authorized-person collections on the current mapped Fineract deposit account. Migration 0343, deterministic collection replacement, unchanged detection, retry, and exact reconciliation are implemented and available for reviewed local workflows.",
       "documentation": "migration-services/savings-account-parties/README.md",
       "detail_documents": ["migration-services/savings-account-parties/contract.md"],
       "configuration": "config/savings_account_parties.json",
@@ -209,6 +263,12 @@
       "kind": "sync-block",
       "status": "available",
       "executable": true,
+      "full_resync": {
+        "status": "supported",
+        "checkpoint": "accepted-reconciliation",
+        "ownership": "source-hash-delta",
+        "deletions": "not-supported"
+      },
       "cli_block": "native-share-capital",
       "depends_on": ["clients", "membership-share-capital", "savings-deposits"],
       "description": "Projects reviewed paid common and preferred positions into native Fineract products, accounts, purchases, accounting, and certificate extensions through deterministic plan/apply/retry/reconcile workflows; the payment-channel schema/API support and controlled lifecycle acceptance have passed locally, while positions without an eligible same-client VISTA account remain explicit quarantines.",
@@ -228,11 +288,44 @@
       }
     },
     {
+      "id": "native-share-yield",
+      "name": "Native share yield",
+      "kind": "sync-block",
+      "status": "blocked",
+      "executable": false,
+      "full_resync": {
+        "status": "implementation-complete-awaiting-local-acceptance",
+        "checkpoint": "accepted-reconciliation",
+        "ownership": "source-reference-delta",
+        "deletions": "not-supported"
+      },
+      "cli_block": "native-share-yield",
+      "depends_on": ["native-share-capital", "accounting-journal-entries"],
+      "description": "Imports every retained preferred-share daily accrual into the native share-yield subledger, preserves exact and booked amounts, and enables future scheduled accrual and savings settlement. Code is complete but remains blocked until migration 0349 is deployed and a controlled local import proves subledger, GL-cutoff, idempotency, and settlement accounting.",
+      "documentation": "migration-services/native-share-yield/README.md",
+      "detail_documents": ["migration-services/native-share-yield/contract.md"],
+      "configuration": "config/native_share_yield.json",
+      "commands": {
+        "inspect": "./arissto-sync inspect --block native-share-yield --target TARGET",
+        "plan": "./arissto-sync plan --block native-share-yield --target TARGET [--source-key 'FNC_PROVISIONES|ID']",
+        "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
+        "retry": "./arissto-sync retry --run RUN_ID --failed-only --target TARGET",
+        "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
+        "status": "./arissto-sync status --block native-share-yield --target TARGET"
+      }
+    },
+    {
       "id": "aml-alerts",
       "name": "AML alerts",
       "kind": "sync-block",
       "status": "available",
       "executable": true,
+      "full_resync": {
+        "status": "supported",
+        "checkpoint": "accepted-reconciliation",
+        "ownership": "source-hash-delta",
+        "deletions": "not-supported"
+      },
       "cli_block": "aml-alerts",
       "depends_on": ["clients"],
       "description": "Plans lossless migration of Arissto AML/LAFT subtype 69 and 70 alert headers, client or membership-role subjects, and related movement references into the versioned Credesal AML domain tables; runtime rule evaluation and case workflows are deferred.",
@@ -253,6 +346,12 @@
       "kind": "sync-block",
       "status": "available",
       "executable": true,
+      "full_resync": {
+        "status": "supported",
+        "checkpoint": "accepted-reconciliation",
+        "ownership": "source-hash-delta",
+        "deletions": "not-supported"
+      },
       "cli_block": "loans",
       "depends_on": [
         "clients",
@@ -283,11 +382,17 @@
       "id": "dte-history",
       "name": "Fiscal DTE history",
       "kind": "sync-block",
-      "status": "blocked",
+      "status": "available",
       "executable": true,
+      "full_resync": {
+        "status": "supported",
+        "checkpoint": "accepted-reconciliation",
+        "ownership": "append-only-source-hash-delta",
+        "deletions": "not-supported"
+      },
       "cli_block": "dte-history",
       "depends_on": ["clients", "loans"],
-      "description": "Imports the reviewed ordinary fiscal DTE cohort as immutable terminal-state native Fineract invoices, linked through the exact migrated loan transaction and loan to the client. Only an import marker, source hash, and raw lifecycle flags remain as migration metadata; no Arissto history shadow table is created. The implementation is blocked from available status until the configured production environment value and a controlled full local reconciliation plus unchanged replay are accepted.",
+      "description": "Imports the reviewed ordinary fiscal DTE cohort as immutable terminal-state native Fineract invoices, linked through the exact migrated loan transaction and loan to the client. New documents are inserted, exact hashes are unchanged, and conflicting changes to an existing immutable invoice fail closed; no Arissto history shadow table is created.",
       "documentation": "migration-services/dte-history/README.md",
       "detail_documents": ["migration-services/dte-history/contract.md"],
       "configuration": "config/dte_history.json",
@@ -306,6 +411,12 @@
       "kind": "sync-block",
       "status": "available",
       "executable": true,
+      "full_resync": {
+        "status": "supported",
+        "checkpoint": "accepted-reconciliation",
+        "ownership": "source-hash-delta",
+        "deletions": "not-supported"
+      },
       "cli_block": "mobile-collections",
       "depends_on": [
         "clients",
@@ -334,8 +445,14 @@
       "name": "Accounting journal entries",
       "kind": "sync-block",
       "category": "accounting",
-      "status": "planned",
+      "status": "available",
       "executable": true,
+      "full_resync": {
+        "status": "supported",
+        "checkpoint": "accepted-reconciliation",
+        "ownership": "append-only-source-hash-delta",
+        "deletions": "not-supported"
+      },
       "cli_block": "accounting",
       "commands": [
         "inspect",
@@ -351,7 +468,7 @@
         "loans",
         "mobile-collections"
       ],
-      "description": "Explicit-key, reviewed-period, and bounded full-workflow accounting planning, atomic apply, idempotent retry, direct-journal reconciliation, and status are implemented. The service remains planned while Gate 11 clean-cycle acceptance is pending, but is executable in local sandbox acceptance runs with a readiness warning.",
+      "description": "Explicit-key, reviewed-period, and bounded full-workflow accounting planning, atomic apply, idempotent retry, unchanged-hash detection, drift quarantine, direct-journal reconciliation, and status are implemented and available for reviewed local workflows. Gate 11 and Gate 12 remain production-promotion requirements rather than local availability blockers.",
       "documentation": "migration-services/accounting-journal-entries/README.md",
       "detail_documents": [
         "migration-services/accounting-journal-entries/contract.md",

@@ -148,7 +148,10 @@ class LoansContractTests(unittest.TestCase):
     def test_native_creation_overrides_are_entity_scoped(self):
         config = json.loads((ROOT / "tools/arissto-sync/config/loans.json").read_text(encoding="utf-8"))
 
-        self.assertEqual(set(config["native_creation_overrides"]), {"24", "301", "805", "1117", "1182", "1441"})
+        self.assertEqual(
+            set(config["native_creation_overrides"]),
+            {"24", "301", "805", "1117", "1182", "1441", "1638"},
+        )
         self.assertEqual(
             config["native_creation_overrides"]["24"],
             {

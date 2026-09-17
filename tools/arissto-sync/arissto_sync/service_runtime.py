@@ -51,6 +51,11 @@ from .native_share_engine import (
     prepare_native_share_target, reconcile_native_shares,
 )
 from .native_shares import BLOCK as NATIVE_SHARES_BLOCK, NativeShareContract, inspect_native_shares
+from .share_yield import (
+    BLOCK as SHARE_YIELD_BLOCK, ShareYieldContract, apply_share_yield_plan,
+    build_share_yield_plan, inspect_share_yields, prepare_share_yield_target,
+    reconcile_share_yields,
+)
 from .pep import BLOCK as PEP_BLOCK, PepContract, apply_pep_plan, build_pep_plan, inspect_pep, reconcile_pep
 from .savings import BLOCK as SAVINGS_BLOCK, SavingsContract, inspect_savings
 from .savings_account_parties import (
@@ -73,6 +78,7 @@ class ServiceRuntime:
     loan_controls: LoanApplyControls | None = None
     dte_controls: DteApplyControls | None = None
     accounting_periods: tuple[str, ...] = ()
+    run_mode: str | None = None
 
     def __post_init__(self) -> None:
         self.contracts: dict[str, Any] = {
@@ -88,6 +94,7 @@ class ServiceRuntime:
             ),
             MEMBERSHIP_BLOCK: MembershipContract.load(self.settings.membership_mapping_path),
             NATIVE_SHARES_BLOCK: NativeShareContract.load(self.settings.native_share_mapping_path),
+            SHARE_YIELD_BLOCK: ShareYieldContract.load(ROOT / "config/native_share_yield.json"),
             AML_ALERT_BLOCK: AmlAlertContract.load(self.settings.aml_alert_mapping_path),
             SAVINGS_BLOCK: SavingsContract.load(self.settings.savings_mapping_path),
             SAVINGS_ACCOUNT_PARTIES_BLOCK: SavingsAccountPartyContract.load(ROOT / "config/savings_account_parties.json"),
@@ -120,6 +127,8 @@ class ServiceRuntime:
             report["execution_blockers"] = native_share_execution_blockers(report)
             report["ready"] = not report["execution_blockers"]
             return report
+        if block == SHARE_YIELD_BLOCK:
+            return inspect_share_yields(self.settings, contract)
         if block == SAVINGS_BLOCK:
             return inspect_savings(self.settings, contract)
         if block == SAVINGS_ACCOUNT_PARTIES_BLOCK:
@@ -144,6 +153,8 @@ class ServiceRuntime:
         """Provision reviewed service prerequisites before strict workflow inspection."""
         if block == NATIVE_SHARES_BLOCK:
             return prepare_native_share_target(self.settings, self.contracts[block])
+        if block == SHARE_YIELD_BLOCK:
+            return prepare_share_yield_target(self.settings, self.contracts[block])
         return {"performed": False}
 
     def plan(self, block: str) -> tuple[str, dict[str, Any]]:
@@ -162,6 +173,7 @@ class ServiceRuntime:
                 None,
                 None,
                 self.state.accounting_cutoff["date"],
+                skip_unchanged=self.run_mode == "full-resync",
             )
         if block == MOBILE_COLLECTION_BLOCK:
             return build_mobile_collection_plan(self.settings, self.state, contract, None)
@@ -169,6 +181,8 @@ class ServiceRuntime:
             return build_dte_history_plan(self.settings, self.state, contract, None)
         if block == NATIVE_SHARES_BLOCK:
             return build_native_share_plan(self.settings, self.state, contract, None)
+        if block == SHARE_YIELD_BLOCK:
+            return build_share_yield_plan(self.settings, self.state, contract, None)
         if block == SAVINGS_BLOCK:
             return build_savings_plan(self.settings, self.state, contract, None, False)
         if block == SAVINGS_ACCOUNT_PARTIES_BLOCK:
@@ -205,6 +219,8 @@ class ServiceRuntime:
             return apply_savings_account_party_plan(self.settings, self.state, contract, plan_id, production_confirmation)
         if block == NATIVE_SHARES_BLOCK:
             return apply_native_share_plan(self.settings, self.state, contract, plan_id, production_confirmation)
+        if block == SHARE_YIELD_BLOCK:
+            return apply_share_yield_plan(self.settings, self.state, contract, plan_id, production_confirmation)
         if block == MEMBERSHIP_BLOCK:
             return apply_membership_plan(self.settings, self.state, contract, plan_id, production_confirmation)
         if block == EMPLOYEE_BLOCK:
@@ -247,6 +263,8 @@ class ServiceRuntime:
             return reconcile_savings_account_parties(self.settings, self.state, contract, run_id)
         if block == NATIVE_SHARES_BLOCK:
             return reconcile_native_shares(self.settings, self.state, contract, run_id)
+        if block == SHARE_YIELD_BLOCK:
+            return reconcile_share_yields(self.settings, self.state, contract, run_id)
         if block == MEMBERSHIP_BLOCK:
             return reconcile_membership(self.settings, self.state, contract, run_id)
         if block == EMPLOYEE_BLOCK:
@@ -324,6 +342,7 @@ class ServiceRuntime:
             SAVINGS_BLOCK: apply_savings_plan,
             SAVINGS_ACCOUNT_PARTIES_BLOCK: apply_savings_account_party_plan,
             NATIVE_SHARES_BLOCK: apply_native_share_plan,
+            SHARE_YIELD_BLOCK: apply_share_yield_plan,
             MEMBERSHIP_BLOCK: apply_membership_plan,
             EMPLOYEE_BLOCK: apply_employee_plan,
             CLIENT_STAFF_ASSIGNMENT_BLOCK: apply_client_staff_assignment_plan,

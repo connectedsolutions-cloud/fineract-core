@@ -144,3 +144,11 @@ native shares. The complete manual order is documented in
 Use `--source-key` only with the canonical `TABLE|KEY_PART...` source identity.
 Review every plan. Production requires an independent production inspection and
 plan plus the exact production fingerprint confirmation.
+
+## Full re-sync
+
+Local `full-resync` is supported through `local-full-resync`. Existing archive
+and profile rows are compared by durable source identity, owner, and source
+hash; only new or changed rows are upserted. Unchanged rows produce no write,
+source absence never deletes preserved membership history, and the checkpoint
+advances only after reconciliation.

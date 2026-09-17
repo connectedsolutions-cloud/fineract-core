@@ -24,7 +24,7 @@ from .connections import FineractApi, FineractError, postgres_connection
 from .engine import preflight
 from .dte_history import DteApplyControls
 from .loans import LoanApplyControls
-from .service_registry import load_registry
+from .service_registry import load_registry, service_report
 from .service_runtime import ServiceRuntime
 from .state import State
 from .workflow_definitions import (
@@ -323,7 +323,7 @@ def _restart_local_fineract(settings: Settings, controls: FineractRestartControl
     try:
         subprocess.run(
             list(controls.command), cwd=FINERACT_ROOT, stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True,
             timeout=controls.timeout_seconds, check=True,
         )
     except subprocess.TimeoutExpired as exc:
@@ -563,27 +563,50 @@ def inspect_local_workflow(identifier: str) -> dict[str, Any]:
 
 
 def build_workflow_plan(
-    settings: Settings, state: State, identifier: str, cycle_id: str,
+    settings: Settings, state: State, identifier: str, cycle_id: str | None,
     loan_controls: LoanApplyControls | None = None,
     fineract_restart_controls: FineractRestartControls | None = None,
     selected_services: list[str] | tuple[str, ...] | None = None,
     dte_controls: DteApplyControls | None = None,
     accounting_periods: list[str] | tuple[str, ...] | None = None,
     resume_from_run_id: str | None = None,
+    run_mode: str | None = None,
+    production_confirmation: str | None = None,
 ) -> tuple[str, dict[str, Any]]:
-    if settings.target.name != "local":
-        raise ValueError("Workflow orchestration is strictly local; target must be local")
-    cycle = state.require_cycle(cycle_id, settings.target.fingerprint)
+    resolved_run_mode = run_mode or ("resumed" if resume_from_run_id else "fresh-clean")
+    release = os.getenv("ARISSTO_SYNC_RELEASE", "").strip()
+    if resume_from_run_id and resolved_run_mode != "resumed":
+        raise ValueError("A parent workflow run requires run_mode resumed")
+    if settings.target.name == "local":
+        if not cycle_id:
+            raise ValueError("Local workflow planning requires a sync cycle")
+        cycle = state.require_cycle(cycle_id, settings.target.fingerprint)
+    else:
+        if resolved_run_mode != "full-resync":
+            raise ValueError("Production workflow orchestration accepts only full-resync")
+        if cycle_id:
+            raise ValueError("Production full-resync does not use a local sync cycle")
+        if production_confirmation != settings.target.fingerprint:
+            raise RuntimeError(
+                f"Production workflow planning requires --confirm-production {settings.target.fingerprint}"
+            )
+        if not release or release == "unversioned":
+            raise ValueError("Production workflow planning requires a versioned ARISSTO_SYNC_RELEASE")
+        cycle = None
     definition = load_workflow(identifier)
     if selected_services is not None:
         definition = select_workflow_services(definition, selected_services)
-    report = require_workflow_ready(definition)
+    report = require_workflow_ready(
+        definition, target=settings.target.name, run_mode=resolved_run_mode,
+    )
     target_report = preflight(settings)
     if target_report.get("ok") is False:
-        raise RuntimeError("Local target preflight failed")
+        raise RuntimeError(f"{settings.target.name.title()} target preflight failed")
     loan_controls = loan_controls or LoanApplyControls.configured()
     dte_controls = dte_controls or DteApplyControls.configured()
     fineract_restart_controls = fineract_restart_controls or FineractRestartControls.configured()
+    if settings.target.name == "prod":
+        fineract_restart_controls = FineractRestartControls(attempts=0)
     accounting_periods = tuple(dict.fromkeys(accounting_periods or ()))
     if any(not re.fullmatch(r"[0-9A-Za-z_-]{1,64}", period) for period in accounting_periods):
         raise ValueError("Accounting period contains an unsafe component")
@@ -616,6 +639,47 @@ def build_workflow_plan(
                     "child_plan_id": step.get("plan_id"),
                     "action": "validate-and-skip",
                 }
+    service_checkpoints: dict[str, dict[str, Any]] = {}
+    if resolved_run_mode == "full-resync":
+        checkpoint_cutoffs: list[dict[str, Any]] = []
+        for service_id in report["ordered_services"]:
+            checkpoint = state.sync_checkpoint(
+                settings.target.fingerprint, definition.identifier, service_id,
+            )
+            if checkpoint is None:
+                target_label = "production" if settings.target.name == "prod" else "local"
+                raise ValueError(
+                    f"Service {service_id!r} has no accepted {target_label} checkpoint for "
+                    f"workflow {definition.identifier!r}"
+                )
+            service_checkpoints[service_id] = checkpoint
+            checkpoint_cutoff = checkpoint["document"].get("accounting_cutoff")
+            if checkpoint_cutoff is None:
+                checkpoint_cutoff = state.plan(
+                    checkpoint["accepted_child_plan_id"]
+                )["document"].get("accounting_cutoff")
+            if not isinstance(checkpoint_cutoff, dict):
+                raise ValueError(
+                    f"Service {service_id!r} checkpoint has no frozen accounting cutoff"
+                )
+            checkpoint_cutoffs.append(checkpoint_cutoff)
+        if checkpoint_cutoffs:
+            frozen_cutoff = checkpoint_cutoffs[0]
+            if any(cutoff != frozen_cutoff for cutoff in checkpoint_cutoffs[1:]):
+                raise ValueError(
+                    f"{settings.target.name.title()} full-resync checkpoints do not share one "
+                    "accounting cutoff"
+                )
+            if (
+                state.accounting_cutoff.get("source") == "explicit"
+                and state.accounting_cutoff != frozen_cutoff
+            ):
+                raise ValueError(
+                    f"{settings.target.name.title()} full-resync cutoff must match the accepted "
+                    "checkpoint cutoff"
+                )
+            state.adopt_accounting_cutoff(frozen_cutoff)
+
     document = {
         "workflow_id": definition.identifier,
         "workflow_version": definition.version,
@@ -628,7 +692,9 @@ def build_workflow_plan(
         "definition": definition.document,
         "target_fingerprint": settings.target.fingerprint,
         "preflight": target_report,
-        "sync_cycle": {**cycle, "state_path": str(settings.state_path)},
+        "run_mode": resolved_run_mode,
+        "release": release or "development",
+        "service_checkpoints": service_checkpoints,
         "runtime_controls": {
             "loans": {
                 "workers": loan_controls.workers,
@@ -647,9 +713,16 @@ def build_workflow_plan(
             },
         },
     }
+    if cycle is not None:
+        document["sync_cycle"] = {**cycle, "state_path": str(settings.state_path)}
+    else:
+        document["state_path"] = str(settings.state_path)
+        document["production_authorization"] = {
+            "target_fingerprint": settings.target.fingerprint,
+            "confirmed": True,
+        }
     if parent_run is not None:
         document.update({
-            "run_mode": "resumed",
             "parent_workflow_run_id": resume_from_run_id,
             "satisfied_services": satisfied_services,
             "service_actions": {
@@ -659,6 +732,11 @@ def build_workflow_plan(
                 for service_id in report["ordered_services"]
             },
         })
+    elif resolved_run_mode == "full-resync":
+        document["service_actions"] = {
+            service_id: "scan-and-apply-source-hash-delta"
+            for service_id in report["ordered_services"]
+        }
     if "accounting-journal-entries" in report["ordered_services"]:
         document["runtime_controls"]["accounting-journal-entries"] = {
             "scope": "source-periods" if accounting_periods else "full-company",
@@ -814,15 +892,30 @@ def _link_exact_source_lineage(
                 state.link_workflow_failure(failure["id"], related["id"], "same-source-key")
 
 
-def _execute_workflow(settings: Settings, state: State, run_id: str, cycle_id: str) -> dict[str, Any]:
-    if settings.target.name != "local":
-        raise ValueError("Workflow orchestration is strictly local; target must be local")
-    state.require_cycle(cycle_id, settings.target.fingerprint)
+def _execute_workflow(
+    settings: Settings, state: State, run_id: str, cycle_id: str | None,
+) -> dict[str, Any]:
     run = state.workflow_run(run_id)
     plan = state.workflow_plan(run["workflow_plan_id"])
+    run_mode = plan["document"].get("run_mode")
+    if settings.target.name == "local":
+        if not cycle_id:
+            raise ValueError("Local workflow execution requires a sync cycle")
+        state.require_cycle(cycle_id, settings.target.fingerprint)
+    else:
+        if cycle_id:
+            raise ValueError("Production full-resync does not use a local sync cycle")
+        if run_mode != "full-resync":
+            raise ValueError("Production workflow execution requires a full-resync plan")
+        authorization = plan["document"].get("production_authorization", {})
+        if (
+            authorization.get("confirmed") is not True
+            or authorization.get("target_fingerprint") != settings.target.fingerprint
+        ):
+            raise RuntimeError("Production workflow plan is missing its fingerprint authorization")
     state.adopt_accounting_cutoff(plan["document"]["accounting_cutoff"])
     if plan["target_fingerprint"] != settings.target.fingerprint:
-        raise ValueError("Workflow plan belongs to a different local target fingerprint")
+        raise ValueError("Workflow plan belongs to a different target fingerprint")
     current_definition = load_workflow(plan["workflow_id"])
     frozen_selection = plan["document"].get("definition", {}).get("selection")
     if frozen_selection is not None:
@@ -836,7 +929,9 @@ def _execute_workflow(settings: Settings, state: State, run_id: str, cycle_id: s
         )
     if current_definition.definition_hash != plan["definition_hash"]:
         raise ValueError("Workflow definition changed after planning; create a new workflow plan")
-    require_workflow_ready(current_definition)
+    require_workflow_ready(
+        current_definition, target=settings.target.name, run_mode=run_mode,
+    )
 
     frozen_controls = plan["document"].get("runtime_controls", {}).get("loans", {})
     loan_controls = LoanApplyControls.configured(
@@ -864,7 +959,7 @@ def _execute_workflow(settings: Settings, state: State, run_id: str, cycle_id: s
     )
     runtime = ServiceRuntime(
         settings, state, loan_controls, dte_controls,
-        tuple(frozen_accounting.get("source_periods", ())),
+        tuple(frozen_accounting.get("source_periods", ())), run_mode,
     )
     dependencies = _dependencies()
     failures_by_service: dict[str, list[str]] = defaultdict(list)
@@ -950,6 +1045,7 @@ def _execute_workflow(settings: Settings, state: State, run_id: str, cycle_id: s
                         reconciliation = runtime.reconcile(
                             service_id, satisfied["child_run_id"],
                         )
+                        state.record_reconciliation(satisfied["child_run_id"], reconciliation)
                         if not reconciliation.get("ok"):
                             raise RuntimeError(
                                 "Parent service reconciliation is no longer valid"
@@ -1075,7 +1171,8 @@ def _execute_workflow(settings: Settings, state: State, run_id: str, cycle_id: s
                                     child_plan["accounting_cutoff"],
                                 )
                             child_run_id, counts = runtime.retry(
-                                service_id, recovery_child["child_run_id"]
+                                service_id, recovery_child["child_run_id"],
+                                settings.target.fingerprint if settings.target.name == "prod" else None,
                             )
                             state.record_workflow_event(
                                 run_id, "workflow-child-run-retried", phase,
@@ -1106,7 +1203,10 @@ def _execute_workflow(settings: Settings, state: State, run_id: str, cycle_id: s
                                     FineractApi(settings.target),
                                     child_plan["accounting_cutoff"],
                                 )
-                            child_run_id, counts = runtime.apply(service_id, child_plan_id)
+                            child_run_id, counts = runtime.apply(
+                                service_id, child_plan_id,
+                                settings.target.fingerprint if settings.target.name == "prod" else None,
+                            )
                         state.update_workflow_step(
                             step["id"], plan_id=child_plan_id, child_run_id=child_run_id
                         )
@@ -1120,6 +1220,7 @@ def _execute_workflow(settings: Settings, state: State, run_id: str, cycle_id: s
                         state.heartbeat_workflow(run_id, service_id, phase)
                         state.update_workflow_step(step["id"], phase=phase)
                         reconciliation = runtime.reconcile(service_id, child_run_id)
+                        state.record_reconciliation(child_run_id, reconciliation)
                         summary = {
                             "plan_id": child_plan_id,
                             "run_id": child_run_id,
@@ -1129,6 +1230,21 @@ def _execute_workflow(settings: Settings, state: State, run_id: str, cycle_id: s
                         }
                         if not reconciliation.get("ok"):
                             raise RuntimeError("Service reconciliation failed")
+                        if run_mode == "full-resync":
+                            checkpoint = state.advance_sync_checkpoint(
+                                settings.target.fingerprint, plan["workflow_id"], service_id,
+                                run_id, child_run_id,
+                                {
+                                    "run_mode": run_mode,
+                                    "workflow_plan_id": plan["id"],
+                                    "accounting_cutoff": plan["document"].get("accounting_cutoff"),
+                                },
+                                child_block=service_report(service_id)["service"]["cli_block"],
+                            )
+                            summary["checkpoint"] = {
+                                "accepted_at": checkpoint["accepted_at"],
+                                "accepted_child_run_id": checkpoint["accepted_child_run_id"],
+                            }
                         if cutoff_policy == "activate-frozen-plan":
                             phase = "accounting-boundary"
                             state.heartbeat_workflow(run_id, service_id, phase)
@@ -1225,11 +1341,13 @@ def _execute_workflow(settings: Settings, state: State, run_id: str, cycle_id: s
     return workflow_report(state, run_id)
 
 
-def execute_workflow(settings: Settings, state: State, run_id: str, cycle_id: str) -> dict[str, Any]:
+def execute_workflow(
+    settings: Settings, state: State, run_id: str, cycle_id: str | None = None,
+) -> dict[str, Any]:
     previous_sigterm = signal.getsignal(signal.SIGTERM)
 
     def terminate(_signum: int, _frame: object) -> None:
-        raise SystemExit("Local workflow runner received SIGTERM")
+        raise SystemExit("Workflow runner received SIGTERM")
 
     signal.signal(signal.SIGTERM, terminate)
     try:
@@ -1248,15 +1366,22 @@ def execute_workflow(settings: Settings, state: State, run_id: str, cycle_id: st
 
 
 def start_workflow(
-    settings: Settings, state: State, workflow_plan_id: str, cycle_id: str,
-    env_file: str | None = None,
+    settings: Settings, state: State, workflow_plan_id: str, cycle_id: str | None,
+    env_file: str | None = None, production_confirmation: str | None = None,
 ) -> dict[str, Any]:
-    if settings.target.name != "local":
-        raise ValueError("Workflow orchestration is strictly local; target must be local")
-    state.require_cycle(cycle_id, settings.target.fingerprint)
+    if settings.target.name == "local":
+        if not cycle_id:
+            raise ValueError("Local workflow start requires a sync cycle")
+        state.require_cycle(cycle_id, settings.target.fingerprint)
+    elif production_confirmation != settings.target.fingerprint:
+        raise RuntimeError(
+            f"Production workflow start requires --confirm-production {settings.target.fingerprint}"
+        )
     plan = state.workflow_plan(workflow_plan_id)
     if plan["target_fingerprint"] != settings.target.fingerprint:
-        raise ValueError("Workflow plan belongs to a different local target fingerprint")
+        raise ValueError("Workflow plan belongs to a different target fingerprint")
+    if settings.target.name == "prod" and plan["document"].get("run_mode") != "full-resync":
+        raise ValueError("Production workflow start requires a full-resync plan")
     run_id = state.create_workflow_run(plan)
     log_dir = settings.state_path.parent / "workflow-runs"
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -1264,9 +1389,9 @@ def start_workflow(
     command = [sys.executable, "-m", "arissto_sync.cli"]
     if env_file:
         command.extend(["--env-file", str(Path(env_file).resolve())])
-    command.extend([
-        "workflow", "execute", "--target", "local", "--cycle", cycle_id, "--run", run_id,
-    ])
+    command.extend(["workflow", "execute", "--target", settings.target.name, "--run", run_id])
+    if cycle_id:
+        command.extend(["--cycle", cycle_id])
     try:
         with log_path.open("ab") as output:
             process = subprocess.Popen(
@@ -1275,7 +1400,7 @@ def start_workflow(
             )
     except Exception as exc:
         state.finish_workflow_run(
-            run_id, "failed", {}, type(exc).__name__, f"Could not start local workflow runner: {_safe_message(exc)}"
+            run_id, "failed", {}, type(exc).__name__, f"Could not start workflow runner: {_safe_message(exc)}"
         )
         raise
     state.set_workflow_runner(run_id, process.pid, str(log_path))
@@ -1286,10 +1411,17 @@ def start_workflow(
 
 
 def resume_workflow(
-    settings: Settings, state: State, run_id: str, cycle_id: str,
-    env_file: str | None = None,
+    settings: Settings, state: State, run_id: str, cycle_id: str | None,
+    env_file: str | None = None, production_confirmation: str | None = None,
 ) -> dict[str, Any]:
-    state.require_cycle(cycle_id, settings.target.fingerprint)
+    if settings.target.name == "local":
+        if not cycle_id:
+            raise ValueError("Local workflow resume requires a sync cycle")
+        state.require_cycle(cycle_id, settings.target.fingerprint)
+    elif production_confirmation != settings.target.fingerprint:
+        raise RuntimeError(
+            f"Production workflow resume requires --confirm-production {settings.target.fingerprint}"
+        )
     run = refresh_workflow_run(state, run_id)
     if run["status"] not in {"failed", "interrupted"}:
         raise ValueError(f"Workflow run {run_id} cannot resume from status {run['status']}")
@@ -1298,9 +1430,9 @@ def resume_workflow(
     command = [sys.executable, "-m", "arissto_sync.cli"]
     if env_file:
         command.extend(["--env-file", str(Path(env_file).resolve())])
-    command.extend([
-        "workflow", "execute", "--target", "local", "--cycle", cycle_id, "--run", run_id,
-    ])
+    command.extend(["workflow", "execute", "--target", settings.target.name, "--run", run_id])
+    if cycle_id:
+        command.extend(["--cycle", cycle_id])
     try:
         with log_path.open("ab") as output:
             process = subprocess.Popen(
@@ -1309,7 +1441,7 @@ def resume_workflow(
             )
     except Exception as exc:
         state.finish_workflow_run(
-            run_id, "failed", {}, type(exc).__name__, f"Could not resume local workflow runner: {_safe_message(exc)}"
+            run_id, "failed", {}, type(exc).__name__, f"Could not resume workflow runner: {_safe_message(exc)}"
         )
         raise
     state.set_workflow_runner(run_id, process.pid, str(log_path))

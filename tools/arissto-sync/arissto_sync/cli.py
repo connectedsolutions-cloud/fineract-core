@@ -35,6 +35,7 @@ from .client_staff_assignments import (
     reconcile_client_staff_assignments,
 )
 from .arissto import check_source
+from .backup import backup_state
 from .config import ROOT, configured_state_path, load_settings, load_source_config
 from .connections import FineractApi
 from .cycles import CycleCatalog, settings_for_cycle, workflow_history_across_cycles
@@ -89,6 +90,10 @@ from .mobile_collections import (
 )
 from .native_shares import BLOCK as NATIVE_SHARES_BLOCK, NativeShareContract, inspect_native_shares
 from .native_share_engine import apply_native_share_plan, build_native_share_plan, reconcile_native_shares
+from .share_yield import (
+    BLOCK as SHARE_YIELD_BLOCK, ShareYieldContract, apply_share_yield_plan,
+    build_share_yield_plan, inspect_share_yields, reconcile_share_yields,
+)
 from .loans import (
     BLOCK as LOANS_BLOCK,
     CLOSED_REFINANCE_HISTORICAL_SCHEDULE_LOANS,
@@ -141,7 +146,7 @@ from .fixed_deposit_lifecycle_proof import prove_dpf_lifecycle
 from .state import State
 from .storage_health import storage_health
 from .workflows import apply_clients_with_family_references, apply_clients_with_pep
-from .workflow_definitions import list_workflows
+from .workflow_definitions import inspect_workflow, list_workflows, load_workflow
 
 
 def emit(value):
@@ -153,6 +158,9 @@ def parser() -> argparse.ArgumentParser:
     root.add_argument("--env-file")
     commands = root.add_subparsers(dest="command", required=True)
     commands.add_parser("source-check", help="test only the read-only Arissto connection")
+    backup = commands.add_parser("backup", help="create a consistent production state backup")
+    backup.add_argument("--output-dir", required=True)
+    backup.add_argument("--keep-days", type=int, default=30)
     health = commands.add_parser("health", help="inspect local sync-state and workflow-log storage")
     health.add_argument("--max-total-mb", type=int, default=1024)
     health.add_argument("--max-run-log-mb", type=int, default=50)
@@ -231,14 +239,31 @@ def parser() -> argparse.ArgumentParser:
     cycle_close.add_argument("--cycle", required=True)
     workflow_inspect = workflow_commands.add_parser("inspect", help="validate a workflow definition and registry graph")
     workflow_inspect.add_argument("--workflow", required=True)
-    workflow_plan = workflow_commands.add_parser("plan", help="preflight and save an immutable local workflow plan")
+    workflow_inspect.add_argument("--target", choices=("local", "prod"))
+    workflow_inspect.add_argument("--run-mode", choices=("fresh-clean", "full-resync", "resumed"))
+    workflow_checkpoint = workflow_commands.add_parser(
+        "checkpoint", help="view or bootstrap accepted full-resync service checkpoints",
+    )
+    checkpoint_commands = workflow_checkpoint.add_subparsers(dest="checkpoint_command", required=True)
+    checkpoint_show = checkpoint_commands.add_parser("show")
+    checkpoint_bootstrap = checkpoint_commands.add_parser("bootstrap")
+    for checkpoint_command in (checkpoint_show, checkpoint_bootstrap):
+        checkpoint_command.add_argument("--workflow", required=True)
+        checkpoint_command.add_argument("--service")
+        checkpoint_command.add_argument("--target", choices=("local", "prod"), required=True)
+        checkpoint_command.add_argument("--cycle")
+    checkpoint_bootstrap.add_argument("--run", required=True)
+    checkpoint_bootstrap.add_argument("--confirm-production")
+    workflow_plan = workflow_commands.add_parser("plan", help="preflight and save an immutable workflow plan")
     workflow_plan.add_argument("--workflow", required=True)
     workflow_plan.add_argument(
         "--include-service", action="append", dest="included_services",
         help="include one service and its prerequisites; repeat to select more services",
     )
-    workflow_plan.add_argument("--cycle", required=True)
-    workflow_plan.add_argument("--target", choices=("local",), required=True)
+    workflow_plan.add_argument("--cycle")
+    workflow_plan.add_argument("--target", choices=("local", "prod"), required=True)
+    workflow_plan.add_argument("--run-mode", choices=("fresh-clean", "full-resync", "resumed"))
+    workflow_plan.add_argument("--confirm-production")
     workflow_plan.add_argument("--cutoff-date", help="accounting cutoff in YYYY-MM-DD; defaults to the sync-run date")
     workflow_plan.add_argument(
         "--accounting-period", action="append", dest="accounting_periods",
@@ -249,30 +274,42 @@ def parser() -> argparse.ArgumentParser:
         help=("continue in the same cycle while validating and skipping services "
               "already reconciled by this completed or incomplete workflow run"),
     )
+    workflow_run = workflow_commands.add_parser(
+        "run", help="plan and execute one production full-resync synchronously",
+    )
+    workflow_run.add_argument("--workflow", required=True)
+    workflow_run.add_argument("--include-service", action="append", dest="included_services")
+    workflow_run.add_argument("--target", choices=("prod",), required=True)
+    workflow_run.add_argument("--run-mode", choices=("full-resync",), default="full-resync")
+    workflow_run.add_argument("--confirm-production", required=True)
+    workflow_run.add_argument("--cutoff-date")
+    workflow_run.add_argument("--accounting-period", action="append", dest="accounting_periods")
     workflow_start = workflow_commands.add_parser("start", help="start a planned workflow in a detached local process")
     workflow_start.add_argument("--workflow-plan", required=True)
-    workflow_start.add_argument("--cycle", required=True)
-    workflow_start.add_argument("--target", choices=("local",), required=True)
+    workflow_start.add_argument("--cycle")
+    workflow_start.add_argument("--target", choices=("local", "prod"), required=True)
+    workflow_start.add_argument("--confirm-production")
     workflow_execute = workflow_commands.add_parser("execute", help="internal detached workflow executor")
     workflow_execute.add_argument("--workflow-run", "--run", dest="workflow_run", required=True)
-    workflow_execute.add_argument("--cycle", required=True)
-    workflow_execute.add_argument("--target", choices=("local",), required=True)
+    workflow_execute.add_argument("--cycle")
+    workflow_execute.add_argument("--target", choices=("local", "prod"), required=True)
     workflow_status = workflow_commands.add_parser("status", help="show durable workflow, step, and failure state")
     workflow_status.add_argument("--workflow-run", required=True)
-    workflow_status.add_argument("--cycle", required=True)
-    workflow_status.add_argument("--target", choices=("local",), required=True)
+    workflow_status.add_argument("--cycle")
+    workflow_status.add_argument("--target", choices=("local", "prod"), required=True)
     workflow_resume = workflow_commands.add_parser("resume", help="resume failed or interrupted steps")
     workflow_resume.add_argument("--workflow-run", required=True)
-    workflow_resume.add_argument("--cycle", required=True)
-    workflow_resume.add_argument("--target", choices=("local",), required=True)
+    workflow_resume.add_argument("--cycle")
+    workflow_resume.add_argument("--target", choices=("local", "prod"), required=True)
+    workflow_resume.add_argument("--confirm-production")
     workflow_stop = workflow_commands.add_parser("stop", help="request termination of a running local workflow")
     workflow_stop.add_argument("--workflow-run", required=True)
-    workflow_stop.add_argument("--cycle", required=True)
-    workflow_stop.add_argument("--target", choices=("local",), required=True)
+    workflow_stop.add_argument("--cycle")
+    workflow_stop.add_argument("--target", choices=("local", "prod"), required=True)
     workflow_history = workflow_commands.add_parser("history", help="compare workflow runs and recurring failures")
     workflow_history.add_argument("--workflow", required=True)
     workflow_history.add_argument("--cycle", help="limit history to one cycle; omit to compare all cycles")
-    workflow_history.add_argument("--target", choices=("local",), required=True)
+    workflow_history.add_argument("--target", choices=("local", "prod"), required=True)
     for name in ("preflight", "inspect", "plan", "status"):
         cmd = commands.add_parser(name)
         cmd.add_argument("--target", choices=("local", "prod"), required=name != "inspect")
@@ -281,7 +318,7 @@ def parser() -> argparse.ArgumentParser:
                 "clients", PEP_BLOCK, FAMILY_REFERENCES_BLOCK, PERSONAL_FAMILY_REFERENCES_BLOCK, EMPLOYEE_BLOCK,
                 CLIENT_STAFF_ASSIGNMENT_BLOCK,
                 MEMBERSHIP_BLOCK, AML_ALERT_BLOCK, SAVINGS_BLOCK, SAVINGS_ACCOUNT_PARTIES_BLOCK, LOANS_BLOCK, MOBILE_COLLECTION_BLOCK,
-                NATIVE_SHARES_BLOCK, DTE_HISTORY_BLOCK,
+                NATIVE_SHARES_BLOCK, SHARE_YIELD_BLOCK, DTE_HISTORY_BLOCK,
             )
             if name in {"inspect", "plan"}:
                 block_choices = (*block_choices, ACCOUNTING_BLOCK)
@@ -315,7 +352,8 @@ def parser() -> argparse.ArgumentParser:
                 choices=("clients", PEP_BLOCK, FAMILY_REFERENCES_BLOCK, PERSONAL_FAMILY_REFERENCES_BLOCK, EMPLOYEE_BLOCK,
                          CLIENT_STAFF_ASSIGNMENT_BLOCK,
                          MEMBERSHIP_BLOCK, SAVINGS_BLOCK, AML_ALERT_BLOCK, LOANS_BLOCK, MOBILE_COLLECTION_BLOCK,
-                         NATIVE_SHARES_BLOCK, DTE_HISTORY_BLOCK, ACCOUNTING_BLOCK, SAVINGS_ACCOUNT_PARTIES_BLOCK),
+                         NATIVE_SHARES_BLOCK, SHARE_YIELD_BLOCK, DTE_HISTORY_BLOCK, ACCOUNTING_BLOCK,
+                         SAVINGS_ACCOUNT_PARTIES_BLOCK),
             )
     apply = commands.add_parser("apply")
     apply.add_argument("--target", choices=("local", "prod"), required=True)
@@ -337,7 +375,7 @@ def parser() -> argparse.ArgumentParser:
     retry.add_argument("--run", required=True)
     retry.add_argument("--failed-only", action="store_true", required=True)
     retry.add_argument("--confirm-production")
-    for command in (apply, retry, workflow_plan):
+    for command in (apply, retry, workflow_plan, workflow_run):
         command.add_argument(
             "--loan-workers", type=int,
             help=(f"parallel loan lifecycles (default: {DEFAULT_LOAN_WORKERS}; "
@@ -434,6 +472,11 @@ def main(argv=None) -> int:
         if args.command == "source-check":
             emit(check_source(load_source_config(args.env_file)))
             return 0
+        if args.command == "backup":
+            emit(backup_state(
+                configured_state_path(args.env_file), Path(args.output_dir), args.keep_days,
+            ))
+            return 0
         if args.command == "health":
             report = storage_health(
                 configured_state_path(args.env_file),
@@ -460,7 +503,9 @@ def main(argv=None) -> int:
             emit(service_report(args.service))
             return 0
         if args.command == "workflow" and args.workflow_command == "inspect":
-            report = inspect_local_workflow(args.workflow)
+            report = inspect_workflow(
+                load_workflow(args.workflow), target=args.target, run_mode=args.run_mode,
+            )
             emit(report)
             return 0 if report["ready"] else 2
         if args.command == "workflow" and args.workflow_command == "list":
@@ -553,7 +598,10 @@ def main(argv=None) -> int:
             cycle = catalog.get(args.cycle)
             settings = settings_for_cycle(settings, cycle)
         if args.command == "workflow":
-            catalog = CycleCatalog(settings.state_path)
+            catalog = CycleCatalog(settings.state_path) if settings.target.name == "local" else None
+            if args.workflow_command == "cycle":
+                if settings.target.name != "local" or catalog is None:
+                    raise ValueError("Sync cycles are available only for the local target")
             if args.workflow_command == "cycle" and args.cycle_command == "create":
                 if bool(args.reset_tenant) != bool(args.reset_confirm):
                     raise ValueError("--reset-tenant and --reset-confirm must be supplied together")
@@ -575,37 +623,111 @@ def main(argv=None) -> int:
                 )
                 emit({**cycle, "target_reset": reset, "retention": retention})
                 return 0
-            if args.workflow_command == "history" and not args.cycle:
+            if settings.target.name == "local" and args.workflow_command == "history" and not args.cycle:
+                assert catalog is not None
                 emit(workflow_history_across_cycles(catalog, args.workflow))
                 return 0
-            cycle = (
-                catalog.require_open(args.cycle, settings.target.fingerprint)
-                if args.workflow_command in {"plan", "start", "execute", "resume", "stop"}
-                else catalog.get(args.cycle)
-            )
-            settings = settings_for_cycle(settings, cycle)
+            cycle = None
+            if settings.target.name == "local":
+                if not getattr(args, "cycle", None):
+                    raise ValueError("Local workflow commands require --cycle")
+                assert catalog is not None
+                requires_open_cycle = args.workflow_command in {
+                    "plan", "start", "execute", "resume", "stop",
+                } or (
+                    args.workflow_command == "checkpoint"
+                    and args.checkpoint_command == "bootstrap"
+                )
+                cycle = (
+                    catalog.require_open(args.cycle, settings.target.fingerprint)
+                    if requires_open_cycle
+                    else catalog.get(args.cycle)
+                )
+                settings = settings_for_cycle(settings, cycle)
+            elif getattr(args, "cycle", None):
+                raise ValueError("Production full-resync does not accept --cycle")
             state = State(settings.state_path)
-            if args.workflow_command == "plan" and args.cutoff_date:
+            if args.workflow_command in {"plan", "run"} and args.cutoff_date:
                 state.set_accounting_cutoff(args.cutoff_date)
-            state.require_cycle(args.cycle, cycle["target_fingerprint"])
-            if args.workflow_command == "plan":
-                plan_id, document = build_workflow_plan(
-                    settings, state, args.workflow, args.cycle,
-                    LoanApplyControls.configured(
-                        args.loan_workers, args.fineract_pause_seconds, args.fineract_recovery_attempts
-                    ),
+            if cycle is not None:
+                state.require_cycle(args.cycle, cycle["target_fingerprint"])
+            if args.workflow_command == "checkpoint":
+                definition = load_workflow(args.workflow)
+                report = inspect_workflow(
+                    definition, target=settings.target.name, run_mode="full-resync",
+                )
+                if not report["ready"]:
+                    raise ValueError(
+                        f"Workflow is not ready for {settings.target.name} full-resync checkpoints"
+                    )
+                if args.checkpoint_command == "show":
+                    checkpoints = state.sync_checkpoints(
+                        settings.target.fingerprint, definition.identifier,
+                    )
+                    if args.service:
+                        checkpoints = [item for item in checkpoints if item["service_id"] == args.service]
+                    emit({
+                        "workflow_id": definition.identifier,
+                        "target_fingerprint": settings.target.fingerprint,
+                        "checkpoints": checkpoints,
+                    })
+                    return 0
+                if not args.service:
+                    raise ValueError("Checkpoint bootstrap requires --service")
+                if args.service not in definition.services:
+                    raise ValueError("Checkpoint service is not selected by the workflow")
+                if (
+                    settings.target.name == "prod"
+                    and args.confirm_production != settings.target.fingerprint
+                ):
+                    raise RuntimeError(
+                        f"Production checkpoint bootstrap requires --confirm-production "
+                        f"{settings.target.fingerprint}"
+                    )
+                checkpoint = state.bootstrap_sync_checkpoint(
+                    settings.target.fingerprint, definition.identifier, args.service, args.run,
+                    {
+                        "confirmed_target_fingerprint": settings.target.fingerprint,
+                        "target": settings.target.name,
+                        **({"sync_cycle_id": args.cycle} if args.cycle else {}),
+                    },
+                    child_block=service_report(args.service)["service"]["cli_block"],
+                )
+                emit(checkpoint)
+                return 0
+            if args.workflow_command in {"plan", "run"}:
+                restart_controls = (
                     FineractRestartControls.configured(
                         args.fineract_restart_attempts, args.fineract_restart_timeout_seconds,
                         args.fineract_restart_poll_seconds,
+                    )
+                    if args.workflow_command == "plan"
+                    else FineractRestartControls(attempts=0)
+                )
+                plan_id, document = build_workflow_plan(
+                    settings, state, args.workflow, getattr(args, "cycle", None),
+                    LoanApplyControls.configured(
+                        args.loan_workers, args.fineract_pause_seconds, args.fineract_recovery_attempts
                     ),
+                    restart_controls,
                     selected_services=args.included_services,
                     dte_controls=DteApplyControls.configured(args.dte_workers, args.dte_batch_size),
                     accounting_periods=args.accounting_periods,
-                    resume_from_run_id=args.resume_from_workflow_run,
+                    resume_from_run_id=getattr(args, "resume_from_workflow_run", None),
+                    run_mode=args.run_mode,
+                    production_confirmation=args.confirm_production,
                 )
+                if args.workflow_command == "run":
+                    workflow_run_id = state.create_workflow_run(state.workflow_plan(plan_id))
+                    report = execute_workflow(settings, state, workflow_run_id)
+                    emit({"workflow_plan_id": plan_id, **report})
+                    return 0 if report["workflow_run"]["status"] == "completed" else 2
                 emit({"workflow_plan_id": plan_id, **document})
             elif args.workflow_command == "start":
-                emit(start_workflow(settings, state, args.workflow_plan, args.cycle, args.env_file))
+                emit(start_workflow(
+                    settings, state, args.workflow_plan, args.cycle, args.env_file,
+                    args.confirm_production,
+                ))
             elif args.workflow_command == "execute":
                 report = execute_workflow(settings, state, args.workflow_run, args.cycle)
                 emit(report)
@@ -613,7 +735,10 @@ def main(argv=None) -> int:
             elif args.workflow_command == "status":
                 emit(workflow_report(state, args.workflow_run))
             elif args.workflow_command == "resume":
-                emit(resume_workflow(settings, state, args.workflow_run, args.cycle, args.env_file))
+                emit(resume_workflow(
+                    settings, state, args.workflow_run, args.cycle, args.env_file,
+                    args.confirm_production,
+                ))
             elif args.workflow_command == "stop":
                 emit(stop_workflow(state, args.workflow_run))
             elif args.workflow_command == "history":
@@ -638,6 +763,7 @@ def main(argv=None) -> int:
         )
         membership_contract = MembershipContract.load(settings.membership_mapping_path)
         native_share_contract = NativeShareContract.load(settings.native_share_mapping_path)
+        share_yield_contract = ShareYieldContract.load(ROOT / "config/native_share_yield.json")
         aml_alert_contract = AmlAlertContract.load(settings.aml_alert_mapping_path)
         savings_contract = SavingsContract.load(settings.savings_mapping_path)
         savings_account_party_contract = SavingsAccountPartyContract.load(ROOT / "config/savings_account_parties.json")
@@ -757,6 +883,7 @@ def main(argv=None) -> int:
             contract = (mobile_collection_contract if args.block == MOBILE_COLLECTION_BLOCK
                         else dte_history_contract if args.block == DTE_HISTORY_BLOCK
                         else native_share_contract if args.block == NATIVE_SHARES_BLOCK
+                        else share_yield_contract if args.block == SHARE_YIELD_BLOCK
                         else savings_account_party_contract if args.block == SAVINGS_ACCOUNT_PARTIES_BLOCK
                         else savings_contract if args.block == SAVINGS_BLOCK
                         else aml_alert_contract if args.block == AML_ALERT_BLOCK
@@ -771,6 +898,7 @@ def main(argv=None) -> int:
                       else inspect_dte_history(settings, contract) if args.block == DTE_HISTORY_BLOCK
                       else inspect_native_shares(settings, contract, args.source_key)
                       if args.block == NATIVE_SHARES_BLOCK
+                      else inspect_share_yields(settings, contract) if args.block == SHARE_YIELD_BLOCK
                       else inspect_savings_account_parties(settings, contract)
                       if args.block == SAVINGS_ACCOUNT_PARTIES_BLOCK
                       else inspect_savings(settings, contract) if args.block == SAVINGS_BLOCK
@@ -809,6 +937,10 @@ def main(argv=None) -> int:
             elif args.block == NATIVE_SHARES_BLOCK:
                 plan_id, document = build_native_share_plan(
                     settings, state, native_share_contract, args.source_key
+                )
+            elif args.block == SHARE_YIELD_BLOCK:
+                plan_id, document = build_share_yield_plan(
+                    settings, state, share_yield_contract, args.source_key
                 )
             elif args.block == MOBILE_COLLECTION_BLOCK:
                 plan_id, document = build_mobile_collection_plan(
@@ -891,6 +1023,10 @@ def main(argv=None) -> int:
                 run_id, counts = apply_native_share_plan(
                     settings, state, native_share_contract, args.plan, args.confirm_production
                 )
+            elif plan["block"] == SHARE_YIELD_BLOCK:
+                run_id, counts = apply_share_yield_plan(
+                    settings, state, share_yield_contract, args.plan, args.confirm_production
+                )
             elif plan["block"] == MEMBERSHIP_BLOCK:
                 run_id, counts = apply_membership_plan(
                     settings, state, membership_contract, args.plan, args.confirm_production
@@ -962,6 +1098,8 @@ def main(argv=None) -> int:
                 result = reconcile_native_shares(settings, state, native_share_contract, args.run)
                 state.record_reconciliation(args.run, result)
                 emit(result)
+            elif run["block"] == SHARE_YIELD_BLOCK:
+                emit(reconcile_share_yields(settings, state, share_yield_contract, args.run))
             elif run["block"] == MEMBERSHIP_BLOCK:
                 emit(reconcile_membership(settings, state, membership_contract, args.run))
             elif run["block"] == EMPLOYEE_BLOCK:
@@ -1027,6 +1165,10 @@ def main(argv=None) -> int:
             elif previous["block"] == NATIVE_SHARES_BLOCK:
                 run_id, counts = apply_native_share_plan(
                     settings, state, native_share_contract, previous["plan_id"], args.confirm_production, keys
+                )
+            elif previous["block"] == SHARE_YIELD_BLOCK:
+                run_id, counts = apply_share_yield_plan(
+                    settings, state, share_yield_contract, previous["plan_id"], args.confirm_production, keys
                 )
             elif previous["block"] == MEMBERSHIP_BLOCK:
                 run_id, counts = apply_membership_plan(

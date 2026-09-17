@@ -80,7 +80,7 @@ public class SavingsAccountPartyServiceImpl implements SavingsAccountPartyServic
             beneficiary.setSourceHash(trim(request.getSourceHash()));
             beneficiary.setActive(true);
             touch(beneficiary);
-            final SavingsBeneficiary saved = beneficiaryRepository.save(beneficiary);
+            final SavingsBeneficiary saved = beneficiaryRepository.saveAndFlush(beneficiary);
             retainedIds.add(saved.getId());
         }
 

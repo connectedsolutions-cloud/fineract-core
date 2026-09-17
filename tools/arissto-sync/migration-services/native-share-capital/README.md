@@ -13,6 +13,11 @@ projection directly from Arissto and verifies target prerequisites. It never
 uses daily/monthly certificate snapshots as transactions and never creates a
 redemption from an inferred former position.
 
+Contractual preferred-share accruals are owned by the separate
+[`native-share-yield`](../native-share-yield/README.md) service. Keeping that
+subledger separate prevents purchase replay from creating, suppressing, or
+silently reconciling yield liabilities.
+
 ## Inspect
 
 ```bash
@@ -183,3 +188,12 @@ same-client savings relationship and never fabricates a balance or transaction.
 Detailed lifecycle and implementation rules remain in the membership service's
 [`lifecycle.md`](../membership-share-capital/lifecycle.md) and
 [`implementation-sequence.md`](../membership-share-capital/implementation-sequence.md).
+
+## Full re-sync
+
+Local `full-resync` is supported through `local-full-resync`. Exact product,
+account, purchase-event, and certificate mappings are unchanged no-write
+actions. New or changed source events enter the existing idempotent resume path;
+identity collisions and unsupported native drift quarantine instead of replacing
+history. Source absence never deletes a share position or event, and the
+checkpoint advances only after reconciliation.

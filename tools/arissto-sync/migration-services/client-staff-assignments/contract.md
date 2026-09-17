@@ -37,3 +37,9 @@ overwrite the client relationship.
 All extension columns are legacy-owned. Each plan hashes the normalized relationship values and the contract. Apply re-reads the source row and revalidates the client and staff identities before writing through the datatable API.
 
 Missing clients, missing staff, invalid source identities, or duplicated source keys stop or quarantine work without guessing. Reconciliation compares all legacy IDs and all resolved staff external IDs. The service does not write native loan-officer or collection-manager client columns and never deletes target records.
+
+After an accepted production reconciliation checkpoint exists,
+`prod-party-resync` may re-scan the complete assignment scope and apply only
+source-hash create/update deltas. Cleared role values are represented by the
+owned all-null relationship fields; source-row deletion is not inferred. The
+checkpoint advances only after exact reconciliation.
