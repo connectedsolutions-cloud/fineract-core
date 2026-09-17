@@ -492,6 +492,42 @@ class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest {
     }
 
     @Test
+    void sourceExactReplayIgnoresAccrualAllocationAsPaymentOwner() {
+        final BigDecimal fee = new BigDecimal("2.18");
+        final LoanRepaymentScheduleInstallment installment = installment(1, LocalDate.of(2026, 5, 28), DUE_DATE, BigDecimal.ZERO,
+                BigDecimal.ZERO, fee);
+        final LoanTransaction repayment = repayment(DUE_DATE, fee);
+        final String transactionExternalId = "ARISSTO:CRD-MOV:0000000085";
+        repayment.updateExternalId(new ExternalId(transactionExternalId));
+        final String chargeExternalId = "ARISSTO:CRD-INS:198057:0000000085:0005";
+        repayment.markAsSourceExactAllocation(new SourceExactRepaymentAllocation(BigDecimal.ZERO, BigDecimal.ZERO, fee, BigDecimal.ZERO),
+                chargeExternalId);
+        final LoanCharge charge = new LoanCharge();
+        charge.setExternalId(new ExternalId(chargeExternalId));
+        charge.setAmount(fee);
+        charge.setAmountPaid(BigDecimal.ZERO);
+        charge.setAmountWaived(BigDecimal.ZERO);
+        charge.setAmountWrittenOff(BigDecimal.ZERO);
+        charge.setAmountOutstanding(fee);
+        charge.setPaid(false);
+        final LoanTransaction persistedOwner = repayment(DUE_DATE, fee);
+        persistedOwner.updateExternalId(new ExternalId(transactionExternalId));
+        final LoanChargePaidBy existingOwner = new LoanChargePaidBy(persistedOwner, charge, fee, null);
+        charge.getLoanChargePaidBySet().add(existingOwner);
+        final LoanTransaction accrual = LoanTransaction.accrueLoanCharge(loan, office, Money.of(CURRENCY, fee), DUE_DATE,
+                Money.of(CURRENCY, fee), Money.zero(CURRENCY), ExternalId.empty());
+        charge.getLoanChargePaidBySet().add(new LoanChargePaidBy(accrual, charge, fee, null));
+
+        processor.processTransaction(repayment, CURRENCY, List.of(installment), new HashSet<>(List.of(charge)), null);
+
+        assertMoney("2.18", repayment.getFeeChargesPortion(CURRENCY));
+        assertMoney("2.18", charge.getAmountPaid(CURRENCY));
+        assertMoney("0.00", charge.getAmountOutstanding(CURRENCY));
+        assertEquals(1, repayment.getLoanChargesPaid().size());
+        assertEquals(charge, repayment.getLoanChargesPaid().iterator().next().getLoanCharge());
+    }
+
+    @Test
     void sourceExactReplayPersistsNewChargeOwnershipWhenTransactionAmountsAreUnchanged() {
         final BigDecimal fee = new BigDecimal("2.18");
         final LoanRepaymentScheduleInstallment installment = installment(1, LocalDate.of(2026, 5, 28), DUE_DATE, BigDecimal.ZERO,

@@ -257,8 +257,16 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
         }).findFirst().orElse(null);
         if (existingOwner != null) {
             final Money existingPaid = Money.of(currency, existingOwner.getAmount());
-            final boolean hasConflictingOwner = target.getLoanChargePaidBySet().stream()
-                    .anyMatch(mapping -> mapping != existingOwner && mapping.getAmount().signum() > 0);
+            final boolean hasConflictingOwner = target.getLoanChargePaidBySet().stream().anyMatch(mapping -> {
+                if (mapping == existingOwner || mapping.getAmount().signum() <= 0) {
+                    return false;
+                }
+                final LoanTransaction ownerTransaction = mapping.getLoanTransaction();
+                // Accrual and accrual-adjustment rows reuse m_loan_charge_paid_by to retain accounting
+                // attribution. They are not customer payments and therefore do not compete with the
+                // source-exact repayment that owns the historical fee charge.
+                return ownerTransaction == null || (!ownerTransaction.isAccrual() && !ownerTransaction.isAccrualAdjustment());
+            });
             if (!existingPaid.isEqualTo(requested) || hasConflictingOwner) {
                 throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.fee.charge.not.representable",
                         "The declared source-exact fee charge has an incompatible existing payment owner");
