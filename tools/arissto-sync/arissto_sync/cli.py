@@ -574,7 +574,7 @@ def main(argv=None) -> int:
                 accounting_settings = load_settings(args.target, args.env_file)
                 report = inspect_accounting(
                     accounting_settings.source, contract, args.cutoff_date, args.source_key,
-                    accounting_settings.target.pg_url,
+                    accounting_settings.target.pg_url, target_api_user=accounting_settings.target.api_user,
                 )
                 state = State(accounting_settings.state_path)
                 state.save_inspection(

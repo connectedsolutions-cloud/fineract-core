@@ -113,6 +113,7 @@ class ServiceRuntime:
             return inspect_accounting(
                 self.settings.source, contract, self.state.accounting_cutoff["date"],
                 target_pg_url=self.settings.target.pg_url,
+                target_api_user=self.settings.target.api_user,
             )
         if block == LOANS_BLOCK:
             return inspect_loans(

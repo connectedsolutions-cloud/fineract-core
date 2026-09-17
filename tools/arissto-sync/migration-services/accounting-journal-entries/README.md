@@ -260,6 +260,14 @@ Apply an accepted explicit-key plan while the tenant scheduler is paused:
 ./arissto-sync status --block accounting --target local
 ```
 
+The configured Fineract API user must be explicitly assigned to every office
+referenced by the frozen agency mapping. Inspection reports the assigned,
+required, and missing office IDs and blocks readiness with
+`TARGET_API_USER_OFFICE_ACCESS_INCOMPLETE` before any journal write. A runtime
+`office.unauthorized` response is fatal because it indicates target access
+configuration, not a source journal that may be quarantined. The disposable
+tenant baseline should therefore retain the same multi-office assignment.
+
 Apply fails closed when the scheduler is active or when the target fingerprint,
 contract, cutoff revision/hash, source content, mappings, or target bindings no
 longer match the frozen plan. Production additionally requires the exact target
@@ -304,6 +312,17 @@ lines, then index them in memory by the full source journal key. Target GL
 accounts, existing source mappings, and candidate native transaction links
 must also be loaded in batches. Reconciliation should compare bulk snapshots,
 not issue one database or API lookup per line.
+
+The final source-ledger control uses separate indexed reads for the control
+period summary, journal closing buckets, and `CNT_MAYOR` rows, then compares
+those bounded results in memory. This is semantically equivalent to the prior
+single CTE control without forcing SQL Server to repeatedly expand the same
+eligible-journal CTE.
+
+Inspection also requires the final eligible source accounting period to end
+strictly before the cutoff. A mid-period cutoff reports
+`SOURCE_LEDGER_CONTROL_PERIOD_NOT_CLOSED_BEFORE_CUTOFF`; operators must select
+an approved period boundary rather than weakening the closing-balance control.
 
 Writes remain sequential initially because a journal is one atomic balanced
 unit and partial debit/credit persistence is unacceptable. Reuse the source

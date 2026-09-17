@@ -260,69 +260,68 @@ WHERE e.ID_EMPRESA=?
 ORDER BY me.ID_MONEDA_EMPRESA
 """
 
-SOURCE_LEDGER_CONTROL_QUERY = """
-WITH control_period AS (
-    SELECT pe.ID_PERIODO,pe.ANIO,pe.MES,
-           EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1)) AS period_end
-    FROM dbo.CNT_PERIODO pe
-    WHERE pe.ID_EMPRESA=? AND pe.ID_PERIODO=?
-), eligible_headers AS (
-    SELECT p.ID_EMPRESA,p.ID_SUCURSAL,p.ID_PERIODO,p.ID_PARTIDA,
-           p.ID_TIPO_PARTIDA,p.LIQ_ING_EGR
-    FROM dbo.CNT_PARTIDAS p
-    CROSS JOIN control_period cp
-    JOIN dbo.CNT_PERIODO pe
-      ON pe.ID_EMPRESA=p.ID_EMPRESA AND pe.ID_PERIODO=p.ID_PERIODO
-    WHERE p.ID_EMPRESA=? AND p.ESTADO_PARTIDA='3'
-      AND CASE
-            WHEN CAST(p.FECHA_PARTIDA AS date) BETWEEN DATEFROMPARTS(pe.ANIO,pe.MES,1)
-                                                        AND EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1))
-              THEN CAST(p.FECHA_PARTIDA AS date)
-            ELSE EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1))
-          END>=CAST(? AS date)
-      AND (pe.ANIO<cp.ANIO OR (pe.ANIO=cp.ANIO AND pe.MES<=cp.MES))
-      AND EXISTS (
-          SELECT 1 FROM dbo.CNT_DETALLE_PARTIDAS d
-          WHERE d.ID_EMPRESA=p.ID_EMPRESA AND d.ID_SUCURSAL=p.ID_SUCURSAL
-            AND d.ID_PERIODO=p.ID_PERIODO AND d.ID_PARTIDA=p.ID_PARTIDA
-      )
-), journal_closing AS (
-    SELECT h.ID_EMPRESA,d.ID_SUCURSAL_DESTINO AS destination_branch_id,d.ID_CUENTA,
-           SUM(CASE WHEN c.TIPO_SALDO='A' THEN d.HABER-d.DEBE ELSE d.DEBE-d.HABER END) AS closing_balance,
-           COUNT_BIG(*) AS direct_line_count,
-           SUM(CASE WHEN RTRIM(COALESCE(h.ID_TIPO_PARTIDA,''))='003'
-                          AND RTRIM(COALESCE(h.LIQ_ING_EGR,''))='1'
-                    THEN 0 ELSE 1 END) AS non_annual_liquidation_line_count
-    FROM eligible_headers h
-    JOIN dbo.CNT_DETALLE_PARTIDAS d
-      ON d.ID_EMPRESA=h.ID_EMPRESA AND d.ID_SUCURSAL=h.ID_SUCURSAL
-     AND d.ID_PERIODO=h.ID_PERIODO AND d.ID_PARTIDA=h.ID_PARTIDA
-    JOIN dbo.CNT_CATALOGO_CUENTAS c
-      ON c.ID_EMPRESA=d.ID_EMPRESA AND c.ID_CUENTA=d.ID_CUENTA
-    GROUP BY h.ID_EMPRESA,d.ID_SUCURSAL_DESTINO,d.ID_CUENTA
-), comparison_keys AS (
-    SELECT destination_branch_id,ID_CUENTA FROM journal_closing
-), comparison AS (
-    SELECT k.destination_branch_id,k.ID_CUENTA,
-           COALESCE(j.closing_balance,0) AS journal_closing,
-           COALESCE(m.SALDO_FINAL,0) AS ledger_closing,
-           j.direct_line_count,j.non_annual_liquidation_line_count
-    FROM comparison_keys k
-    CROSS JOIN control_period cp
-    LEFT JOIN journal_closing j
-      ON j.destination_branch_id=k.destination_branch_id AND j.ID_CUENTA=k.ID_CUENTA
-    LEFT JOIN dbo.CNT_MAYOR m
-      ON m.ID_EMPRESA=? AND m.ID_PERIODO=cp.ID_PERIODO
-     AND m.ID_SUCURSAL=k.destination_branch_id AND m.ID_CUENTA=k.ID_CUENTA
-)
+SOURCE_LEDGER_CONTROL_SUMMARY_QUERY = """
 SELECT RTRIM(cp.ID_PERIODO) AS control_period_id,
-       CAST(CASE WHEN cp.period_end<CAST(? AS date) THEN 1 ELSE 0 END AS int) AS closed_before_cutoff,
-       (SELECT COUNT_BIG(*) FROM eligible_headers) AS eligible_journal_count,
-       RTRIM(c.destination_branch_id) AS destination_branch_id,
-       RTRIM(c.ID_CUENTA) AS account_id,c.journal_closing,c.ledger_closing,
-       c.direct_line_count,c.non_annual_liquidation_line_count
-FROM control_period cp
-LEFT JOIN comparison c ON 1=1
+       CAST(CASE WHEN EOMONTH(DATEFROMPARTS(cp.ANIO,cp.MES,1))<CAST(? AS date) THEN 1 ELSE 0 END AS int)
+         AS closed_before_cutoff,
+       (
+         SELECT COUNT_BIG(*)
+         FROM dbo.CNT_PARTIDAS p
+         JOIN dbo.CNT_PERIODO pe
+           ON pe.ID_EMPRESA=p.ID_EMPRESA AND pe.ID_PERIODO=p.ID_PERIODO
+         WHERE p.ID_EMPRESA=? AND p.ESTADO_PARTIDA='3'
+           AND CASE
+                 WHEN CAST(p.FECHA_PARTIDA AS date) BETWEEN DATEFROMPARTS(pe.ANIO,pe.MES,1)
+                                                             AND EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1))
+                   THEN CAST(p.FECHA_PARTIDA AS date)
+                 ELSE EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1))
+               END>=CAST(? AS date)
+           AND (pe.ANIO<cp.ANIO OR (pe.ANIO=cp.ANIO AND pe.MES<=cp.MES))
+           AND EXISTS (
+               SELECT 1 FROM dbo.CNT_DETALLE_PARTIDAS d
+               WHERE d.ID_EMPRESA=p.ID_EMPRESA AND d.ID_SUCURSAL=p.ID_SUCURSAL
+                 AND d.ID_PERIODO=p.ID_PERIODO AND d.ID_PARTIDA=p.ID_PARTIDA
+           )
+       ) AS eligible_journal_count
+FROM dbo.CNT_PERIODO cp
+WHERE cp.ID_EMPRESA=? AND cp.ID_PERIODO=?
+"""
+
+SOURCE_LEDGER_CONTROL_QUERY = """
+SELECT RTRIM(d.ID_SUCURSAL_DESTINO) AS destination_branch_id,
+       RTRIM(d.ID_CUENTA) AS account_id,
+       SUM(CASE WHEN c.TIPO_SALDO='A' THEN d.HABER-d.DEBE ELSE d.DEBE-d.HABER END) AS journal_closing,
+       COUNT_BIG(*) AS direct_line_count,
+       SUM(CASE WHEN RTRIM(COALESCE(p.ID_TIPO_PARTIDA,''))='003'
+                      AND RTRIM(COALESCE(p.LIQ_ING_EGR,''))='1'
+                THEN 0 ELSE 1 END) AS non_annual_liquidation_line_count
+FROM dbo.CNT_PARTIDAS p
+JOIN dbo.CNT_PERIODO pe
+  ON pe.ID_EMPRESA=p.ID_EMPRESA AND pe.ID_PERIODO=p.ID_PERIODO
+JOIN dbo.CNT_PERIODO cp
+  ON cp.ID_EMPRESA=p.ID_EMPRESA AND cp.ID_PERIODO=?
+JOIN dbo.CNT_DETALLE_PARTIDAS d
+  ON d.ID_EMPRESA=p.ID_EMPRESA AND d.ID_SUCURSAL=p.ID_SUCURSAL
+ AND d.ID_PERIODO=p.ID_PERIODO AND d.ID_PARTIDA=p.ID_PARTIDA
+JOIN dbo.CNT_CATALOGO_CUENTAS c
+  ON c.ID_EMPRESA=d.ID_EMPRESA AND c.ID_CUENTA=d.ID_CUENTA
+WHERE p.ID_EMPRESA=? AND p.ESTADO_PARTIDA='3'
+  AND CASE
+        WHEN CAST(p.FECHA_PARTIDA AS date) BETWEEN DATEFROMPARTS(pe.ANIO,pe.MES,1)
+                                                    AND EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1))
+          THEN CAST(p.FECHA_PARTIDA AS date)
+        ELSE EOMONTH(DATEFROMPARTS(pe.ANIO,pe.MES,1))
+      END>=CAST(? AS date)
+  AND (pe.ANIO<cp.ANIO OR (pe.ANIO=cp.ANIO AND pe.MES<=cp.MES))
+GROUP BY d.ID_SUCURSAL_DESTINO,d.ID_CUENTA
+"""
+
+SOURCE_LEDGER_MAYOR_QUERY = """
+SELECT RTRIM(ID_SUCURSAL) AS destination_branch_id,
+       RTRIM(ID_CUENTA) AS account_id,
+       SALDO_FINAL AS ledger_closing
+FROM dbo.CNT_MAYOR
+WHERE ID_EMPRESA=? AND ID_PERIODO=?
 """
 
 SOURCE_HYBRID_ROLLUP_QUERY_PREFIX = """
@@ -667,11 +666,52 @@ def classify_accounting(headers: list[dict[str, Any]], lines: list[dict[str, Any
     }
 
 
-def _target_snapshot(pg_url: str, contract: AccountingContract) -> dict[str, Any]:
+def _required_accounting_office_ids(contract: AccountingContract) -> set[int]:
+    return {
+        int(mapped["target_office_id"])
+        for mapped in contract.raw["agency_dimension"]["mapping"].values()
+    }
+
+
+def _missing_api_user_office_ids(target: dict[str, Any], contract: AccountingContract) -> list[int]:
+    if not target.get("api_user_selected"):
+        return []
+    assigned = {int(value) for value in target.get("api_user_office_ids", [])}
+    return sorted(_required_accounting_office_ids(contract) - assigned)
+
+
+def _source_control_period_readiness(
+    headers: list[dict[str, Any]], classified: dict[str, Any], contract: AccountingContract, cutoff: date,
+) -> dict[str, Any]:
+    finding_keys = {str(item["source_key"]) for item in classified.get("findings", [])}
+    candidates: list[tuple[date, str, date]] = []
+    for header in headers:
+        key = source_key_text(_source_key(header))
+        policy = _journal_date_policy(header)
+        effective_date = policy.get("effective_date")
+        period_end = policy.get("period_end")
+        if key in finding_keys or not isinstance(effective_date, date) or not isinstance(period_end, date):
+            continue
+        if effective_date >= cutoff:
+            continue
+        candidates.append((effective_date, key, period_end))
+    if not candidates:
+        return {"resolved": False, "closed_before_cutoff": False}
+    _effective_date, key, period_end = max(candidates)
+    return {
+        "resolved": True,
+        "source_key": key,
+        "period_id": key.split(":")[2],
+        "period_end": period_end.isoformat(),
+        "closed_before_cutoff": period_end < cutoff,
+    }
+
+
+def _target_snapshot(pg_url: str, contract: AccountingContract, api_user: str | None = None) -> dict[str, Any]:
     with postgres_connection(pg_url) as conn:
         tables = {str(row[0]) for row in conn.execute(
             "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name=ANY(%s)",
-            (["acc_gl_account", "m_office", "acc_gl_closure", "m_organisation_currency",
+            (["acc_gl_account", "m_office", "m_appuser", "m_appuser_office", "acc_gl_closure", "m_organisation_currency",
               contract.raw["target"]["provenance_parent_table"], contract.raw["target"]["provenance_line_table"]],),
         ).fetchall()}
         accounts: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -695,6 +735,18 @@ def _target_snapshot(pg_url: str, contract: AccountingContract) -> dict[str, Any
                 "SELECT id,code,decimal_places FROM m_organisation_currency ORDER BY code,id"
             ).fetchall():
                 currencies[str(code)].append({"id": int(identifier), "decimal_places": int(decimal_places)})
+        api_user_count = 0
+        api_user_office_ids: list[int] = []
+        if api_user and {"m_appuser", "m_appuser_office"} <= tables:
+            user_rows = conn.execute("SELECT id FROM m_appuser WHERE username=%s", (api_user,)).fetchall()
+            api_user_count = len(user_rows)
+            if api_user_count == 1:
+                api_user_office_ids = [
+                    int(row[0]) for row in conn.execute(
+                        "SELECT office_id FROM m_appuser_office WHERE appuser_id=%s ORDER BY office_id",
+                        (user_rows[0][0],),
+                    ).fetchall()
+                ]
         parent = contract.raw["target"]["provenance_parent_table"]
         imported: dict[str, str] = {}
         imported_target_ids: dict[str, str] = {}
@@ -716,12 +768,14 @@ def _target_snapshot(pg_url: str, contract: AccountingContract) -> dict[str, Any
                         imported_target_ids[key] = str(target_id)
         return {"tables": sorted(tables), "accounts": dict(accounts), "offices": offices,
                 "closure_by_office": closures, "currencies": dict(currencies), "imported": imported,
-                "imported_target_ids": imported_target_ids}
+                "imported_target_ids": imported_target_ids, "api_user_selected": bool(api_user),
+                "api_user_count": api_user_count, "api_user_office_ids": api_user_office_ids}
 
 
 def inspect_accounting(source_config: SourceConfig, contract: AccountingContract, cutoff_date: str,
                        source_key: str | None = None, target_pg_url: str | None = None,
-                       source_conn: Any | None = None, target_snapshot: dict[str, Any] | None = None) -> dict[str, Any]:
+                       source_conn: Any | None = None, target_snapshot: dict[str, Any] | None = None,
+                       target_api_user: str | None = None) -> dict[str, Any]:
     cutoff = date.fromisoformat(cutoff_date)
     exact_key = parse_source_key(source_key)
     company = str(contract.raw["currency_precision"]["source_company"])
@@ -742,9 +796,10 @@ def inspect_accounting(source_config: SourceConfig, contract: AccountingContract
 
     target = target_snapshot
     if target is None and target_pg_url:
-        target = _target_snapshot(target_pg_url, contract)
+        target = _target_snapshot(target_pg_url, contract, target_api_user)
     classified = classify_accounting(headers, lines, contract, cutoff, target)
     source_hashes = classified.pop("source_hashes")
+    control_period = _source_control_period_readiness(headers, classified, contract, cutoff)
     imported = (target or {}).get("imported", {})
     provenance = {
         "inspection": "not_selected" if target is None else ("available" if imported else "schema_absent_or_empty"),
@@ -760,16 +815,36 @@ def inspect_accounting(source_config: SourceConfig, contract: AccountingContract
     source_blockers: list[str] = []
     if len(currency_ok) != 1 or _trim(currency_ok[0].get("active_flag")) not in ("1", "S", "Y"):
         source_blockers.append("SOURCE_OR_TARGET_CURRENCY_UNSUPPORTED")
+    if control_period.get("resolved") and not control_period.get("closed_before_cutoff"):
+        source_blockers.append("SOURCE_LEDGER_CONTROL_PERIOD_NOT_CLOSED_BEFORE_CUTOFF")
     target_blockers: list[str] = []
     if target is not None:
+        required_target_tables = {
+            "acc_gl_account", "m_office", "m_organisation_currency",
+            contract.raw["target"]["provenance_parent_table"],
+            contract.raw["target"]["provenance_line_table"],
+        }
+        if required_target_tables - set(target.get("tables", [])):
+            target_blockers.append("TARGET_SCHEMA_PREREQUISITES_MISSING")
         for mapped in contract.raw["agency_dimension"]["mapping"].values():
             office = target.get("offices", {}).get(int(mapped["target_office_id"]))
             if not office or office.get("external_id") != str(mapped["target_office_external_id"]):
                 target_blockers.append("TARGET_OFFICE_MAPPING_DRIFT")
                 break
+        target_currency = str(contract.raw["currency_precision"]["target_currency_code"])
+        currency_rows = target.get("currencies", {}).get(target_currency, [])
+        if len(currency_rows) != 1 or currency_rows[0].get("decimal_places") != 2:
+            target_blockers.append("TARGET_CURRENCY_UNSUPPORTED")
+        if classified["classification_counts"].get("TARGET_ACCOUNT_UNRESOLVED_OR_AMBIGUOUS", 0):
+            target_blockers.append("TARGET_ACCOUNT_UNRESOLVED_OR_AMBIGUOUS")
+        if target.get("api_user_selected") and target.get("api_user_count") != 1:
+            target_blockers.append("TARGET_API_USER_UNRESOLVED")
+        if _missing_api_user_office_ids(target, contract):
+            target_blockers.append("TARGET_API_USER_OFFICE_ACCESS_INCOMPLETE")
     schema_signature = _hash(schema)
     stable_material = {"cutoff_date": cutoff_date, "scope": source_key or f"company:{company}",
-                       "schema_signature": schema_signature, "classification": classified, "provenance": provenance}
+                       "schema_signature": schema_signature, "classification": classified,
+                       "control_period": control_period, "provenance": provenance}
     report = {
         "block": BLOCK,
         "mode": "read-only",
@@ -782,12 +857,26 @@ def inspect_accounting(source_config: SourceConfig, contract: AccountingContract
         "source_blockers": sorted(source_blockers),
         "target_blockers": sorted(target_blockers),
         "source": classified,
+        "source_ledger_control_period": control_period,
         "target": {
             "selected": target is not None,
             "tables": (target or {}).get("tables", []),
             "account_count": sum(len(values) for values in (target or {}).get("accounts", {}).values()),
             "office_count": len((target or {}).get("offices", {})),
             "closure_office_count": len((target or {}).get("closure_by_office", {})),
+            "missing_required_tables": sorted(
+                {
+                    "acc_gl_account", "m_office", "m_organisation_currency",
+                    contract.raw["target"]["provenance_parent_table"],
+                    contract.raw["target"]["provenance_line_table"],
+                } - set((target or {}).get("tables", []))
+            ),
+            "api_user_office_access": {
+                "selected": bool((target or {}).get("api_user_selected")),
+                "assigned_office_ids": (target or {}).get("api_user_office_ids", []),
+                "required_office_ids": sorted(_required_accounting_office_ids(contract)),
+                "missing_office_ids": _missing_api_user_office_ids(target or {}, contract),
+            },
             "provenance": provenance,
         },
         "transferred_loan_accrual_anomalies": {
@@ -1052,7 +1141,15 @@ def build_accounting_plan(settings: Settings, state: State, contract: Accounting
     if target is None:
         if not settings.target.pg_url:
             raise ValueError("Accounting planning requires a read-only Fineract PostgreSQL profile")
-        target = _target_snapshot(settings.target.pg_url, contract)
+        target = _target_snapshot(settings.target.pg_url, contract, settings.target.api_user)
+    missing_api_offices = _missing_api_user_office_ids(target, contract)
+    if target.get("api_user_selected") and target.get("api_user_count") != 1:
+        raise RuntimeError("TARGET_API_USER_UNRESOLVED")
+    if missing_api_offices:
+        raise RuntimeError(
+            "TARGET_API_USER_OFFICE_ACCESS_INCOMPLETE: missing office IDs "
+            + ",".join(str(value) for value in missing_api_offices)
+        )
     currency_ok = [row for row in currencies if _trim(row.get("currency_type")) == "1"
                    and _trim(row.get("iso_code")) == contract.raw["currency_precision"]["source_base_currency_iso"]]
     global_reasons = []
@@ -1261,7 +1358,10 @@ def _classify_apply_error(exc: Exception) -> tuple[str, str, bool]:
         or status in {408, 425, 429}
         or (isinstance(status, int) and status >= 500)
     )
-    fatal_markers = {"BINDING_DRIFT", "SOURCE_KEY_CONFLICT", "ACCOUNT_MAPPING_DRIFT", "OFFICE_DIMENSION_DRIFT"}
+    fatal_markers = {
+        "BINDING_DRIFT", "SOURCE_KEY_CONFLICT", "ACCOUNT_MAPPING_DRIFT", "OFFICE_DIMENSION_DRIFT",
+        "OFFICE_UNAUTHORIZED",
+    }
     error_class = "fatal" if any(marker in reason for marker in fatal_markers) else ("retryable" if retryable else "quarantined")
     return code, error_class, error_class == "retryable"
 
@@ -1297,7 +1397,17 @@ def apply_accounting_plan(
     headers, lines, schema, currencies = source_rows or _load_accounting_plan_inputs(
         settings, contract, keys, source_periods=document.get("scope", {}).get("source_periods")
     )
-    target = target_snapshot or _target_snapshot(settings.target.pg_url or "", contract)
+    target = target_snapshot or _target_snapshot(
+        settings.target.pg_url or "", contract, settings.target.api_user
+    )
+    missing_api_offices = _missing_api_user_office_ids(target, contract)
+    if target.get("api_user_selected") and target.get("api_user_count") != 1:
+        raise RuntimeError("TARGET_API_USER_UNRESOLVED")
+    if missing_api_offices:
+        raise RuntimeError(
+            "TARGET_API_USER_OFFICE_ACCESS_INCOMPLETE: missing office IDs "
+            + ",".join(str(value) for value in missing_api_offices)
+        )
     current = _current_accounting_plan(settings, contract, document, headers, lines, schema, currencies, target)
     assert_accounting_apply_current(document, current)
     current_actions = {row["source_key"]: row for row in current["actions"]}
@@ -1657,13 +1767,30 @@ def _source_ledger_control(
     origin = str(contract.raw["historical_origin"]["first_eligible_journal_date"])
     cutoff = str(document["accounting_cutoff"]["date"])
     with source_connection(settings.source) as conn:
-        rows = select_rows(
-            conn, SOURCE_LEDGER_CONTROL_QUERY,
-            (company, control_period_id, company, origin, company, cutoff),
+        summary_rows = select_rows(
+            conn, SOURCE_LEDGER_CONTROL_SUMMARY_QUERY,
+            (cutoff, company, origin, company, control_period_id),
         )
-        if not rows or not rows[0].get("control_period_id"):
+        if not summary_rows or not summary_rows[0].get("control_period_id"):
             raise RuntimeError("SOURCE_LEDGER_CONTROL_PERIOD_UNRESOLVED")
-        comparisons = [row for row in rows if row.get("account_id")]
+        journal_rows = select_rows(
+            conn, SOURCE_LEDGER_CONTROL_QUERY,
+            (control_period_id, company, origin),
+        )
+        mayor_rows = select_rows(
+            conn, SOURCE_LEDGER_MAYOR_QUERY,
+            (company, control_period_id),
+        )
+        mayor_by_key = {
+            (str(row["destination_branch_id"]), str(row["account_id"])): row.get("ledger_closing")
+            for row in mayor_rows
+        }
+        comparisons = []
+        for row in journal_rows:
+            comparison = dict(row)
+            key = (str(row["destination_branch_id"]), str(row["account_id"]))
+            comparison["ledger_closing"] = mayor_by_key.get(key, Decimal("0"))
+            comparisons.append(comparison)
         mismatches = [
             row for row in comparisons
             if _decimal(row.get("journal_closing")) != _decimal(row.get("ledger_closing"))
@@ -1686,7 +1813,7 @@ def _source_ledger_control(
                 (str(row["destination_branch_id"]), str(row["account_id"])): row
                 for row in rollup_rows
             }
-    base = rows[0]
+    base = summary_rows[0]
     accepted: list[dict[str, Any]] = []
     unresolved: list[dict[str, Any]] = []
     unsafe_hybrid_count = 0

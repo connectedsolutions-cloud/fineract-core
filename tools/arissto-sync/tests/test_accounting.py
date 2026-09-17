@@ -11,8 +11,11 @@ import requests
 
 from arissto_sync.accounting import (
     BLOCK, RECONCILIATION_VERSION, AccountingContract, HEADER_PERIOD_QUERY, HEADER_QUERY, LINE_PERIOD_QUERY, LINE_QUERY,
-    SOURCE_LEDGER_CONTROL_QUERY, SOURCE_SCHEMA_QUERY,
-    _classify_apply_error, _hash, _load_accounting_plan_inputs, _source_ledger_control,
+    SOURCE_LEDGER_CONTROL_QUERY, SOURCE_LEDGER_CONTROL_SUMMARY_QUERY, SOURCE_LEDGER_MAYOR_QUERY,
+    SOURCE_SCHEMA_QUERY,
+    _classify_apply_error, _hash, _load_accounting_plan_inputs, _missing_api_user_office_ids,
+    _source_control_period_readiness,
+    _source_ledger_control,
     _verify_scheduler_paused, accounting_retry_keys,
     apply_accounting_plan,
     assert_accounting_plan_current,
@@ -78,6 +81,8 @@ class AccountingInspectorTests(unittest.TestCase):
             _verify_scheduler_paused(api)
         self.assertEqual(_classify_apply_error(requests.ConnectionError("lost"))[1:], ("retryable", True))
         self.assertEqual(_classify_apply_error(ValueError("bad response"))[1:], ("quarantined", False))
+        office_error = RuntimeError("error.msg.arissto.historical.gl.office.unauthorized")
+        self.assertEqual(_classify_apply_error(office_error)[1:], ("fatal", False))
     def setUp(self):
         self.contract = AccountingContract.load(CONFIG)
 
@@ -88,7 +93,8 @@ class AccountingInspectorTests(unittest.TestCase):
             parse_source_key("10")
         for query in (
             HEADER_QUERY, LINE_QUERY, HEADER_PERIOD_QUERY, LINE_PERIOD_QUERY,
-            SOURCE_SCHEMA_QUERY, SOURCE_LEDGER_CONTROL_QUERY,
+            SOURCE_SCHEMA_QUERY, SOURCE_LEDGER_CONTROL_SUMMARY_QUERY,
+            SOURCE_LEDGER_CONTROL_QUERY, SOURCE_LEDGER_MAYOR_QUERY,
         ):
             self.assertRegex(query, READ_ONLY_SQL)
         self.assertIn("p.ID_PERIODO=?", HEADER_PERIOD_QUERY)
@@ -97,12 +103,19 @@ class AccountingInspectorTests(unittest.TestCase):
 
     def test_source_ledger_control_accepts_only_reproducible_annual_hybrid_rollup(self):
         document, _, _, _ = self.reconciliation_fixture()
-        comparisons = [{
+        summary = [{
             "control_period_id": "00065", "closed_before_cutoff": 1,
-            "eligible_journal_count": 1, "destination_branch_id": "001",
+            "eligible_journal_count": 1,
+        }]
+        comparisons = [{
+            "destination_branch_id": "001",
             "account_id": "parent", "journal_closing": Decimal("0.00"),
-            "ledger_closing": Decimal("-10.00"), "direct_line_count": 4,
+            "direct_line_count": 4,
             "non_annual_liquidation_line_count": 0,
+        }]
+        mayor = [{
+            "destination_branch_id": "001", "account_id": "parent",
+            "ledger_closing": Decimal("-10.00"),
         }]
         rollups = [{
             "destination_branch_id": "001", "account_id": "parent",
@@ -111,7 +124,7 @@ class AccountingInspectorTests(unittest.TestCase):
         }]
         with (
             patch("arissto_sync.accounting.source_connection", return_value=nullcontext(object())),
-            patch("arissto_sync.accounting.select_rows", side_effect=[comparisons, rollups]),
+            patch("arissto_sync.accounting.select_rows", side_effect=[summary, comparisons, mayor, rollups]),
         ):
             result = _source_ledger_control(SimpleNamespace(source=object()), self.contract, document)
 
@@ -121,6 +134,32 @@ class AccountingInspectorTests(unittest.TestCase):
         self.assertEqual(result["unsafe_hybrid_account_count"], 0)
         self.assertEqual(result["closing_mismatch_count"], 0)
 
+    def test_accounting_api_user_must_cover_all_mapped_offices(self):
+        self.assertEqual(
+            _missing_api_user_office_ids(
+                {"api_user_selected": True, "api_user_office_ids": [1]}, self.contract,
+            ),
+            [2],
+        )
+        self.assertEqual(
+            _missing_api_user_office_ids(
+                {"api_user_selected": True, "api_user_office_ids": [1, 2]}, self.contract,
+            ),
+            [],
+        )
+
+    def test_source_control_period_must_end_before_cutoff(self):
+        header = {
+            "company_id": "001", "header_branch_id": "001", "period_id": "00074", "journal_id": "1",
+            "journal_date": date(2026, 9, 10), "period_year": 2026, "period_month": 9,
+        }
+        self.assertEqual(
+            _source_control_period_readiness([header], {"findings": []}, self.contract, date(2026, 9, 17)),
+            {
+                "resolved": True, "source_key": "001:001:00074:1", "period_id": "00074",
+                "period_end": "2026-09-30", "closed_before_cutoff": False,
+            },
+        )
     def test_period_plan_apply_revalidation_uses_bounded_period_queries(self):
         calls = []
 
