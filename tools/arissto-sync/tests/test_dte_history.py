@@ -4,11 +4,13 @@ import unittest
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from arissto_sync.dte_history import (
     BLOCK, SOURCE_ORIGIN, DteApplyControls, DteHistoryContract, _chunks, _payload,
-    _write_dte_batch_resilient, lifecycle_status, source_key,
+    _merge_mh_config, _missing_mh_fields, _pg_database, _write_dte_batch_resilient,
+    lifecycle_status, prepare_dte_history_target, source_key,
 )
 from arissto_sync.sql_writer import SqlWritePolicy
 
@@ -60,9 +62,65 @@ class DteHistoryTests(unittest.TestCase):
         })
         self.assertEqual(contract.raw["write_policy"]["mh_submission"], "forbidden")
         self.assertEqual(contract.raw["write_policy"]["update"], "forbidden")
+        self.assertEqual(
+            contract.raw["target"]["issuer_bootstrap"]["mode"],
+            "reviewed-static-identity",
+        )
         SqlWritePolicy.assert_allowed(BLOCK, "create_historical_dte")
         with self.assertRaises(PermissionError):
             SqlWritePolicy.assert_allowed(BLOCK, "update_historical_dte")
+
+    def test_mh_bootstrap_identifies_target_database_without_exposing_credentials(self):
+        url = "postgresql://user:secret@localhost:5432/fineract_sandbox?sslmode=disable"
+        self.assertEqual(_pg_database(url), "fineract_sandbox")
+
+    def test_mh_required_fields_report_incomplete_issuer_without_requiring_optional_secret(self):
+        complete = {
+            "nit": "1", "nrc": "2", "nombre": "Issuer", "nombre_comercial": "Brand",
+            "cod_actividad": "3", "desc_actividad": "Activity", "tipo_establecimiento": "01",
+            "direccion_departamento": "11", "direccion_municipio": "01",
+            "direccion_complemento": "Address", "telefono": "2222", "correo": "a@b.test",
+            "firma_secret": None,
+        }
+        self.assertEqual(_missing_mh_fields(complete), [])
+        complete["correo"] = " "
+        self.assertEqual(_missing_mh_fields(complete), ["correo"])
+
+    def test_mh_template_fills_missing_values_but_preserves_sandbox_overrides(self):
+        template = {
+            "nit": "template-nit", "nombre": "Template", "correo": "template@example.test",
+        }
+        current = {
+            "nit": "sandbox-nit", "nombre": " ", "correo": None,
+        }
+        merged = _merge_mh_config(current, template)
+        self.assertEqual(merged["nit"], "sandbox-nit")
+        self.assertEqual(merged["nombre"], "Template")
+        self.assertEqual(merged["correo"], "template@example.test")
+
+    def test_mh_bootstrap_supports_prod_without_writing_secrets_or_correlativo(self):
+        contract = DteHistoryContract.load(CONFIG)
+        settings = SimpleNamespace(target=SimpleNamespace(
+            name="prod", pg_url="postgresql://db.test/fineract_prod", tenant="default",
+        ))
+        connection = unittest.mock.MagicMock()
+        manager = unittest.mock.MagicMock()
+        manager.__enter__.return_value = connection
+        manager.__exit__.return_value = False
+        issuer = contract.raw["target"]["issuer_bootstrap"]["issuer"]
+
+        with (
+            patch("arissto_sync.dte_history._writable_postgres", return_value=manager),
+            patch("arissto_sync.dte_history._mh_config", side_effect=[None, issuer]),
+        ):
+            report = prepare_dte_history_target(settings, contract)
+
+        self.assertTrue(report["performed"])
+        self.assertEqual(report["target_database"], "fineract_prod")
+        sql = connection.execute.call_args.args[0]
+        self.assertNotIn("password_pri", sql)
+        self.assertNotIn("signing_api_key", sql)
+        self.assertNotIn("last_dte_correlativo", sql)
 
     def test_contract_rejects_unsafe_identifier(self):
         value = json.loads(CONFIG.read_text())

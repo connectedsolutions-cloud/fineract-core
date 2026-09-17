@@ -35,7 +35,13 @@ as a first-class fiscal value.
 The service is registered as `available`. Runtime inspection still requires a
 configured `target.ambiente`, Liquibase migration 0335, and reconciled Clients
 and Loans dependencies; those are fail-closed execution prerequisites rather
-than registry-status blockers.
+than registry-status blockers. Before workflow inspection, the prepare phase
+fills an incomplete target `m_mh_company_config` singleton from the reviewed,
+non-secret issuer identity frozen in the DTE contract. It works for both local
+and production workflow targets, preserves already-populated target fields,
+verifies the result, and never writes MH credentials or the mutable DTE
+correlativo. Direct `inspect` remains read-only and reports every missing issuer
+identity field.
 
 ```bash
 ./arissto-sync inspect --block dte-history --target local

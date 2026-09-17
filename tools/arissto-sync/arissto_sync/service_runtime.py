@@ -24,7 +24,8 @@ from .employees import (
 )
 from .dte_history import (
     BLOCK as DTE_HISTORY_BLOCK, DteApplyControls, DteHistoryContract, apply_dte_history_plan,
-    build_dte_history_plan, inspect_dte_history, reconcile_dte_history,
+    build_dte_history_plan, inspect_dte_history, prepare_dte_history_target,
+    reconcile_dte_history,
 )
 from .engine import apply_plan, build_plan, inspect_clients, reconcile
 from .family_references import (
@@ -155,6 +156,8 @@ class ServiceRuntime:
             return prepare_native_share_target(self.settings, self.contracts[block])
         if block == SHARE_YIELD_BLOCK:
             return prepare_share_yield_target(self.settings, self.contracts[block])
+        if block == DTE_HISTORY_BLOCK:
+            return prepare_dte_history_target(self.settings, self.contracts[block])
         return {"performed": False}
 
     def plan(self, block: str) -> tuple[str, dict[str, Any]]:

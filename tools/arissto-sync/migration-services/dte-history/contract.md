@@ -89,7 +89,13 @@ as a single-document run.
 
 The API user must resolve to one unique `m_appuser` for audit columns. Issuer
 identity is copied from the singleton `m_mh_company_config`; inspection blocks
-when its required name is absent.
+and names every missing required issuer field. For local and production
+workflows, the service prepare phase may fill missing singleton values from the
+reviewed, non-secret issuer identity frozen in the DTE contract. The bootstrap
+preserves existing nonblank target values, verifies the required fields after
+the transaction, and does not expose copied values in workflow events. It never
+writes `password_pri`, `firma_secret`, `signing_api_key`, or the mutable
+`last_dte_correlativo`; those remain target-owned operational configuration.
 
 ## Reconciliation and promotion gate
 

@@ -11,7 +11,24 @@
     "invoice_table": "m_invoice",
     "source_origin": "ARISSTO_HISTORY",
     "ambiente": "01",
-    "tipo_moneda": "USD"
+    "tipo_moneda": "USD",
+    "issuer_bootstrap": {
+      "mode": "reviewed-static-identity",
+      "issuer": {
+        "nit": "12171811221010",
+        "nrc": "3215956",
+        "nombre": "CREDESAL S.C. DE R.L. DE C.V.",
+        "nombre_comercial": "Credesal",
+        "cod_actividad": "62010",
+        "desc_actividad": "Servicios financieros",
+        "tipo_establecimiento": "01",
+        "direccion_departamento": "11",
+        "direccion_municipio": "24",
+        "direccion_complemento": "USULUTAN, EL SALVADOR",
+        "telefono": "2606 3470",
+        "correo": "ahorroycredito@credesal.com"
+      }
+    }
   },
   "identity": {
     "source_key": "codigo_generacion",

@@ -12,6 +12,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Iterator
+from urllib.parse import urlsplit
 
 from .arissto import IDENTIFIER, select_rows, source_connection, source_fingerprint
 from .config import Settings
@@ -46,6 +47,12 @@ REQUIRED_TARGET_COLUMNS = {
     "m_invoice_line": {"invoice_id", "num_item", "tipo_item", "cantidad", "descripcion", "precio_uni"},
     "m_invoice_summary": {"invoice_id", "monto_total_operacion", "total_pagar", "total_iva"},
 }
+MH_ISSUER_FIELDS = (
+    "nit", "nrc", "nombre", "nombre_comercial", "cod_actividad", "desc_actividad",
+    "tipo_establecimiento", "direccion_departamento", "direccion_municipio",
+    "direccion_complemento", "telefono", "correo",
+)
+MH_ISSUER_REQUIRED_FIELDS = MH_ISSUER_FIELDS
 
 
 def clean(value: Any) -> str | None:
@@ -105,6 +112,14 @@ class DteHistoryContract:
             raise ValueError("DTE history target table contract changed")
         if target.get("ambiente") not in {"00", "01"} or target.get("tipo_moneda") != "USD":
             raise ValueError("DTE history target defaults are invalid")
+        issuer_bootstrap = target.get("issuer_bootstrap", {})
+        issuer = issuer_bootstrap.get("issuer", {})
+        if (
+            issuer_bootstrap.get("mode") != "reviewed-static-identity"
+            or set(issuer) != set(MH_ISSUER_FIELDS)
+            or any(not clean(issuer.get(field)) for field in MH_ISSUER_FIELDS)
+        ):
+            raise ValueError("DTE history issuer bootstrap contract is invalid")
         if value.get("scope") != {
             "tipo_dte": "01", "requires_normalized_detail": True,
             "requires_exactly_one_loan_movement": True,
@@ -134,6 +149,97 @@ class DteHistoryContract:
     def source_hash(self, row: dict[str, Any]) -> str:
         durable_source = {key: value for key, value in row.items() if key not in NON_DURABLE_SOURCE_FIELDS}
         return _hash({"contract": self.contract_hash, "source": durable_source})
+
+
+def _pg_database(url: str) -> str:
+    database = urlsplit(url).path.lstrip("/")
+    if not database or "/" in database:
+        raise ValueError("PostgreSQL URL must identify exactly one database")
+    return database
+
+
+def _mh_config(conn: Any) -> dict[str, Any] | None:
+    rows = _pg_dicts(
+        conn,
+        f"SELECT {','.join(MH_ISSUER_FIELDS)} FROM m_mh_company_config WHERE id=1",
+    )
+    if len(rows) > 1:
+        raise RuntimeError("MH company configuration singleton is not unique")
+    return rows[0] if rows else None
+
+
+def _missing_mh_fields(config: dict[str, Any] | None) -> list[str]:
+    if config is None:
+        return list(MH_ISSUER_REQUIRED_FIELDS)
+    return [field for field in MH_ISSUER_REQUIRED_FIELDS if not clean(config.get(field))]
+
+
+def _merge_mh_config(
+    current: dict[str, Any] | None, template: dict[str, Any],
+) -> dict[str, Any]:
+    merged = dict(template)
+    if current is None:
+        return merged
+    for field in MH_ISSUER_FIELDS:
+        current_value = current.get(field)
+        if clean(current_value):
+            merged[field] = current_value
+    return merged
+
+
+@contextmanager
+def _writable_postgres(url: str) -> Iterator[Any]:
+    try:
+        import psycopg
+    except ImportError as exc:
+        raise RuntimeError("psycopg is required for PostgreSQL prerequisite provisioning") from exc
+    with psycopg.connect(url, autocommit=False) as conn:
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+
+
+def prepare_dte_history_target(
+    settings: Settings, contract: DteHistoryContract,
+) -> dict[str, Any]:
+    """Fill missing MH issuer identity from reviewed, non-secret contract values."""
+    if not settings.target.pg_url:
+        raise RuntimeError("Target PostgreSQL URL is required for DTE issuer provisioning")
+
+    bootstrap = contract.raw["target"]["issuer_bootstrap"]
+    target_database = _pg_database(settings.target.pg_url)
+    with _writable_postgres(settings.target.pg_url) as target_conn:
+        current = _mh_config(target_conn)
+        missing = _missing_mh_fields(current)
+        if not missing:
+            return {"performed": False, "action": "unchanged", "missing_fields": []}
+
+        template = bootstrap["issuer"]
+        merged = _merge_mh_config(current, template)
+
+        columns = ",".join(("id", *MH_ISSUER_FIELDS))
+        placeholders = ",".join(["%s"] * (len(MH_ISSUER_FIELDS) + 1))
+        assignments = ",".join(f"{field}=EXCLUDED.{field}" for field in MH_ISSUER_FIELDS)
+        target_conn.execute(
+            f"INSERT INTO m_mh_company_config ({columns}) VALUES ({placeholders}) "
+            f"ON CONFLICT (id) DO UPDATE SET {assignments}",
+            (1, *(merged[field] for field in MH_ISSUER_FIELDS)),
+        )
+        refreshed = _mh_config(target_conn)
+        remaining = _missing_mh_fields(refreshed)
+        if remaining:
+            raise RuntimeError(
+                "Target MH issuer configuration failed verification: " + ", ".join(remaining)
+            )
+        return {
+            "performed": True,
+            "action": "created" if current is None else "repaired",
+            "filled_fields": missing,
+            "target_database": target_database,
+        }
 
 
 @dataclass(frozen=True)
@@ -487,8 +593,12 @@ def inspect_dte_history(settings: Settings, contract: DteHistoryContract) -> dic
                         catalog = _target_catalog(conn, settings)
                         if not catalog["audit_user_id"]:
                             blockers.append({"target": "unique_api_audit_user_required"})
-                        if not clean(catalog["issuer"].get("nombre")):
-                            blockers.append({"target": "mh_issuer_configuration_required"})
+                        missing_issuer_fields = _missing_mh_fields(catalog["issuer"])
+                        if missing_issuer_fields:
+                            blockers.append({
+                                "target": "mh_issuer_configuration_required",
+                                "missing_fields": missing_issuer_fields,
+                            })
                         target_counts["imported_documents"] = len(catalog["existing"])
         except Exception as exc:
             blockers.append({"target_inspection": type(exc).__name__})
