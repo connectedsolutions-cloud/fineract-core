@@ -2900,6 +2900,58 @@ class LoanInspectionTests(unittest.TestCase):
             ),
         )
 
+    def test_lifecycle_writer_skips_accrual_catchup_after_disbursement_reversal(self):
+        loan, lifecycle, target, payload = self.lifecycle_fixture()
+        built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        disbursement = built["lifecycle"]["events"][0]
+        built["lifecycle"].update({
+            "events": [
+                disbursement,
+                {
+                    "role": "disbursement-reversal",
+                    "external_id": "ARISSTO:CRD-MOV:102",
+                    "original_external_id": disbursement["external_id"],
+                    "date": disbursement["date"],
+                    "amount": disbursement["amount"],
+                },
+            ],
+            "cutover_insurance_charge": None,
+            "recurring_insurance_charge": None,
+            "terminal_adjustment": None,
+            "migration_cutover_date": "2026-09-16",
+        })
+        action = {"external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
+        original_transaction = {
+            "id": 1,
+            "externalId": disbursement["external_id"],
+            "amount": 350,
+        }
+        active = {
+            "id": 55, "loanProductId": 90, "clientId": 900, "principal": 350,
+            "status": {"id": 300}, "charges": [],
+            "repaymentSchedule": self.calculated_schedule(built["lifecycle"]),
+            "transactions": [original_transaction],
+        }
+        approved = {
+            **active,
+            "status": {"id": 200},
+            "transactions": [{**original_transaction, "reversed": True}],
+        }
+        api = MagicMock()
+        api.request.side_effect = [active, active, {}, approved]
+
+        with (
+            patch("arissto_sync.loans._find_loan", return_value=active),
+            patch("arissto_sync.loans._ensure_source_exact_guarantors"),
+            patch("arissto_sync.loans._ensure_source_exact_accrual_catchup") as catchup,
+        ):
+            loan_id, recovered = _apply_loan_lifecycle(api, action, 90)
+
+        self.assertEqual((loan_id, recovered), (55, True))
+        commands = [call.kwargs.get("query", {}).get("command") for call in api.request.call_args_list]
+        self.assertEqual(commands, [None, None, "sourceExactUndoDisbursal", None])
+        catchup.assert_not_called()
+
     def test_lifecycle_writer_restores_missing_charge_for_existing_repayment(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)

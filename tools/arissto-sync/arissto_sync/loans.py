@@ -5297,8 +5297,14 @@ def _apply_loan_lifecycle(
         if status not in {600, 601, 602, 700} or remaining > Decimal("0.01"):
             raise RuntimeError(f"loan_cutover_adjustment_did_not_close:{status}:{remaining}")
 
-    if lifecycle.get("migration_cutover_date") and int((loan.get("status") or {}).get("id") or -1) == 300:
-        _ensure_source_exact_accrual_catchup(api, loan, action, attempt_key)
+    if lifecycle.get("migration_cutover_date"):
+        # Event replay can change the native loan status. In particular, undoing
+        # a disbursement moves an active loan back to Approved. Always decide
+        # whether accrual catch-up applies from the persisted post-replay state,
+        # not from the snapshot loaded before the last lifecycle mutation.
+        loan = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
+        if int((loan.get("status") or {}).get("id") or -1) == 300:
+            _ensure_source_exact_accrual_catchup(api, loan, action, attempt_key)
     return loan_id, recovered
 
 
