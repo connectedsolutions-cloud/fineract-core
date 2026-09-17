@@ -4,6 +4,21 @@ Record each validation cycle with date, commit/worktree identity, commands,
 results, and unresolved failures. Never include credentials or sampled customer
 or financial descriptions.
 
+## 2026-09-17 — inclusive source-through terminology correction
+
+- Supersedes the operator-facing date wording in the September 2 and September
+  6 entries below without changing their historical test evidence.
+- Operators now select inclusive `source_through_date=S`, defaulting to the
+  plan-creation date in `America/El_Salvador`; the engine derives the internal
+  Fineract cutoff as `T=S+1 day`.
+- `--source-through-date` is the normal input. `--cutoff-date` remains an
+  advanced direct override for `T`, the first native Fineract accounting date.
+- Example: September 17 is imported with `S=2026-09-17`; native accruals begin
+  on `T=2026-09-18`.
+- The complete sync-engine suite passed 593 tests, and a live read-only
+  September 17 inspection resolved the latest closed `CNT_MAYOR` control period
+  to August 31 without blocking the open September journal scope.
+
 ## 2026-09-07 — G6 atomic historical-journal API
 
 - Worktree: `credesal-sistema/fineract-core`, uncommitted G6 implementation on
@@ -191,9 +206,10 @@ this foundation validation.
 
 - Standalone and workflow plans now include an immutable
   `accounting_cutoff` object containing date, timezone, and resolution source.
-- The default is the plan-creation calendar date in
-  `America/El_Salvador`; `--cutoff-date YYYY-MM-DD` provides an explicit
-  override.
+- Historical implementation wording at that time treated the plan-creation
+  calendar date as the direct cutoff and used `--cutoff-date`; this
+  operator-facing terminology is superseded by the September 17 correction
+  above.
 - Workflow execution adopts the parent snapshot before creating child plans,
   preventing midnight rollover or delayed resume from changing the boundary.
 - The complete sync-engine unit suite passed: 341 tests, including strict
@@ -206,8 +222,9 @@ this foundation validation.
 - Existing plan snapshots and `ACTIVE` tenant cutoff configurations remain
   immutable. Apply, retry, reconciliation, and workflow children retain the
   parent plan's resolved date.
-- `config/accounting.json.cutoff.date` remains intentionally unset; resolution
-  uses the explicit `--cutoff-date` value or the `sync_run_date` default.
+- At that time, `config/accounting.json.cutoff.date` remained unset and direct
+  cutoff resolution used `--cutoff-date` or `sync_run_date`. The September 17
+  correction supersedes that operator-facing resolution rule.
 - The exact permanent production cutoff is deferred to G12 release approval.
 - No implementation change was required: the plan snapshot, explicit override,
   workflow-child inheritance, and tenant lifecycle guards were already covered

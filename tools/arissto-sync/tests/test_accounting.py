@@ -24,7 +24,7 @@ from arissto_sync.accounting import (
 )
 from arissto_sync.arissto import READ_ONLY_SQL, source_fingerprint
 from arissto_sync.config import SourceConfig, TargetConfig
-from arissto_sync.state import State
+from arissto_sync.state import State, accounting_cutoff_for_source_through
 
 
 CONFIG = Path(__file__).resolve().parents[1] / "config/accounting.json"
@@ -148,16 +148,22 @@ class AccountingInspectorTests(unittest.TestCase):
             [],
         )
 
-    def test_source_control_period_must_end_before_cutoff(self):
-        header = {
+    def test_source_control_uses_latest_closed_period_without_blocking_open_month(self):
+        open_period_header = {
             "company_id": "001", "header_branch_id": "001", "period_id": "00074", "journal_id": "1",
             "journal_date": date(2026, 9, 10), "period_year": 2026, "period_month": 9,
         }
+        closed_period_header = {
+            "company_id": "001", "header_branch_id": "001", "period_id": "00073", "journal_id": "9",
+            "journal_date": date(2026, 8, 31), "period_year": 2026, "period_month": 8,
+        }
         self.assertEqual(
-            _source_control_period_readiness([header], {"findings": []}, self.contract, date(2026, 9, 17)),
+            _source_control_period_readiness(
+                [open_period_header, closed_period_header], {"findings": []}, self.contract, date(2026, 9, 18)
+            ),
             {
-                "resolved": True, "source_key": "001:001:00074:1", "period_id": "00074",
-                "period_end": "2026-09-30", "closed_before_cutoff": False,
+                "resolved": True, "source_key": "001:001:00073:9", "period_id": "00073",
+                "period_end": "2026-08-31", "closed_before_cutoff": True,
             },
         )
     def test_period_plan_apply_revalidation_uses_bounded_period_queries(self):
@@ -280,6 +286,31 @@ class AccountingInspectorTests(unittest.TestCase):
         self.assertEqual(first["bindings"]["policy"]["planner_version"], "accounting-explicit-key-plan-v2")
         self.assertEqual(len(first["plan_hash"]), 64)
         self.assertEqual(len(action["planned_hash"]), 64)
+
+    def test_inclusive_source_through_date_includes_that_day_and_excludes_next_day(self):
+        cutoff = accounting_cutoff_for_source_through("2026-09-17")
+        headers = [
+            header(period_id="00074", journal_id="17", journal_date=date(2026, 9, 17), period_year="2026", period_month="9"),
+            header(period_id="00074", journal_id="18", journal_date=date(2026, 9, 18), period_year="2026", period_month="9"),
+        ]
+        lines = [
+            line("01", period_id="00074", journal_id="17", debit="3.00"),
+            line("02", period_id="00074", journal_id="17", credit="3.00"),
+            line("03", period_id="00074", journal_id="18", debit="4.00"),
+            line("04", period_id="00074", journal_id="18", credit="4.00"),
+        ]
+        document = plan_accounting_rows(
+            headers, lines, self.contract, cutoff, "source-fingerprint", "target-fingerprint", target(),
+            ["001:001:00074:17", "001:001:00074:18"], "source-schema-signature",
+        )
+
+        by_key = {action["source_key"]: action for action in document["actions"]}
+        self.assertEqual(cutoff["date"], "2026-09-18")
+        self.assertEqual(by_key["001:001:00074:17"]["disposition"], "APPLICABLE")
+        self.assertIn(
+            "SOURCE_JOURNAL_ON_OR_AFTER_CUTOFF",
+            by_key["001:001:00074:18"]["reason_codes"],
+        )
 
     def test_malformed_reference_month_is_preserved_without_quarantine(self):
         source_header = header(

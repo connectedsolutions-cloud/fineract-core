@@ -5,12 +5,14 @@
 - Migration `0320` owns cutoff configuration, lifecycle, and permissions.
 - Historical journal header/line provenance is installed by tenant migration
   `0336`; the occupied migration number `0321` was not reused.
-- The cutoff date is historical-exclusive: dates before it are historical;
-  the cutoff date and later are native.
-- New plans default the cutoff to their creation date in
-  `America/El_Salvador`. The resolved value is frozen for apply, retry,
-  reconciliation, and workflow children; `--cutoff-date` is the explicit
-  override.
+- The operator-facing `source_through_date` is inclusive. The engine derives
+  the internal historical-exclusive cutoff as the following calendar day:
+  `accounting_cutoff.date = source_through_date + 1 day`. Dates through the
+  source-through date are historical; the derived cutoff and later are native.
+- New plans default `source_through_date` to their creation date in
+  `America/El_Salvador`. Both resolved values are frozen for apply, retry,
+  reconciliation, and workflow children. `--source-through-date` is the normal
+  explicit input; `--cutoff-date` is the advanced internal-boundary override.
 - Nightly testing may advance the cutoff only by creating a new sync plan
   against a newly restored disposable-tenant cycle. Existing plans and an
   `ACTIVE` tenant cutoff are immutable.
@@ -54,7 +56,8 @@
   2022-11-18 in period `00028`. All 29 `CNT_MAYOR` rows in that first
   journal-bearing period have `SALDO_INICIAL=0.00`, and their closing balances
   carry exactly into `00029`. Import every otherwise eligible journal from
-  that inception through the day before cutoff. Never create a synthetic
+  that inception through the inclusive source-through date (the day before the
+  derived cutoff). Never create a synthetic
   opening or residual journal and never replay configured empty periods from
   before operations began.
 - Annual liquidation is preserved as posted GL. Import every eligible

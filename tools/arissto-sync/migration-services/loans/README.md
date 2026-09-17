@@ -259,7 +259,7 @@ Build a reviewable plan for the full portfolio or a bounded loan selection:
 ```bash
 ./arissto-sync plan --block loans --target local
 ./arissto-sync plan --block loans --target local --source-key ID_CREDITO
-./arissto-sync plan --block loans --target local --source-key ID_CREDITO --cutoff-date YYYY-MM-DD
+./arissto-sync plan --block loans --target local --source-key ID_CREDITO --source-through-date YYYY-MM-DD
 ```
 
 The plan freezes the complete Fineract product payload for only the credit

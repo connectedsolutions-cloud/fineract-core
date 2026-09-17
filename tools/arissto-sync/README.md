@@ -207,9 +207,11 @@ when that validation remains successful:
   --target local
 ```
 
-The workflow plan freezes an accounting cutoff equal to its creation date in
-`America/El_Salvador`. Add `--cutoff-date YYYY-MM-DD` when an explicit boundary
-is required; child plans, apply, retry, and reconciliation retain that value.
+The workflow plan freezes an inclusive Arissto source-through date equal to its
+creation date in `America/El_Salvador` and derives the first Fineract-owned
+accounting date as the following day. Add
+`--source-through-date YYYY-MM-DD` when an explicit source boundary is required;
+child plans, apply, retry, and reconciliation retain both values.
 
 `start` returns a workflow run ID immediately. The process continues after the
 terminal command returns. Progress, child plan/run IDs, item failures, dependency

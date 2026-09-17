@@ -143,7 +143,7 @@ from .savings_account_parties import (
 from .savings_engine import apply_savings_plan, build_savings_plan, reconcile_savings
 from .savings_lifecycle_proof import prove_vista_lifecycle
 from .fixed_deposit_lifecycle_proof import prove_dpf_lifecycle
-from .state import State
+from .state import State, accounting_cutoff_for_source_through, sync_run_cutoff_date
 from .storage_health import storage_health
 from .workflows import apply_clients_with_family_references, apply_clients_with_pep
 from .workflow_definitions import inspect_workflow, list_workflows, load_workflow
@@ -264,7 +264,14 @@ def parser() -> argparse.ArgumentParser:
     workflow_plan.add_argument("--target", choices=("local", "prod"), required=True)
     workflow_plan.add_argument("--run-mode", choices=("fresh-clean", "full-resync", "resumed"))
     workflow_plan.add_argument("--confirm-production")
-    workflow_plan.add_argument("--cutoff-date", help="accounting cutoff in YYYY-MM-DD; defaults to the sync-run date")
+    workflow_plan.add_argument(
+        "--source-through-date",
+        help="inclusive Arissto date in YYYY-MM-DD; Fineract accounting starts the following day",
+    )
+    workflow_plan.add_argument(
+        "--cutoff-date",
+        help="advanced: exclusive accounting cutoff/first Fineract-owned date in YYYY-MM-DD",
+    )
     workflow_plan.add_argument(
         "--accounting-period", action="append", dest="accounting_periods",
         help="reviewed accounting source period; repeat to include more than one",
@@ -283,6 +290,7 @@ def parser() -> argparse.ArgumentParser:
     workflow_run.add_argument("--run-mode", choices=("full-resync",), default="full-resync")
     workflow_run.add_argument("--confirm-production", required=True)
     workflow_run.add_argument("--cutoff-date")
+    workflow_run.add_argument("--source-through-date")
     workflow_run.add_argument("--accounting-period", action="append", dest="accounting_periods")
     workflow_start = workflow_commands.add_parser("start", help="start a planned workflow in a detached local process")
     workflow_start.add_argument("--workflow-plan", required=True)
@@ -329,9 +337,23 @@ def parser() -> argparse.ArgumentParser:
             )
         if name == "inspect":
             cmd.add_argument("--source-key", help="inspect one exact source key when the selected block supports it")
-            cmd.add_argument("--cutoff-date", help="accounting cutoff in YYYY-MM-DD (required for accounting)")
+            cmd.add_argument(
+                "--source-through-date",
+                help="accounting only: inclusive Arissto date in YYYY-MM-DD",
+            )
+            cmd.add_argument(
+                "--cutoff-date",
+                help="accounting only (advanced): exclusive first Fineract-owned date in YYYY-MM-DD",
+            )
         if name == "plan":
-            cmd.add_argument("--cutoff-date", help="accounting cutoff in YYYY-MM-DD; defaults to the sync-run date")
+            cmd.add_argument(
+                "--source-through-date",
+                help="inclusive Arissto date in YYYY-MM-DD; defaults to the sync-run date",
+            )
+            cmd.add_argument(
+                "--cutoff-date",
+                help="advanced: exclusive accounting cutoff/first Fineract-owned date in YYYY-MM-DD",
+            )
             cmd.add_argument("--source-key", action="append",
                              help="scope the plan to an exact source key for the selected block; repeat as needed")
             cmd.add_argument(
@@ -567,13 +589,19 @@ def main(argv=None) -> int:
                 emit(inspect_loans(load_source_config(args.env_file), contract, args.source_key))
             return 0
         if args.command == "inspect" and args.block == ACCOUNTING_BLOCK:
-            if not args.cutoff_date:
-                raise ValueError("--cutoff-date is required for inspect --block accounting")
+            if args.cutoff_date and args.source_through_date:
+                raise ValueError("Choose either --source-through-date or --cutoff-date, not both")
+            if args.source_through_date:
+                accounting_cutoff_date = accounting_cutoff_for_source_through(args.source_through_date)["date"]
+            elif args.cutoff_date:
+                accounting_cutoff_date = args.cutoff_date
+            else:
+                raise ValueError("--source-through-date is required for inspect --block accounting")
             contract = AccountingContract.load(ROOT / "config/accounting.json")
             if args.target:
                 accounting_settings = load_settings(args.target, args.env_file)
                 report = inspect_accounting(
-                    accounting_settings.source, contract, args.cutoff_date, args.source_key,
+                    accounting_settings.source, contract, accounting_cutoff_date, args.source_key,
                     accounting_settings.target.pg_url, target_api_user=accounting_settings.target.api_user,
                 )
                 state = State(accounting_settings.state_path)
@@ -583,8 +611,11 @@ def main(argv=None) -> int:
                 )
             else:
                 report = inspect_accounting(
-                    load_source_config(args.env_file), contract, args.cutoff_date, args.source_key,
+                    load_source_config(args.env_file), contract, accounting_cutoff_date, args.source_key,
                 )
+            report["cutoff"]["semantics"] = "first-fineract-accounting-date"
+            if args.source_through_date:
+                report["source_through_date"] = args.source_through_date
             emit(report)
             return 0 if report["ready"] else 2
         if not args.target:
@@ -647,8 +678,15 @@ def main(argv=None) -> int:
             elif getattr(args, "cycle", None):
                 raise ValueError("Production full-resync does not accept --cycle")
             state = State(settings.state_path)
-            if args.workflow_command in {"plan", "run"} and args.cutoff_date:
-                state.set_accounting_cutoff(args.cutoff_date)
+            if args.workflow_command in {"plan", "run"}:
+                if args.cutoff_date and args.source_through_date:
+                    raise ValueError("Choose either --source-through-date or --cutoff-date, not both")
+                if args.source_through_date:
+                    state.set_accounting_source_through(args.source_through_date)
+                elif args.cutoff_date:
+                    state.set_accounting_cutoff(args.cutoff_date)
+                else:
+                    state.set_accounting_source_through(sync_run_cutoff_date(), "sync-run-source-through-default")
             if cycle is not None:
                 state.require_cycle(args.cycle, cycle["target_fingerprint"])
             if args.workflow_command == "checkpoint":
@@ -749,8 +787,15 @@ def main(argv=None) -> int:
                 })
             return 0
         state = State(settings.state_path)
-        if args.command == "plan" and args.cutoff_date:
-            state.set_accounting_cutoff(args.cutoff_date)
+        if args.command == "plan":
+            if args.cutoff_date and args.source_through_date:
+                raise ValueError("Choose either --source-through-date or --cutoff-date, not both")
+            if args.source_through_date:
+                state.set_accounting_source_through(args.source_through_date)
+            elif args.cutoff_date:
+                state.set_accounting_cutoff(args.cutoff_date)
+            else:
+                state.set_accounting_source_through(sync_run_cutoff_date(), "sync-run-source-through-default")
         client_contract = ClientContract.load(settings.mapping_path)
         family_contract = FamilyReferenceContract.load(settings.family_reference_mapping_path)
         personal_family_contract = PersonalFamilyReferenceContract.load(

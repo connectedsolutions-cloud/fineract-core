@@ -224,7 +224,7 @@
       "configuration": "config/savings_deposits.json",
       "commands": {
         "inspect": "./arissto-sync inspect --block savings-deposits --target TARGET",
-        "plan": "./arissto-sync plan --block savings-deposits --target TARGET [--cutoff-date YYYY-MM-DD]",
+        "plan": "./arissto-sync plan --block savings-deposits --target TARGET [--source-through-date YYYY-MM-DD]",
         "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
         "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
         "status": "./arissto-sync status --block savings-deposits --target TARGET"
@@ -280,7 +280,7 @@
       "configuration": "config/native_share_capital.json",
       "commands": {
         "inspect": "./arissto-sync inspect --block native-share-capital --target TARGET [--source-key 'AFI_ACCION|ID']",
-        "plan": "./arissto-sync plan --block native-share-capital --target TARGET [--source-key 'AFI_ACCION|ID'] [--cutoff-date YYYY-MM-DD]",
+        "plan": "./arissto-sync plan --block native-share-capital --target TARGET [--source-key 'AFI_ACCION|ID'] [--source-through-date YYYY-MM-DD]",
         "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
         "retry": "./arissto-sync retry --run RUN_ID --failed-only --target TARGET",
         "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
@@ -370,7 +370,7 @@
       "configuration": "config/loans.json",
       "commands": {
         "inspect": "./arissto-sync inspect --block loans [--target TARGET] [--source-key ID_CREDITO]",
-        "plan": "./arissto-sync plan --block loans --target TARGET [--source-key ID_CREDITO] [--cutoff-date YYYY-MM-DD]",
+        "plan": "./arissto-sync plan --block loans --target TARGET [--source-key ID_CREDITO] [--source-through-date YYYY-MM-DD]",
         "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
         "retry": "./arissto-sync retry --run RUN_ID --failed-only --target TARGET",
         "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
@@ -476,8 +476,8 @@
       ],
       "configuration": "config/accounting.json",
       "command_templates": {
-        "inspect": "./arissto-sync inspect --block accounting [--target TARGET] --cutoff-date YYYY-MM-DD [--source-key COMPANY:BRANCH:PERIOD:JOURNAL]",
-        "plan": "./arissto-sync plan --block accounting --target TARGET (--source-key COMPANY:BRANCH:PERIOD:JOURNAL | --period PERIOD) [--cutoff-date YYYY-MM-DD]",
+        "inspect": "./arissto-sync inspect --block accounting [--target TARGET] --source-through-date YYYY-MM-DD [--source-key COMPANY:BRANCH:PERIOD:JOURNAL]",
+        "plan": "./arissto-sync plan --block accounting --target TARGET (--source-key COMPANY:BRANCH:PERIOD:JOURNAL | --period PERIOD) [--source-through-date YYYY-MM-DD]",
         "apply": "./arissto-sync apply --plan PLAN_ID --target TARGET",
         "retry": "./arissto-sync retry --run RUN_ID --failed-only --target TARGET",
         "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",

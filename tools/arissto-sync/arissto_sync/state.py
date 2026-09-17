@@ -4,7 +4,7 @@ import hashlib
 import json
 import sqlite3
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -151,6 +151,20 @@ def accounting_cutoff_snapshot(cutoff_date: str | None = None, source: str | Non
     }
 
 
+def accounting_cutoff_for_source_through(source_through_date: str, source: str = "source-through-date") -> dict[str, str]:
+    """Build the exclusive Fineract boundary from an inclusive Arissto through-date."""
+    try:
+        through = date.fromisoformat(source_through_date)
+    except ValueError as exc:
+        raise ValueError("Source through date must use ISO format YYYY-MM-DD") from exc
+    if through.isoformat() != source_through_date:
+        raise ValueError("Source through date must use ISO format YYYY-MM-DD")
+    snapshot = accounting_cutoff_snapshot((through + timedelta(days=1)).isoformat(), source)
+    snapshot["source_through_date"] = source_through_date
+    snapshot["boundary_semantics"] = "inclusive-source-through-date"
+    return snapshot
+
+
 class State:
     def __init__(self, path: Path, cutoff_date: str | None = None):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -165,12 +179,18 @@ class State:
     def set_accounting_cutoff(self, cutoff_date: str, source: str = "explicit") -> None:
         self.accounting_cutoff = accounting_cutoff_snapshot(cutoff_date, source)
 
+    def set_accounting_source_through(self, source_through_date: str, source: str = "source-through-date") -> None:
+        self.accounting_cutoff = accounting_cutoff_for_source_through(source_through_date, source)
+
     def adopt_accounting_cutoff(self, snapshot: dict[str, Any]) -> None:
         if snapshot.get("timezone") != ACCOUNTING_CUTOFF_TIMEZONE:
             raise ValueError(f"Accounting cutoff timezone must be {ACCOUNTING_CUTOFF_TIMEZONE}")
         adopted: dict[str, Any] = accounting_cutoff_snapshot(
             str(snapshot.get("date") or ""), str(snapshot.get("source") or "frozen-plan")
         )
+        for key in ("source_through_date", "boundary_semantics"):
+            if key in snapshot:
+                adopted[key] = snapshot[key]
         binding_fields = (
             "configuration_revision", "configuration_hash", "lifecycle_state"
         )

@@ -23,6 +23,7 @@ from arissto_sync.orchestration import (
     assert_scheduler_paused,
     bind_active_accounting_cutoff,
     build_workflow_plan,
+    ensure_arissto_api_user_offices,
     ensure_financial_activity_mappings,
     ensure_arissto_offices,
     ensure_active_accounting_cutoff,
@@ -33,7 +34,13 @@ from arissto_sync.orchestration import (
     verify_active_accounting_cutoff,
 )
 from arissto_sync.service_runtime import ServiceRuntime
-from arissto_sync.state import State, accounting_cutoff_snapshot, now, sync_run_cutoff_date
+from arissto_sync.state import (
+    State,
+    accounting_cutoff_for_source_through,
+    accounting_cutoff_snapshot,
+    now,
+    sync_run_cutoff_date,
+)
 from arissto_sync.workflow_definitions import inspect_workflow, list_workflows, load_workflow
 
 
@@ -256,6 +263,20 @@ class WorkflowDefinitionTests(unittest.TestCase):
             "plan", "--block", "loans", "--target", "local", "--cutoff-date", "2026-09-02",
         ])
         self.assertEqual(planned.cutoff_date, "2026-09-02")
+
+    def test_cli_accepts_inclusive_source_through_date(self):
+        planned = parser().parse_args([
+            "workflow", "plan", "--workflow", "local-party-profile",
+            "--cycle", "cycle-a", "--target", "local", "--source-through-date", "2026-09-17",
+        ])
+        self.assertEqual(planned.source_through_date, "2026-09-17")
+        self.assertEqual(accounting_cutoff_for_source_through(planned.source_through_date), {
+            "date": "2026-09-18",
+            "timezone": "America/El_Salvador",
+            "source": "source-through-date",
+            "source_through_date": "2026-09-17",
+            "boundary_semantics": "inclusive-source-through-date",
+        })
 
     def test_sync_run_cutoff_uses_el_salvador_calendar_date(self):
         instant = datetime(2026, 9, 3, 4, 30, tzinfo=timezone.utc)
@@ -585,6 +606,34 @@ class WorkflowDefinitionTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(RuntimeError, "requires office 2"):
             ensure_arissto_offices(api)
+
+    def test_api_user_office_bootstrap_adds_missing_office_without_removing_existing_access(self):
+        api = SimpleNamespace(request=unittest.mock.MagicMock(side_effect=[
+            [{"id": 7, "username": "migration"}],
+            {"id": 7, "offices": [1, 9]},
+            {},
+            {"id": 7, "offices": [1, 2, 9]},
+        ]))
+
+        report = ensure_arissto_api_user_offices(api, "migration")
+
+        self.assertEqual(report["action"], "updated")
+        self.assertEqual(report["assigned_office_ids"], [1, 2, 9])
+        self.assertEqual(api.request.call_args_list[2].args, (
+            "PUT", "users/7", {"officeIds": ["1", "2", "9"]},
+        ))
+
+    def test_api_user_office_bootstrap_is_idempotent(self):
+        api = SimpleNamespace(request=unittest.mock.MagicMock(side_effect=[
+            [{"id": 7, "username": "migration"}],
+            {"id": 7, "offices": [1, 2]},
+            {"id": 7, "offices": [1, 2]},
+        ]))
+
+        report = ensure_arissto_api_user_offices(api, "migration")
+
+        self.assertEqual(report["action"], "unchanged")
+        self.assertEqual(api.request.call_count, 3)
 
     @staticmethod
     def financial_activity_prerequisites():

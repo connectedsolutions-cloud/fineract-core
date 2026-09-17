@@ -261,9 +261,9 @@ ORDER BY me.ID_MONEDA_EMPRESA
 """
 
 SOURCE_LEDGER_CONTROL_SUMMARY_QUERY = """
-SELECT RTRIM(cp.ID_PERIODO) AS control_period_id,
-       CAST(CASE WHEN EOMONTH(DATEFROMPARTS(cp.ANIO,cp.MES,1))<CAST(? AS date) THEN 1 ELSE 0 END AS int)
-         AS closed_before_cutoff,
+SELECT TOP (1) RTRIM(cp.ID_PERIODO) AS control_period_id,
+       CAST(EOMONTH(DATEFROMPARTS(cp.ANIO,cp.MES,1)) AS date) AS control_period_end,
+       CAST(1 AS int) AS closed_before_cutoff,
        (
          SELECT COUNT_BIG(*)
          FROM dbo.CNT_PARTIDAS p
@@ -284,7 +284,9 @@ SELECT RTRIM(cp.ID_PERIODO) AS control_period_id,
            )
        ) AS eligible_journal_count
 FROM dbo.CNT_PERIODO cp
-WHERE cp.ID_EMPRESA=? AND cp.ID_PERIODO=?
+WHERE cp.ID_EMPRESA=?
+  AND EOMONTH(DATEFROMPARTS(cp.ANIO,cp.MES,1))<CAST(? AS date)
+ORDER BY cp.ANIO DESC,cp.MES DESC,cp.ID_PERIODO DESC
 """
 
 SOURCE_LEDGER_CONTROL_QUERY = """
@@ -692,7 +694,7 @@ def _source_control_period_readiness(
         period_end = policy.get("period_end")
         if key in finding_keys or not isinstance(effective_date, date) or not isinstance(period_end, date):
             continue
-        if effective_date >= cutoff:
+        if effective_date >= cutoff or period_end >= cutoff:
             continue
         candidates.append((effective_date, key, period_end))
     if not candidates:
@@ -703,7 +705,7 @@ def _source_control_period_readiness(
         "source_key": key,
         "period_id": key.split(":")[2],
         "period_end": period_end.isoformat(),
-        "closed_before_cutoff": period_end < cutoff,
+        "closed_before_cutoff": True,
     }
 
 
@@ -815,8 +817,6 @@ def inspect_accounting(source_config: SourceConfig, contract: AccountingContract
     source_blockers: list[str] = []
     if len(currency_ok) != 1 or _trim(currency_ok[0].get("active_flag")) not in ("1", "S", "Y"):
         source_blockers.append("SOURCE_OR_TARGET_CURRENCY_UNSUPPORTED")
-    if control_period.get("resolved") and not control_period.get("closed_before_cutoff"):
-        source_blockers.append("SOURCE_LEDGER_CONTROL_PERIOD_NOT_CLOSED_BEFORE_CUTOFF")
     target_blockers: list[str] = []
     if target is not None:
         required_target_tables = {
@@ -1761,18 +1761,17 @@ def _source_ledger_control(
     eligible = [action for action in document["actions"] if action["disposition"] != "QUARANTINED"]
     if not eligible:
         raise RuntimeError("Accounting ledger control requires at least one eligible journal")
-    final_action = max(eligible, key=lambda action: (action["payload"]["entry_date"], action["source_key"]))
-    control_period_id = final_action["source_key"].split(":")[2]
     company = str(contract.raw["currency_precision"]["source_company"])
     origin = str(contract.raw["historical_origin"]["first_eligible_journal_date"])
     cutoff = str(document["accounting_cutoff"]["date"])
     with source_connection(settings.source) as conn:
         summary_rows = select_rows(
             conn, SOURCE_LEDGER_CONTROL_SUMMARY_QUERY,
-            (cutoff, company, origin, company, control_period_id),
+            (company, origin, company, cutoff),
         )
         if not summary_rows or not summary_rows[0].get("control_period_id"):
             raise RuntimeError("SOURCE_LEDGER_CONTROL_PERIOD_UNRESOLVED")
+        control_period_id = str(summary_rows[0]["control_period_id"])
         journal_rows = select_rows(
             conn, SOURCE_LEDGER_CONTROL_QUERY,
             (control_period_id, company, origin),
@@ -1843,6 +1842,7 @@ def _source_ledger_control(
     )
     return {
         "control_period_id": str(base["control_period_id"]),
+        "control_period_end": str(base.get("control_period_end") or ""),
         "closed_before_cutoff": int(base.get("closed_before_cutoff") or 0),
         "eligible_journal_count": int(base.get("eligible_journal_count") or 0),
         "compared_account_branch_count": len(comparisons),
@@ -1935,10 +1935,25 @@ def reconcile_accounting(
         balance_findings.append("TARGET_CONSOLIDATED_BALANCE_DRIFT")
     source_ledger_control = source_ledger_snapshot or _source_ledger_control(settings, contract, document)
     source_ledger_findings = []
-    eligible_action_count = sum(1 for action in actions if action["disposition"] != "QUARANTINED")
-    if not int(source_ledger_control.get("closed_before_cutoff", 0)):
-        source_ledger_findings.append("SOURCE_LEDGER_CONTROL_PERIOD_NOT_CLOSED_BEFORE_CUTOFF")
-    if int(source_ledger_control.get("eligible_journal_count", -1)) != eligible_action_count:
+    control_period_end = _date(source_ledger_control.get("control_period_end"))
+    if control_period_end is None and int(source_ledger_control.get("closed_before_cutoff", 0)):
+        # Compatibility for stored reconciliation evidence created before the
+        # control-period end became explicit. New live controls always return it.
+        controlled_dates = [
+            _date(action["payload"].get("entry_date")) for action in actions
+            if action["disposition"] != "QUARANTINED"
+        ]
+        control_period_end = max((value for value in controlled_dates if value is not None), default=None)
+    controlled_action_count = sum(
+        1 for action in actions
+        if action["disposition"] != "QUARANTINED"
+        and control_period_end is not None
+        and _date(action["payload"].get("entry_date")) is not None
+        and _date(action["payload"].get("entry_date")) <= control_period_end
+    )
+    if control_period_end is None or not int(source_ledger_control.get("closed_before_cutoff", 0)):
+        source_ledger_findings.append("SOURCE_LEDGER_CONTROL_PERIOD_UNRESOLVED")
+    if int(source_ledger_control.get("eligible_journal_count", -1)) != controlled_action_count:
         source_ledger_findings.append("SOURCE_LEDGER_CONTROL_SCOPE_INCOMPLETE")
     if int(source_ledger_control.get("unsafe_hybrid_account_count", 0)):
         source_ledger_findings.append("SOURCE_HYBRID_ACCOUNT_ROLLUP_UNSAFE")

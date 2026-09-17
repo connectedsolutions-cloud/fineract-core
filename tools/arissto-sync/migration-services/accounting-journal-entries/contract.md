@@ -33,19 +33,23 @@ Monthly journal numbering remains specified in
 
 ## Cutover ownership rule
 
-`cutoff_date` is mandatory in every inspect, plan, apply and reconcile cycle.
-It is interpreted as an accounting date in `America/El_Salvador`, frozen into
-the plan and contract hash, and must match the tenant-side Fineract cutoff
-configuration. Changing it invalidates every unapplied accounting plan.
+The normal operator input is the inclusive `source_through_date` `S`. The
+engine derives `cutoff_date` `T = S + 1 calendar day` in
+`America/El_Salvador`. Both values are frozen into the plan and contract hash,
+and `T` must match the tenant-side Fineract cutoff configuration. Changing
+either value invalidates every unapplied accounting plan. `cutoff_date` remains
+the internal policy boundary and may be supplied directly only through the
+advanced `--cutoff-date` option.
 
 | Accounting date | Business-data owner | GL owner |
 |---|---|---|
 | Before `cutoff_date` | Sync engine | Arissto journals imported by the accounting service |
 | On or after `cutoff_date` | Native Fineract workflows | Native Fineract accounting |
 
-The cutoff date belongs to Fineract. If the approved cutoff is `2026-10-01`,
-the accounting service imports journals through `2026-09-30`, while Fineract
-owns transactions dated `2026-10-01` and later.
+The cutoff date belongs to Fineract. If the operator selects
+`source_through_date=2026-09-30`, the derived cutoff is `2026-10-01`; the
+accounting service includes September 30 while Fineract owns transactions dated
+October 1 and later.
 
 The cutoff limits accounting ownership, not historical data retention. Product
 services may create complete pre-cutoff operational history when required, but

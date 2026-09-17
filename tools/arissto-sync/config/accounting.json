@@ -1,9 +1,13 @@
 {
-  "contract_version": 15,
+  "contract_version": 16,
   "category": "accounting",
   "cutoff": {
     "date": null,
-    "default_date": "sync_run_date",
+    "operator_input": "source_through_date",
+    "source_through_boundary": "inclusive",
+    "source_through_default": "sync_run_date",
+    "derivation": "cutoff_date_equals_source_through_date_plus_one_calendar_day",
+    "default_date": "source_through_date_plus_one_day",
     "freeze_boundary": "plan_creation",
     "timezone": "America/El_Salvador",
     "historical_boundary": "before_cutoff",

@@ -18,6 +18,12 @@ the general ledger, trial balance, balance sheet, income statement, and
 agency/consolidated balances directly from native Fineract journal rows, while
 native Fineract owns all accounting dated on or after the cutoff.
 
+Date vocabulary is fixed: the operator supplies inclusive
+`source_through_date=S`; the engine derives the internal cutoff as
+`T=S+1 day`. Thus `--source-through-date 2026-09-17` includes September 17 and
+starts native Fineract accounting on September 18. References below to
+"pre-cutoff" mean dates `<= S` and `< T`.
+
 ## Current state on 2026-09-14
 
 | Area | State | Evidence or remaining work |
@@ -28,7 +34,7 @@ native Fineract owns all accounting dated on or after the cutoff.
 | Cutoff configuration and central persistence guard | G1 implementation complete | Migration `0320`, the decision service, all reviewed producer generation boundaries, final persistence guard, and workflow scheduler-standby prerequisite are implemented and covered by focused tests. Restored-tenant cross-service evidence belongs to G2/G10. |
 | Frozen cutoff in sync plans | Gate 2 workflow binding delivered | Workflow child plans retain the date/timezone plus the exact ACTIVE tenant configuration revision and hash. Apply/retry verifies that binding before execution and again before completion. |
 | Agency dimension and native-office policy | Ready for implementation | Per-line source `001` maps to native office ID 1 and JSON string tag `"1"`; `002` maps to native office ID 2 and tag `"2"`. One transaction may contain both offices. |
-| Source eligibility policy | Decided | Only populated, balanced status-`3` journals dated on or after the demonstrated zero origin of 2022-11-18 are eligible by status/integrity. Synthetic opening and residual journals are forbidden. Reversals, annual liquidation, legacy text, agency, currency, report presentation, post-cutover correction, and historical-origin policies are frozen in contract version 14. |
+| Source eligibility policy | Decided | Only populated, balanced status-`3` journals dated on or after the demonstrated zero origin of 2022-11-18 are eligible by status/integrity. Synthetic opening and residual journals are forbidden. Reversals, annual liquidation, legacy text, agency, currency, report presentation, post-cutover correction, historical-origin, and inclusive source-through policies are frozen in contract version 16. |
 | Accounting inspector, planner, writer, retry, and reconciler | Available locally; G11-G12 remain production gates | The registry exposes `inspect`, deterministic explicit-key and bounded-period `plan`, atomic `apply`, failed-only `retry`, direct-journal `reconcile`, and `status`. Period `00028` passed exact target parity plus the independent `CNT_MAYOR` closing control, and the G10 harness was accepted. The service is available for reviewed local workflows; two G11 clean cycles and G12 still govern production promotion. |
 | Historical-journal provenance schema/API | G6 API complete; G5 database-path acceptance pending | Tenant migration `0336` creates lossless header/line provenance, complete source-key and target-line uniqueness, reconciliation/report indexes, and the restricted provenance-read permission. The dedicated API atomically persists native journal lines and provenance with idempotent replay. A supported-database clean/upgrade run is still required before closing G5. |
 | Report parity | G9 journal-derived proof complete; source-output acceptance pending | The native `credesalfinancialreports` API and presentation snapshot passed independent 2024 journal-derived parity across consolidated and both agency scopes. All 12 selector/sign/rollup cases and 16,728 GL lines matched; the imported type-`003` boundary changed the expected pre/post-close rows and agency additivity had zero findings. Exact row-level comparison with authoritative Arissto statement output, including the known `CNT_MAYOR` year-end differences, remains required. Cash flow has no approved source or target contract yet. |
@@ -38,8 +44,8 @@ truth. Confirm the live service status with `./arissto-sync services`.
 
 ## Non-negotiable quality bar
 
-- One immutable tenant-wide cutoff in `America/El_Salvador` governs every
-  financial migration service.
+- One inclusive source-through date and its derived immutable tenant-wide
+  cutoff in `America/El_Salvador` govern every financial migration service.
 - Dates before the cutoff belong to imported Arissto GL; the cutoff date and
   later belong to native Fineract accounting.
 - Every eligible pre-cutoff source journal is imported intact and exactly once.
@@ -82,12 +88,14 @@ commit/worktree, commands, counts, and unresolved failures.
 
 ### Work
 
-1. **Complete — cutoff lifecycle approved.** Keep `< cutoff` historical and
-   `>= cutoff` native. Each new test plan may use `--cutoff-date` or the
-   `sync_run_date` default, and freezes that resolved date for apply, retry,
-   reconciliation, and workflow children. Advancing the date requires a new
-   restored disposable-tenant cycle; an existing plan or active tenant cutoff
-   is never mutated. Approve the one permanent production date at G12.
+1. **Complete — cutoff lifecycle approved.** The operator selects inclusive
+   `source_through_date=S`; the engine derives `cutoff=T=S+1 day`. Keep
+   `< T` historical and `>= T` native. Each new test plan may use
+   `--source-through-date` or the sync-run-date default for `S`, and freezes
+   both values for apply, retry, reconciliation, and workflow children.
+   Advancing the dates requires a new restored disposable-tenant cycle; an
+   existing plan or active tenant cutoff is never mutated. Approve the one
+   permanent production boundary at G12.
 2. **Complete — journal status policy approved.** Only populated, balanced
    `ESTADO_PARTIDA='3'` journals are eligible by status and integrity. Status
    `1` quarantines as `SOURCE_JOURNAL_NOT_MAYORIZED`; status `2` quarantines as
@@ -834,7 +842,8 @@ cutoff, and the cutoff-date native transaction posts exactly once.
    other retained operational state under the same cutoff.
 4. Prove zero native pre-cutoff GL and reconcile each product/subledger.
 5. Inspect, plan, apply, retry, and reconcile all eligible historical journals
-   through the day before cutoff.
+   through the inclusive source-through date, which is the day before the
+   derived cutoff.
 6. Generate and compare every direct-journal acceptance report.
 7. Review and sign every quarantine; no in-scope journal may disappear from
    counts.

@@ -223,6 +223,51 @@ def _api_items(value: Any) -> list[dict[str, Any]]:
     return []
 
 
+def _assigned_office_ids(user: dict[str, Any]) -> set[int]:
+    raw = user.get("offices") or user.get("officeIds") or []
+    result: set[int] = set()
+    for value in raw:
+        identifier = value.get("id") if isinstance(value, dict) else value
+        try:
+            result.add(int(identifier))
+        except (TypeError, ValueError):
+            continue
+    office_id = user.get("officeId")
+    if office_id is not None:
+        result.add(int(office_id))
+    return result
+
+
+def ensure_arissto_api_user_offices(api: FineractApi, username: str) -> dict[str, Any]:
+    """Ensure the configured workflow identity can write both canonical offices."""
+    matches = [item for item in _api_items(api.request("GET", "users")) if item.get("username") == username]
+    if len(matches) != 1:
+        raise RuntimeError(f"Configured Fineract API user resolved to {len(matches)} users")
+    user_id = int(matches[0]["id"])
+    detail = api.request("GET", f"users/{user_id}")
+    assigned = _assigned_office_ids(detail)
+    required = {int(item["id"]) for item in ARISSTO_OFFICES}
+    desired = sorted(assigned | required)
+    action = "unchanged"
+    if not required <= assigned:
+        api.request("PUT", f"users/{user_id}", {"officeIds": [str(value) for value in desired]})
+        action = "updated"
+    verified = _assigned_office_ids(api.request("GET", f"users/{user_id}"))
+    missing = sorted(required - verified)
+    if missing:
+        raise RuntimeError(
+            "Configured Fineract API user is missing required office IDs "
+            + ",".join(str(value) for value in missing)
+        )
+    return {
+        "performed": True,
+        "action": action,
+        "user_id": user_id,
+        "assigned_office_ids": sorted(verified),
+        "required_office_ids": sorted(required),
+    }
+
+
 def _enum_identifier(value: Any) -> int | None:
     if isinstance(value, dict):
         value = value.get("id")
@@ -671,7 +716,7 @@ def build_workflow_plan(
                     "accounting cutoff"
                 )
             if (
-                state.accounting_cutoff.get("source") == "explicit"
+                state.accounting_cutoff.get("source") in {"explicit", "source-through-date"}
                 and state.accounting_cutoff != frozen_cutoff
             ):
                 raise ValueError(
@@ -968,11 +1013,21 @@ def _execute_workflow(
     with target_workflow_lock(settings):
         state.claim_workflow_run(run_id, os.getpid())
         try:
-            office_bootstrap = ensure_arissto_offices(FineractApi(settings.target))
+            prerequisite_api = FineractApi(settings.target)
+            office_bootstrap = ensure_arissto_offices(prerequisite_api)
             state.record_workflow_event(
                 run_id, "arissto-offices-ready", "workflow-prerequisite",
                 status="ready", details=office_bootstrap,
             )
+            configured_api_user = getattr(settings.target, "api_user", None)
+            if configured_api_user:
+                api_user_offices = ensure_arissto_api_user_offices(
+                    prerequisite_api, configured_api_user
+                )
+                state.record_workflow_event(
+                    run_id, "arissto-api-user-offices-ready", "workflow-prerequisite",
+                    status="ready", details=api_user_offices,
+                )
             try:
                 prerequisite_bootstrap = ensure_financial_activity_mappings(
                     FineractApi(settings.target),

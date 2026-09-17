@@ -508,8 +508,15 @@ class Launcher:
             ]
             for service_id in requested_services:
                 arguments.extend(["--include-service", service_id])
+            source_through_date = str(document.get("source_through_date") or "").strip()
             cutoff_date = str(document.get("cutoff_date") or "").strip()
-            if cutoff_date:
+            if source_through_date and cutoff_date:
+                raise ValueError("Choose either source through date or advanced cutoff date")
+            if source_through_date:
+                if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", source_through_date):
+                    raise ValueError("Source through date must use YYYY-MM-DD")
+                arguments.extend(["--source-through-date", source_through_date])
+            elif cutoff_date:
                 if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", cutoff_date):
                     raise ValueError("Cutoff date must use YYYY-MM-DD")
                 arguments.extend(["--cutoff-date", cutoff_date])

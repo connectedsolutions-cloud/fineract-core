@@ -76,17 +76,20 @@ plan to opt them into process recovery.
 
 ## Accounting cutoff snapshot
 
-The parent workflow plan also freezes one `accounting_cutoff` snapshot. Its
-date defaults to the workflow-plan creation date in `America/El_Salvador`; use
-`--cutoff-date YYYY-MM-DD` to override it. Every child service plan inherits
-the parent value, including execution or resume after midnight.
+The operator selects an inclusive Arissto `source_through_date` `S`. It defaults
+to the workflow-plan creation date in `America/El_Salvador`; use
+`--source-through-date YYYY-MM-DD` to override it. The parent workflow derives
+and freezes the internal `accounting_cutoff.date` as `T = S + 1 day`. Every
+child service plan inherits both values, including execution or resume after
+midnight. The advanced `--cutoff-date` option supplies `T` directly and is not
+the normal operator input.
 
 Financial workflow definitions select `activate-frozen-plan`. Before their
 first service step, the runner idempotently creates or updates a matching draft
 cutoff and activates it. A matching active cutoff is reused; a mismatched active
 or sealed cutoff stops the workflow before financial writes.
 
-The frozen date is the first date owned by native Fineract accounting. Loan
+The derived cutoff `T` is the first date owned by native Fineract accounting. Loan
 migration accrual catch-up stops at the preceding date, and Fineract Loan COB
 owns the cutoff date and later. Arissto may calculate the cutoff date afterward
 for reconciliation, but that result is comparison-only and must never be

@@ -26,9 +26,10 @@ no reversal, refinance, top-up, or terminal adjustment.
 1. Start Fineract so Liquibase applies migration `0320`.
 2. Grant both `SOURCEEXACTDISBURSE_LOAN` and
    `USE_ARISSTO_OPERATIONAL_MIGRATION` to the local sync principal.
-3. Create the scoped loan plan. Its cutoff defaults to the current sync date in
-   `America/El_Salvador`; use `--cutoff-date YYYY-MM-DD` only when the canary
-   requires an explicit override.
+3. Create the scoped loan plan. Its inclusive source-through date defaults to
+   the current sync date in `America/El_Salvador`; use
+   `--source-through-date YYYY-MM-DD` when the canary requires an explicit
+   source boundary. The internal cutoff is the following day.
 4. Configure Fineract with that frozen plan date and read it back in `DRAFT`;
    record its date, timezone, revision, and hash.
 5. Pause accounting-producing jobs, then activate the cutoff.

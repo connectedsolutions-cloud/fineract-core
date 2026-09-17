@@ -20,15 +20,15 @@ and cutoff-date canaries have passed and are recorded in
 [`g10-canary-results.md`](g10-canary-results.md). The service is available for
 reviewed local workflows. Gate 11 clean-cycle reproduction and Gate 12 remain
 production-promotion requirements. The dashboard defaults to the complete
-bounded pre-cutoff ledger; an explicit source period can narrow a test when
-needed.
+ledger through the inclusive source-through date; an explicit source period can
+narrow a test when needed.
 
 Create a read-only explicit-key plan with:
 
 ```bash
 ./arissto-sync plan --block accounting --target local \
   --source-key COMPANY:BRANCH:PERIOD:JOURNAL \
-  --cutoff-date YYYY-MM-DD
+  --source-through-date YYYY-MM-DD
 ```
 
 Repeat `--source-key` to plan a reviewed list, or use a reviewed `--period`.
@@ -46,11 +46,12 @@ ARISSTO_SYNC_STATE=.arissto-sync/g10-2026-09-10/state.sqlite3 \
 ```
 
 This service is the historical accounting boundary for the sync engine. It
-imports every eligible Arissto journal dated before the approved cutoff,
+imports every eligible Arissto journal dated on or before the approved inclusive
+source-through date,
 preserves provenance, and reconciles the resulting GL. Other migration services
 create the complete retained historical operational state with native Fineract
 GL suppressed. Native Fineract workflows become the sole accounting owner on
-the cutoff date.
+the following day.
 
 ## Full re-sync
 
@@ -112,9 +113,10 @@ It explicitly excludes:
 - reproducing Arissto's daily/monthly/year-end close engine; and
 - journal-by-journal product-ownership classification or decomposition.
 
-The approved operating direction is a strict date boundary: pre-cutoff GL comes
-from imported Arissto journals; accounting dated on or after cutoff comes from
-native Fineract. Structurally invalid, unbalanced, unsupported-status or
+The approved operating direction is a strict date boundary: GL through the
+inclusive source-through date comes from imported Arissto journals; accounting
+dated on or after the following internally derived cutoff comes from native
+Fineract. Structurally invalid, unbalanced, unsupported-status or
 unmapped historical journals quarantine instead of posting.
 
 The detailed mapping and blockers are in [`contract.md`](contract.md). Source
@@ -133,11 +135,11 @@ Ordered implementation notes and validation evidence are indexed under
 
 ## Cutoff decision
 
-Every plan carries one frozen cutoff date in `America/El_Salvador`. By default,
-the engine resolves it to the calendar date on which the sync plan is created.
-Operators may provide `--cutoff-date YYYY-MM-DD`; apply, retry, reconciliation,
-and workflow child plans continue using the frozen plan value rather than
-recomputing the date.
+Operators provide an inclusive `--source-through-date YYYY-MM-DD` in
+`America/El_Salvador`. By default it is the calendar date on which the sync plan
+is created. The engine derives the exclusive Fineract accounting cutoff as the
+following calendar day and freezes both values. The advanced `--cutoff-date`
+option retains its original meaning: the first Fineract-owned date.
 
 For local workflows that activate the accounting boundary, every child plan
 also freezes the exact ACTIVE tenant cutoff revision and hash. The orchestrator
@@ -145,15 +147,15 @@ verifies that binding before and after each child apply and requires zero
 non-manual Fineract journal rows dated before the cutoff before any reconciled
 service can be marked complete.
 
-Nightly test cycles may therefore advance the cutoff by creating a new plan
+Nightly test cycles may therefore select a new inclusive source-through date by creating a new plan
 against a newly restored disposable tenant. They must not change the cutoff of
 an existing plan or an `ACTIVE` tenant. Production instead receives one
 reviewed permanent cutoff during release approval.
 
-- Source journals strictly before the cutoff are historical import candidates.
+- Source journals on or before the source-through date are historical import candidates.
 - Fineract owns scheduled accruals, provisions, dividends, and native product
-  accounting on and after the cutoff.
-- A journal on or after the cutoff is outside historical import scope.
+  accounting starting the following day.
+- A journal after the source-through date is outside historical import scope.
 - Opening balances are reconciliation controls or explicitly measured residual
   entries. They must not duplicate balances already produced by imported
   history or native Fineract transactions.
@@ -227,15 +229,16 @@ pass locally from a restored disposable-tenant baseline.
 Read-only source inspection, with an optional read-only target comparison:
 
 ```bash
-./arissto-sync inspect --block accounting --cutoff-date YYYY-MM-DD
-./arissto-sync inspect --target local --block accounting --cutoff-date YYYY-MM-DD
-./arissto-sync inspect --block accounting --cutoff-date YYYY-MM-DD \
+./arissto-sync inspect --block accounting --source-through-date YYYY-MM-DD
+./arissto-sync inspect --target local --block accounting --source-through-date YYYY-MM-DD
+./arissto-sync inspect --block accounting --source-through-date YYYY-MM-DD \
   --source-key COMPANY:BRANCH:PERIOD:JOURNAL
 ./arissto-sync plan --block accounting --target local --period PERIOD \
-  --cutoff-date YYYY-MM-DD
+  --source-through-date YYYY-MM-DD
 ```
 
-The cutoff is explicit so repeated runs do not silently change scope. The
+The source-through date and its derived following-day cutoff are explicit so
+repeated runs do not silently change scope. The
 inspector loads the complete selected scope, records the actual header and line
 counts, hashes raw legacy text without emitting it, and reports only structural
 keys, counts, hashes, and stable reason codes. Gate 8 adds direct-journal `reconcile` for applied
@@ -319,10 +322,10 @@ those bounded results in memory. This is semantically equivalent to the prior
 single CTE control without forcing SQL Server to repeatedly expand the same
 eligible-journal CTE.
 
-Inspection also requires the final eligible source accounting period to end
-strictly before the cutoff. A mid-period cutoff reports
-`SOURCE_LEDGER_CONTROL_PERIOD_NOT_CLOSED_BEFORE_CUTOFF`; operators must select
-an approved period boundary rather than weakening the closing-balance control.
+Inspection permits an open current source period. The closing-balance control
+compares `CNT_MAYOR` through the latest period ending before the internally
+derived Fineract cutoff; current-period journals after that closed period are
+still reconciled individually and through direct target balance controls.
 
 Writes remain sequential initially because a journal is one atomic balanced
 unit and partial debit/credit persistence is unacceptable. Reuse the source

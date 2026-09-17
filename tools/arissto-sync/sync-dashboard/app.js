@@ -59,8 +59,10 @@ function renderLaunchSetup() {
       <fieldset class="service-fieldset"><legend>Include in this run</legend><p>Choose the outcomes you want. Required prerequisites are added automatically and cannot be removed while a dependent service is checked.</p><div id="servicePicker" class="service-picker"></div><div id="serviceSelectionSummary" class="selection-summary"></div></fieldset>
       ${fresh ? `<label><span>Fresh/clean sync cycle</span><input id="launchCycle" value="${escapeHtml(existingRequest.cycle_id || suggested.id)}" ${state.launch.cycleCreated ? "disabled" : ""} /><small>Creates new tracking state after the target baseline is restored. Creating the cycle alone does not clean Fineract.</small></label>
       <label><span>Baseline reference</span><input id="launchBaseline" value="${escapeHtml(existingRequest.baseline_ref || suggested.baseline_ref)}" ${state.launch.cycleCreated ? "disabled" : ""} /><small>Name the snapshot or restore point currently loaded in local Fineract.</small></label>` : `<label><span>Existing sync cycle</span><select id="launchCycle">${cycleOptions}</select><small>Re-sync reuses this cycle's mappings and accepted checkpoints. It does not reset Fineract.</small></label>`}
-      <label><span>Accounting cutoff <em>optional</em></span><input id="launchCutoff" type="date" /><small>Leave blank to use the plan creation date in America/El_Salvador.</small></label>
-      <label><span>Ledger source period <em>optional</em></span><input id="launchAccountingPeriod" value="${escapeHtml(existingRequest.accounting_period || "")}" placeholder="Leave blank for full ledger" /><small>When the planned ledger service is selected, blank runs the complete pre-cutoff ledger; enter a period only to narrow the test.</small></label>
+      ${fresh
+        ? `<label><span>Include Arissto through <em>optional</em></span><input id="launchCutoff" type="date" value="${escapeHtml(existingRequest.source_through_date || "")}" /><small>This date is inclusive. Leave blank to include the plan creation date in America/El_Salvador; Fineract accounting starts the following day.</small></label>`
+        : `<label><span>Accounting boundary</span><input id="launchCutoff" type="date" disabled /><small>Full re-sync inherits the frozen source-through date and Fineract start date from its accepted checkpoints.</small></label>`}
+      <label><span>Ledger source period <em>optional</em></span><input id="launchAccountingPeriod" value="${escapeHtml(existingRequest.accounting_period || "")}" placeholder="Leave blank for full ledger" /><small>When the planned ledger service is selected, blank runs the complete ledger through the inclusive source date; enter a period only to narrow the test.</small></label>
       ${fresh ? `<div class="reset-option">
         <label class="baseline-confirm"><input id="resetTarget" type="checkbox" ${existingRequest.reset_target ? "checked" : ""} ${state.launch.cycleCreated ? "disabled" : ""} /><span><strong>Restore the local Fineract baseline now</strong><small>Use this unless the whole disposable tenant was already restored immediately before this fresh/clean run.</small></span></label>
         <div id="resetFields" class="reset-fields ${existingRequest.reset_target ? "" : "hidden"}">
@@ -194,7 +196,7 @@ async function preparePlan() {
     workflow_id: $("#launchWorkflow").value,
     cycle_id: $("#launchCycle").value,
     baseline_ref: $("#launchBaseline")?.value || "",
-    cutoff_date: $("#launchCutoff").value,
+    source_through_date: $("#launchCutoff").value,
     accounting_period: $("#launchAccountingPeriod").value.trim(),
     services: Array.from(state.launch.requestedServices),
     reset_target: $("#resetTarget")?.checked || false,
@@ -243,7 +245,8 @@ function renderPlanReview() {
       <div><span>Workflow</span><strong>${escapeHtml(plan.workflow_id)}</strong></div>
       <div><span>Run mode</span><strong>${escapeHtml(plan.run_mode)}</strong></div>
       <div><span>Cycle</span><strong>${escapeHtml(state.launch.request.cycle_id)}</strong></div>
-      <div><span>Cutoff</span><strong>${escapeHtml(plan.accounting_cutoff?.date || "—")}</strong></div>
+      <div><span>Arissto through</span><strong>${escapeHtml(plan.accounting_cutoff?.source_through_date || "—")}</strong></div>
+      <div><span>Fineract starts</span><strong>${escapeHtml(plan.accounting_cutoff?.date || "—")}</strong></div>
       <div><span>Target</span><strong>Local only</strong></div>
       <div><span>Target handling</span><strong>${plan.run_mode === "full-resync" ? "Preserved · checkpointed delta" : state.launch.request.reset_target ? `Baseline restored · ${escapeHtml(state.launch.request.reset_tenant)}` : "Baseline already restored"}</strong></div>
     </div>
