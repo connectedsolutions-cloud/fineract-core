@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more
+     contributor license agreements. See the NOTICE file distributed with
+     this work for additional information regarding copyright ownership.
+     The ASF licenses this file to you under the Apache License, Version 2.0. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0351-1-register-transacciones-flujo-efectivo-report" author="credesal" dbms="postgresql">
+        <comment>
+            Register the Credesal daily cash-flow transaction report and its
+            immutable Arissto source-fact projection for every upgraded tenant.
+        </comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+CREATE TABLE IF NOT EXISTS credesal_cash_flow_transaction (
+    source_table VARCHAR(30) NOT NULL,
+    source_row_id BIGINT NOT NULL,
+    office_id BIGINT NOT NULL REFERENCES m_office(id),
+    source_branch VARCHAR(10) NOT NULL,
+    operation_close_id VARCHAR(20) NOT NULL,
+    operation_date DATE NOT NULL,
+    movement_date DATE NOT NULL,
+    movement_type VARCHAR(10) NOT NULL,
+    concept TEXT NOT NULL,
+    amount NUMERIC(19, 2) NOT NULL,
+    observations TEXT,
+    cash_flow_label VARCHAR(250),
+    transaction_label VARCHAR(250) NOT NULL,
+    source_order SMALLINT NOT NULL,
+    branch_order VARCHAR(10) NOT NULL,
+    row_order BIGINT NOT NULL,
+    source_hash CHAR(64) NOT NULL,
+    imported_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (source_table, source_row_id),
+    CHECK (source_table IN ('CAJA_MOVIMIENTOS', 'BNC_LIBRO_BANCO')),
+    CHECK (movement_type IN ('ingreso', 'egreso')),
+    CHECK (amount >= 0.00)
+);
+
+CREATE INDEX IF NOT EXISTS idx_credesal_cash_flow_transaction_report
+    ON credesal_cash_flow_transaction (
+        operation_date, office_id, source_order, branch_order, row_order
+    );
+
+INSERT INTO stretchy_report (
+    report_name,
+    report_type,
+    report_subtype,
+    report_category,
+    report_sql,
+    description,
+    core_report,
+    use_report,
+    self_service_user_report
+)
+VALUES (
+    'Transacciones de Flujo de Efectivo',
+    'Table',
+    NULL,
+    'Accounting',
+    $report$
+WITH selected_offices AS (
+    SELECT office_under.id
+      FROM m_office selected_office
+      JOIN m_office office_under
+        ON office_under.hierarchy LIKE selected_office.hierarchy || '%'
+     WHERE selected_office.id = CAST('${officeId}' AS BIGINT)
+       AND office_under.hierarchy LIKE '${currentUserHierarchy}' || '%'
+)
+SELECT transaction.movement_type AS "Tipo movimiento",
+       transaction.concept AS "Concepto",
+       ROUND(transaction.amount, 2) AS "Monto",
+       transaction.observations AS "Observaciones",
+       transaction.cash_flow_label AS "Flujo efectivo",
+       transaction.transaction_label AS "Transacción",
+       transaction.operation_date AS "Fecha operación"
+  FROM credesal_cash_flow_transaction transaction
+ WHERE transaction.office_id IN (SELECT id FROM selected_offices)
+   AND transaction.operation_date BETWEEN CAST('${startDate}' AS DATE)
+                                      AND CAST('${endDate}' AS DATE)
+ ORDER BY transaction.source_order,
+          transaction.branch_order,
+          transaction.row_order;
+$report$,
+    'Listado diario de movimientos de Caja y Libro Banco compatible con el reporte legado.',
+    FALSE,
+    TRUE,
+    FALSE
+)
+ON CONFLICT (report_name) DO UPDATE
+SET report_type = EXCLUDED.report_type,
+    report_subtype = EXCLUDED.report_subtype,
+    report_category = EXCLUDED.report_category,
+    report_sql = EXCLUDED.report_sql,
+    description = EXCLUDED.description,
+    core_report = EXCLUDED.core_report,
+    use_report = EXCLUDED.use_report,
+    self_service_user_report = EXCLUDED.self_service_user_report;
+
+DELETE FROM stretchy_report_parameter
+ WHERE report_id = (
+     SELECT id FROM stretchy_report
+      WHERE report_name = 'Transacciones de Flujo de Efectivo'
+ );
+
+INSERT INTO stretchy_report_parameter (
+    report_id,
+    parameter_id,
+    report_parameter_name
+)
+SELECT report.id,
+       parameter.id,
+       parameter.parameter_variable
+  FROM stretchy_report report
+  CROSS JOIN stretchy_parameter parameter
+ WHERE report.report_name = 'Transacciones de Flujo de Efectivo'
+   AND parameter.parameter_name IN ('OfficeIdSelectOne', 'startDateSelect', 'endDateSelect');
+
+DO $validation$
+BEGIN
+    IF (
+        SELECT COUNT(*)
+          FROM stretchy_report_parameter usage
+          JOIN stretchy_report report ON report.id = usage.report_id
+         WHERE report.report_name = 'Transacciones de Flujo de Efectivo'
+           AND usage.report_parameter_name IN ('officeId', 'startDate', 'endDate')
+    ) <> 3 THEN
+        RAISE EXCEPTION 'Transacciones de Flujo de Efectivo requires officeId, startDate, and endDate';
+    END IF;
+END
+$validation$;
+
+INSERT INTO m_permission (
+    grouping,
+    code,
+    entity_name,
+    action_name,
+    can_maker_checker
+)
+SELECT 'report',
+       'READ_Transacciones de Flujo de Efectivo',
+       'Transacciones de Flujo de Efectivo',
+       'READ',
+       FALSE
+ WHERE NOT EXISTS (
+     SELECT 1 FROM m_permission
+      WHERE code = 'READ_Transacciones de Flujo de Efectivo'
+ );
+        ]]></sql>
+    </changeSet>
+
+</databaseChangeLog>
