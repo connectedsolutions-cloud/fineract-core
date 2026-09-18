@@ -1,0 +1,378 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more
+     contributor license agreements. See the NOTICE file distributed with
+     this work for additional information regarding copyright ownership.
+     The ASF licenses this file to you under the Apache License, Version 2.0. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0350-1-register-balance-comprobacion-report" author="credesal" dbms="postgresql">
+        <comment>
+            Register the USD-only Credesal Balance de Comprobacion report for
+            every upgraded tenant. The report uses the frozen Arissto COA
+            presentation metadata installed by migration 0337.
+        </comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+INSERT INTO stretchy_report (
+    report_name,
+    report_type,
+    report_subtype,
+    report_category,
+    report_sql,
+    description,
+    core_report,
+    use_report,
+    self_service_user_report
+)
+VALUES (
+    'Balance de Comprobación',
+    'Table',
+    NULL,
+    'Accounting',
+    $report$
+WITH RECURSIVE
+presentation_integrity AS (
+    SELECT COUNT(*) = 2482
+           AND COUNT(*) FILTER (WHERE trial_balance_selected) = 101
+           AND COUNT(DISTINCT presentation_version) = 1
+           AND COUNT(DISTINCT source_snapshot_sha256) = 1
+           AND MIN(presentation_version) = 'arissto-coa-presentation-v1'
+           AND MIN(source_snapshot_sha256) = '9e4d2a035daf0d21944ef21684a467d26349023e2b2c56e30ffc98385bc56282' AS valid
+      FROM credesal_gl_account_presentation
+),
+selected_offices AS (
+    SELECT office_under.id,
+           office_under.external_id
+      FROM m_office selected_office
+      JOIN m_office office_under
+        ON office_under.hierarchy LIKE selected_office.hierarchy || '%'
+     WHERE selected_office.id = CAST('${officeId}' AS BIGINT)
+       AND office_under.hierarchy LIKE '${currentUserHierarchy}' || '%'
+       AND office_under.external_id IS NOT NULL
+),
+selected_accounts AS (
+    SELECT presentation.gl_account_id AS report_account_id,
+           presentation.source_gl_code,
+           presentation.source_name,
+           presentation.classifier_code,
+           presentation.classifier_name,
+           presentation.trial_balance_group,
+           presentation.trial_balance_order,
+           presentation.balance_nature,
+           parent.id AS group_account_id,
+           parent.gl_code AS group_code,
+           COALESCE(parent_presentation.source_name, parent.name) AS group_name
+      FROM credesal_gl_account_presentation presentation
+      JOIN acc_gl_account account ON account.id = presentation.gl_account_id
+      JOIN acc_gl_account parent ON parent.id = account.parent_id
+ LEFT JOIN credesal_gl_account_presentation parent_presentation
+        ON parent_presentation.gl_account_id = parent.id
+     CROSS JOIN presentation_integrity integrity
+     WHERE presentation.trial_balance_selected
+       AND integrity.valid
+),
+report_tree AS (
+    SELECT selected.report_account_id,
+           selected.source_gl_code,
+           selected.source_name,
+           selected.classifier_code,
+           selected.classifier_name,
+           selected.trial_balance_group,
+           selected.trial_balance_order,
+           selected.balance_nature,
+           selected.group_account_id,
+           selected.group_code,
+           selected.group_name,
+           selected.report_account_id AS descendant_account_id,
+           ARRAY[selected.report_account_id]::BIGINT[] AS account_path
+      FROM selected_accounts selected
+
+    UNION ALL
+
+    SELECT tree.report_account_id,
+           tree.source_gl_code,
+           tree.source_name,
+           tree.classifier_code,
+           tree.classifier_name,
+           tree.trial_balance_group,
+           tree.trial_balance_order,
+           tree.balance_nature,
+           tree.group_account_id,
+           tree.group_code,
+           tree.group_name,
+           child.id,
+           tree.account_path || child.id
+      FROM report_tree tree
+      JOIN acc_gl_account child ON child.parent_id = tree.descendant_account_id
+     WHERE NOT child.id = ANY(tree.account_path)
+),
+component_balances AS (
+    SELECT tree.report_account_id,
+           tree.source_gl_code,
+           tree.source_name,
+           tree.classifier_code,
+           tree.classifier_name,
+           tree.trial_balance_group,
+           tree.trial_balance_order,
+           tree.group_account_id,
+           tree.group_code,
+           tree.group_name,
+           ROUND(
+               COALESCE(
+                   SUM(
+                       CASE
+                           WHEN tree.balance_nature = 'D'
+                           THEN CASE WHEN journal_entry.type_enum = 2
+                                     THEN journal_entry.amount ELSE -journal_entry.amount END
+                           ELSE CASE WHEN journal_entry.type_enum = 1
+                                     THEN journal_entry.amount ELSE -journal_entry.amount END
+                       END
+                   ),
+                   0.00
+               ),
+               2
+           ) AS balance
+      FROM report_tree tree
+ LEFT JOIN acc_gl_journal_entry journal_entry
+        ON journal_entry.account_id = tree.descendant_account_id
+       AND journal_entry.entry_date <= CAST('${endDate}' AS DATE)
+       AND journal_entry.currency_code = 'USD'
+       AND jsonb_typeof(journal_entry.dimensions -> 'office') = 'string'
+       AND EXISTS (
+            SELECT 1
+              FROM selected_offices office
+             WHERE office.id = journal_entry.office_id
+               AND office.external_id = journal_entry.dimensions ->> 'office'
+       )
+     GROUP BY tree.report_account_id,
+              tree.source_gl_code,
+              tree.source_name,
+              tree.classifier_code,
+              tree.classifier_name,
+              tree.trial_balance_group,
+              tree.trial_balance_order,
+              tree.group_account_id,
+              tree.group_code,
+              tree.group_name
+),
+visible_components AS (
+    SELECT *
+      FROM component_balances
+     WHERE balance <> 0.00
+),
+visible_groups AS (
+    SELECT classifier_code,
+           classifier_name,
+           trial_balance_group,
+           trial_balance_order,
+           group_account_id,
+           group_code,
+           group_name,
+           SUM(balance) AS balance
+      FROM visible_components
+     GROUP BY classifier_code,
+              classifier_name,
+              trial_balance_group,
+              trial_balance_order,
+              group_account_id,
+              group_code,
+              group_name
+),
+section_totals AS (
+    SELECT classifier_code,
+           MIN(classifier_name) AS classifier_name,
+           MIN(trial_balance_group) AS trial_balance_group,
+           MIN(trial_balance_order) AS trial_balance_order,
+           SUM(balance) AS balance
+      FROM visible_components
+     GROUP BY classifier_code
+),
+side_totals AS (
+    SELECT trial_balance_group,
+           SUM(balance) AS balance
+      FROM visible_components
+     GROUP BY trial_balance_group
+),
+display_rows AS (
+    SELECT section.trial_balance_order AS section_order,
+           0 AS row_order,
+           ''::VARCHAR AS group_code,
+           ''::VARCHAR AS component_code,
+           'SECCION'::VARCHAR AS row_type,
+           section.classifier_name AS section_name,
+           NULL::VARCHAR AS group_name,
+           NULL::VARCHAR AS account_code,
+           section.classifier_name AS description,
+           NULL::NUMERIC AS balance
+      FROM section_totals section
+
+    UNION ALL
+
+    SELECT report_group.trial_balance_order,
+           1,
+           report_group.group_code,
+           '',
+           'GRUPO',
+           report_group.classifier_name,
+           report_group.group_name,
+           report_group.group_code,
+           report_group.group_name,
+           report_group.balance
+      FROM visible_groups report_group
+
+    UNION ALL
+
+    SELECT component.trial_balance_order,
+           2,
+           component.group_code,
+           component.source_gl_code,
+           'CUENTA',
+           component.classifier_name,
+           component.group_name,
+           component.source_gl_code,
+           component.source_name,
+           component.balance
+      FROM visible_components component
+
+    UNION ALL
+
+    SELECT section.trial_balance_order,
+           3,
+           '~~~~',
+           '',
+           'TOTAL_SECCION',
+           section.classifier_name,
+           NULL,
+           NULL,
+           CASE section.classifier_code
+               WHEN '001' THEN 'TOTAL ACTIVO'
+               WHEN '002' THEN 'TOTAL PASIVO'
+           END,
+           section.balance
+      FROM section_totals section
+     WHERE section.classifier_code IN ('001', '002')
+
+    UNION ALL
+
+    SELECT 5,
+           4,
+           '~~~~',
+           '',
+           'TOTAL_INTERMEDIO',
+           'CAPITAL',
+           NULL,
+           NULL,
+           'TOTAL PASIVO, PATRIMONIO Y RESERVAS',
+           SUM(balance) FILTER (WHERE classifier_code IN ('002', '003'))
+      FROM section_totals
+
+    UNION ALL
+
+    SELECT CASE side.trial_balance_group WHEN 1 THEN 3 ELSE 7 END,
+           9,
+           '~~~~',
+           '',
+           'TOTAL_BALANCE',
+           NULL,
+           NULL,
+           NULL,
+           CASE side.trial_balance_group
+               WHEN 1 THEN 'TOTAL DE ACTIVO Y CUENTAS DEUDORAS'
+               ELSE 'TOTALES'
+           END,
+           side.balance
+      FROM side_totals side
+),
+ordered_rows AS (
+    SELECT ROW_NUMBER() OVER (
+               ORDER BY section_order,
+                        CASE WHEN row_order IN (0, 3, 4, 9) THEN row_order ELSE 1 END,
+                        group_code COLLATE "C",
+                        row_order,
+                        component_code COLLATE "C"
+           ) AS display_order,
+           row_type,
+           section_name,
+           group_name,
+           account_code,
+           description,
+           balance
+      FROM display_rows
+)
+SELECT display_order AS "Orden",
+       row_type AS "Tipo Fila",
+       section_name AS "Sección",
+       group_name AS "Grupo",
+       account_code AS "Cuenta",
+       description AS "Descripción",
+       balance AS "Saldo"
+  FROM ordered_rows
+ ORDER BY display_order
+$report$,
+    'Balance de comprobación agrupado al corte, en USD y filtrado por oficina.',
+    FALSE,
+    TRUE,
+    FALSE
+)
+ON CONFLICT (report_name) DO UPDATE
+SET report_type = EXCLUDED.report_type,
+    report_subtype = EXCLUDED.report_subtype,
+    report_category = EXCLUDED.report_category,
+    report_sql = EXCLUDED.report_sql,
+    description = EXCLUDED.description,
+    core_report = EXCLUDED.core_report,
+    use_report = EXCLUDED.use_report,
+    self_service_user_report = EXCLUDED.self_service_user_report;
+
+DELETE FROM stretchy_report_parameter
+ WHERE report_id = (
+     SELECT id FROM stretchy_report WHERE report_name = 'Balance de Comprobación'
+ );
+
+INSERT INTO stretchy_report_parameter (
+    report_id,
+    parameter_id,
+    report_parameter_name
+)
+SELECT report.id,
+       parameter.id,
+       parameter.parameter_variable
+  FROM stretchy_report report
+  JOIN stretchy_parameter parameter
+    ON parameter.parameter_name IN ('OfficeIdSelectOne', 'endDateSelect')
+ WHERE report.report_name = 'Balance de Comprobación';
+
+DO $validation$
+BEGIN
+    IF (
+        SELECT COUNT(*)
+          FROM stretchy_report_parameter usage
+          JOIN stretchy_report report ON report.id = usage.report_id
+         WHERE report.report_name = 'Balance de Comprobación'
+           AND usage.report_parameter_name IN ('officeId', 'endDate')
+    ) <> 2 THEN
+        RAISE EXCEPTION 'Balance de Comprobación requires officeId and endDate parameters';
+    END IF;
+END
+$validation$;
+
+INSERT INTO m_permission (
+    grouping,
+    code,
+    entity_name,
+    action_name,
+    can_maker_checker
+)
+SELECT 'report',
+       'READ_Balance de Comprobación',
+       'Balance de Comprobación',
+       'READ',
+       FALSE
+ WHERE NOT EXISTS (
+     SELECT 1 FROM m_permission WHERE code = 'READ_Balance de Comprobación'
+ );
+        ]]></sql>
+    </changeSet>
+
+</databaseChangeLog>
