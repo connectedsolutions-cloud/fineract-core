@@ -95,6 +95,7 @@ public class ReportData {
         final List<String> reportSubTypes = new ArrayList<>();
         reportSubTypes.add("Bar");
         reportSubTypes.add("Pie");
+        reportSubTypes.add("VisualVoucher");
         this.allowedReportSubTypes = reportSubTypes;
 
         this.allowedParameters = allowedParameters;

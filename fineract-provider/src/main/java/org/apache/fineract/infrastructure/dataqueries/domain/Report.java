@@ -230,6 +230,11 @@ public final class Report extends AbstractPersistableCustom<Long> {
                 baseDataValidator.reset().parameter("reportSubType").value(this.reportSubType)
                         .cantBeBlankWhenParameterProvidedIs("reportType", this.reportType)
                         .isOneOfTheseValues(new Object[] { "Bar", "Pie" });
+            } else if (this.reportType.equals("Table")) {
+                if (StringUtils.isNotBlank(this.reportSubType)) {
+                    baseDataValidator.reset().parameter("reportSubType").value(this.reportSubType)
+                            .matchesRegularExpression("^Visual[A-Za-z0-9]+$");
+                }
             } else {
                 baseDataValidator.reset().parameter("reportSubType").value(this.reportSubType)
                         .mustBeBlankWhenParameterProvidedIs("reportType", this.reportType);

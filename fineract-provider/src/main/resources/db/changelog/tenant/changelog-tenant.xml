@@ -371,4 +371,5 @@
     <include file="parts/0349_add_native_share_yield.xml" relativeToChangelogFile="true" />
     <include file="parts/0350_register_balance_comprobacion_report.xml" relativeToChangelogFile="true" />
     <include file="parts/0351_register_transacciones_flujo_efectivo_report.xml" relativeToChangelogFile="true" />
+    <include file="parts/0352_register_comprobante_contable_report.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>
