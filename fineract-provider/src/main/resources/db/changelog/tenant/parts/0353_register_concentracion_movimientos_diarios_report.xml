@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more
+     contributor license agreements. See the NOTICE file distributed with
+     this work for additional information regarding copyright ownership.
+     The ASF licenses this file to you under the Apache License, Version 2.0. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0353-1-register-concentracion-movimientos-diarios-report" author="credesal" dbms="postgresql">
+        <comment>
+            Register the visual Concentración de Movimientos Diarios report
+            with office and inclusive report-date filters.
+        </comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+INSERT INTO stretchy_report (
+    report_name,
+    report_type,
+    report_subtype,
+    report_category,
+    report_sql,
+    description,
+    core_report,
+    use_report,
+    self_service_user_report
+)
+VALUES (
+    'Concentración de Movimientos Diarios',
+    'Table',
+    'VisualDailyMovement',
+    'Accounting',
+    $report$
+WITH source_office_labels(external_id, source_name) AS (
+    VALUES ('1'::VARCHAR, 'AGENCIA CENTRAL'::VARCHAR),
+           ('2'::VARCHAR, 'USULUTAN'::VARCHAR)
+),
+selected_offices AS (
+    SELECT office_under.id,
+           COALESCE(source_label.source_name, UPPER(office_under.name)) AS name,
+           office_under.external_id,
+           office_under.hierarchy
+      FROM m_office selected_office
+      JOIN m_office office_under
+        ON office_under.hierarchy LIKE selected_office.hierarchy || '%'
+ LEFT JOIN source_office_labels source_label
+        ON source_label.external_id = office_under.external_id
+     WHERE selected_office.id = CAST('${officeId}' AS BIGINT)
+       AND office_under.hierarchy LIKE '${currentUserHierarchy}' || '%'
+       AND office_under.external_id IS NOT NULL
+),
+eligible_entries AS (
+    SELECT journal_entry.office_id,
+           journal_entry.account_id,
+           journal_entry.entry_date,
+           journal_entry.type_enum,
+           journal_entry.amount
+      FROM acc_gl_journal_entry journal_entry
+      JOIN selected_offices office
+        ON office.id = journal_entry.office_id
+       AND office.external_id = journal_entry.dimensions ->> 'office'
+     WHERE journal_entry.entry_date <= CAST('${endDate}' AS DATE)
+       AND journal_entry.currency_code = 'USD'
+       AND jsonb_typeof(journal_entry.dimensions -> 'office') = 'string'
+),
+visible_families AS (
+    SELECT DISTINCT entry.office_id,
+           LEFT(account.gl_code, 3) AS family_code
+      FROM eligible_entries entry
+      JOIN acc_gl_account account ON account.id = entry.account_id
+),
+daily_movements AS (
+    SELECT entry.office_id,
+           LEFT(account.gl_code, 3) AS family_code,
+           ROUND(SUM(CASE WHEN entry.type_enum = 2 THEN entry.amount ELSE 0 END), 2) AS debit,
+           ROUND(SUM(CASE WHEN entry.type_enum = 1 THEN entry.amount ELSE 0 END), 2) AS credit
+      FROM eligible_entries entry
+      JOIN acc_gl_account account ON account.id = entry.account_id
+     WHERE entry.entry_date = CAST('${endDate}' AS DATE)
+     GROUP BY entry.office_id, LEFT(account.gl_code, 3)
+),
+family_rows AS (
+    SELECT office.hierarchy AS office_hierarchy,
+           office.id AS office_id,
+           office.name AS office_name,
+           office.external_id AS office_external_id,
+           family.family_code,
+           family_account.name AS family_name,
+           COALESCE(movement.debit, 0.00) AS debit,
+           COALESCE(movement.credit, 0.00) AS credit
+      FROM visible_families family
+      JOIN selected_offices office ON office.id = family.office_id
+      JOIN acc_gl_account family_account
+        ON family_account.gl_code = family.family_code
+ LEFT JOIN daily_movements movement
+        ON movement.office_id = family.office_id
+       AND movement.family_code = family.family_code
+),
+branch_totals AS (
+    SELECT office_hierarchy,
+           office_id,
+           office_name,
+           office_external_id,
+           SUM(debit) AS debit,
+           SUM(credit) AS credit
+      FROM family_rows
+     GROUP BY office_hierarchy, office_id, office_name, office_external_id
+),
+display_rows AS (
+    SELECT family.office_hierarchy,
+           family.office_id,
+           family.office_name,
+           family.office_external_id,
+           1 AS row_order,
+           family.family_code AS account_order,
+           'CUENTA'::VARCHAR AS row_type,
+           family.family_code AS account_code,
+           family.family_name AS description,
+           family.debit,
+           family.credit
+      FROM family_rows family
+
+    UNION ALL
+
+    SELECT total.office_hierarchy,
+           total.office_id,
+           total.office_name,
+           total.office_external_id,
+           2,
+           '~~~~',
+           'TOTAL_SUCURSAL',
+           NULL,
+           'Total por Sucursal',
+           total.debit,
+           total.credit
+      FROM branch_totals total
+
+    UNION ALL
+
+    SELECT '~~~~',
+           NULL,
+           NULL,
+           NULL,
+           3,
+           '~~~~',
+           'TOTAL_GENERAL',
+           NULL,
+           'Total General',
+           SUM(total.debit),
+           SUM(total.credit)
+      FROM branch_totals total
+)
+SELECT ROW_NUMBER() OVER (
+           ORDER BY office_hierarchy COLLATE "C", row_order, account_order COLLATE "C"
+       ) AS "Orden",
+       row_type AS "Tipo Fila",
+       office_id AS "Id Oficina",
+       office_external_id AS "Código Sucursal",
+       office_name AS "Sucursal",
+       account_code AS "Cuenta",
+       description AS "Concepto",
+       debit AS "Cargos",
+       credit AS "Abonos",
+       CAST('${endDate}' AS DATE) AS "Fecha"
+  FROM display_rows
+ ORDER BY office_hierarchy COLLATE "C", row_order, account_order COLLATE "C";
+$report$,
+    'Movimientos diarios en USD agrupados por familia contable y sucursal.',
+    FALSE,
+    TRUE,
+    FALSE
+)
+ON CONFLICT (report_name) DO UPDATE
+SET report_type = EXCLUDED.report_type,
+    report_subtype = EXCLUDED.report_subtype,
+    report_category = EXCLUDED.report_category,
+    report_sql = EXCLUDED.report_sql,
+    description = EXCLUDED.description,
+    core_report = EXCLUDED.core_report,
+    use_report = EXCLUDED.use_report,
+    self_service_user_report = EXCLUDED.self_service_user_report;
+
+DELETE FROM stretchy_report_parameter
+ WHERE report_id = (
+     SELECT id FROM stretchy_report
+      WHERE report_name = 'Concentración de Movimientos Diarios'
+ );
+
+INSERT INTO stretchy_report_parameter (
+    report_id,
+    parameter_id,
+    report_parameter_name
+)
+SELECT report.id,
+       parameter.id,
+       parameter.parameter_variable
+  FROM stretchy_report report
+  CROSS JOIN stretchy_parameter parameter
+ WHERE report.report_name = 'Concentración de Movimientos Diarios'
+   AND parameter.parameter_name IN ('OfficeIdSelectOne', 'endDateSelect');
+
+DO $validation$
+BEGIN
+    IF (
+        SELECT COUNT(*)
+          FROM stretchy_report_parameter usage
+          JOIN stretchy_report report ON report.id = usage.report_id
+         WHERE report.report_name = 'Concentración de Movimientos Diarios'
+           AND usage.report_parameter_name IN ('officeId', 'endDate')
+    ) <> 2 THEN
+        RAISE EXCEPTION 'Concentración de Movimientos Diarios requires officeId and endDate';
+    END IF;
+END
+$validation$;
+
+INSERT INTO m_permission (
+    grouping,
+    code,
+    entity_name,
+    action_name,
+    can_maker_checker
+)
+SELECT 'report',
+       'READ_Concentración de Movimientos Diarios',
+       'Concentración de Movimientos Diarios',
+       'READ',
+       FALSE
+ WHERE NOT EXISTS (
+     SELECT 1 FROM m_permission
+      WHERE code = 'READ_Concentración de Movimientos Diarios'
+ );
+        ]]></sql>
+    </changeSet>
+
+</databaseChangeLog>
