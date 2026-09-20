@@ -96,6 +96,7 @@ public class ReportData {
         reportSubTypes.add("Bar");
         reportSubTypes.add("Pie");
         reportSubTypes.add("VisualVoucher");
+        reportSubTypes.add("VisualBranchVoucher");
         this.allowedReportSubTypes = reportSubTypes;
 
         this.allowedParameters = allowedParameters;

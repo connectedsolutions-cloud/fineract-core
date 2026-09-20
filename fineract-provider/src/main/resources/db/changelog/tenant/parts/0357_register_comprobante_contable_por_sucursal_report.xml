@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more
+     contributor license agreements. See the NOTICE file distributed with
+     this work for additional information regarding copyright ownership.
+     The ASF licenses this file to you under the Apache License, Version 2.0. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0357-1-register-comprobante-contable-por-sucursal-report" author="credesal" dbms="postgresql">
+        <comment>
+            Register the USD-only visual Comprobante Contable por Sucursal
+            report with exact-office and selected-date parameters.
+        </comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+INSERT INTO stretchy_report (
+    report_name,
+    report_type,
+    report_subtype,
+    report_category,
+    report_sql,
+    description,
+    core_report,
+    use_report,
+    self_service_user_report
+)
+VALUES (
+    'Comprobante Contable por Sucursal',
+    'Table',
+    'VisualBranchVoucher',
+    'Accounting',
+    $report$
+WITH source_office_labels(external_id, source_name) AS (
+    VALUES ('1'::VARCHAR, 'AGENCIA CENTRAL'::VARCHAR),
+           ('2'::VARCHAR, 'USULUTAN'::VARCHAR)
+),
+selected_office AS (
+    SELECT office.id,
+           office.external_id,
+           COALESCE(source_label.source_name, UPPER(office.name)) AS office_name
+      FROM m_office office
+ LEFT JOIN source_office_labels source_label
+        ON source_label.external_id = office.external_id
+     WHERE office.id = CAST('${officeId}' AS BIGINT)
+       AND office.hierarchy LIKE '${currentUserHierarchy}' || '%'
+       AND office.external_id IS NOT NULL
+),
+account_amounts AS (
+    SELECT COALESCE(source_line.source_account_code, target_account.gl_code) AS source_account_code,
+           MIN(target_account.name) AS target_account_name,
+           ROUND(SUM(CASE WHEN journal_entry.type_enum = 2 THEN journal_entry.amount ELSE 0 END), 2) AS debit,
+           ROUND(SUM(CASE WHEN journal_entry.type_enum = 1 THEN journal_entry.amount ELSE 0 END), 2) AS credit
+      FROM acc_gl_journal_entry journal_entry
+      JOIN acc_gl_account target_account
+        ON target_account.id = journal_entry.account_id
+ LEFT JOIN credesal_arissto_gl_journal_line source_line
+        ON source_line.target_journal_entry_id = journal_entry.id
+ LEFT JOIN credesal_arissto_gl_journal source_journal
+        ON source_journal.id = source_line.journal_provenance_id
+     CROSS JOIN selected_office office
+     WHERE journal_entry.entry_date = CAST('${endDate}' AS DATE)
+       AND journal_entry.currency_code = 'USD'
+       AND NOT journal_entry.reversed
+       AND (
+           (
+               source_journal.id IS NOT NULL
+               AND NULLIF(LTRIM(source_journal.source_branch_id, '0'), '') = office.external_id
+               AND source_journal.source_status = '3'
+               AND source_journal.target_transaction_id IS NOT NULL
+           )
+           OR (
+               source_journal.id IS NULL
+               AND journal_entry.office_id = office.id
+           )
+       )
+     GROUP BY COALESCE(source_line.source_account_code, target_account.gl_code)
+),
+account_rows AS (
+    SELECT LEFT(amount.source_account_code, 3) AS group_code,
+           COALESCE(group_presentation.source_name, group_account.name, LEFT(amount.source_account_code, 3))
+               AS group_name,
+           amount.source_account_code AS account_code,
+           COALESCE(
+               account_presentation.source_name,
+               CASE amount.source_account_code
+                   WHEN '222099940101' THEN 'RENDIMIENTO ACCIONES PREFERIDAS'
+                   WHEN '222099940102' THEN 'DESEMBOLSO DE CREDITOS EN EFECTIVO SANTIAGO DE MARIA'
+               END,
+               amount.target_account_name
+           ) AS account_name,
+           amount.debit,
+           amount.credit
+      FROM account_amounts amount
+ LEFT JOIN credesal_gl_account_presentation account_presentation
+        ON account_presentation.source_gl_code = amount.source_account_code
+ LEFT JOIN acc_gl_account group_account
+        ON group_account.gl_code = LEFT(amount.source_account_code, 3)
+ LEFT JOIN credesal_gl_account_presentation group_presentation
+        ON group_presentation.gl_account_id = group_account.id
+),
+group_rows AS (
+    SELECT DISTINCT group_code, group_name
+      FROM account_rows
+),
+totals AS (
+    SELECT ROUND(SUM(debit), 2) AS debit,
+           ROUND(SUM(credit), 2) AS credit
+      FROM account_rows
+),
+display_rows AS (
+    SELECT groups.group_code AS group_order,
+           1 AS row_order,
+           ''::VARCHAR AS account_order,
+           'GROUP'::VARCHAR AS row_type,
+           groups.group_code,
+           groups.group_name,
+           NULL::VARCHAR AS account_code,
+           NULL::VARCHAR AS account_name,
+           NULL::NUMERIC AS debit,
+           NULL::NUMERIC AS credit
+      FROM group_rows groups
+
+    UNION ALL
+
+    SELECT account.group_code,
+           2,
+           account.account_code,
+           'ACCOUNT',
+           account.group_code,
+           account.group_name,
+           account.account_code,
+           account.account_name,
+           account.debit,
+           account.credit
+      FROM account_rows account
+
+    UNION ALL
+
+    SELECT '~~~~',
+           3,
+           '~~~~',
+           'TOTAL',
+           NULL,
+           NULL,
+           NULL,
+           'TOTAL',
+           totals.debit,
+           totals.credit
+      FROM totals
+     WHERE totals.debit IS NOT NULL
+)
+SELECT ROW_NUMBER() OVER (
+           ORDER BY row.group_order COLLATE "C", row.row_order, row.account_order COLLATE "C"
+       ) AS row_sequence,
+       row.row_type,
+       office.id AS office_id,
+       office.external_id AS office_code,
+       office.office_name,
+       CAST('${endDate}' AS DATE) AS report_date,
+       row.group_code,
+       row.group_name,
+       row.account_code,
+       row.account_name,
+       row.debit,
+       row.credit
+  FROM display_rows row
+ CROSS JOIN selected_office office
+ ORDER BY row.group_order COLLATE "C", row.row_order, row.account_order COLLATE "C";
+$report$,
+    'Concentración diaria visual de cargos y abonos por cuenta para una sucursal exacta.',
+    FALSE,
+    TRUE,
+    FALSE
+)
+ON CONFLICT (report_name) DO UPDATE
+SET report_type = EXCLUDED.report_type,
+    report_subtype = EXCLUDED.report_subtype,
+    report_category = EXCLUDED.report_category,
+    report_sql = EXCLUDED.report_sql,
+    description = EXCLUDED.description,
+    core_report = EXCLUDED.core_report,
+    use_report = EXCLUDED.use_report,
+    self_service_user_report = EXCLUDED.self_service_user_report;
+
+DELETE FROM stretchy_report_parameter
+ WHERE report_id = (
+     SELECT id
+       FROM stretchy_report
+      WHERE report_name = 'Comprobante Contable por Sucursal'
+ );
+
+INSERT INTO stretchy_report_parameter (
+    report_id,
+    parameter_id,
+    report_parameter_name
+)
+SELECT report.id,
+       parameter.id,
+       parameter.parameter_variable
+  FROM stretchy_report report
+  JOIN stretchy_parameter parameter
+    ON parameter.parameter_name IN ('OfficeIdSelectOne', 'endDateSelect')
+ WHERE report.report_name = 'Comprobante Contable por Sucursal';
+
+DO $validation$
+BEGIN
+    IF (
+        SELECT COUNT(*)
+          FROM stretchy_report_parameter usage
+          JOIN stretchy_report report ON report.id = usage.report_id
+         WHERE report.report_name = 'Comprobante Contable por Sucursal'
+           AND usage.report_parameter_name IN ('officeId', 'endDate')
+    ) <> 2 THEN
+        RAISE EXCEPTION 'Comprobante Contable por Sucursal requires officeId and endDate parameters';
+    END IF;
+END
+$validation$;
+
+INSERT INTO m_permission (
+    grouping,
+    code,
+    entity_name,
+    action_name,
+    can_maker_checker
+)
+SELECT 'report',
+       'READ_Comprobante Contable por Sucursal',
+       'Comprobante Contable por Sucursal',
+       'READ',
+       FALSE
+ WHERE NOT EXISTS (
+     SELECT 1
+       FROM m_permission
+      WHERE code = 'READ_Comprobante Contable por Sucursal'
+ );
+        ]]></sql>
+    </changeSet>
+
+</databaseChangeLog>

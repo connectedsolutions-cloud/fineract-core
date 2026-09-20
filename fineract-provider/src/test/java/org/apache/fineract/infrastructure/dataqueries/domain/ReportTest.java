@@ -37,6 +37,7 @@ class ReportTest {
     @Test
     void tableReportAllowsVisualRendererSubType() {
         assertDoesNotThrow(() -> report("Table", "VisualVoucher"));
+        assertDoesNotThrow(() -> report("Table", "VisualBranchVoucher"));
     }
 
     @Test
