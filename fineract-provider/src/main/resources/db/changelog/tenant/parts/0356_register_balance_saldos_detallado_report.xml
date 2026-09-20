@@ -1,0 +1,428 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more
+     contributor license agreements. See the NOTICE file distributed with
+     this work for additional information regarding copyright ownership.
+     The ASF licenses this file to you under the Apache License, Version 2.0. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0356-1-register-balance-saldos-detallado-report" author="credesal" dbms="postgresql">
+        <comment>
+            Register the USD-only visual Balance de Saldos Detallado report
+            with account hierarchy and selected-day journal details.
+        </comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+INSERT INTO stretchy_report (
+    report_name,
+    report_type,
+    report_subtype,
+    report_category,
+    report_sql,
+    description,
+    core_report,
+    use_report,
+    self_service_user_report
+)
+VALUES (
+    'Balance de Saldos Detallado',
+    'Table',
+    'VisualDetailBalance',
+    'Accounting',
+    $report$
+WITH RECURSIVE
+selected_offices AS (
+    SELECT office_under.id,
+           office_under.external_id
+      FROM m_office selected_office
+      JOIN m_office office_under
+        ON office_under.hierarchy LIKE selected_office.hierarchy || '%'
+     WHERE selected_office.id = CAST('${officeId}' AS BIGINT)
+       AND office_under.hierarchy LIKE '${currentUserHierarchy}' || '%'
+),
+account_hierarchy AS (
+    SELECT account.id,
+           account.parent_id,
+           0 AS account_level,
+           ARRAY[account.id]::BIGINT[] AS account_path
+      FROM acc_gl_account account
+     WHERE account.parent_id IS NULL
+
+    UNION ALL
+
+    SELECT child.id,
+           child.parent_id,
+           hierarchy.account_level + 1,
+           hierarchy.account_path || child.id
+      FROM account_hierarchy hierarchy
+      JOIN acc_gl_account child ON child.parent_id = hierarchy.id
+     WHERE NOT child.id = ANY(hierarchy.account_path)
+),
+qualified_journal AS (
+    SELECT journal_entry.id,
+           COALESCE(source_account.id, journal_entry.account_id) AS account_id,
+           journal_entry.office_id,
+           journal_entry.entry_date,
+           journal_entry.transaction_id,
+           journal_entry.ref_num,
+           journal_entry.description,
+           journal_entry.type_enum,
+           journal_entry.amount,
+           journal_entry.dimensions,
+           COALESCE(
+               presentation.balance_nature,
+               CASE
+                   WHEN COALESCE(source_account.classification_enum, native_account.classification_enum) IN (1, 5)
+                   THEN 'D'
+                   ELSE 'A'
+               END
+           ) AS balance_nature
+      FROM acc_gl_journal_entry journal_entry
+      JOIN acc_gl_account native_account ON native_account.id = journal_entry.account_id
+ LEFT JOIN credesal_arissto_gl_journal_line source_line
+        ON source_line.target_journal_entry_id = journal_entry.id
+ LEFT JOIN acc_gl_account source_account
+        ON source_account.gl_code = source_line.source_account_code
+ LEFT JOIN credesal_gl_account_presentation presentation
+        ON presentation.gl_account_id = COALESCE(source_account.id, journal_entry.account_id)
+     WHERE journal_entry.entry_date <= CAST('${endDate}' AS DATE)
+       AND journal_entry.currency_code = 'USD'
+       AND journal_entry.office_id IN (SELECT id FROM selected_offices)
+       AND (
+           jsonb_typeof(journal_entry.dimensions -> 'office') IS DISTINCT FROM 'string'
+           OR EXISTS (
+                SELECT 1
+                  FROM selected_offices office
+                 WHERE office.id = journal_entry.office_id
+                   AND office.external_id = journal_entry.dimensions ->> 'office'
+           )
+       )
+),
+direct_account_values AS (
+    SELECT journal.account_id,
+           MIN(journal.balance_nature) AS balance_nature,
+           ROUND(
+               COALESCE(
+                   SUM(
+                       CASE WHEN journal.entry_date < CAST('${endDate}' AS DATE)
+                            THEN CASE
+                                WHEN journal.balance_nature = 'D'
+                                THEN CASE WHEN journal.type_enum = 2 THEN journal.amount ELSE -journal.amount END
+                                ELSE CASE WHEN journal.type_enum = 1 THEN journal.amount ELSE -journal.amount END
+                            END
+                            ELSE 0.00
+                       END
+                   ),
+                   0.00
+               ),
+               2
+           ) AS opening_balance,
+           ROUND(
+               COALESCE(
+                   SUM(journal.amount) FILTER (
+                       WHERE journal.entry_date = CAST('${endDate}' AS DATE)
+                         AND journal.type_enum = 2
+                   ),
+                   0.00
+               ),
+               2
+           ) AS debit_movement,
+           ROUND(
+               COALESCE(
+                   SUM(journal.amount) FILTER (
+                       WHERE journal.entry_date = CAST('${endDate}' AS DATE)
+                         AND journal.type_enum = 1
+                   ),
+                   0.00
+               ),
+               2
+           ) AS credit_movement,
+           ROUND(
+               COALESCE(
+                   SUM(
+                       CASE
+                           WHEN journal.balance_nature = 'D'
+                           THEN CASE WHEN journal.type_enum = 2 THEN journal.amount ELSE -journal.amount END
+                           ELSE CASE WHEN journal.type_enum = 1 THEN journal.amount ELSE -journal.amount END
+                       END
+                   ),
+                   0.00
+               ),
+               2
+           ) AS ending_balance
+      FROM qualified_journal journal
+     GROUP BY journal.account_id
+),
+visible_direct_values AS (
+    SELECT direct.*
+      FROM direct_account_values direct
+     WHERE direct.ending_balance <> 0.00
+        OR direct.debit_movement <> 0.00
+        OR direct.credit_movement <> 0.00
+),
+account_rollup AS (
+    SELECT direct.account_id AS source_account_id,
+           direct.account_id AS report_account_id,
+           direct.opening_balance,
+           direct.debit_movement,
+           direct.credit_movement,
+           direct.ending_balance,
+           ARRAY[direct.account_id]::BIGINT[] AS account_path
+      FROM visible_direct_values direct
+
+    UNION ALL
+
+    SELECT rollup.source_account_id,
+           parent.id,
+           rollup.opening_balance,
+           rollup.debit_movement,
+           rollup.credit_movement,
+           rollup.ending_balance,
+           rollup.account_path || parent.id
+      FROM account_rollup rollup
+      JOIN acc_gl_account child ON child.id = rollup.report_account_id
+      JOIN acc_gl_account parent ON parent.id = child.parent_id
+     WHERE NOT parent.id = ANY(rollup.account_path)
+),
+rolled_account_values AS (
+    SELECT rollup.report_account_id AS account_id,
+           ROUND(SUM(rollup.opening_balance), 2) AS opening_balance,
+           ROUND(SUM(rollup.debit_movement), 2) AS debit_movement,
+           ROUND(SUM(rollup.credit_movement), 2) AS credit_movement
+      FROM account_rollup rollup
+     GROUP BY rollup.report_account_id
+),
+visible_accounts AS (
+    SELECT account.id AS account_id,
+           account.gl_code AS account_code,
+           parent.gl_code AS parent_code,
+           hierarchy.account_level,
+           COALESCE(presentation.source_name, account.name) AS account_description,
+           COALESCE(
+               presentation.balance_nature,
+               CASE WHEN account.classification_enum IN (1, 5) THEN 'D' ELSE 'A' END
+           ) AS balance_nature,
+           rolled.opening_balance,
+           rolled.debit_movement,
+           rolled.credit_movement,
+           ROUND(
+               rolled.opening_balance
+               + CASE
+                   WHEN COALESCE(
+                       presentation.balance_nature,
+                       CASE WHEN account.classification_enum IN (1, 5) THEN 'D' ELSE 'A' END
+                   ) = 'D'
+                   THEN rolled.debit_movement - rolled.credit_movement
+                   ELSE rolled.credit_movement - rolled.debit_movement
+                 END,
+               2
+           ) AS ending_balance,
+           direct.opening_balance AS detail_opening_balance,
+           direct.debit_movement AS detail_debit_total,
+           direct.credit_movement AS detail_credit_total
+      FROM rolled_account_values rolled
+      JOIN acc_gl_account account ON account.id = rolled.account_id
+ LEFT JOIN acc_gl_account parent ON parent.id = account.parent_id
+ LEFT JOIN account_hierarchy hierarchy ON hierarchy.id = account.id
+ LEFT JOIN credesal_gl_account_presentation presentation
+        ON presentation.gl_account_id = account.id
+ LEFT JOIN direct_account_values direct ON direct.account_id = account.id
+),
+daily_detail_lines AS (
+    SELECT journal.account_id,
+           COALESCE(
+               NULLIF(BTRIM(provenance.source_journal_number), ''),
+               NULLIF(BTRIM(journal.ref_num), ''),
+               journal.transaction_id
+           ) AS journal_number,
+           journal.entry_date,
+           COALESCE(
+               NULLIF(BTRIM(line.source_destination_branch_id), ''),
+               NULLIF(BTRIM(journal.dimensions ->> 'office'), ''),
+               NULLIF(BTRIM(office.external_id), ''),
+               office.id::VARCHAR
+           ) AS branch_code,
+           COALESCE(line.source_line_sequence::BIGINT, journal.id) AS detail_sequence,
+           COALESCE(
+               NULLIF(BTRIM(provenance.source_header_concept), ''),
+               NULLIF(BTRIM(provenance.source_header_description), ''),
+               NULLIF(BTRIM(line.source_line_concept), ''),
+               NULLIF(BTRIM(line.source_line_aux_concept), ''),
+               NULLIF(BTRIM(journal.description), ''),
+               '-'
+           ) AS entry_description,
+           CASE WHEN journal.type_enum = 2 THEN ROUND(journal.amount, 2) ELSE 0.00 END AS detail_debit,
+           CASE WHEN journal.type_enum = 1 THEN ROUND(journal.amount, 2) ELSE 0.00 END AS detail_credit
+      FROM qualified_journal journal
+      JOIN m_office office ON office.id = journal.office_id
+ LEFT JOIN credesal_arissto_gl_journal_line line
+        ON line.target_journal_entry_id = journal.id
+ LEFT JOIN credesal_arissto_gl_journal provenance
+        ON provenance.id = line.journal_provenance_id
+     WHERE journal.entry_date = CAST('${endDate}' AS DATE)
+),
+daily_details AS (
+    SELECT detail.account_id,
+           detail.journal_number,
+           detail.entry_date,
+           detail.branch_code,
+           MIN(detail.detail_sequence) AS detail_sequence,
+           MIN(detail.entry_description) AS entry_description,
+           ROUND(SUM(detail.detail_debit), 2) AS detail_debit,
+           ROUND(SUM(detail.detail_credit), 2) AS detail_credit
+      FROM daily_detail_lines detail
+     GROUP BY detail.account_id,
+              detail.journal_number,
+              detail.entry_date,
+              detail.branch_code
+),
+report_rows AS (
+    SELECT account.account_code AS sort_account_code,
+           0 AS row_order,
+           0::BIGINT AS detail_sequence,
+           'ACCOUNT'::VARCHAR AS row_type,
+           account.account_code,
+           account.parent_code,
+           account.account_level,
+           account.account_description,
+           account.balance_nature,
+           account.opening_balance,
+           account.debit_movement,
+           account.credit_movement,
+           account.ending_balance,
+           account.detail_opening_balance,
+           account.detail_debit_total,
+           account.detail_credit_total,
+           NULL::VARCHAR AS journal_number,
+           NULL::DATE AS journal_date,
+           NULL::VARCHAR AS branch_code,
+           NULL::TEXT AS entry_description,
+           NULL::NUMERIC AS detail_debit,
+           NULL::NUMERIC AS detail_credit
+      FROM visible_accounts account
+
+    UNION ALL
+
+    SELECT account.account_code,
+           1,
+           detail.detail_sequence,
+           'DETAIL',
+           account.account_code,
+           account.parent_code,
+           account.account_level,
+           account.account_description,
+           account.balance_nature,
+           account.opening_balance,
+           account.debit_movement,
+           account.credit_movement,
+           account.ending_balance,
+           account.detail_opening_balance,
+           account.detail_debit_total,
+           account.detail_credit_total,
+           detail.journal_number,
+           detail.entry_date,
+           detail.branch_code,
+           detail.entry_description,
+           detail.detail_debit,
+           detail.detail_credit
+      FROM visible_accounts account
+      JOIN daily_details detail ON detail.account_id = account.account_id
+)
+SELECT ROW_NUMBER() OVER (
+           ORDER BY sort_account_code COLLATE "C",
+                    row_order,
+                    journal_number COLLATE "C" NULLS FIRST,
+                    detail_sequence
+       ) AS display_order,
+       row_type,
+       CAST('${endDate}' AS DATE) AS as_of_date,
+       account_code,
+       parent_code,
+       account_level,
+       account_description,
+       balance_nature,
+       opening_balance,
+       debit_movement,
+       credit_movement,
+       ending_balance,
+       detail_opening_balance,
+       detail_debit_total,
+       detail_credit_total,
+       journal_number,
+       journal_date,
+       branch_code,
+       detail_sequence,
+       entry_description,
+       detail_debit,
+       detail_credit
+  FROM report_rows
+ ORDER BY display_order
+$report$,
+    'Balance jerárquico en USD con saldos y partidas del día por cuenta contable.',
+    FALSE,
+    TRUE,
+    FALSE
+)
+ON CONFLICT (report_name) DO UPDATE
+SET report_type = EXCLUDED.report_type,
+    report_subtype = EXCLUDED.report_subtype,
+    report_category = EXCLUDED.report_category,
+    report_sql = EXCLUDED.report_sql,
+    description = EXCLUDED.description,
+    core_report = EXCLUDED.core_report,
+    use_report = EXCLUDED.use_report,
+    self_service_user_report = EXCLUDED.self_service_user_report;
+
+DELETE FROM stretchy_report_parameter
+ WHERE report_id = (
+     SELECT id FROM stretchy_report
+      WHERE report_name = 'Balance de Saldos Detallado'
+ );
+
+INSERT INTO stretchy_report_parameter (
+    report_id,
+    parameter_id,
+    report_parameter_name
+)
+SELECT report.id,
+       parameter.id,
+       parameter.parameter_variable
+  FROM stretchy_report report
+  CROSS JOIN stretchy_parameter parameter
+ WHERE report.report_name = 'Balance de Saldos Detallado'
+   AND parameter.parameter_name IN ('OfficeIdSelectOne', 'endDateSelect');
+
+DO $validation$
+BEGIN
+    IF (
+        SELECT COUNT(*)
+          FROM stretchy_report_parameter usage
+          JOIN stretchy_report report ON report.id = usage.report_id
+         WHERE report.report_name = 'Balance de Saldos Detallado'
+           AND usage.report_parameter_name IN ('officeId', 'endDate')
+    ) <> 2 THEN
+        RAISE EXCEPTION 'Balance de Saldos Detallado requires officeId and endDate';
+    END IF;
+END
+$validation$;
+
+INSERT INTO m_permission (
+    grouping,
+    code,
+    entity_name,
+    action_name,
+    can_maker_checker
+)
+SELECT 'report',
+       'READ_Balance de Saldos Detallado',
+       'Balance de Saldos Detallado',
+       'READ',
+       FALSE
+ WHERE NOT EXISTS (
+     SELECT 1 FROM m_permission
+      WHERE code = 'READ_Balance de Saldos Detallado'
+ );
+        ]]></sql>
+    </changeSet>
+
+</databaseChangeLog>
