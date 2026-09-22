@@ -37,6 +37,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 import java.util.Arrays;
 import java.util.Collection;
@@ -52,6 +53,7 @@ import org.apache.fineract.infrastructure.core.serialization.ApiRequestJsonSeria
 import org.apache.fineract.infrastructure.core.serialization.ToApiJsonSerializer;
 import org.apache.fineract.infrastructure.dataqueries.data.ReportData;
 import org.apache.fineract.infrastructure.dataqueries.service.ReadReportingService;
+import org.apache.fineract.infrastructure.dataqueries.service.SavedReportsService;
 import org.apache.fineract.infrastructure.report.provider.ReportingProcessServiceProvider;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.springframework.stereotype.Component;
@@ -69,6 +71,7 @@ public class ReportsApiResource {
     private final PlatformSecurityContext context;
     private final ToApiJsonSerializer<ReportData> toApiJsonSerializer;
     private final ReadReportingService readReportingService;
+    private final SavedReportsService savedReportsService;
     private final PortfolioCommandSourceWritePlatformService commandsSourceWritePlatformService;
     private final ApiRequestParameterHelper apiRequestParameterHelper;
     private final ReportingProcessServiceProvider reportingProcessServiceProvider;
@@ -87,6 +90,38 @@ public class ReportsApiResource {
 
         final ApiRequestJsonSerializationSettings settings = this.apiRequestParameterHelper.process(uriInfo.getQueryParameters());
         return this.toApiJsonSerializer.serialize(settings, result, RESPONSE_DATA_PARAMETERS);
+    }
+
+    @GET
+    @Path("saved")
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "List the authenticated user’s saved reports")
+    public Response retrieveSavedReports() {
+        final var user = this.context.authenticatedUser();
+        user.validateHasReadPermission(RESOURCE_NAME_FOR_PERMISSIONS);
+        return Response.ok(savedReportsService.list(user)).build();
+    }
+
+    @POST
+    @Path("saved/{reportId}")
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Save a report for the authenticated user")
+    public Response saveReport(@PathParam("reportId") final Long reportId) {
+        final var user = this.context.authenticatedUser();
+        user.validateHasReadPermission(RESOURCE_NAME_FOR_PERMISSIONS);
+        savedReportsService.add(user, reportId);
+        return Response.noContent().build();
+    }
+
+    @DELETE
+    @Path("saved/{reportId}")
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Remove a saved report for the authenticated user")
+    public Response removeSavedReport(@PathParam("reportId") final Long reportId) {
+        final var user = this.context.authenticatedUser();
+        user.validateHasReadPermission(RESOURCE_NAME_FOR_PERMISSIONS);
+        savedReportsService.remove(user, reportId);
+        return Response.noContent().build();
     }
 
     @GET

@@ -380,4 +380,5 @@
     <include file="parts/0358_register_estado_resultados_consolidado_report.xml" relativeToChangelogFile="true" />
     <include file="parts/0359_register_informe_auxiliar_mayor_report.xml" relativeToChangelogFile="true" />
     <include file="parts/0360_add_source_exact_resync_schedule_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0363_add_saved_reports.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

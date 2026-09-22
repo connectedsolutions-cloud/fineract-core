@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more
+     contributor license agreements. See the NOTICE file distributed with
+     this work for additional information regarding copyright ownership.
+     The ASF licenses this file to you under the Apache License, Version 2.0. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0363-1-add-saved-reports" author="credesal" dbms="postgresql">
+        <createTable tableName="m_appuser_saved_report">
+            <column name="appuser_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="report_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addPrimaryKey tableName="m_appuser_saved_report" columnNames="appuser_id, report_id"
+                       constraintName="PK_appuser_saved_report"/>
+        <addForeignKeyConstraint baseTableName="m_appuser_saved_report" baseColumnNames="appuser_id"
+                                 constraintName="FK_saved_report_appuser" referencedTableName="m_appuser"
+                                 referencedColumnNames="id" onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="m_appuser_saved_report" baseColumnNames="report_id"
+                                 constraintName="FK_saved_report_report" referencedTableName="stretchy_report"
+                                 referencedColumnNames="id" onDelete="CASCADE"/>
+        <createIndex tableName="m_appuser_saved_report" indexName="IDX_saved_report_report">
+            <column name="report_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>
