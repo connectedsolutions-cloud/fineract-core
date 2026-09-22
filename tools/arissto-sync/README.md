@@ -75,6 +75,31 @@ fingerprint, SQL Server version, ODBC driver, and whether the login belongs to c
 write-capable roles. Passwords containing `$` are preserved literally; quote them in
 `.env` when they contain leading/trailing spaces.
 
+### Local COB snapshots
+
+For a short-lived, manually operated study of Arissto close-of-business timing,
+capture append-only snapshots in the configured local SQLite state:
+
+```bash
+./arissto-sync cob snapshot
+./arissto-sync cob snapshot --operation-date 2026-09-17
+./arissto-sync cob timeline --operation-date 2026-09-17
+./arissto-sync cob snapshots --operation-date 2026-09-17
+```
+
+`snapshot` uses only the read-only `ARISSTO_*` profile. Each invocation is
+recorded even when the source cannot be reached. Successful snapshots preserve
+the global gate, module gates, all configured process timestamps, mayorization,
+and loan/share accrual timing. Later invocations backfill exact start and finish
+events from `PROCESOS_BITACORA` and distinguish local observation gaps, confirmed
+connection outages, and remote execution gaps. All persisted timestamps are UTC;
+operator output also renders `America/El_Salvador` time.
+
+This command is observational only. It does not start a workflow or write to
+Arissto or Fineract. `ready_to_sync=true` means the recorded close passed the
+monitor's composite process/module/global-gate/mayorization check; it does not
+automatically authorize or launch a sync workflow.
+
 ## Workflow
 
 ```bash
@@ -117,7 +142,7 @@ these modes.
 
 Local full re-sync is defined by `local-full-resync`. It preserves the current
 sandbox target, reuses the open cycle's mappings, scans source hashes, and
-applies only new or changed records across all 15 registry-available services.
+applies only new or changed records across all 16 registry-available services.
 Every selected service requires an accepted reconciliation checkpoint in that
 cycle. Source absence never authorizes deletion, and unsupported target drift
 fails closed.
@@ -125,8 +150,8 @@ fails closed.
 Production has two explicitly guarded full re-sync definitions. The narrower
 `prod-party-resync` remains available for Clients, Employees, current
 client-staff assignments, PEP, and accepted family references.
-`prod-full-resync` exposes the same dependency-complete 15-service delta graph
-used by local full re-sync. Both require a versioned release, the exact
+`prod-full-resync` exposes the separately promoted 15-service production delta
+graph. Both require a versioned release, the exact
 production fingerprint, and one accepted production reconciliation checkpoint
 per selected service. The production deployment stays on the smaller workflow
 until the full graph passes the production-like acceptance gates in

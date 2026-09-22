@@ -121,12 +121,13 @@ class WorkflowDefinitionTests(unittest.TestCase):
         self.assertTrue(report["ready"])
         self.assertEqual(report["targets"], ["local"])
         self.assertEqual(report["run_modes"], ["full-resync"])
-        self.assertEqual(len(report["ordered_services"]), 15)
+        self.assertEqual(len(report["ordered_services"]), 16)
         self.assertIn("loans", report["ordered_services"])
         self.assertIn("savings-deposits", report["ordered_services"])
         self.assertIn("savings-account-parties", report["ordered_services"])
         self.assertIn("dte-history", report["ordered_services"])
         self.assertIn("accounting-journal-entries", report["ordered_services"])
+        self.assertEqual(report["ordered_services"][-1], "native-share-yield")
 
     def test_production_workflow_is_explicitly_full_resync_only(self):
         definition = load_workflow("prod-party-resync")
@@ -157,10 +158,7 @@ class WorkflowDefinitionTests(unittest.TestCase):
         self.assertEqual(report["targets"], ["prod"])
         self.assertEqual(report["run_modes"], ["full-resync"])
         self.assertEqual(len(report["ordered_services"]), 15)
-        self.assertEqual(
-            report["ordered_services"],
-            list(load_workflow("local-full-resync").services),
-        )
+        self.assertNotIn("native-share-yield", report["ordered_services"])
 
     def test_production_workflow_cli_requires_explicit_mode_and_confirmation_fields(self):
         planned = parser().parse_args([

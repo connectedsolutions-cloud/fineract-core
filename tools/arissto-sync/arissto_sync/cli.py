@@ -37,6 +37,7 @@ from .client_staff_assignments import (
 from .arissto import check_source
 from .backup import backup_state
 from .config import ROOT, configured_state_path, load_settings, load_source_config
+from .cob_monitor import capture_snapshot as capture_cob_snapshot, cob_snapshots, cob_timeline
 from .connections import FineractApi
 from .cycles import CycleCatalog, settings_for_cycle, workflow_history_across_cycles
 from .engine import apply_plan, build_plan, inspect_clients, preflight, reconcile
@@ -158,6 +159,16 @@ def parser() -> argparse.ArgumentParser:
     root.add_argument("--env-file")
     commands = root.add_subparsers(dest="command", required=True)
     commands.add_parser("source-check", help="test only the read-only Arissto connection")
+    cob = commands.add_parser("cob", help="capture and inspect local Arissto COB snapshots")
+    cob_commands = cob.add_subparsers(dest="cob_command", required=True)
+    cob_snapshot = cob_commands.add_parser("snapshot", help="capture one read-only COB snapshot")
+    cob_timeline_command = cob_commands.add_parser("timeline", help="show derived COB events and gaps")
+    cob_snapshots_command = cob_commands.add_parser("snapshots", help="show stored COB observations")
+    for cob_command in (cob_snapshot, cob_timeline_command, cob_snapshots_command):
+        cob_command.add_argument(
+            "--operation-date", type=date.fromisoformat,
+            help="Arissto operation date in YYYY-MM-DD; snapshot defaults to the latest date",
+        )
     backup = commands.add_parser("backup", help="create a consistent production state backup")
     backup.add_argument("--output-dir", required=True)
     backup.add_argument("--keep-days", type=int, default=30)
@@ -493,6 +504,19 @@ def main(argv=None) -> int:
     try:
         if args.command == "source-check":
             emit(check_source(load_source_config(args.env_file)))
+            return 0
+        if args.command == "cob":
+            state_path = configured_state_path(args.env_file)
+            if args.cob_command == "snapshot":
+                report = capture_cob_snapshot(
+                    load_source_config(args.env_file), state_path, args.operation_date,
+                )
+                emit(report)
+                return 0 if report["ok"] else 2
+            if args.cob_command == "timeline":
+                emit(cob_timeline(state_path, args.operation_date))
+            else:
+                emit(cob_snapshots(state_path, args.operation_date))
             return 0
         if args.command == "backup":
             emit(backup_state(

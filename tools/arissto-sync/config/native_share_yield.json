@@ -15,7 +15,7 @@
   "target": {
     "product_external_id": "arissto-share-preferred",
     "expense_gl_code": "7110040100",
-    "payable_gl_code": "222099940101"
+    "payable_gl_code": "222099910101"
   },
   "expected": {
     "minimum_accrual_rows": 24491,

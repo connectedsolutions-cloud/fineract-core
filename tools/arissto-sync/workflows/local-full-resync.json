@@ -1,7 +1,7 @@
 {
   "version": 1,
   "id": "local-full-resync",
-  "description": "Checkpointed local sandbox re-sync for all 15 services using source-hash deltas without restoring the tenant or replaying unchanged history.",
+  "description": "Checkpointed local sandbox re-sync for all 16 services using reviewed deltas without restoring the tenant or replaying unchanged history.",
   "targets": ["local"],
   "run_modes": ["full-resync"],
   "services": [
@@ -19,7 +19,8 @@
     "loans",
     "dte-history",
     "mobile-collections",
-    "accounting-journal-entries"
+    "accounting-journal-entries",
+    "native-share-yield"
   ],
   "ordering": "registry-topological",
   "scope": {"mode": "full-block"},

@@ -367,8 +367,8 @@ def apply_share_yield_plan(settings: Settings, state: State, contract: ShareYiel
         try:
             response = api.request("POST", f"accounts/share/{action['share_account_id']}", payload,
                                    query={"command": "sourceExactYieldAccrual"},
-                                   idempotency_key=f"shy:{record['source_key'].split('|')[1]}")
-            target_id = response.get("subEntityId") or response.get("resourceId")
+                                   idempotency_key=f"shy:v2:{record['source_key'].split('|')[1]}")
+            target_id = response.get("subEntityId") or response.get("subResourceId") or response.get("resourceId")
             state.record_item(run_id, action["source_key"], action["action"], action["source_hash"], "succeeded",
                               str(target_id) if target_id else None)
             counts["succeeded"] += 1

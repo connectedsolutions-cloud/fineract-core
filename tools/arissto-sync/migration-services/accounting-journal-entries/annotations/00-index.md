@@ -24,6 +24,9 @@ requirement.
 7. [`70-fineract-native-table-map.md`](70-fineract-native-table-map.md) —
    authoritative native accounting tables, source-to-target field rules,
    report reconstruction, office handling, and implementation gaps.
+8. [`80-journal-quarantine-progress.md`](80-journal-quarantine-progress.md) —
+   progress tracker for empty, ledger-excluded, and non-mayorized journal
+   follow-up.
 
 Add future notes with the next available ten-based prefix. Keep current service
 status and operator commands in the parent [`README.md`](../README.md), not in

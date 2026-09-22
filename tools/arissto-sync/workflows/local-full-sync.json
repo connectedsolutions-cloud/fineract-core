@@ -17,7 +17,8 @@
     "loans",
     "dte-history",
     "mobile-collections",
-    "accounting-journal-entries"
+    "accounting-journal-entries",
+    "native-share-yield"
   ],
   "ordering": "registry-topological",
   "scope": {"mode": "full-block"},
@@ -42,5 +43,5 @@
       }
     ]
   },
-  "unavailable_services": "reject"
+  "unavailable_services": "allow-executable"
 }

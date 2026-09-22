@@ -531,9 +531,23 @@ source principal and interest. A failed preview leaves at most a pending,
 non-posting application for inspection and retry. A lost response after a
 successful variation write is safe: recovery observes the already-exact
 schedule and does not add the variations twice. An existing approved or active
-loan with schedule drift remains blocking and is never rewritten in place.
+loan with schedule drift remains blocking during fresh/clean and resumed-sync
+execution and is never rewritten by this pending-application path.
 Plans freeze schedule writer version `fineract-variable-installments-v1`; older
 plans must be rebuilt.
+
+A reviewed `full-resync` plan has one narrower exception for an active loan
+whose authoritative Arissto contractual schedule changed after its original
+migration. The planner freezes the current target schedule hash, the replacement
+schedule hash, and the current non-reversed non-disbursement transaction count.
+Only the separate `sourceExactResyncSchedule` command may then replace the full
+contractual schedule, including a cardinality change, and reprocess the existing
+transactions. The identity, both hashes, and transaction count are checked
+again immediately before the write. Replacement, transaction reprocessing,
+summary updates, and persistence share one database transaction; any failure
+rolls the replacement back. A replay whose target already has the replacement
+hash is a no-op. This authorization exists only in a newly created full-resync
+plan; historical plans and ordinary recovery paths remain fail-closed.
 
 Arissto rounds exact half-cent periodic interest toward the lower cent. To
 preserve source-exact migrated schedules, Fineract uses `HALF_DOWN` for

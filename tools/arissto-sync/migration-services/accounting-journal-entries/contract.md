@@ -3,10 +3,12 @@
 ## Contract state
 
 This is the frozen contract for the sync engine's `accounting` category. The
-G3 inspector, explicit-key G4 plan format, G5 provenance schema, and G6 atomic
-target API exist. Explicit-key sync-engine apply, failed-only retry, and status
-are complete in G7. Reconciliation remains G8 work, so the service remains
-`planned` and `executable: false`.
+G3 inspector, explicit-key and bounded-period G4 planning, G5 provenance
+schema, G6 atomic target API, G7 apply/retry/status path, G8 direct-journal
+reconciliation, G9 report-parity proof, and G10 scoped canaries are complete.
+The service is `available` and `executable: true` for reviewed local test
+workflows. G11 clean-cycle reproduction and G12 approval remain production
+promotion requirements, not local testing blockers.
 
 The approved ownership model is an accounting cutover, not journal-by-journal
 ownership classification:

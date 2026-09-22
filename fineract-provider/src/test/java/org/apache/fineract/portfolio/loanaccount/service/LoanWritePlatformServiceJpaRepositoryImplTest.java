@@ -22,9 +22,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +52,7 @@ import org.apache.fineract.portfolio.client.domain.Client;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanBuilder;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanCharge;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallment;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallmentRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepositoryWrapper;
@@ -62,6 +67,7 @@ import org.apache.fineract.useradministration.domain.AppUser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -140,6 +146,54 @@ public class LoanWritePlatformServiceJpaRepositoryImplTest {
 
         // Initialize MoneyHelper with tenant configuration (HALF_EVEN = 6)
         MoneyHelper.initializeTenantRoundingMode("test", 6);
+    }
+
+    @Test
+    public void sourceExactScheduleHash_isCanonicalAndCardinalitySensitive() {
+        reset(context);
+        final var first = new LoanWritePlatformServiceJpaRepositoryImpl.SourceExactActiveScheduleRow(1,
+                LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-08"), new BigDecimal("10.00"), new BigDecimal("1.0"));
+        final var same = new LoanWritePlatformServiceJpaRepositoryImpl.SourceExactActiveScheduleRow(1,
+                LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-08"), new BigDecimal("10"), new BigDecimal("1.00"));
+        final var second = new LoanWritePlatformServiceJpaRepositoryImpl.SourceExactActiveScheduleRow(2,
+                LocalDate.parse("2026-01-08"), LocalDate.parse("2026-01-15"), BigDecimal.ZERO, BigDecimal.ZERO);
+
+        assertEquals(LoanWritePlatformServiceJpaRepositoryImpl.sourceExactScheduleHash(List.of(first)),
+                LoanWritePlatformServiceJpaRepositoryImpl.sourceExactScheduleHash(List.of(same)));
+        org.junit.jupiter.api.Assertions.assertNotEquals(LoanWritePlatformServiceJpaRepositoryImpl.sourceExactScheduleHash(List.of(first)),
+                LoanWritePlatformServiceJpaRepositoryImpl.sourceExactScheduleHash(List.of(first, second)));
+    }
+
+    @Test
+    public void replaceSourceExactSchedule_rejectsNonContiguousRows() {
+        reset(context);
+        final Loan target = mock(Loan.class);
+        final var row = new LoanWritePlatformServiceJpaRepositoryImpl.SourceExactActiveScheduleRow(2,
+                LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-08"), BigDecimal.TEN, BigDecimal.ZERO);
+
+        assertThrows(GeneralPlatformDomainRuleException.class,
+                () -> LoanWritePlatformServiceJpaRepositoryImpl.replaceSourceExactSchedule(target, List.of(row)));
+    }
+
+    @Test
+    public void replaceSourceExactSchedule_replacesTheCompleteCardinality() {
+        reset(context);
+        setupMoneyHelper();
+        final Loan target = mock(Loan.class);
+        when(target.getApprovedPrincipal()).thenReturn(BigDecimal.TEN);
+        final var first = new LoanWritePlatformServiceJpaRepositoryImpl.SourceExactActiveScheduleRow(1,
+                LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-08"), new BigDecimal("4"), new BigDecimal("1"));
+        final var second = new LoanWritePlatformServiceJpaRepositoryImpl.SourceExactActiveScheduleRow(2,
+                LocalDate.parse("2026-01-08"), LocalDate.parse("2026-01-15"), new BigDecimal("6"), new BigDecimal("0.5"));
+
+        LoanWritePlatformServiceJpaRepositoryImpl.replaceSourceExactSchedule(target, List.of(first, second));
+
+        @SuppressWarnings("unchecked")
+        final ArgumentCaptor<Collection<LoanRepaymentScheduleInstallment>> replacements = ArgumentCaptor
+                .forClass((Class<Collection<LoanRepaymentScheduleInstallment>>) (Class<?>) Collection.class);
+        verify(target).updateLoanScheduleOnForeclosure(replacements.capture());
+        assertEquals(2, replacements.getValue().size());
+        verify(target).setExpectedMaturityDate(LocalDate.parse("2026-01-15"));
     }
 
     @Test

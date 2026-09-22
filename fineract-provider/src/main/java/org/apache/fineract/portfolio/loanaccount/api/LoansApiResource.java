@@ -1410,6 +1410,8 @@ public class LoansApiResource {
             commandRequest = builder.sourceExactRefinancingDisburseLoanApplication(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "sourceExactActiveSchedule")) {
             commandRequest = builder.importSourceExactActiveSchedule(resolvedLoanId).build();
+        } else if (CommandParameterUtil.is(commandParam, "sourceExactResyncSchedule")) {
+            commandRequest = builder.importSourceExactResyncSchedule(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "sourceExactAccrualCatchup")) {
             commandRequest = builder.materializeSourceExactAccruals(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "freeze")) {

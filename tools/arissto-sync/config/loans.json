@@ -274,6 +274,11 @@
       "schedule_writer": "fineract-source-exact-active-schedule-v1"
     }
   },
+  "full_resync_contract": {
+    "active_schedule_drift": "replace-and-reprocess-v1",
+    "requires_target_schedule_hash": true,
+    "requires_transaction_count": true
+  },
   "historical_reference_only_schedules": {
     "26": {
       "classification": "closed-zero-principal-schedule-with-exact-lifecycle",

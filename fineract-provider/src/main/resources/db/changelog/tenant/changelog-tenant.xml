@@ -373,6 +373,11 @@
     <include file="parts/0351_register_transacciones_flujo_efectivo_report.xml" relativeToChangelogFile="true" />
     <include file="parts/0352_register_comprobante_contable_report.xml" relativeToChangelogFile="true" />
     <include file="parts/0353_register_concentracion_movimientos_diarios_report.xml" relativeToChangelogFile="true" />
+    <include file="parts/0354_register_estado_flujo_efectivo_report.xml" relativeToChangelogFile="true" />
+    <include file="parts/0355_register_detalle_saldos_prestamos_morosidad_report.xml" relativeToChangelogFile="true" />
     <include file="parts/0356_register_balance_saldos_detallado_report.xml" relativeToChangelogFile="true" />
     <include file="parts/0357_register_comprobante_contable_por_sucursal_report.xml" relativeToChangelogFile="true" />
+    <include file="parts/0358_register_estado_resultados_consolidado_report.xml" relativeToChangelogFile="true" />
+    <include file="parts/0359_register_informe_auxiliar_mayor_report.xml" relativeToChangelogFile="true" />
+    <include file="parts/0360_add_source_exact_resync_schedule_permission.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

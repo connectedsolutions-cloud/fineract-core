@@ -23,7 +23,9 @@ No inferred payment, capitalization, redemption, or reversal is created.
 - Exact subledger: `m_share_account_yield_accrual`.
 - Future settlement audit: `m_share_account_yield_settlement`.
 - Expense mapping: share mapping type `YIELD_EXPENSE` → `7110040100`.
-- Payable mapping: share mapping type `YIELD_PAYABLE` → `222099940101`.
+- Payable mapping: share mapping type `YIELD_PAYABLE` → target liability
+  `222099910101`. The reviewed accounting crosswalk maps Arissto source account
+  `222099940101` to this target GL code.
 
 Multiple source certificates may belong to one native share account. Historical
 imports therefore allow multiple certificate events for the same account and

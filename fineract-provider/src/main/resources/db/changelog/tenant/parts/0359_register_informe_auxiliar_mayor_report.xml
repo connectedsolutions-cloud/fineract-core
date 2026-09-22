@@ -1,0 +1,358 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more
+     contributor license agreements. See the NOTICE file distributed with
+     this work for additional information regarding copyright ownership.
+     The ASF licenses this file to you under the Apache License, Version 2.0. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0359-1-register-informe-auxiliar-mayor-report" author="credesal" dbms="postgresql">
+        <comment>
+            Register the USD-only visual Informe Auxiliar de Mayor with an
+            opening balance, ordered movements, and running balance per account.
+        </comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+INSERT INTO stretchy_report (
+    report_name, report_type, report_subtype, report_category, report_sql,
+    description, core_report, use_report, self_service_user_report
+)
+VALUES (
+    'Informe Auxiliar de Mayor',
+    'Table',
+    'VisualAuxLedger',
+    'Accounting',
+    $report$
+WITH
+source_office_labels(external_id, source_name) AS (
+    VALUES ('1'::VARCHAR, 'AGENCIA CENTRAL'::VARCHAR),
+           ('2'::VARCHAR, 'USULUTAN'::VARCHAR)
+),
+selected_offices AS (
+    SELECT office_under.id,
+           office_under.external_id,
+           COALESCE(source_label.source_name, UPPER(office_under.name)) AS office_name
+      FROM m_office selected_office
+      JOIN m_office office_under
+        ON office_under.hierarchy LIKE selected_office.hierarchy || '%'
+ LEFT JOIN source_office_labels source_label
+        ON source_label.external_id = office_under.external_id
+     WHERE selected_office.id = CAST('${officeId}' AS BIGINT)
+       AND office_under.hierarchy LIKE '${currentUserHierarchy}' || '%'
+),
+qualified_journal AS (
+    SELECT journal_entry.id AS journal_entry_id,
+           COALESCE(source_line.source_account_code, native_account.gl_code) AS account_code,
+           COALESCE(account_presentation.source_name, source_account.name, native_account.name) AS account_name,
+           COALESCE(
+               account_presentation.balance_nature,
+               CASE
+                   WHEN COALESCE(source_account.classification_enum, native_account.classification_enum) IN (1, 5)
+                   THEN 'D'
+                   ELSE 'A'
+               END
+           ) AS balance_nature,
+           COALESCE(account_presentation.account_order, 9223372036854775807) AS account_order,
+           journal_entry.entry_date,
+           COALESCE(
+               NULLIF(BTRIM(source_journal.source_journal_number), ''),
+               NULLIF(BTRIM(journal_entry.ref_num), ''),
+               journal_entry.transaction_id
+           ) AS journal_number,
+           COALESCE(
+               NULLIF(BTRIM(source_line.source_document_reference), ''),
+               NULLIF(BTRIM(source_line.source_movement_reference), ''),
+               ''
+           ) AS check_number,
+           COALESCE(source_line.source_line_sequence::BIGINT, journal_entry.id) AS detail_sequence,
+           COALESCE(
+               NULLIF(BTRIM(source_office.office_name), ''),
+               NULLIF(BTRIM(native_office.office_name), ''),
+               native_office.id::VARCHAR
+           ) AS office_name,
+           COALESCE(
+               NULLIF(BTRIM(source_journal.source_header_concept), ''),
+               NULLIF(BTRIM(source_journal.source_header_description), ''),
+               NULLIF(BTRIM(source_line.source_line_concept), ''),
+               NULLIF(BTRIM(source_line.source_line_aux_concept), ''),
+               NULLIF(BTRIM(journal_entry.description), ''),
+               '-'
+           ) AS entry_description,
+           journal_entry.type_enum,
+           ROUND(journal_entry.amount, 2) AS amount
+      FROM acc_gl_journal_entry journal_entry
+      JOIN acc_gl_account native_account ON native_account.id = journal_entry.account_id
+      JOIN selected_offices native_office ON native_office.id = journal_entry.office_id
+ LEFT JOIN credesal_arissto_gl_journal_line source_line
+        ON source_line.target_journal_entry_id = journal_entry.id
+ LEFT JOIN credesal_arissto_gl_journal source_journal
+        ON source_journal.id = source_line.journal_provenance_id
+ LEFT JOIN acc_gl_account source_account
+        ON source_account.gl_code = source_line.source_account_code
+ LEFT JOIN credesal_gl_account_presentation account_presentation
+        ON account_presentation.source_gl_code = COALESCE(source_line.source_account_code, native_account.gl_code)
+ LEFT JOIN selected_offices source_office
+        ON source_office.external_id = NULLIF(LTRIM(source_line.source_destination_branch_id, '0'), '')
+     WHERE journal_entry.entry_date <= CAST('${endDate}' AS DATE)
+       AND journal_entry.currency_code = 'USD'
+       AND (
+           jsonb_typeof(journal_entry.dimensions -> 'office') IS DISTINCT FROM 'string'
+           OR native_office.external_id = journal_entry.dimensions ->> 'office'
+       )
+),
+period_accounts AS (
+    SELECT DISTINCT journal.account_code
+      FROM qualified_journal journal
+     WHERE journal.entry_date BETWEEN CAST('${startDate}' AS DATE) AND CAST('${endDate}' AS DATE)
+),
+account_summary AS (
+    SELECT journal.account_code,
+           MIN(journal.account_name) AS account_name,
+           MIN(journal.balance_nature) AS balance_nature,
+           MIN(journal.account_order) AS account_order,
+           ROUND(
+               COALESCE(
+                   SUM(
+                       CASE WHEN journal.entry_date < CAST('${startDate}' AS DATE)
+                            THEN CASE
+                                WHEN journal.balance_nature = 'D'
+                                THEN CASE WHEN journal.type_enum = 2 THEN journal.amount ELSE -journal.amount END
+                                ELSE CASE WHEN journal.type_enum = 1 THEN journal.amount ELSE -journal.amount END
+                            END
+                            ELSE 0.00
+                       END
+                   ),
+                   0.00
+               ),
+               2
+           ) AS opening_balance,
+           ROUND(
+               COALESCE(
+                   SUM(journal.amount) FILTER (
+                       WHERE journal.entry_date BETWEEN CAST('${startDate}' AS DATE) AND CAST('${endDate}' AS DATE)
+                         AND journal.type_enum = 2
+                   ),
+                   0.00
+               ),
+               2
+           ) AS debit_total,
+           ROUND(
+               COALESCE(
+                   SUM(journal.amount) FILTER (
+                       WHERE journal.entry_date BETWEEN CAST('${startDate}' AS DATE) AND CAST('${endDate}' AS DATE)
+                         AND journal.type_enum = 1
+                   ),
+                   0.00
+               ),
+               2
+           ) AS credit_total
+      FROM qualified_journal journal
+      JOIN period_accounts period ON period.account_code = journal.account_code
+     GROUP BY journal.account_code
+),
+account_controls AS (
+    SELECT summary.*,
+           ROUND(
+               summary.opening_balance
+               + CASE
+                   WHEN summary.balance_nature = 'D'
+                   THEN summary.debit_total - summary.credit_total
+                   ELSE summary.credit_total - summary.debit_total
+                 END,
+               2
+           ) AS ending_balance
+      FROM account_summary summary
+),
+period_details AS (
+    SELECT journal.*,
+           ROW_NUMBER() OVER (
+               PARTITION BY journal.account_code
+               ORDER BY journal.entry_date,
+                        journal.journal_number COLLATE "C",
+                        journal.detail_sequence,
+                        journal.journal_entry_id
+           ) AS movement_order
+      FROM qualified_journal journal
+     WHERE journal.entry_date BETWEEN CAST('${startDate}' AS DATE) AND CAST('${endDate}' AS DATE)
+),
+details_with_balance AS (
+    SELECT detail.*,
+           control.opening_balance,
+           control.debit_total,
+           control.credit_total,
+           control.ending_balance,
+           ROUND(
+               control.opening_balance
+               + SUM(
+                   CASE
+                       WHEN control.balance_nature = 'D'
+                       THEN CASE WHEN detail.type_enum = 2 THEN detail.amount ELSE -detail.amount END
+                       ELSE CASE WHEN detail.type_enum = 1 THEN detail.amount ELSE -detail.amount END
+                   END
+                 ) OVER (
+                     PARTITION BY detail.account_code
+                     ORDER BY detail.movement_order
+                     ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                 ),
+               2
+           ) AS running_balance
+      FROM period_details detail
+      JOIN account_controls control ON control.account_code = detail.account_code
+),
+report_rows AS (
+    SELECT control.account_order,
+           control.account_code AS sort_account_code,
+           0 AS row_order,
+           0::BIGINT AS movement_order,
+           'ACCOUNT'::VARCHAR AS row_type,
+           control.account_code,
+           control.account_name,
+           control.balance_nature,
+           NULL::VARCHAR AS journal_number,
+           NULL::VARCHAR AS check_number,
+           NULL::VARCHAR AS office_name,
+           NULL::DATE AS journal_date,
+           NULL::TEXT AS entry_description,
+           control.opening_balance,
+           NULL::NUMERIC AS debit,
+           NULL::NUMERIC AS credit,
+           control.opening_balance AS running_balance,
+           control.debit_total AS account_debit_total,
+           control.credit_total AS account_credit_total,
+           control.ending_balance
+      FROM account_controls control
+
+    UNION ALL
+
+    SELECT detail.account_order,
+           detail.account_code,
+           1,
+           detail.movement_order,
+           'DETAIL',
+           detail.account_code,
+           detail.account_name,
+           detail.balance_nature,
+           detail.journal_number,
+           detail.check_number,
+           detail.office_name,
+           detail.entry_date,
+           detail.entry_description,
+           detail.opening_balance,
+           CASE WHEN detail.type_enum = 2 THEN detail.amount ELSE 0.00 END,
+           CASE WHEN detail.type_enum = 1 THEN detail.amount ELSE 0.00 END,
+           detail.running_balance,
+           detail.debit_total,
+           detail.credit_total,
+           detail.ending_balance
+      FROM details_with_balance detail
+
+    UNION ALL
+
+    SELECT control.account_order,
+           control.account_code,
+           2,
+           9223372036854775807::BIGINT,
+           'TOTAL',
+           control.account_code,
+           control.account_name,
+           control.balance_nature,
+           NULL,
+           NULL,
+           NULL,
+           NULL,
+           'TOTAL CUENTA',
+           control.opening_balance,
+           control.debit_total,
+           control.credit_total,
+           control.ending_balance,
+           control.debit_total,
+           control.credit_total,
+           control.ending_balance
+      FROM account_controls control
+)
+SELECT ROW_NUMBER() OVER (
+           ORDER BY account_order,
+                    sort_account_code COLLATE "C",
+                    row_order,
+                    movement_order
+       ) AS display_order,
+       row_type,
+       CAST('${startDate}' AS DATE) AS start_date,
+       CAST('${endDate}' AS DATE) AS end_date,
+       account_code,
+       account_name,
+       balance_nature,
+       journal_number,
+       check_number,
+       office_name,
+       journal_date,
+       entry_description,
+       opening_balance,
+       debit,
+       credit,
+       running_balance,
+       account_debit_total,
+       account_credit_total,
+       ending_balance,
+       movement_order
+  FROM report_rows
+ ORDER BY display_order
+$report$,
+    'Auxiliar contable en USD con saldos iniciales, movimientos y saldo corrido por cuenta.',
+    FALSE,
+    TRUE,
+    FALSE
+)
+ON CONFLICT (report_name) DO UPDATE
+SET report_type = EXCLUDED.report_type,
+    report_subtype = EXCLUDED.report_subtype,
+    report_category = EXCLUDED.report_category,
+    report_sql = EXCLUDED.report_sql,
+    description = EXCLUDED.description,
+    core_report = EXCLUDED.core_report,
+    use_report = EXCLUDED.use_report,
+    self_service_user_report = EXCLUDED.self_service_user_report;
+
+DELETE FROM stretchy_report_parameter
+ WHERE report_id = (
+     SELECT id FROM stretchy_report
+      WHERE report_name = 'Informe Auxiliar de Mayor'
+ );
+
+INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+SELECT report.id,
+       parameter.id,
+       parameter.parameter_variable
+  FROM stretchy_report report
+  CROSS JOIN stretchy_parameter parameter
+ WHERE report.report_name = 'Informe Auxiliar de Mayor'
+   AND parameter.parameter_name IN ('OfficeIdSelectOne', 'startDateSelect', 'endDateSelect');
+
+DO $validation$
+BEGIN
+    IF (
+        SELECT COUNT(*)
+          FROM stretchy_report_parameter usage
+          JOIN stretchy_report report ON report.id = usage.report_id
+         WHERE report.report_name = 'Informe Auxiliar de Mayor'
+           AND usage.report_parameter_name IN ('officeId', 'startDate', 'endDate')
+    ) <> 3 THEN
+        RAISE EXCEPTION 'Informe Auxiliar de Mayor requires officeId, startDate, and endDate';
+    END IF;
+END
+$validation$;
+
+INSERT INTO m_permission (grouping, code, entity_name, action_name, can_maker_checker)
+SELECT 'report',
+       'READ_Informe Auxiliar de Mayor',
+       'Informe Auxiliar de Mayor',
+       'READ',
+       FALSE
+ WHERE NOT EXISTS (
+     SELECT 1 FROM m_permission
+      WHERE code = 'READ_Informe Auxiliar de Mayor'
+ );
+        ]]></sql>
+    </changeSet>
+
+</databaseChangeLog>

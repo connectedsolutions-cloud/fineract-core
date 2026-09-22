@@ -1,11 +1,19 @@
 from datetime import date
 from decimal import Decimal
+import json
+from pathlib import Path
 import unittest
 
 from arissto_sync.share_yield import _expected_exact, _source_key, _summarize, _target_accrual_matches
 
 
 class ShareYieldTest(unittest.TestCase):
+
+    def test_contract_uses_reviewed_target_payable_account(self) -> None:
+        config = json.loads(
+            (Path(__file__).resolve().parents[1] / "config" / "native_share_yield.json").read_text()
+        )
+        self.assertEqual(config["target"]["payable_gl_code"], "222099910101")
 
     def test_source_key_is_stable(self) -> None:
         self.assertEqual(_source_key(123), "FNC_PROVISIONES|123")

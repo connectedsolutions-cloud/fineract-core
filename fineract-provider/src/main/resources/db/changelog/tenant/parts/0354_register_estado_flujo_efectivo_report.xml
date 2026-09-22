@@ -1,0 +1,690 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more
+     contributor license agreements. See the NOTICE file distributed with
+     this work for additional information regarding copyright ownership.
+     The ASF licenses this file to you under the Apache License, Version 2.0. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0354-1-register-estado-flujo-efectivo-report" author="credesal" dbms="postgresql">
+        <comment>
+            Register the direct-method cash-flow statement, its exception
+            diagnostic, and approval-gated accounting configuration for every
+            upgraded tenant.
+        </comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+CREATE TABLE IF NOT EXISTS credesal_cash_flow_cash_account (
+    gl_account_id BIGINT PRIMARY KEY REFERENCES acc_gl_account(id),
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    rationale TEXT NOT NULL,
+    approved_by VARCHAR(100),
+    approved_on DATE,
+    created_on TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK ((approved_by IS NULL) = (approved_on IS NULL)),
+    CHECK (NOT active OR (approved_by IS NOT NULL AND approved_on IS NOT NULL))
+);
+
+CREATE TABLE IF NOT EXISTS credesal_cash_flow_mapping (
+    gl_account_id BIGINT NOT NULL REFERENCES acc_gl_account(id),
+    cash_direction CHAR(1) NOT NULL,
+    section_code VARCHAR(20) NOT NULL,
+    line_code VARCHAR(50) NOT NULL,
+    line_label VARCHAR(200) NOT NULL,
+    line_order INTEGER NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    rationale TEXT NOT NULL,
+    approved_by VARCHAR(100),
+    approved_on DATE,
+    created_on TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (gl_account_id, cash_direction),
+    CHECK (cash_direction IN ('I', 'O')),
+    CHECK (section_code IN ('OPERATING', 'INVESTING', 'FINANCING')),
+    CHECK (line_order BETWEEN 0 AND 98),
+    CHECK ((approved_by IS NULL) = (approved_on IS NULL)),
+    CHECK (NOT active OR (approved_by IS NOT NULL AND approved_on IS NOT NULL))
+);
+
+CREATE INDEX IF NOT EXISTS idx_credesal_cash_flow_mapping_line
+    ON credesal_cash_flow_mapping (section_code, line_order, line_code)
+    WHERE active;
+
+INSERT INTO stretchy_report (
+    report_name,
+    report_type,
+    report_subtype,
+    report_category,
+    report_sql,
+    description,
+    core_report,
+    use_report,
+    self_service_user_report
+)
+VALUES (
+    'Estado de Flujo de Efectivo',
+    'Table',
+    NULL,
+    'Accounting',
+    $report$
+WITH RECURSIVE
+selected_offices AS (
+    SELECT office_under.id
+      FROM m_office selected_office
+      JOIN m_office office_under
+        ON office_under.hierarchy LIKE selected_office.hierarchy || '%'
+     WHERE selected_office.id = CAST('${officeId}' AS BIGINT)
+       AND office_under.hierarchy LIKE '${currentUserHierarchy}' || '%'
+),
+cash_account_tree AS (
+    SELECT configured.gl_account_id AS root_account_id,
+           configured.gl_account_id AS account_id,
+           ARRAY[configured.gl_account_id]::BIGINT[] AS account_path
+      FROM credesal_cash_flow_cash_account configured
+     WHERE configured.active
+
+    UNION ALL
+
+    SELECT tree.root_account_id,
+           child.id,
+           tree.account_path || child.id
+      FROM cash_account_tree tree
+      JOIN acc_gl_account child ON child.parent_id = tree.account_id
+     WHERE NOT child.id = ANY(tree.account_path)
+),
+cash_accounts AS (
+    SELECT DISTINCT account_id FROM cash_account_tree
+),
+account_ancestry AS (
+    SELECT account.id AS descendant_account_id,
+           account.id AS ancestor_account_id,
+           0 AS distance,
+           ARRAY[account.id]::BIGINT[] AS account_path
+      FROM acc_gl_account account
+
+    UNION ALL
+
+    SELECT ancestry.descendant_account_id,
+           parent.id,
+           ancestry.distance + 1,
+           ancestry.account_path || parent.id
+      FROM account_ancestry ancestry
+      JOIN acc_gl_account child ON child.id = ancestry.ancestor_account_id
+      JOIN acc_gl_account parent ON parent.id = child.parent_id
+     WHERE NOT parent.id = ANY(ancestry.account_path)
+),
+scoped_journal AS (
+    SELECT journal.id,
+           journal.transaction_id,
+           journal.ref_num,
+           journal.entry_date,
+           journal.office_id,
+           journal.account_id,
+           journal.type_enum,
+           journal.amount,
+           journal.description
+      FROM acc_gl_journal_entry journal
+     WHERE journal.currency_code = 'USD'
+       AND journal.office_id IN (SELECT id FROM selected_offices)
+       AND journal.entry_date <= CAST('${endDate}' AS DATE)
+),
+cash_balances AS (
+    SELECT COALESCE(SUM(CASE
+               WHEN journal.entry_date < CAST('${startDate}' AS DATE)
+               THEN CASE WHEN journal.type_enum = 2 THEN journal.amount ELSE -journal.amount END
+               ELSE 0.00 END), 0.00) AS opening_cash,
+           COALESCE(SUM(CASE
+               WHEN journal.entry_date BETWEEN CAST('${startDate}' AS DATE) AND CAST('${endDate}' AS DATE)
+               THEN CASE WHEN journal.type_enum = 2 THEN journal.amount ELSE -journal.amount END
+               ELSE 0.00 END), 0.00) AS period_cash_change,
+           COALESCE(SUM(CASE WHEN journal.type_enum = 2 THEN journal.amount ELSE -journal.amount END), 0.00) AS closing_cash
+      FROM scoped_journal journal
+     WHERE journal.account_id IN (SELECT account_id FROM cash_accounts)
+),
+period_journal AS (
+    SELECT *
+      FROM scoped_journal
+     WHERE entry_date BETWEEN CAST('${startDate}' AS DATE) AND CAST('${endDate}' AS DATE)
+),
+cash_transactions AS (
+    SELECT journal.transaction_id,
+           journal.office_id,
+           journal.entry_date,
+           MIN(journal.ref_num) AS ref_num,
+           SUM(CASE WHEN journal.type_enum = 2 THEN journal.amount ELSE -journal.amount END) AS net_cash_change
+      FROM period_journal journal
+     WHERE journal.account_id IN (SELECT account_id FROM cash_accounts)
+     GROUP BY journal.transaction_id, journal.office_id, journal.entry_date
+    HAVING SUM(CASE WHEN journal.type_enum = 2 THEN journal.amount ELSE -journal.amount END) <> 0.00
+),
+counterpart_candidates AS (
+    SELECT cash.transaction_id,
+           cash.office_id,
+           cash.entry_date,
+           cash.ref_num,
+           cash.net_cash_change,
+           journal.id AS journal_entry_id,
+           journal.account_id AS counterpart_account_id,
+           journal.amount AS counterpart_amount,
+           journal.description
+      FROM cash_transactions cash
+      JOIN period_journal journal
+        ON journal.transaction_id = cash.transaction_id
+       AND journal.office_id = cash.office_id
+       AND journal.entry_date = cash.entry_date
+     WHERE journal.account_id NOT IN (SELECT account_id FROM cash_accounts)
+       AND ((cash.net_cash_change > 0.00 AND journal.type_enum = 1)
+         OR (cash.net_cash_change < 0.00 AND journal.type_enum = 2))
+),
+candidate_totals AS (
+    SELECT cash.transaction_id,
+           cash.office_id,
+           cash.entry_date,
+           cash.ref_num,
+           cash.net_cash_change,
+           COALESCE(SUM(candidate.counterpart_amount), 0.00) AS candidate_total
+      FROM cash_transactions cash
+      LEFT JOIN counterpart_candidates candidate
+        ON candidate.transaction_id = cash.transaction_id
+       AND candidate.office_id = cash.office_id
+       AND candidate.entry_date = cash.entry_date
+     GROUP BY cash.transaction_id, cash.office_id, cash.entry_date, cash.ref_num, cash.net_cash_change
+),
+valid_components AS (
+    SELECT candidate.transaction_id,
+           candidate.office_id,
+           candidate.entry_date,
+           candidate.ref_num,
+           candidate.journal_entry_id,
+           candidate.counterpart_account_id,
+           account.gl_code AS counterpart_gl_code,
+           account.name AS counterpart_name,
+           CASE WHEN candidate.net_cash_change > 0.00 THEN 'I' ELSE 'O' END AS cash_direction,
+           CASE WHEN candidate.net_cash_change > 0.00
+                THEN candidate.counterpart_amount ELSE -candidate.counterpart_amount END AS net_amount,
+           mapping.section_code,
+           mapping.line_code,
+           mapping.line_label,
+           mapping.line_order,
+           CASE WHEN mapping.gl_account_id IS NULL THEN 'UNMAPPED' ELSE 'MAPPED' END AS classification_status
+      FROM counterpart_candidates candidate
+      JOIN candidate_totals totals
+        ON totals.transaction_id = candidate.transaction_id
+       AND totals.office_id = candidate.office_id
+       AND totals.entry_date = candidate.entry_date
+       AND totals.candidate_total = ABS(totals.net_cash_change)
+      JOIN acc_gl_account account ON account.id = candidate.counterpart_account_id
+      LEFT JOIN LATERAL (
+          SELECT configured.gl_account_id,
+                 configured.section_code,
+                 configured.line_code,
+                 configured.line_label,
+                 configured.line_order
+            FROM account_ancestry ancestry
+            JOIN credesal_cash_flow_mapping configured
+              ON configured.gl_account_id = ancestry.ancestor_account_id
+           WHERE ancestry.descendant_account_id = candidate.counterpart_account_id
+             AND configured.cash_direction = CASE WHEN candidate.net_cash_change > 0.00 THEN 'I' ELSE 'O' END
+             AND configured.active
+           ORDER BY ancestry.distance, configured.gl_account_id
+           LIMIT 1
+      ) mapping ON TRUE
+),
+ambiguous_components AS (
+    SELECT totals.transaction_id,
+           totals.office_id,
+           totals.entry_date,
+           totals.ref_num,
+           NULL::BIGINT AS journal_entry_id,
+           NULL::BIGINT AS counterpart_account_id,
+           NULL::VARCHAR AS counterpart_gl_code,
+           NULL::VARCHAR AS counterpart_name,
+           CASE WHEN totals.net_cash_change > 0.00 THEN 'I' ELSE 'O' END AS cash_direction,
+           totals.net_cash_change AS net_amount,
+           NULL::VARCHAR AS section_code,
+           'AMBIGUOUS'::VARCHAR AS line_code,
+           'Movimientos ambiguos pendientes de clasificación'::VARCHAR AS line_label,
+           9999 AS line_order,
+           'AMBIGUOUS'::VARCHAR AS classification_status
+      FROM candidate_totals totals
+     WHERE totals.candidate_total <> ABS(totals.net_cash_change)
+),
+flow_components AS (
+    SELECT * FROM valid_components
+    UNION ALL
+    SELECT * FROM ambiguous_components
+),
+report_lines AS (
+    SELECT COALESCE(component.section_code, 'UNCLASSIFIED') AS section_code,
+           COALESCE(component.line_code, 'UNMAPPED') AS line_code,
+           COALESCE(component.line_label, 'Movimientos sin mapeo contable') AS line_label,
+           COALESCE(component.line_order, 9999) AS line_order,
+           COUNT(DISTINCT (component.transaction_id, component.office_id, component.entry_date)) AS movement_count,
+           SUM(CASE WHEN component.net_amount > 0.00 THEN component.net_amount ELSE 0.00 END) AS inflows,
+           SUM(CASE WHEN component.net_amount < 0.00 THEN -component.net_amount ELSE 0.00 END) AS outflows,
+           SUM(component.net_amount) AS net_amount,
+           CASE WHEN BOOL_AND(component.classification_status = 'MAPPED') THEN 'CLASIFICADO'
+                ELSE 'REQUIERE CLASIFICACION' END AS status
+      FROM flow_components component
+     GROUP BY COALESCE(component.section_code, 'UNCLASSIFIED'),
+              COALESCE(component.line_code, 'UNMAPPED'),
+              COALESCE(component.line_label, 'Movimientos sin mapeo contable'),
+              COALESCE(component.line_order, 9999)
+),
+sections(section_code, section_label, section_order) AS (
+    VALUES ('OPERATING', 'ACTIVIDADES DE OPERACIÓN', 100),
+           ('INVESTING', 'ACTIVIDADES DE INVERSIÓN', 200),
+           ('FINANCING', 'ACTIVIDADES DE FINANCIAMIENTO', 300)
+),
+section_totals AS (
+    SELECT section.section_code,
+           section.section_label,
+           section.section_order,
+           COALESCE(SUM(line.movement_count), 0) AS movement_count,
+           COALESCE(SUM(line.inflows), 0.00) AS inflows,
+           COALESCE(SUM(line.outflows), 0.00) AS outflows,
+           COALESCE(SUM(line.net_amount), 0.00) AS net_amount
+      FROM sections section
+      LEFT JOIN report_lines line ON line.section_code = section.section_code
+     GROUP BY section.section_code, section.section_label, section.section_order
+),
+statement_change AS (
+    SELECT COALESCE(SUM(net_amount), 0.00) AS amount FROM flow_components
+),
+classification_control AS (
+    SELECT COUNT(*) FILTER (WHERE classification_status = 'UNMAPPED') AS unmapped_components,
+           COUNT(*) FILTER (WHERE classification_status = 'AMBIGUOUS') AS ambiguous_transactions
+      FROM flow_components
+),
+output_rows AS (
+    SELECT 10 AS row_order,
+           'CONTROL'::TEXT AS row_type,
+           'EFECTIVO'::TEXT AS section_label,
+           'OPENING_CASH'::TEXT AS line_code,
+           'Efectivo y equivalentes al inicio del período'::TEXT AS concept,
+           0::BIGINT AS movement_count,
+           NULL::NUMERIC AS inflows,
+           NULL::NUMERIC AS outflows,
+           balances.opening_cash AS net_amount,
+           CASE WHEN EXISTS (SELECT 1 FROM credesal_cash_flow_cash_account WHERE active)
+                THEN 'CONFIGURADO' ELSE 'CONFIGURACION REQUERIDA' END AS status
+      FROM cash_balances balances
+
+    UNION ALL
+
+    SELECT section.section_order + line.line_order,
+           'DETALLE',
+           section.section_label,
+           line.line_code,
+           line.line_label,
+           line.movement_count,
+           line.inflows,
+           line.outflows,
+           line.net_amount,
+           line.status
+      FROM sections section
+      JOIN report_lines line ON line.section_code = section.section_code
+
+    UNION ALL
+
+    SELECT section.section_order + 99,
+           'SUBTOTAL',
+           section.section_label,
+           'SUBTOTAL_' || section.section_code,
+           'Flujo neto de ' || lower(section.section_label),
+           section.movement_count,
+           section.inflows,
+           section.outflows,
+           section.net_amount,
+           'CALCULADO'
+      FROM section_totals section
+
+    UNION ALL
+
+    SELECT 400 + line.line_order,
+           'DETALLE',
+           'SIN CLASIFICAR',
+           line.line_code,
+           line.line_label,
+           line.movement_count,
+           line.inflows,
+           line.outflows,
+           line.net_amount,
+           line.status
+      FROM report_lines line
+     WHERE line.section_code = 'UNCLASSIFIED'
+
+    UNION ALL
+
+    SELECT 900,
+           'CONTROL',
+           'EFECTIVO',
+           'NET_CHANGE',
+           'Aumento (disminución) neto de efectivo',
+           0,
+           NULL,
+           NULL,
+           change.amount,
+           CASE WHEN NOT EXISTS (SELECT 1 FROM credesal_cash_flow_cash_account WHERE active)
+                THEN 'CONFIGURACION REQUERIDA'
+                WHEN control.unmapped_components = 0 AND control.ambiguous_transactions = 0
+                THEN 'CLASIFICACION COMPLETA' ELSE 'REQUIERE CLASIFICACION' END
+      FROM statement_change change CROSS JOIN classification_control control
+
+    UNION ALL
+
+    SELECT 910,
+           'CONTROL',
+           'EFECTIVO',
+           'CLOSING_CASH',
+           'Efectivo y equivalentes al final del período',
+           0,
+           NULL,
+           NULL,
+           balances.closing_cash,
+           CASE WHEN EXISTS (SELECT 1 FROM credesal_cash_flow_cash_account WHERE active)
+                THEN 'CALCULADO' ELSE 'CONFIGURACION REQUERIDA' END
+      FROM cash_balances balances
+
+    UNION ALL
+
+    SELECT 920,
+           'CONTROL',
+           'CONCILIACIÓN',
+           'RECONCILIATION_DIFFERENCE',
+           'Diferencia de conciliación',
+           0,
+           NULL,
+           NULL,
+           balances.closing_cash - balances.opening_cash - change.amount,
+           CASE WHEN NOT EXISTS (SELECT 1 FROM credesal_cash_flow_cash_account WHERE active)
+                THEN 'CONFIGURACION REQUERIDA'
+                WHEN balances.closing_cash - balances.opening_cash - change.amount = 0.00
+                THEN 'CONCILIADO' ELSE 'ERROR DE CONCILIACION' END
+      FROM cash_balances balances CROSS JOIN statement_change change
+)
+SELECT row_type AS "Tipo",
+       section_label AS "Sección",
+       line_code AS "Código",
+       concept AS "Concepto",
+       movement_count AS "Movimientos",
+       ROUND(inflows, 2) AS "Entradas",
+       ROUND(outflows, 2) AS "Salidas",
+       ROUND(net_amount, 2) AS "Flujo Neto",
+       status AS "Estado"
+  FROM output_rows
+ ORDER BY row_order, line_code
+$report$,
+    'Estado directo de flujos de efectivo con conciliación y clasificación explícita.',
+    FALSE,
+    TRUE,
+    FALSE
+)
+ON CONFLICT (report_name) DO UPDATE
+SET report_type = EXCLUDED.report_type,
+    report_subtype = EXCLUDED.report_subtype,
+    report_category = EXCLUDED.report_category,
+    report_sql = EXCLUDED.report_sql,
+    description = EXCLUDED.description,
+    core_report = EXCLUDED.core_report,
+    use_report = EXCLUDED.use_report,
+    self_service_user_report = EXCLUDED.self_service_user_report;
+
+INSERT INTO stretchy_report (
+    report_name,
+    report_type,
+    report_subtype,
+    report_category,
+    report_sql,
+    description,
+    core_report,
+    use_report,
+    self_service_user_report
+)
+VALUES (
+    'Diagnóstico de Flujo de Efectivo',
+    'Table',
+    NULL,
+    'Accounting',
+    $diagnostic$
+WITH RECURSIVE
+selected_offices AS (
+    SELECT office_under.id
+      FROM m_office selected_office
+      JOIN m_office office_under
+        ON office_under.hierarchy LIKE selected_office.hierarchy || '%'
+     WHERE selected_office.id = CAST('${officeId}' AS BIGINT)
+       AND office_under.hierarchy LIKE '${currentUserHierarchy}' || '%'
+),
+cash_account_tree AS (
+    SELECT configured.gl_account_id AS account_id,
+           ARRAY[configured.gl_account_id]::BIGINT[] AS account_path
+      FROM credesal_cash_flow_cash_account configured
+     WHERE configured.active
+    UNION ALL
+    SELECT child.id, tree.account_path || child.id
+      FROM cash_account_tree tree
+      JOIN acc_gl_account child ON child.parent_id = tree.account_id
+     WHERE NOT child.id = ANY(tree.account_path)
+),
+cash_accounts AS (
+    SELECT DISTINCT account_id FROM cash_account_tree
+),
+account_ancestry AS (
+    SELECT account.id AS descendant_account_id,
+           account.id AS ancestor_account_id,
+           0 AS distance,
+           ARRAY[account.id]::BIGINT[] AS account_path
+      FROM acc_gl_account account
+    UNION ALL
+    SELECT ancestry.descendant_account_id,
+           parent.id,
+           ancestry.distance + 1,
+           ancestry.account_path || parent.id
+      FROM account_ancestry ancestry
+      JOIN acc_gl_account child ON child.id = ancestry.ancestor_account_id
+      JOIN acc_gl_account parent ON parent.id = child.parent_id
+     WHERE NOT parent.id = ANY(ancestry.account_path)
+),
+period_journal AS (
+    SELECT journal.*
+      FROM acc_gl_journal_entry journal
+     WHERE journal.currency_code = 'USD'
+       AND journal.office_id IN (SELECT id FROM selected_offices)
+       AND journal.entry_date BETWEEN CAST('${startDate}' AS DATE) AND CAST('${endDate}' AS DATE)
+),
+cash_transactions AS (
+    SELECT journal.transaction_id,
+           journal.office_id,
+           journal.entry_date,
+           MIN(journal.ref_num) AS ref_num,
+           SUM(CASE WHEN journal.type_enum = 2 THEN journal.amount ELSE -journal.amount END) AS net_cash_change
+      FROM period_journal journal
+     WHERE journal.account_id IN (SELECT account_id FROM cash_accounts)
+     GROUP BY journal.transaction_id, journal.office_id, journal.entry_date
+    HAVING SUM(CASE WHEN journal.type_enum = 2 THEN journal.amount ELSE -journal.amount END) <> 0.00
+),
+candidates AS (
+    SELECT cash.*,
+           journal.id AS journal_entry_id,
+           journal.account_id AS counterpart_account_id,
+           journal.amount AS counterpart_amount,
+           journal.description
+      FROM cash_transactions cash
+      JOIN period_journal journal
+        ON journal.transaction_id = cash.transaction_id
+       AND journal.office_id = cash.office_id
+       AND journal.entry_date = cash.entry_date
+     WHERE journal.account_id NOT IN (SELECT account_id FROM cash_accounts)
+       AND ((cash.net_cash_change > 0.00 AND journal.type_enum = 1)
+         OR (cash.net_cash_change < 0.00 AND journal.type_enum = 2))
+),
+totals AS (
+    SELECT cash.transaction_id,
+           cash.office_id,
+           cash.entry_date,
+           cash.ref_num,
+           cash.net_cash_change,
+           COALESCE(SUM(candidate.counterpart_amount), 0.00) AS candidate_total
+      FROM cash_transactions cash
+      LEFT JOIN candidates candidate
+        ON candidate.transaction_id = cash.transaction_id
+       AND candidate.office_id = cash.office_id
+       AND candidate.entry_date = cash.entry_date
+     GROUP BY cash.transaction_id, cash.office_id, cash.entry_date, cash.ref_num, cash.net_cash_change
+),
+candidate_diagnostics AS (
+    SELECT candidate.entry_date,
+           office.name AS office_name,
+           candidate.transaction_id,
+           candidate.ref_num,
+           candidate.net_cash_change,
+           totals.candidate_total,
+           account.gl_code,
+           account.name AS account_name,
+           candidate.counterpart_amount,
+           candidate.description,
+           mapping.section_code,
+           mapping.line_code,
+           CASE WHEN totals.candidate_total <> ABS(candidate.net_cash_change) THEN 'AMBIGUOUS'
+                WHEN mapping.gl_account_id IS NULL THEN 'UNMAPPED'
+                ELSE 'MAPPED' END AS diagnostic_status
+      FROM candidates candidate
+      JOIN totals
+        ON totals.transaction_id = candidate.transaction_id
+       AND totals.office_id = candidate.office_id
+       AND totals.entry_date = candidate.entry_date
+      JOIN m_office office ON office.id = candidate.office_id
+      JOIN acc_gl_account account ON account.id = candidate.counterpart_account_id
+      LEFT JOIN LATERAL (
+          SELECT configured.gl_account_id,
+                 configured.section_code,
+                 configured.line_code
+            FROM account_ancestry ancestry
+            JOIN credesal_cash_flow_mapping configured
+              ON configured.gl_account_id = ancestry.ancestor_account_id
+           WHERE ancestry.descendant_account_id = candidate.counterpart_account_id
+             AND configured.cash_direction = CASE WHEN candidate.net_cash_change > 0.00 THEN 'I' ELSE 'O' END
+             AND configured.active
+           ORDER BY ancestry.distance, configured.gl_account_id
+           LIMIT 1
+      ) mapping ON TRUE
+),
+missing_candidate_diagnostics AS (
+    SELECT totals.entry_date,
+           office.name AS office_name,
+           totals.transaction_id,
+           totals.ref_num,
+           totals.net_cash_change,
+           totals.candidate_total,
+           NULL::VARCHAR AS gl_code,
+           NULL::VARCHAR AS account_name,
+           NULL::NUMERIC AS counterpart_amount,
+           NULL::VARCHAR AS description,
+           NULL::VARCHAR AS section_code,
+           NULL::VARCHAR AS line_code,
+           'AMBIGUOUS'::VARCHAR AS diagnostic_status
+      FROM totals
+      JOIN m_office office ON office.id = totals.office_id
+     WHERE totals.candidate_total = 0.00
+)
+SELECT diagnostic.entry_date AS "Fecha",
+       diagnostic.office_name AS "Oficina",
+       diagnostic.transaction_id AS "Transacción",
+       diagnostic.ref_num AS "Referencia",
+       ROUND(diagnostic.net_cash_change, 2) AS "Cambio en Efectivo",
+       ROUND(diagnostic.candidate_total, 2) AS "Total Contrapartidas",
+       diagnostic.gl_code AS "Cuenta Contrapartida",
+       diagnostic.account_name AS "Nombre Cuenta",
+       ROUND(diagnostic.counterpart_amount, 2) AS "Monto Contrapartida",
+       diagnostic.description AS "Descripción",
+       diagnostic.section_code AS "Sección Mapeada",
+       diagnostic.line_code AS "Línea Mapeada",
+       diagnostic.diagnostic_status AS "Diagnóstico"
+  FROM (
+      SELECT * FROM candidate_diagnostics
+      UNION ALL
+      SELECT * FROM missing_candidate_diagnostics
+  ) diagnostic
+ WHERE diagnostic.diagnostic_status <> 'MAPPED'
+ ORDER BY diagnostic.entry_date, diagnostic.transaction_id, diagnostic.gl_code
+$diagnostic$,
+    'Movimientos de efectivo ambiguos o sin mapeo contable.',
+    FALSE,
+    TRUE,
+    FALSE
+)
+ON CONFLICT (report_name) DO UPDATE
+SET report_type = EXCLUDED.report_type,
+    report_subtype = EXCLUDED.report_subtype,
+    report_category = EXCLUDED.report_category,
+    report_sql = EXCLUDED.report_sql,
+    description = EXCLUDED.description,
+    core_report = EXCLUDED.core_report,
+    use_report = EXCLUDED.use_report,
+    self_service_user_report = EXCLUDED.self_service_user_report;
+
+DELETE FROM stretchy_report_parameter
+ WHERE report_id IN (
+     SELECT id
+       FROM stretchy_report
+      WHERE report_name IN ('Estado de Flujo de Efectivo', 'Diagnóstico de Flujo de Efectivo')
+ );
+
+INSERT INTO stretchy_report_parameter (
+    report_id,
+    parameter_id,
+    report_parameter_name
+)
+SELECT report.id,
+       parameter.id,
+       parameter.parameter_variable
+  FROM stretchy_report report
+  CROSS JOIN stretchy_parameter parameter
+ WHERE report.report_name IN ('Estado de Flujo de Efectivo', 'Diagnóstico de Flujo de Efectivo')
+   AND parameter.parameter_name IN ('OfficeIdSelectOne', 'startDateSelect', 'endDateSelect');
+
+DO $validation$
+DECLARE
+    report_name_to_check TEXT;
+BEGIN
+    FOREACH report_name_to_check IN ARRAY ARRAY[
+        'Estado de Flujo de Efectivo',
+        'Diagnóstico de Flujo de Efectivo'
+    ]
+    LOOP
+        IF (
+            SELECT COUNT(*)
+              FROM stretchy_report_parameter usage
+              JOIN stretchy_report report ON report.id = usage.report_id
+             WHERE report.report_name = report_name_to_check
+               AND usage.report_parameter_name IN ('officeId', 'startDate', 'endDate')
+        ) <> 3 THEN
+            RAISE EXCEPTION '% requires officeId, startDate, and endDate parameters', report_name_to_check;
+        END IF;
+    END LOOP;
+END
+$validation$;
+
+INSERT INTO m_permission (
+    grouping,
+    code,
+    entity_name,
+    action_name,
+    can_maker_checker
+)
+SELECT 'report',
+       'READ_' || report_name,
+       report_name,
+       'READ',
+       FALSE
+  FROM (VALUES
+      ('Estado de Flujo de Efectivo'),
+      ('Diagnóstico de Flujo de Efectivo')
+  ) reports(report_name)
+ WHERE NOT EXISTS (
+     SELECT 1 FROM m_permission permission WHERE permission.code = 'READ_' || reports.report_name
+ );
+        ]]></sql>
+    </changeSet>
+
+</databaseChangeLog>

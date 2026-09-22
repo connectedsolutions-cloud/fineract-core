@@ -356,6 +356,15 @@ def _can_repair_existing_drift(record: dict[str, Any], existing: dict[str, Any],
     )
 
 
+def _can_update_source_authoritatively(record: dict[str, Any], existing: dict[str, Any],
+                                       drift_reasons: list[str]) -> bool:
+    """Allow a changed Arissto record to advance past only the stale boundary marker."""
+    return (
+        existing["source_hash"] != record["source_hash"]
+        and set(drift_reasons) == {"migration_interest_start_mismatch"}
+    )
+
+
 def build_savings_plan(settings: Settings, state: State, contract: SavingsContract,
                        source_keys: list[str] | None = None,
                        repair_existing_drift: bool = False) -> tuple[str, dict[str, Any]]:
@@ -402,6 +411,10 @@ def build_savings_plan(settings: Settings, state: State, contract: SavingsContra
             elif drift_reasons := _planning_drift_reasons(record, existing, native, contract.contract_hash):
                 if repair_existing_drift and _can_repair_existing_drift(record, existing, drift_reasons):
                     action, reason = "repair", "reviewed_existing_drift"
+                elif repair_existing_drift and _can_update_source_authoritatively(
+                    record, existing, drift_reasons
+                ):
+                    action, reason = "update", "source_authoritative_update"
                 else:
                     action, reason = "blocked", drift_reasons[0]
                     if existing["source_hash"] != record["source_hash"]:
@@ -1868,6 +1881,11 @@ def _dpf_replay_counts(conn: Any, account_ids: list[int], expected_cutoff: date)
     return interest_count, transfers
 
 
+def _dpf_expected_replay_count(canary: DpfCanary, expected_cutoff: date) -> int:
+    """Count source interest events in the same frozen window as native replay."""
+    return sum(interest.posted_on <= expected_cutoff for interest in canary.interests)
+
+
 def _reconcile_vista(settings: Settings, canary: VistaCanary, migration: dict[str, Any],
                      expected_cutoff: date) -> list[str]:
     mismatches: list[str] = []
@@ -2028,7 +2046,8 @@ def _reconcile_dpf(settings: Settings, contract: SavingsContract, canary: DpfCan
     expected_associations = 0 if canary.state == "SUBMITTED_UNFUNDED" else len(cycles)
     if associations != expected_associations:
         mismatches.append("linked_vista_associations")
-    if interest_count != len(canary.interests) or transfers != len(canary.interests):
+    expected_replay_count = _dpf_expected_replay_count(canary, expected_cutoff)
+    if interest_count != expected_replay_count or transfers != expected_replay_count:
         mismatches.append("interest_replay")
     if canary.state == "SUBMITTED_UNFUNDED" and transaction_count != 0:
         mismatches.append("unexpected_unfunded_transactions")

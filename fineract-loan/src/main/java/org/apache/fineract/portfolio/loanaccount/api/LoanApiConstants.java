@@ -147,6 +147,9 @@ public interface LoanApiConstants {
     String sourceExactSchedulePrincipalParamName = "principal";
     String sourceExactScheduleInterestParamName = "interest";
     String sourceExactScheduleAllowTerminalAggregationParamName = "allowTerminalInstallmentAggregation";
+    String sourceExactScheduleExpectedCurrentHashParamName = "expectedCurrentScheduleHash";
+    String sourceExactScheduleReplacementHashParamName = "replacementScheduleHash";
+    String sourceExactScheduleExpectedTransactionCountParamName = "expectedNonDisbursementTransactionCount";
     // loan write off
     String WRITEOFFREASONS = "WriteOffReasons";
     // loan charge-off

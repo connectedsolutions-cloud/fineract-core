@@ -1,0 +1,359 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more
+     contributor license agreements. See the NOTICE file distributed with
+     this work for additional information regarding copyright ownership.
+     The ASF licenses this file to you under the Apache License, Version 2.0. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0358-1-register-estado-resultados-consolidado-report" author="credesal" dbms="postgresql">
+        <comment>
+            Register the USD-only visual Estado de Resultados Consolidado
+            report with month-to-date and fiscal-year-to-date balances.
+        </comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+INSERT INTO stretchy_report (
+    report_name,
+    report_type,
+    report_subtype,
+    report_category,
+    report_sql,
+    description,
+    core_report,
+    use_report,
+    self_service_user_report
+)
+VALUES (
+    'Estado de Resultados Consolidado',
+    'Table',
+    'VisualIncomeStmt',
+    'Accounting',
+    $report$
+WITH RECURSIVE
+presentation_integrity AS (
+    SELECT COUNT(*) = 2482
+           AND COUNT(*) FILTER (
+               WHERE trial_balance_selected
+                 AND NOT balance_sheet_selected
+                 AND classifier_code IN ('004', '005')
+           ) = 26
+           AND COUNT(DISTINCT presentation_version) = 1
+           AND COUNT(DISTINCT source_snapshot_sha256) = 1
+           AND MIN(presentation_version) = 'arissto-coa-presentation-v1'
+           AND MIN(source_snapshot_sha256) = '9e4d2a035daf0d21944ef21684a467d26349023e2b2c56e30ffc98385bc56282' AS valid
+      FROM credesal_gl_account_presentation
+),
+selected_scope AS (
+    SELECT selected_office.id AS selected_office_id,
+           selected_office.name AS selected_office_name,
+           CAST('${endDate}' AS DATE) AS report_date,
+           DATE_TRUNC('month', CAST('${endDate}' AS DATE))::DATE AS month_start,
+           MAKE_DATE(EXTRACT(YEAR FROM CAST('${endDate}' AS DATE))::INTEGER, 1, 1) AS year_start
+      FROM m_office selected_office
+     WHERE selected_office.id = CAST('${officeId}' AS BIGINT)
+       AND selected_office.hierarchy LIKE '${currentUserHierarchy}' || '%'
+),
+selected_offices AS (
+    SELECT office_under.id
+      FROM selected_scope scope
+      JOIN m_office selected_office ON selected_office.id = scope.selected_office_id
+      JOIN m_office office_under
+        ON office_under.hierarchy LIKE selected_office.hierarchy || '%'
+       AND office_under.hierarchy LIKE '${currentUserHierarchy}' || '%'
+),
+selected_accounts AS (
+    SELECT presentation.gl_account_id AS report_account_id,
+           presentation.source_gl_code,
+           presentation.source_name,
+           presentation.classifier_code,
+           presentation.balance_nature,
+           presentation.account_order,
+           parent.gl_code AS group_code,
+           COALESCE(parent_presentation.source_name, parent.name) AS group_name
+      FROM credesal_gl_account_presentation presentation
+      JOIN acc_gl_account account ON account.id = presentation.gl_account_id
+      JOIN acc_gl_account parent ON parent.id = account.parent_id
+ LEFT JOIN credesal_gl_account_presentation parent_presentation
+        ON parent_presentation.gl_account_id = parent.id
+     CROSS JOIN presentation_integrity integrity
+     WHERE presentation.trial_balance_selected
+       AND NOT presentation.balance_sheet_selected
+       AND presentation.classifier_code IN ('004', '005')
+       AND integrity.valid
+),
+report_tree AS (
+    SELECT selected.report_account_id,
+           selected.source_gl_code,
+           selected.source_name,
+           selected.classifier_code,
+           selected.balance_nature,
+           selected.account_order,
+           selected.group_code,
+           selected.group_name,
+           selected.report_account_id AS descendant_account_id,
+           ARRAY[selected.report_account_id]::BIGINT[] AS account_path
+      FROM selected_accounts selected
+
+    UNION ALL
+
+    SELECT tree.report_account_id,
+           tree.source_gl_code,
+           tree.source_name,
+           tree.classifier_code,
+           tree.balance_nature,
+           tree.account_order,
+           tree.group_code,
+           tree.group_name,
+           child.id,
+           tree.account_path || child.id
+      FROM report_tree tree
+      JOIN acc_gl_account child ON child.parent_id = tree.descendant_account_id
+     WHERE NOT child.id = ANY(tree.account_path)
+),
+account_balances AS (
+    SELECT tree.report_account_id,
+           tree.source_gl_code,
+           tree.source_name,
+           tree.classifier_code,
+           tree.account_order,
+           tree.group_code,
+           tree.group_name,
+           ROUND(COALESCE(SUM(
+               CASE
+                   WHEN journal_entry.entry_date BETWEEN scope.month_start AND scope.report_date
+                   THEN CASE
+                       WHEN tree.balance_nature = 'D'
+                       THEN CASE WHEN journal_entry.type_enum = 2 THEN journal_entry.amount ELSE -journal_entry.amount END
+                       ELSE CASE WHEN journal_entry.type_enum = 1 THEN journal_entry.amount ELSE -journal_entry.amount END
+                   END
+                   ELSE 0.00
+               END
+           ), 0.00), 2) AS monthly_amount,
+           ROUND(COALESCE(SUM(
+               CASE
+                   WHEN journal_entry.entry_date BETWEEN scope.year_start AND scope.report_date
+                   THEN CASE
+                       WHEN tree.balance_nature = 'D'
+                       THEN CASE WHEN journal_entry.type_enum = 2 THEN journal_entry.amount ELSE -journal_entry.amount END
+                       ELSE CASE WHEN journal_entry.type_enum = 1 THEN journal_entry.amount ELSE -journal_entry.amount END
+                   END
+                   ELSE 0.00
+               END
+           ), 0.00), 2) AS accumulated_amount
+      FROM report_tree tree
+ CROSS JOIN selected_scope scope
+ LEFT JOIN acc_gl_journal_entry journal_entry
+        ON journal_entry.account_id = tree.descendant_account_id
+       AND journal_entry.office_id IN (SELECT id FROM selected_offices)
+       AND journal_entry.currency_code = 'USD'
+       AND journal_entry.entry_date BETWEEN scope.year_start AND scope.report_date
+       AND NOT EXISTS (
+            SELECT 1
+              FROM credesal_arissto_gl_journal provenance
+             WHERE provenance.target_transaction_id = journal_entry.transaction_id
+               AND provenance.source_journal_type = '003'
+               AND provenance.source_journal_date BETWEEN scope.year_start AND scope.report_date
+       )
+     GROUP BY tree.report_account_id,
+              tree.source_gl_code,
+              tree.source_name,
+              tree.classifier_code,
+              tree.account_order,
+              tree.group_code,
+              tree.group_name
+),
+visible_accounts AS (
+    SELECT *
+      FROM account_balances
+     WHERE monthly_amount <> 0.00 OR accumulated_amount <> 0.00
+),
+group_totals AS (
+    SELECT classifier_code,
+           group_code,
+           MIN(group_name) AS group_name,
+           MIN(account_order) AS account_order,
+           ROUND(SUM(monthly_amount), 2) AS monthly_amount,
+           ROUND(SUM(accumulated_amount), 2) AS accumulated_amount
+      FROM visible_accounts
+     GROUP BY classifier_code, group_code
+),
+section_totals AS (
+    SELECT classifier_code,
+           ROUND(SUM(monthly_amount), 2) AS monthly_amount,
+           ROUND(SUM(accumulated_amount), 2) AS accumulated_amount
+      FROM account_balances
+     GROUP BY classifier_code
+),
+net_result AS (
+    SELECT ROUND(
+               COALESCE(SUM(monthly_amount) FILTER (WHERE classifier_code = '005'), 0.00)
+               - COALESCE(SUM(monthly_amount) FILTER (WHERE classifier_code = '004'), 0.00),
+               2
+           ) AS monthly_amount,
+           ROUND(
+               COALESCE(SUM(accumulated_amount) FILTER (WHERE classifier_code = '005'), 0.00)
+               - COALESCE(SUM(accumulated_amount) FILTER (WHERE classifier_code = '004'), 0.00),
+               2
+           ) AS accumulated_amount
+      FROM section_totals
+     CROSS JOIN presentation_integrity integrity
+     WHERE integrity.valid
+),
+display_rows AS (
+    SELECT CASE section.classifier_code WHEN '005' THEN 1 ELSE 2 END AS section_order,
+           1 AS row_order,
+           ''::VARCHAR AS group_order,
+           ''::VARCHAR AS account_order,
+           'SECTION'::VARCHAR AS row_type,
+           CASE section.classifier_code WHEN '005' THEN 'INGRESOS' ELSE 'GASTOS' END::VARCHAR AS section_name,
+           NULL::VARCHAR AS group_code,
+           NULL::VARCHAR AS group_name,
+           NULL::VARCHAR AS account_code,
+           NULL::VARCHAR AS account_name,
+           section.monthly_amount,
+           section.accumulated_amount
+      FROM section_totals section
+
+    UNION ALL
+
+    SELECT CASE report_group.classifier_code WHEN '005' THEN 1 ELSE 2 END,
+           2,
+           report_group.group_code,
+           '',
+           'GROUP',
+           CASE report_group.classifier_code WHEN '005' THEN 'INGRESOS' ELSE 'GASTOS' END,
+           report_group.group_code,
+           report_group.group_name,
+           NULL,
+           NULL,
+           report_group.monthly_amount,
+           report_group.accumulated_amount
+      FROM group_totals report_group
+
+    UNION ALL
+
+    SELECT CASE account.classifier_code WHEN '005' THEN 1 ELSE 2 END,
+           3,
+           account.group_code,
+           LPAD(COALESCE(account.account_order, 9223372036854775807)::TEXT, 19, '0'),
+           'ACCOUNT',
+           CASE account.classifier_code WHEN '005' THEN 'INGRESOS' ELSE 'GASTOS' END,
+           account.group_code,
+           account.group_name,
+           account.source_gl_code,
+           account.source_name,
+           account.monthly_amount,
+           account.accumulated_amount
+      FROM visible_accounts account
+
+    UNION ALL
+
+    SELECT 3,
+           4,
+           '',
+           '',
+           'RESULT',
+           'RESULTADO',
+           NULL,
+           NULL,
+           NULL,
+           CASE WHEN result.accumulated_amount < 0 THEN 'DÉFICIT' ELSE 'EXCEDENTE' END,
+           result.monthly_amount,
+           result.accumulated_amount
+      FROM net_result result
+)
+SELECT ROW_NUMBER() OVER (
+           ORDER BY row.section_order,
+                    row.group_order COLLATE "C",
+                    row.row_order,
+                    row.account_order COLLATE "C"
+       ) AS row_sequence,
+       row.row_type,
+       scope.selected_office_id AS office_id,
+       scope.selected_office_name AS office_name,
+       scope.month_start,
+       scope.year_start,
+       scope.report_date,
+       row.section_name,
+       row.group_code,
+       row.group_name,
+       row.account_code,
+       row.account_name,
+       row.monthly_amount,
+       row.accumulated_amount
+  FROM display_rows row
+ CROSS JOIN selected_scope scope
+ ORDER BY row.section_order,
+          row.group_order COLLATE "C",
+          row.row_order,
+          row.account_order COLLATE "C";
+$report$,
+    'Estado de resultados consolidado en USD con valores mensuales y acumulados.',
+    FALSE,
+    TRUE,
+    FALSE
+)
+ON CONFLICT (report_name) DO UPDATE
+SET report_type = EXCLUDED.report_type,
+    report_subtype = EXCLUDED.report_subtype,
+    report_category = EXCLUDED.report_category,
+    report_sql = EXCLUDED.report_sql,
+    description = EXCLUDED.description,
+    core_report = EXCLUDED.core_report,
+    use_report = EXCLUDED.use_report,
+    self_service_user_report = EXCLUDED.self_service_user_report;
+
+DELETE FROM stretchy_report_parameter
+ WHERE report_id = (
+     SELECT id FROM stretchy_report
+      WHERE report_name = 'Estado de Resultados Consolidado'
+ );
+
+INSERT INTO stretchy_report_parameter (
+    report_id,
+    parameter_id,
+    report_parameter_name
+)
+SELECT report.id,
+       parameter.id,
+       parameter.parameter_variable
+  FROM stretchy_report report
+ CROSS JOIN stretchy_parameter parameter
+ WHERE report.report_name = 'Estado de Resultados Consolidado'
+   AND parameter.parameter_name IN ('OfficeIdSelectOne', 'endDateSelect');
+
+DO $validation$
+BEGIN
+    IF (
+        SELECT COUNT(*)
+          FROM stretchy_report_parameter usage
+          JOIN stretchy_report report ON report.id = usage.report_id
+         WHERE report.report_name = 'Estado de Resultados Consolidado'
+           AND usage.report_parameter_name IN ('officeId', 'endDate')
+    ) <> 2 THEN
+        RAISE EXCEPTION 'Estado de Resultados Consolidado requires officeId and endDate';
+    END IF;
+END
+$validation$;
+
+INSERT INTO m_permission (
+    grouping,
+    code,
+    entity_name,
+    action_name,
+    can_maker_checker
+)
+SELECT 'report',
+       'READ_Estado de Resultados Consolidado',
+       'Estado de Resultados Consolidado',
+       'READ',
+       FALSE
+ WHERE NOT EXISTS (
+     SELECT 1 FROM m_permission
+      WHERE code = 'READ_Estado de Resultados Consolidado'
+ );
+        ]]></sql>
+    </changeSet>
+
+</databaseChangeLog>

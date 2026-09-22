@@ -1,6 +1,7 @@
 /** Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements. */
 package org.apache.fineract.portfolio.shareaccounts.service;
 
+import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -55,6 +56,7 @@ public class ShareYieldService {
     private final ShareProductYieldConfigurationRepository configurationRepository;
     private final ShareAccountYieldAccrualRepository accrualRepository;
     private final ShareAccountYieldSettlementRepository settlementRepository;
+    private final EntityManager entityManager;
     private final ShareAccountRepository shareAccountRepository;
     private final ShareAccountRepositoryWrapper shareAccountRepositoryWrapper;
     private final ShareProductRepositoryWrapper shareProductRepositoryWrapper;
@@ -237,7 +239,7 @@ public class ShareYieldService {
             int basis, BigDecimal exact, BigDecimal booked, String sourceReference, boolean imported) {
         ShareAccountTransaction transaction = ShareAccountTransaction.createYieldAccrualTransaction(date, booked);
         account.addYieldAccrualTransaction(transaction);
-        shareAccountRepository.saveAndFlush(account);
+        entityManager.persist(transaction);
         ShareAccountYieldAccrual accrual = accrualRepository.saveAndFlush(new ShareAccountYieldAccrual(account, transaction, date,
                 entryType, base, rate, basis, exact, booked, sourceReference, imported));
         if (booked.signum() > 0 && cutoffPolicyService.shouldGenerateAccounting(date)) {

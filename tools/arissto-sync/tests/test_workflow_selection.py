@@ -21,12 +21,15 @@ class WorkflowSelectionTests(unittest.TestCase):
         report = inspect_workflow(definition)
 
         self.assertTrue(report["ready"])
-        self.assertEqual(len(report["ordered_services"]), 15)
+        self.assertEqual(len(report["ordered_services"]), 16)
         self.assertIn("membership-share-capital", report["ordered_services"])
         self.assertIn("native-share-capital", report["ordered_services"])
         self.assertIn("savings-account-parties", report["ordered_services"])
         self.assertIn("aml-alerts", report["ordered_services"])
-        self.assertEqual(report["ordered_services"][-1], "accounting-journal-entries")
+        self.assertEqual(report["ordered_services"][-2:], [
+            "accounting-journal-entries", "native-share-yield",
+        ])
+        self.assertEqual(report["warnings"], [])
 
     def test_native_share_selection_adds_membership_and_savings_dependencies(self):
         selected = select_workflow_services(

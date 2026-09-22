@@ -22,11 +22,13 @@ from unittest.mock import MagicMock, patch
 from arissto_sync.savings_engine import (
     _apply_dpf,
     _dpf_expected_statuses_at_cutoff,
+    _dpf_expected_replay_count,
     _dpf_product_payload,
     _dpf_replay_counts,
     _dpf_source_maturity_payload,
     _ensure_dpf_account,
     _can_repair_existing_drift,
+    _can_update_source_authoritatively,
     _planning_drift_reasons,
     _reconcile_record,
     _next_replacement_reference,
@@ -142,6 +144,18 @@ class SavingsContractTests(unittest.TestCase):
         for call_args in conn.execute.call_args_list:
             self.assertIn("transaction_date<=%s", call_args.args[0])
             self.assertEqual(call_args.args[1], ([336, 337], date(2026, 9, 4)))
+
+    def test_dpf_expected_replay_count_excludes_post_cutoff_source_activity(self):
+        canary = SimpleNamespace(interests=(
+            SimpleNamespace(posted_on=date(2026, 9, 3)),
+            SimpleNamespace(posted_on=date(2026, 9, 4)),
+            SimpleNamespace(posted_on=date(2026, 9, 5)),
+        ))
+
+        self.assertEqual(
+            _dpf_expected_replay_count(canary, date(2026, 9, 4)),
+            2,
+        )
 
     def test_product_payloads_include_approved_numbering_codes(self):
         gl = {
@@ -374,6 +388,21 @@ class SavingsContractTests(unittest.TestCase):
         self.assertFalse(_can_repair_existing_drift(record, existing, reasons))
         existing["source_hash"] = "same"
         self.assertFalse(_can_repair_existing_drift(record, existing, ["unknown_native_drift"]))
+
+    def test_source_authoritative_update_only_allows_changed_source_with_stale_boundary(self):
+        record = {"source_hash": "current"}
+        existing = {"source_hash": "previous"}
+
+        self.assertTrue(_can_update_source_authoritatively(
+            record, existing, ["migration_interest_start_mismatch"]
+        ))
+        self.assertFalse(_can_update_source_authoritatively(
+            record, existing, ["migration_interest_start_mismatch", "native_balance_mismatch"]
+        ))
+        existing["source_hash"] = "current"
+        self.assertFalse(_can_update_source_authoritatively(
+            record, existing, ["migration_interest_start_mismatch"]
+        ))
 
     def test_stale_native_transaction_uses_deterministic_repair_reference(self):
         reference = "VSTI:001:001:84:817"

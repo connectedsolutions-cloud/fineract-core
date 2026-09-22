@@ -123,13 +123,13 @@ remain available across fresh/clean runs; only operational cycle state is remove
   existence does not enable the production timer; deployment promotion remains
   a separate reviewed operation.
 
-- `local-full-sync`: all 15 available registry services in one dependency-complete
-  local workflow. Accounting journal entries run as the final local step.
+- `local-full-sync`: all 16 available registry services in one dependency-complete
+  local workflow. Accounting journal entries run immediately before native share yield.
   Dashboard runs default to the complete ledger through the inclusive
   source-through date; the engine derives the first Fineract-owned date as the
   following day. Operators may supply a source period to narrow a test. This is
   the dashboard default for a fresh run.
-- `local-full-resync`: all 15 registry services in one checkpointed
+- `local-full-resync`: all 16 registry services in one checkpointed
   local delta workflow. It requires the current open cycle and one accepted
   reconciliation checkpoint per selected service, preserves the sandbox target,
   skips unchanged source hashes, and does not infer deletions.

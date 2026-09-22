@@ -29,6 +29,7 @@ from arissto_sync.loans import (
     _ensure_pending_native_creation_override,
     _ensure_source_exact_accrual_catchup,
     _ensure_source_exact_active_schedule,
+    _ensure_source_exact_resync_schedule,
     _ensure_source_insurance_charges,
     _verify_historical_insurance_charge_settlement,
     _ensure_source_penalty_charge,
@@ -38,6 +39,7 @@ from arissto_sync.loans import (
     _terminal_adjustment_allocation,
     _loan_legacy_timeline_differences,
     _mark_unchanged_mapped_loans,
+    _freeze_full_resync_schedule_guards,
     _proof_namespace_lifecycle,
     _refinance_component_bridge,
     _refinance_fee_charge_external_id,
@@ -45,6 +47,7 @@ from arissto_sync.loans import (
     _propagate_intrinsic_refinance_quarantines,
     _resolve_or_create_loan_product,
     _source_exact_schedule_variations,
+    _source_exact_schedule_hash,
     _with_fineract_recovery,
     _selected_loan_actions,
     _successful_full_close_predecessors,
@@ -74,6 +77,68 @@ CONFIG = Path(__file__).resolve().parents[1] / "config" / "loans.json"
 
 
 class LoanFullResyncTests(unittest.TestCase):
+    def test_full_resync_freezes_schedule_and_transaction_guards(self):
+        document = {"actions": [{
+            "entity_type": "loan", "action": "recover-loan", "external_id": "ARISSTO:CRD:42",
+            "lifecycle": {
+                "events": [{"role": "disbursement", "date": "2026-01-01"}],
+                "schedule": [
+                    {"number": 1, "due_date": "2026-01-08", "principal": "10.00", "interest": "1.00"},
+                ],
+            },
+        }]}
+        target = {"loans": {"ARISSTO:CRD:42": {
+            "status": 300,
+            "schedule": [{
+                "installmentNumber": 1, "fromDate": "2026-01-01", "dueDate": "2026-01-07",
+                "principal": "10", "interest": "0.90",
+            }],
+            "non_disbursement_transaction_count": 3,
+        }}}
+
+        _freeze_full_resync_schedule_guards(document, target)
+
+        guard = document["actions"][0]["full_resync_schedule_guard"]
+        self.assertEqual(guard["policy"], "replace-and-reprocess-v1")
+        self.assertNotEqual(guard["expected_target_schedule_hash"], guard["replacement_schedule_hash"])
+        self.assertEqual(guard["expected_non_disbursement_transaction_count"], 3)
+
+    def test_full_resync_schedule_writer_uses_guarded_command(self):
+        rows = [{
+            "installmentNumber": 1, "fromDate": "2026-01-01", "dueDate": "2026-01-08",
+            "principal": "10.00", "interest": "1.00",
+        }]
+        replacement_hash = _source_exact_schedule_hash(rows)
+        action = {
+            "external_id": "ARISSTO:CRD:42",
+            "lifecycle": {
+                "events": [{"role": "disbursement", "date": "2026-01-01"}],
+                "schedule": [
+                    {"number": 1, "due_date": "2026-01-08", "principal": "10.00", "interest": "1.00"},
+                ],
+            },
+            "full_resync_schedule_guard": {
+                "policy": "replace-and-reprocess-v1",
+                "expected_target_schedule_hash": "old-hash",
+                "replacement_schedule_hash": replacement_hash,
+                "expected_non_disbursement_transaction_count": 3,
+            },
+        }
+        refreshed = {"id": 9, "repaymentSchedule": {}}
+        api = MagicMock()
+        with (
+            patch("arissto_sync.loans._find_loan", return_value=refreshed),
+            patch("arissto_sync.loans._loan_schedule_differences", return_value=[]),
+        ):
+            result = _ensure_source_exact_resync_schedule(api, {"id": 9}, action, "attempt")
+
+        self.assertIs(result, refreshed)
+        request = api.request.call_args
+        self.assertEqual(request.args[:2], ("POST", "loans/9"))
+        self.assertEqual(request.kwargs["query"], {"command": "sourceExactResyncSchedule"})
+        self.assertEqual(request.args[2]["expectedCurrentScheduleHash"], "old-hash")
+        self.assertEqual(request.args[2]["expectedNonDisbursementTransactionCount"], 3)
+
     def test_exact_mapped_loan_becomes_zero_write_action(self):
         with tempfile.TemporaryDirectory() as directory:
             state = State(Path(directory) / "state.sqlite3")

@@ -56,6 +56,8 @@ public interface LoanWritePlatformService {
 
     CommandProcessingResult importSourceExactActiveSchedule(Long loanId, JsonCommand command);
 
+    CommandProcessingResult importSourceExactResyncSchedule(Long loanId, JsonCommand command);
+
     CommandProcessingResult materializeSourceExactAccruals(Long loanId, JsonCommand command);
 
     CommandProcessingResult makeSourceExactLoanGoodwillCredit(Long loanId, JsonCommand command);

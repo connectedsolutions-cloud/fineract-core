@@ -468,6 +468,23 @@ Local `full-resync` is supported through `local-full-resync`. The planner
 compares each frozen loan lifecycle hash with its durable local mapping. An exact
 mapped loan becomes `unchanged-loan` and produces no lifecycle write. New or
 changed loans enter the existing idempotent create/recovery path, which preserves
-external identities and replay guards. Source absence never deletes a loan or
-financial event, unsupported changes fail or quarantine, and the checkpoint
-advances only after strict reconciliation.
+external identities and replay guards. When an active loan's contractual
+schedule changed in Arissto, this mode alone may freeze a guarded
+`replace-and-reprocess-v1` action containing the old and new schedule hashes and
+the current transaction count. Apply uses the dedicated
+`sourceExactResyncSchedule` command to atomically replace the entire schedule
+and reprocess existing transactions; stale guards fail without writing and an
+already-applied replacement is idempotent. Fresh/clean and resumed-sync plans do
+not receive this authorization. Source absence never deletes a loan or financial
+event, unsupported changes fail or quarantine, and the checkpoint advances only
+after strict reconciliation.
+
+For a changed active loan whose carried cutover-insurance balance decreased,
+apply computes the exact difference between the existing Fineract cutover
+charge's outstanding amount and the newly frozen `SALDO_SEGURO`. The difference
+must equal the sum of newly observed, post-cutover repayment insurance
+components. Those components name and settle the existing cutover charge; they
+must not create and immediately pay a second historical charge. Any ambiguous
+delta, missing cutover charge, target balance below source, or already-posted
+transaction owned by a different charge fails closed before the checkpoint can
+advance.

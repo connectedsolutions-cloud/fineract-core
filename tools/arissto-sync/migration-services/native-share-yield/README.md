@@ -2,10 +2,9 @@
 
 ## Status
 
-`blocked`, with implementation complete and local acceptance still required.
-Do not add this service to a composed workflow or enable the `Accrue Share
-Yield` scheduler until tenant migration `0349_add_native_share_yield.xml` is
-deployed and the controlled local gates below pass.
+`available` for reviewed local workflows and checkpointed local full re-sync.
+The controlled local workflow completed with exact reconciliation. Enabling the
+`Accrue Share Yield` scheduler remains a separate operational decision.
 
 This service migrates the financial meaning that the purchase-only native
 share projection previously omitted. It reads preferred-share rows from
@@ -24,11 +23,13 @@ Each imported event preserves:
 Historical journal creation follows the global accounting cutoff. Pre-cutoff
 imports populate the native subledger without duplicating journal entries that
 are owned by `accounting-journal-entries`. Post-cutoff scheduled accrual entries
-are owned by Fineract and debit `7110040100` / credit `222099940101`. The
-`Accrue Share Yield` scheduler uses the Fineract business date but is not a loan
-COB step.
+are owned by Fineract and debit `7110040100` / credit target liability
+`222099910101`. Arissto source account `222099940101` is translated to that
+target account by the reviewed accounting crosswalk; share-yield configuration
+must use the target GL identity. The `Accrue Share Yield` scheduler uses the
+Fineract business date but is not a loan COB step.
 
-## Commands after local acceptance
+## Controlled local acceptance commands
 
 ```bash
 ./arissto-sync inspect --block native-share-yield --target local

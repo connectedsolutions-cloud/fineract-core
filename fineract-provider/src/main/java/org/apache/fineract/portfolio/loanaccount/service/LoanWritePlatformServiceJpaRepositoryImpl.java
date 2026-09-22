@@ -32,6 +32,9 @@ import com.google.gson.JsonObject;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.resilience4j.retry.annotation.Retry;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -40,6 +43,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -1264,7 +1268,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                 .withClientId(loan.getClientId()).withGroupId(loan.getGroupId()).with(changes).build();
     }
 
-    private record SourceExactActiveScheduleRow(Integer installmentNumber, LocalDate fromDate, LocalDate dueDate, BigDecimal principal,
+    record SourceExactActiveScheduleRow(Integer installmentNumber, LocalDate fromDate, LocalDate dueDate, BigDecimal principal,
             BigDecimal interest) {
     }
 
@@ -1319,6 +1323,92 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         changes.put(LoanApiConstants.sourceExactScheduleSourceSystemParamName, sourceSystem);
         changes.put(LoanApiConstants.sourceExactScheduleLoanExternalIdParamName, sourceLoanExternalId);
         changes.put(LoanApiConstants.sourceExactScheduleInstallmentsParamName, sourceRows.size());
+        return new CommandProcessingResultBuilder().withCommandId(command.commandId()).withLoanId(loan.getId()).withEntityId(loan.getId())
+                .withEntityExternalId(loan.getExternalId()).withOfficeId(loan.getOfficeId()).withClientId(loan.getClientId())
+                .withGroupId(loan.getGroupId()).with(changes).build();
+    }
+
+    @Transactional
+    @Override
+    public CommandProcessingResult importSourceExactResyncSchedule(final Long loanId, final JsonCommand command) {
+        final Loan loan = this.loanAssembler.assembleFrom(loanId);
+        if (!loan.isOpen() || !CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor.STRATEGY_CODE
+                .equals(loan.transactionProcessingStrategy()) || !loan.isPeriodicAccrualAccountingEnabledOnLoanProduct()) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.resync.schedule.not.supported",
+                    "Source-exact full re-sync schedule replacement requires an active Credesal periodic-accrual loan");
+        }
+        final String sourceSystem = command.stringValueOfParameterNamed(LoanApiConstants.sourceExactScheduleSourceSystemParamName);
+        final String sourceLoanExternalId = command
+                .stringValueOfParameterNamed(LoanApiConstants.sourceExactScheduleLoanExternalIdParamName);
+        if (!"ARISSTO".equals(sourceSystem) || loan.getExternalId().isEmpty()
+                || !Objects.equals(loan.getExternalId().getValue(), sourceLoanExternalId)
+                || !isSourceExactScheduleExternalId(sourceLoanExternalId)) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.resync.schedule.identity.invalid",
+                    "Source-exact full re-sync schedule replacement requires the matching Arissto loan identity");
+        }
+
+        final String dateFormat = command.stringValueOfParameterNamed("dateFormat");
+        final Locale locale = command.extractLocale();
+        final JsonArray rows = command.arrayOfParameterNamed(LoanApiConstants.sourceExactScheduleInstallmentsParamName);
+        final List<SourceExactActiveScheduleRow> sourceRows = new ArrayList<>();
+        for (final JsonElement row : rows) {
+            sourceRows.add(new SourceExactActiveScheduleRow(
+                    this.fromApiJsonHelper.extractIntegerNamed(LoanApiConstants.sourceExactScheduleInstallmentNumberParamName, row, locale),
+                    this.fromApiJsonHelper.extractLocalDateNamed(LoanApiConstants.sourceExactScheduleFromDateParamName, row, dateFormat,
+                            locale),
+                    this.fromApiJsonHelper.extractLocalDateNamed(LoanApiConstants.dueDateParamName, row, dateFormat, locale),
+                    this.fromApiJsonHelper.extractBigDecimalNamed(LoanApiConstants.sourceExactSchedulePrincipalParamName, row, locale),
+                    this.fromApiJsonHelper.extractBigDecimalNamed(LoanApiConstants.sourceExactScheduleInterestParamName, row, locale)));
+        }
+        validateSourceExactReplacementRows(loan, sourceRows);
+        final String expectedCurrentHash = command
+                .stringValueOfParameterNamed(LoanApiConstants.sourceExactScheduleExpectedCurrentHashParamName);
+        final String requestedReplacementHash = command
+                .stringValueOfParameterNamed(LoanApiConstants.sourceExactScheduleReplacementHashParamName);
+        final long expectedTransactionCount = command
+                .longValueOfParameterNamed(LoanApiConstants.sourceExactScheduleExpectedTransactionCountParamName);
+        final String replacementHash = sourceExactScheduleHash(sourceRows);
+        if (!Objects.equals(requestedReplacementHash, replacementHash)) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.resync.schedule.replacement.hash.invalid",
+                    "Full re-sync replacement schedule does not match the immutable plan hash");
+        }
+
+        final List<SourceExactActiveScheduleRow> currentRows = loan.getRepaymentScheduleInstallments().stream()
+                .filter(installment -> !installment.isDownPayment() && !installment.isAdditional())
+                .sorted(Comparator.comparing(LoanRepaymentScheduleInstallment::getInstallmentNumber))
+                .map(installment -> new SourceExactActiveScheduleRow(installment.getInstallmentNumber(), installment.getFromDate(),
+                        installment.getDueDate(), installment.getPrincipal(), installment.getInterestCharged()))
+                .toList();
+        final String currentHash = sourceExactScheduleHash(currentRows);
+        boolean replaced = false;
+        if (!currentHash.equals(replacementHash)) {
+            if (!currentHash.equals(expectedCurrentHash)) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.resync.schedule.current.hash.changed",
+                        "The target schedule changed after the full re-sync plan was created");
+            }
+            final long activeDisbursements = loan.getLoanTransactions().stream().filter(LoanTransaction::isNotReversed)
+                    .filter(LoanTransaction::isDisbursement).count();
+            final long nonDisbursementTransactions = loan.getLoanTransactions().stream().filter(LoanTransaction::isNotReversed)
+                    .filter(transaction -> !transaction.isDisbursement()).count();
+            if (activeDisbursements < 1 || nonDisbursementTransactions != expectedTransactionCount) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.resync.schedule.transactions.changed",
+                        "Loan transactions changed after the full re-sync plan was created");
+            }
+            replaceSourceExactSchedule(loan, sourceRows);
+            this.reprocessLoanTransactionsService.reprocessTransactions(loan);
+            this.loanRepaymentScheduleInstallmentRepository.saveAll(loan.getRepaymentScheduleInstallments());
+            this.loanBalanceService.updateLoanSummaryDerivedFields(loan);
+            this.loanRepositoryWrapper.saveAndFlush(loan);
+            replaced = true;
+        }
+
+        final Map<String, Object> changes = new LinkedHashMap<>();
+        changes.put(LoanApiConstants.sourceExactScheduleSourceSystemParamName, sourceSystem);
+        changes.put(LoanApiConstants.sourceExactScheduleLoanExternalIdParamName, sourceLoanExternalId);
+        changes.put("previousScheduleHash", currentHash);
+        changes.put(LoanApiConstants.sourceExactScheduleReplacementHashParamName, replacementHash);
+        changes.put(LoanApiConstants.sourceExactScheduleInstallmentsParamName, sourceRows.size());
+        changes.put("replaced", replaced);
         return new CommandProcessingResultBuilder().withCommandId(command.commandId()).withLoanId(loan.getId()).withEntityId(loan.getId())
                 .withEntityExternalId(loan.getExternalId()).withOfficeId(loan.getOfficeId()).withClientId(loan.getClientId())
                 .withGroupId(loan.getGroupId()).with(changes).build();
@@ -1431,6 +1521,59 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             target.updateObligationMetOnDate(null);
         }
         loan.setExpectedMaturityDate(sourceRows.getLast().dueDate());
+    }
+
+    static String sourceExactScheduleHash(final List<SourceExactActiveScheduleRow> rows) {
+        final String material = rows.stream()
+                .map(row -> row.installmentNumber() + "|" + row.fromDate() + "|" + row.dueDate() + "|"
+                        + canonicalDecimal(row.principal()) + "|" + canonicalDecimal(row.interest()))
+                .reduce((left, right) -> left + "\n" + right).orElse("");
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(material.getBytes(StandardCharsets.UTF_8)));
+        } catch (final NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
+    }
+
+    static void replaceSourceExactSchedule(final Loan loan, final List<SourceExactActiveScheduleRow> sourceRows) {
+        validateSourceExactReplacementRows(loan, sourceRows);
+        final List<LoanRepaymentScheduleInstallment> replacements = sourceRows.stream()
+                .map(row -> new LoanRepaymentScheduleInstallment(loan, row.installmentNumber(), row.fromDate(), row.dueDate(),
+                        row.principal(), row.interest(), BigDecimal.ZERO, BigDecimal.ZERO, null, null, null, null, false, false, false))
+                .toList();
+        loan.updateLoanScheduleOnForeclosure(replacements);
+        loan.setExpectedMaturityDate(sourceRows.getLast().dueDate());
+    }
+
+    private static void validateSourceExactReplacementRows(final Loan loan, final List<SourceExactActiveScheduleRow> sourceRows) {
+        if (sourceRows.isEmpty()) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.resync.schedule.empty",
+                    "Source-exact full re-sync schedule cannot be empty");
+        }
+        BigDecimal principalTotal = BigDecimal.ZERO;
+        LocalDate previousDueDate = null;
+        for (int index = 0; index < sourceRows.size(); index++) {
+            final SourceExactActiveScheduleRow source = sourceRows.get(index);
+            if (!Objects.equals(source.installmentNumber(), index + 1) || source.fromDate() == null || source.dueDate() == null
+                    || source.principal() == null || source.interest() == null || source.principal().signum() < 0
+                    || source.interest().signum() < 0 || !source.fromDate().isBefore(source.dueDate())
+                    || previousDueDate != null && !source.dueDate().isAfter(previousDueDate)
+                    || previousDueDate != null && !source.fromDate().equals(previousDueDate)) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.resync.schedule.row.invalid",
+                        "Source-exact full re-sync schedule rows must be complete, nonnegative, contiguous, and strictly ordered");
+            }
+            principalTotal = principalTotal.add(source.principal());
+            previousDueDate = source.dueDate();
+        }
+        if (principalTotal.compareTo(loan.getApprovedPrincipal()) != 0) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.resync.schedule.principal.invalid",
+                    "Source-exact full re-sync schedule principal must equal the approved principal");
+        }
+    }
+
+    private static String canonicalDecimal(final BigDecimal value) {
+        final BigDecimal normalized = value == null || value.signum() == 0 ? BigDecimal.ZERO : value.stripTrailingZeros();
+        return normalized.toPlainString();
     }
 
     static boolean isSourceExactScheduleExternalId(final String externalId) {

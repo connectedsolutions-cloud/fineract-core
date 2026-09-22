@@ -27,6 +27,7 @@ class MigrationServiceRegistryTests(unittest.TestCase):
              ("savings-deposits", "savings-deposits"),
              ("savings-account-parties", "savings-account-parties"),
              ("native-share-capital", "native-share-capital"),
+             ("native-share-yield", "native-share-yield"),
              ("aml-alerts", "aml-alerts"),
              ("loans", "loans"),
              ("dte-history", "dte-history"),
@@ -39,19 +40,18 @@ class MigrationServiceRegistryTests(unittest.TestCase):
         self.assertEqual(report["service"]["status"], "available")
         self.assertTrue(report["service"]["executable"])
 
-    def test_accepted_services_are_available_and_share_yield_remains_gated(self):
+    def test_accepted_services_are_available(self):
         services = load_registry()["services"]
         self.assertEqual(len(services), 16)
-        accepted = [service for service in services if service["id"] != "native-share-yield"]
-        self.assertTrue(all(service["status"] == "available" for service in accepted))
-        self.assertTrue(all(service["executable"] for service in accepted))
+        self.assertTrue(all(service["status"] == "available" for service in services))
+        self.assertTrue(all(service["executable"] for service in services))
         self.assertTrue(all(
             service.get("full_resync", {}).get("status") == "supported"
-            for service in accepted
+            for service in services
         ))
         share_yield = next(service for service in services if service["id"] == "native-share-yield")
-        self.assertEqual(share_yield["status"], "blocked")
-        self.assertFalse(share_yield["executable"])
+        self.assertEqual(share_yield["status"], "available")
+        self.assertTrue(share_yield["executable"])
 
     def test_accounting_journal_entries_is_available_for_local_workflows(self):
         service = service_report("accounting-journal-entries")["service"]

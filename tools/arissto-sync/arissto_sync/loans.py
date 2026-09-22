@@ -238,12 +238,20 @@ class LoanContract:
             "source", "identity", "collateral_contract", "product_contract", "target", "supported_transactions",
             "historical_schedule_exceptions", "historical_reference_only_schedules",
             "native_creation_overrides", "active_manual_schedule_imports",
+            "full_resync_contract",
             "source_error_quarantines",
             "timestamp_precedence_candidates", "movement_order",
             "implementation_gates",
         ):
             if section not in value:
                 raise ValueError(f"Loans mapping is missing {section!r}")
+        full_resync_contract = value["full_resync_contract"]
+        if full_resync_contract != {
+            "active_schedule_drift": "replace-and-reprocess-v1",
+            "requires_target_schedule_hash": True,
+            "requires_transaction_count": True,
+        }:
+            raise ValueError("Loans full re-sync contract is not the reviewed replace-and-reprocess contract")
         for table in value["source"].values():
             if not isinstance(table, str) or not IDENTIFIER.fullmatch(table):
                 raise ValueError(f"Unsafe loans source table: {table!r}")
@@ -545,6 +553,47 @@ def _enum_id(value: Any) -> int | None:
 
 def _decimal_text(value: Any) -> str:
     return format(Decimal(str(value or 0)).normalize(), "f")
+
+
+def _source_exact_schedule_hash(rows: list[dict[str, Any]]) -> str:
+    material = "\n".join(
+        "|".join((
+            str(int(row["installmentNumber"])),
+            _iso_date(row["fromDate"], "schedule from date"),
+            _iso_date(row["dueDate"], "schedule due date"),
+            _decimal_text(row["principal"]),
+            _decimal_text(row["interest"]),
+        ))
+        for row in rows
+    )
+    return hashlib.sha256(material.encode()).hexdigest()
+
+
+def _source_exact_installments(action: dict[str, Any]) -> list[dict[str, Any]]:
+    lifecycle = action["lifecycle"]
+    disbursement = next(
+        (event for event in lifecycle.get("events") or [] if event.get("role") == "disbursement"),
+        None,
+    )
+    if disbursement is None:
+        raise RuntimeError("loan_source_exact_active_schedule_disbursement_missing")
+    anchor_policy = (
+        lifecycle.get("contractual_schedule_anchor_policy")
+        or lifecycle.get("active_manual_schedule_import_policy")
+        or {}
+    )
+    previous_due_date = anchor_policy.get("contractual_schedule_start_date") or disbursement["date"]
+    installments = []
+    for row in lifecycle.get("schedule") or []:
+        installments.append({
+            "installmentNumber": int(row["number"]),
+            "fromDate": previous_due_date,
+            "dueDate": row["due_date"],
+            "principal": row["principal"],
+            "interest": row["interest"],
+        })
+        previous_due_date = row["due_date"]
+    return installments
 
 
 def _dimensions(value: Any) -> dict[str, Any]:
@@ -1895,6 +1944,19 @@ def resolve_loan_product_target(
             "SELECT external_id,id,product_id,client_id,loan_status_id FROM m_loan WHERE external_id=ANY(%s)",
             (loan_external_ids,),
         ).fetchall() if loan_external_ids else []
+        schedule_rows = conn.execute(
+            "SELECT l.external_id,s.installment,s.fromdate,s.duedate,s.principal_amount,s.interest_amount "
+            "FROM m_loan l JOIN m_loan_repayment_schedule s ON s.loan_id=l.id "
+            "WHERE l.external_id=ANY(%s) AND s.is_down_payment=false AND s.is_additional=false "
+            "ORDER BY l.external_id,s.installment",
+            (loan_external_ids,),
+        ).fetchall() if loan_external_ids else []
+        transaction_count_rows = conn.execute(
+            "SELECT l.external_id,COUNT(t.id) FROM m_loan l "
+            "LEFT JOIN m_loan_transaction t ON t.loan_id=l.id AND t.is_reversed=false "
+            "AND t.transaction_type_enum<>1 WHERE l.external_id=ANY(%s) GROUP BY l.external_id",
+            (loan_external_ids,),
+        ).fetchall() if loan_external_ids else []
     crosswalks = {
         str(row[0]): {
             "source_key": str(row[0]), "source_hash": str(row[1]), "contract_hash": str(row[2]),
@@ -1962,6 +2024,16 @@ def resolve_loan_product_target(
     for line_id in lines:
         external_id = contract.raw["identity"]["product_external_id"].format(ID_LINEA_CREDITO=line_id)
         products[line_id] = _find_loan_product(api, external_id)
+    schedules_by_external_id: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for external_id, installment, from_date, due_date, principal, interest in schedule_rows:
+        schedules_by_external_id[str(external_id)].append({
+            "installmentNumber": int(installment),
+            "fromDate": from_date.isoformat(),
+            "dueDate": due_date.isoformat(),
+            "principal": _decimal_text(principal),
+            "interest": _decimal_text(interest),
+        })
+    transaction_counts = {str(external_id): int(count) for external_id, count in transaction_count_rows}
     return {
         "resources": {
             "gl_ids": gl_ids,
@@ -1990,6 +2062,8 @@ def resolve_loan_product_target(
             str(external_id): {
                 "id": int(identifier), "product_id": int(product_id), "client_id": int(client_id),
                 "status": int(status),
+                "schedule": schedules_by_external_id.get(str(external_id), []),
+                "non_disbursement_transaction_count": transaction_counts.get(str(external_id), 0),
             }
             for external_id, identifier, product_id, client_id, status in loan_rows
         },
@@ -3550,6 +3624,7 @@ def build_loan_plan(
         proof_namespace, migration_cutover_date,
     )
     if skip_unchanged:
+        _freeze_full_resync_schedule_guards(document, target)
         _mark_unchanged_mapped_loans(document, state, settings.target.fingerprint)
         _freeze_full_resync_insurance_guards(document)
     document["schema_signature"] = inspections[0]["schema_signature"]
@@ -3558,6 +3633,26 @@ def build_loan_plan(
         settings.target.fingerprint, BLOCK, document["source_fingerprint"], contract.digest, document
     )
     return plan_id, document
+
+
+def _freeze_full_resync_schedule_guards(document: dict[str, Any], target: dict[str, Any]) -> None:
+    """Authorize schedule replacement only from an immutable full re-sync plan."""
+    for action in document["actions"]:
+        if action.get("entity_type") != "loan" or action.get("action") != "recover-loan":
+            continue
+        existing = target.get("loans", {}).get(action["external_id"])
+        if existing is None or int(existing.get("status") or -1) != 300:
+            continue
+        replacement_rows = _source_exact_installments(action)
+        current_rows = existing.get("schedule") or []
+        action["full_resync_schedule_guard"] = {
+            "policy": "replace-and-reprocess-v1",
+            "expected_target_schedule_hash": _source_exact_schedule_hash(current_rows),
+            "replacement_schedule_hash": _source_exact_schedule_hash(replacement_rows),
+            "expected_non_disbursement_transaction_count": int(
+                existing.get("non_disbursement_transaction_count") or 0
+            ),
+        }
 
 
 def _mark_unchanged_mapped_loans(
@@ -3671,6 +3766,22 @@ def _loan_apply_guard(
             }) if rebuilt_lifecycle else None
             if current is None or current_hash != action["source_hash"]:
                 raise RuntimeError(f"Loan source changed after planning: {action['source_key']}")
+            guard = action.get("full_resync_schedule_guard")
+            if guard:
+                current_target = target.get("loans", {}).get(action["external_id"])
+                if current_target is None:
+                    raise RuntimeError(f"Loan target disappeared after planning: {action['source_key']}")
+                current_schedule_hash = _source_exact_schedule_hash(current_target.get("schedule") or [])
+                if current_schedule_hash not in {
+                    guard["expected_target_schedule_hash"], guard["replacement_schedule_hash"],
+                }:
+                    raise RuntimeError(f"Loan target schedule changed after planning: {action['source_key']}")
+                if (
+                    current_schedule_hash != guard["replacement_schedule_hash"]
+                    and int(current_target.get("non_disbursement_transaction_count") or 0)
+                    != int(guard["expected_non_disbursement_transaction_count"])
+                ):
+                    raise RuntimeError(f"Loan target transactions changed after planning: {action['source_key']}")
             _, runtime_collaterals, _ = _collateral_runtime_contract(
                 contract, current, source_lifecycles.get(int(action["entity_source_key"])) or {},
             )
@@ -4637,6 +4748,9 @@ def _ensure_source_exact_pending_schedule(
     if not differences:
         return loan
     status = int((loan.get("status") or {}).get("id") or -1)
+    guard = action.get("full_resync_schedule_guard")
+    if status == 300 and guard and guard.get("policy") == "replace-and-reprocess-v1":
+        return _ensure_source_exact_resync_schedule(api, loan, action, attempt_key)
     if status != 100:
         raise RuntimeError(
             "existing_loan_schedule_mismatch_before_continue:"
@@ -4688,28 +4802,7 @@ def _ensure_source_exact_active_schedule(
             "existing_loan_active_schedule_mismatch_before_continue:"
             f"{json.dumps(differences, sort_keys=True)}"
         )
-    disbursement = next(
-        (event for event in lifecycle.get("events") or [] if event.get("role") == "disbursement"),
-        None,
-    )
-    if disbursement is None:
-        raise RuntimeError("loan_source_exact_active_schedule_disbursement_missing")
-    anchor_policy = (
-        lifecycle.get("contractual_schedule_anchor_policy")
-        or lifecycle.get("active_manual_schedule_import_policy")
-        or {}
-    )
-    previous_due_date = anchor_policy.get("contractual_schedule_start_date") or disbursement["date"]
-    installments = []
-    for row in source_schedule:
-        installments.append({
-            "installmentNumber": int(row["number"]),
-            "fromDate": previous_due_date,
-            "dueDate": row["due_date"],
-            "principal": row["principal"],
-            "interest": row["interest"],
-        })
-        previous_due_date = row["due_date"]
+    installments = _source_exact_installments(action)
     payload = {
         "sourceSystem": SOURCE_SYSTEM,
         "sourceLoanExternalId": action["external_id"],
@@ -4738,6 +4831,47 @@ def _ensure_source_exact_active_schedule(
         raise RuntimeError(
             "loan_source_exact_active_schedule_persisted_mismatch:"
             f"{json.dumps(persisted_differences, sort_keys=True)}"
+        )
+    return refreshed
+
+
+def _ensure_source_exact_resync_schedule(
+    api: FineractApi, loan: dict[str, Any], action: dict[str, Any], attempt_key: str | None,
+) -> dict[str, Any]:
+    guard = action["full_resync_schedule_guard"]
+    installments = _source_exact_installments(action)
+    replacement_hash = _source_exact_schedule_hash(installments)
+    if replacement_hash != guard["replacement_schedule_hash"]:
+        raise RuntimeError("loan_full_resync_replacement_schedule_hash_changed")
+    loan_id = int(loan["id"])
+    api.request(
+        "POST", f"loans/{loan_id}", {
+            "sourceSystem": SOURCE_SYSTEM,
+            "sourceLoanExternalId": action["external_id"],
+            "installments": installments,
+            "expectedCurrentScheduleHash": guard["expected_target_schedule_hash"],
+            "replacementScheduleHash": guard["replacement_schedule_hash"],
+            "expectedNonDisbursementTransactionCount": int(
+                guard["expected_non_disbursement_transaction_count"]
+            ),
+            "dateFormat": "yyyy-MM-dd",
+            "locale": "en",
+        },
+        query={"command": "sourceExactResyncSchedule"},
+        idempotency_key=_attempt_idempotency_key(
+            f"{action['external_id']}:source-exact-resync-schedule:{replacement_hash}", attempt_key,
+        ),
+    )
+    refreshed = _find_loan(api, action["external_id"])
+    if refreshed is None:
+        raise RuntimeError("loan_missing_after_source_exact_resync_schedule")
+    differences = _loan_schedule_differences(
+        action["lifecycle"].get("schedule") or [], refreshed.get("repaymentSchedule") or {},
+    )
+    if differences:
+        raise RuntimeError(
+            "loan_source_exact_resync_schedule_persisted_mismatch:"
+            f"{json.dumps(differences, sort_keys=True)}"
         )
     return refreshed
 
