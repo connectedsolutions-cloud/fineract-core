@@ -3551,6 +3551,7 @@ def build_loan_plan(
     )
     if skip_unchanged:
         _mark_unchanged_mapped_loans(document, state, settings.target.fingerprint)
+        _freeze_full_resync_insurance_guards(document)
     document["schema_signature"] = inspections[0]["schema_signature"]
     document["target_schema_signature"] = inspections[0]["target_schema_signature"]
     plan_id = state.save_plan(
@@ -3574,6 +3575,13 @@ def _mark_unchanged_mapped_loans(
         ):
             action["action"] = "unchanged-loan"
     document["counts"] = dict(Counter(action["action"] for action in document["actions"]))
+
+
+def _freeze_full_resync_insurance_guards(document: dict[str, Any]) -> None:
+    """Authorize cutover-insurance settlement only from a full re-sync plan."""
+    for action in document["actions"]:
+        if action.get("entity_type") == "loan" and action.get("action") == "recover-loan":
+            action["full_resync_insurance_guard"] = {"policy": "settle-cutover-delta-v1"}
 
 
 def _loan_apply_guard(
@@ -3993,6 +4001,107 @@ def _loan_charge_by_external_id(loan: dict[str, Any], external_id: str) -> dict[
     return matches[0] if matches else None
 
 
+def _transaction_fee_charge_external_ids(
+    loan: dict[str, Any], transaction: dict[str, Any],
+) -> set[str]:
+    charge_external_ids = {
+        int(charge["id"]): str(charge["externalId"])
+        for charge in list(loan.get("charges") or [])
+        if charge.get("id") is not None and charge.get("externalId")
+    }
+    return {
+        charge_external_ids[int(mapping["chargeId"])]
+        for mapping in list(transaction.get("loanChargePaidByList") or [])
+        if mapping.get("chargeId") is not None
+        and int(mapping["chargeId"]) in charge_external_ids
+        and _amount(mapping.get("amount")) > 0
+    }
+
+
+def _full_resync_cutover_insurance_events(
+    loan: dict[str, Any], action: dict[str, Any],
+) -> set[str]:
+    """Select post-cutover repayments that exactly reduce carried insurance."""
+    insurance_guard = action.get("full_resync_insurance_guard") or {}
+    if (
+        action.get("action") != "recover-loan"
+        or insurance_guard.get("policy") != "settle-cutover-delta-v1"
+    ):
+        return set()
+    lifecycle = action["lifecycle"]
+    cutover = lifecycle.get("cutover_insurance_charge")
+    cutover_date = lifecycle.get("migration_cutover_date")
+    if cutover is None or not cutover_date:
+        return set()
+    existing_cutover = _loan_charge_by_external_id(loan, cutover["external_id"])
+    if existing_cutover is None:
+        raise RuntimeError(
+            f"full_resync_cutover_insurance_charge_missing:{cutover['external_id']}"
+        )
+    current_outstanding = _amount(existing_cutover.get("amountOutstanding"))
+    expected_outstanding = _amount(cutover["amount"])
+    required_reduction = current_outstanding - expected_outstanding
+    if required_reduction < Decimal("-0.01"):
+        raise RuntimeError(
+            "full_resync_cutover_insurance_target_below_source:"
+            f"{cutover['external_id']}:{current_outstanding}:{expected_outstanding}"
+        )
+
+    routed: set[str] = set()
+    missing_candidates: list[dict[str, Any]] = []
+    conflicting_candidates: list[dict[str, Any]] = []
+    for event in lifecycle.get("events") or []:
+        if (
+            event.get("role") not in {"repayment", "adjusted-repayment", "mobile-collection-repayment"}
+            or bool(event.get("source_reversed"))
+            or str(event.get("date") or "") < str(cutover_date)
+            or _amount((event.get("allocation") or {}).get("fee")) <= 0
+        ):
+            continue
+        transaction = _transaction_by_external_id(loan, str(event["external_id"]))
+        if transaction is None:
+            missing_candidates.append(event)
+            continue
+        owners = _transaction_fee_charge_external_ids(loan, transaction)
+        if cutover["external_id"] in owners:
+            routed.add(str(event["external_id"]))
+        else:
+            conflicting_candidates.append(event)
+
+    missing_total = sum(
+        (_amount(event["allocation"]["fee"]) for event in missing_candidates), Decimal("0.00")
+    )
+    if abs(required_reduction) <= Decimal("0.01"):
+        return routed
+    if abs(missing_total - required_reduction) <= Decimal("0.01"):
+        routed.update(str(event["external_id"]) for event in missing_candidates)
+        return routed
+    conflicting_total = sum(
+        (_amount(event["allocation"]["fee"]) for event in conflicting_candidates), Decimal("0.00")
+    )
+    if abs(missing_total + conflicting_total - required_reduction) <= Decimal("0.01"):
+        identities = ",".join(str(event["external_id"]) for event in conflicting_candidates)
+        raise RuntimeError(
+            "existing_source_exact_fee_charge_mismatch:"
+            f"{cutover['external_id']}:{identities}"
+        )
+    raise RuntimeError(
+        "full_resync_cutover_insurance_delta_not_representable:"
+        f"{cutover['external_id']}:{current_outstanding}:{expected_outstanding}:{missing_total}"
+    )
+
+
+def _verify_transaction_fee_charge(
+    loan: dict[str, Any], transaction: dict[str, Any], expected_external_id: str,
+) -> None:
+    actual = _transaction_fee_charge_external_ids(loan, transaction)
+    if actual != {expected_external_id}:
+        raise RuntimeError(
+            "source_exact_fee_charge_allocation_mismatch:"
+            f"{transaction.get('externalId')}:{expected_external_id}:{','.join(sorted(actual))}"
+        )
+
+
 def _ensure_source_penalty_charge(
     api: FineractApi, loan: dict[str, Any], event: dict[str, Any], attempt_key: str | None,
 ) -> dict[str, Any]:
@@ -4055,7 +4164,10 @@ def _ensure_source_insurance_charges(
     return loan
 
 
-def _verify_historical_insurance_charge_settlement(loan: dict[str, Any], lifecycle: dict[str, Any]) -> None:
+def _verify_historical_insurance_charge_settlement(
+    loan: dict[str, Any], lifecycle: dict[str, Any],
+    cutover_settlement_event_ids: set[str] | None = None,
+) -> None:
     """Prove each synthetic source-payment fee landed on its declared charge.
 
     The aggregate fee component is insufficient evidence: a same-date cutover
@@ -4066,10 +4178,11 @@ def _verify_historical_insurance_charge_settlement(loan: dict[str, Any], lifecyc
         for row in (loan.get("charges") or [])
         if row.get("externalId")
     }
+    cutover_settlement_event_ids = cutover_settlement_event_ids or set()
     for event in lifecycle.get("events") or []:
         if event.get("source_reversed") or event.get("role") not in {
             "repayment", "adjusted-repayment", "mobile-collection-repayment"
-        }:
+        } or event.get("external_id") in cutover_settlement_event_ids:
             continue
         for expected in event.get("historical_insurance_charges") or []:
             external_id = expected["external_id"]
@@ -5003,6 +5116,8 @@ def _apply_loan_lifecycle(
     }
     refinance = lifecycle.get("refinance")
     loan = existing
+    cutover_settlement_event_ids = _full_resync_cutover_insurance_events(loan, action)
+    cutover_charge = lifecycle.get("cutover_insurance_charge")
     for event in lifecycle["events"]:
         loan = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
         role = event["role"]
@@ -5176,13 +5291,24 @@ def _apply_loan_lifecycle(
             source_reversed = bool(event.get("source_reversed"))
             if not source_reversed and _amount(event["allocation"]["penalty"]) > 0:
                 loan = _ensure_source_penalty_charge(api, loan, event, attempt_key)
+            fee_charge_external_id = None
             if not source_reversed and _amount(event["allocation"]["fee"]) > 0:
-                loan = _ensure_source_insurance_charges(api, loan, event, attempt_key)
-                fee_charges = event.get("historical_insurance_charges") or []
-                if len(fee_charges) != 1:
-                    raise RuntimeError(f"source_exact_fee_charge_identity_ambiguous:{event['external_id']}")
-                if _amount(fee_charges[0]["amount"]) != _amount(event["allocation"]["fee"]):
-                    raise RuntimeError(f"source_exact_fee_charge_amount_mismatch:{event['external_id']}")
+                if event["external_id"] in cutover_settlement_event_ids:
+                    if cutover_charge is None:
+                        raise RuntimeError("full_resync_cutover_insurance_plan_missing")
+                    fee_charge_external_id = str(cutover_charge["external_id"])
+                    if _loan_charge_by_external_id(loan, fee_charge_external_id) is None:
+                        raise RuntimeError(
+                            f"full_resync_cutover_insurance_charge_missing:{fee_charge_external_id}"
+                        )
+                else:
+                    loan = _ensure_source_insurance_charges(api, loan, event, attempt_key)
+                    fee_charges = event.get("historical_insurance_charges") or []
+                    if len(fee_charges) != 1:
+                        raise RuntimeError(f"source_exact_fee_charge_identity_ambiguous:{event['external_id']}")
+                    if _amount(fee_charges[0]["amount"]) != _amount(event["allocation"]["fee"]):
+                        raise RuntimeError(f"source_exact_fee_charge_amount_mismatch:{event['external_id']}")
+                    fee_charge_external_id = str(fee_charges[0]["external_id"])
             if existing_transaction is None:
                 status = int((loan.get("status") or {}).get("id") or -1)
                 if status != 300:
@@ -5197,8 +5323,8 @@ def _apply_loan_lifecycle(
                 }
                 if source_reversed:
                     payload["transientChargeAllocation"] = True
-                if not source_reversed and _amount(event["allocation"]["fee"]) > 0:
-                    payload["feeChargeExternalId"] = fee_charges[0]["external_id"]
+                if fee_charge_external_id is not None:
+                    payload["feeChargeExternalId"] = fee_charge_external_id
                 if event.get("payment_type_id") is not None:
                     payload["paymentTypeId"] = int(event["payment_type_id"])
                 api.request(
@@ -5212,6 +5338,8 @@ def _apply_loan_lifecycle(
                     raise RuntimeError(f"created_repayment_not_recoverable:{event['external_id']}")
             _verify_transaction_amount(existing_transaction, event)
             _verify_repayment_allocation(existing_transaction, event)
+            if event["external_id"] in cutover_settlement_event_ids and fee_charge_external_id is not None:
+                _verify_transaction_fee_charge(loan, existing_transaction, fee_charge_external_id)
         elif role == "native-refinance-payoff":
             # The successor top-up disbursement creates this repayment
             # atomically; the predecessor action only freezes the source fact.
@@ -5246,7 +5374,6 @@ def _apply_loan_lifecycle(
         else:
             raise RuntimeError(f"unsupported_frozen_loan_event:{role}")
 
-    cutover_charge = lifecycle.get("cutover_insurance_charge")
     if cutover_charge is not None:
         loan = _ensure_source_insurance_charges(
             api,
@@ -5259,7 +5386,9 @@ def _apply_loan_lifecycle(
     if recurring_charge is not None:
         loan = _ensure_recurring_insurance_charge(api, loan, recurring_charge, attempt_key)
 
-    _verify_historical_insurance_charge_settlement(loan, lifecycle)
+    _verify_historical_insurance_charge_settlement(
+        loan, lifecycle, cutover_settlement_event_ids,
+    )
 
     adjustment = lifecycle.get("terminal_adjustment")
     if adjustment is not None:

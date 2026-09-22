@@ -948,6 +948,16 @@ The writer must therefore keep the two paths disjoint: source-exact historical
 charge facts before cutover, and one dynamic native charge from cutover onward.
 It must quarantine a loan if the same installment would receive both paths.
 
+For full re-sync, a later source repayment may reduce the carried
+`source_insurance_cutover_outstanding` snapshot. The writer must allocate that
+repayment's exact insurance component to the existing cutover charge when, and
+only when, the sum of newly observed post-cutover insurance components exactly
+equals the decrease from the target charge's current outstanding amount to the
+newly frozen `SALDO_SEGURO`. It must preserve the cutover charge's external
+identity and immutable original amount. Creating and immediately settling a new
+historical charge does not reduce the carried balance and is forbidden for this
+case. Ambiguous deltas and conflicting existing payment ownership fail closed.
+
 Fineract's general interest-recalculation configuration remains incompatible
 with the dynamic `PERCENT_OF_OUTSTANDING_PRINCIPAL` installment charge and is
 not enabled for this contract. The reviewed transaction strategy provides the

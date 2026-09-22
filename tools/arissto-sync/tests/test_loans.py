@@ -64,6 +64,7 @@ from arissto_sync.loans import (
     product_action_key,
     reconcile_loans,
 )
+from arissto_sync.loans import _full_resync_cutover_insurance_events
 from arissto_sync.connections import FineractError
 from arissto_sync.engine import datatable_api_payload
 from arissto_sync.state import State
@@ -99,6 +100,84 @@ class LoanFullResyncTests(unittest.TestCase):
                 self.assertEqual(document["counts"], {"unchanged-loan": 1, "recover-loan": 1})
             finally:
                 state.conn.close()
+
+
+class LoanFullResyncInsuranceTests(unittest.TestCase):
+    @staticmethod
+    def cutover_action() -> dict:
+        return {
+            "action": "recover-loan",
+            "full_resync_insurance_guard": {"policy": "settle-cutover-delta-v1"},
+            "lifecycle": {
+                "migration_cutover_date": "2026-09-20",
+                "cutover_insurance_charge": {
+                    "external_id": "ARISSTO:CRD-INS-CUTOVER:2100",
+                    "amount": "0.54",
+                },
+                "events": [{
+                    "external_id": "ARISSTO:CRD-MOV:0000031021",
+                    "role": "repayment",
+                    "date": "2026-09-21",
+                    "source_reversed": False,
+                    "allocation": {"fee": "0.72"},
+                }],
+            },
+        }
+
+    def test_full_resync_routes_exact_insurance_delta_to_cutover_charge(self):
+        loan = {"charges": [{
+            "id": 10,
+            "externalId": "ARISSTO:CRD-INS-CUTOVER:2100",
+            "amount": "1.26",
+            "amountOutstanding": "1.26",
+        }], "transactions": []}
+
+        routed = _full_resync_cutover_insurance_events(loan, self.cutover_action())
+
+        self.assertEqual(routed, {"ARISSTO:CRD-MOV:0000031021"})
+
+    def test_full_resync_accepts_replayed_repayment_owned_by_cutover_charge(self):
+        loan = {
+            "charges": [{
+                "id": 10,
+                "externalId": "ARISSTO:CRD-INS-CUTOVER:2100",
+                "amount": "1.26",
+                "amountOutstanding": "0.54",
+            }],
+            "transactions": [{
+                "externalId": "ARISSTO:CRD-MOV:0000031021",
+                "loanChargePaidByList": [{"chargeId": 10, "amount": "0.72"}],
+            }],
+        }
+
+        routed = _full_resync_cutover_insurance_events(loan, self.cutover_action())
+
+        self.assertEqual(routed, {"ARISSTO:CRD-MOV:0000031021"})
+
+    def test_full_resync_rejects_already_posted_repayment_owned_by_historical_charge(self):
+        loan = {
+            "charges": [
+                {
+                    "id": 10,
+                    "externalId": "ARISSTO:CRD-INS-CUTOVER:2100",
+                    "amount": "1.26",
+                    "amountOutstanding": "1.26",
+                },
+                {
+                    "id": 11,
+                    "externalId": "ARISSTO:CRD-INS:203068:0000031021:0011",
+                    "amount": "0.72",
+                    "amountOutstanding": "0.00",
+                },
+            ],
+            "transactions": [{
+                "externalId": "ARISSTO:CRD-MOV:0000031021",
+                "loanChargePaidByList": [{"chargeId": 11, "amount": "0.72"}],
+            }],
+        }
+
+        with self.assertRaisesRegex(RuntimeError, "existing_source_exact_fee_charge_mismatch"):
+            _full_resync_cutover_insurance_events(loan, self.cutover_action())
 
 
 class LoanInspectionTests(unittest.TestCase):
@@ -2869,6 +2948,77 @@ class LoanInspectionTests(unittest.TestCase):
              "penaltyChargesPortion": "0.00"},
         )
         self.assertEqual(repayment_payload["feeChargeExternalId"], "ARISSTO:CRD-INS:7001:101:0001")
+
+    def test_full_resync_repayment_settles_existing_cutover_insurance_charge(self):
+        loan, lifecycle, target, payload = self.lifecycle_fixture()
+        built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        repayment = built["lifecycle"]["events"][-1]
+        built["lifecycle"]["migration_cutover_date"] = repayment["date"]
+        built["lifecycle"]["cutover_insurance_charge"]["amount"] = "0.10"
+        action = {
+            "action": "recover-loan",
+            "external_id": "ARISSTO:CRD:2068",
+            "full_resync_insurance_guard": {"policy": "settle-cutover-delta-v1"},
+            "lifecycle": built["lifecycle"],
+        }
+        cutover_external_id = built["lifecycle"]["cutover_insurance_charge"]["external_id"]
+        disbursement = built["lifecycle"]["events"][0]
+        active = {
+            "id": 55, "loanProductId": 90, "clientId": 900, "principal": 350,
+            "status": {"id": 300},
+            "charges": [{
+                "id": 99, "externalId": cutover_external_id,
+                "amount": 0.20, "amountOutstanding": 0.20,
+            }],
+            "transactions": [{
+                "id": 1, "externalId": disbursement["external_id"], "amount": 350,
+            }],
+            "repaymentSchedule": self.calculated_schedule(built["lifecycle"]),
+        }
+        paid = {
+            **active,
+            "charges": [{
+                "id": 99, "externalId": cutover_external_id,
+                "amount": 0.20, "amountOutstanding": 0.10,
+            }],
+            "transactions": active["transactions"] + [{
+                "id": 2, "externalId": repayment["external_id"], "amount": 10,
+                "principalPortion": 8, "interestPortion": 1.9,
+                "feeChargesPortion": .1, "penaltyChargesPortion": 0,
+                "loanChargePaidByList": [{"chargeId": 99, "amount": .1}],
+            }],
+        }
+        api = MagicMock()
+        api.request.side_effect = [active, active, {}, paid, paid]
+        expected_collaterals = [{"clientCollateralId": 80, "quantity": "1.00", "valuationId": 90}]
+        active["collateral"] = expected_collaterals
+        paid["collateral"] = expected_collaterals
+
+        with (
+            patch("arissto_sync.loans._find_loan", return_value=active),
+            patch("arissto_sync.loans._ensure_loan_collaterals", return_value=expected_collaterals),
+            patch("arissto_sync.loans._ensure_pending_native_creation_override", return_value=active),
+            patch("arissto_sync.loans._ensure_existing_loan_collateral_attachments", return_value=active),
+            patch("arissto_sync.loans._ensure_source_exact_guarantors"),
+            patch(
+                "arissto_sync.loans._ensure_source_insurance_charges", return_value=paid,
+            ) as ensure_insurance,
+            patch("arissto_sync.loans._ensure_recurring_insurance_charge", return_value=paid),
+            patch("arissto_sync.loans._ensure_source_exact_accrual_catchup"),
+        ):
+            loan_id, recovered = _apply_loan_lifecycle(api, action, 90)
+
+        self.assertEqual((loan_id, recovered), (55, True))
+        repayment_request = next(
+            request for request in api.request.call_args_list
+            if request.kwargs.get("query") == {"command": "sourceExactRepayment"}
+        )
+        self.assertEqual(repayment_request.args[2]["feeChargeExternalId"], cutover_external_id)
+        self.assertEqual(ensure_insurance.call_count, 1)
+        self.assertEqual(
+            ensure_insurance.call_args.args[2]["historical_insurance_charges"][0]["classification"],
+            "source_insurance_cutover_outstanding",
+        )
 
     def test_source_exact_accrual_catchup_uses_frozen_cutoff_and_identity(self):
         api = MagicMock()
