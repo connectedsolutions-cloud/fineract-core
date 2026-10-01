@@ -26,7 +26,10 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -40,7 +43,11 @@ import org.apache.fineract.portfolio.namingsequence.domain.CredesalNamingSequenc
 import org.apache.fineract.portfolio.namingsequence.domain.CredesalNamingSequenceRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.InOrder;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.ResultSetExtractor;
 
 class CredesalNamingSequenceServiceImplTest {
 
@@ -148,6 +155,29 @@ class CredesalNamingSequenceServiceImplTest {
         assertEquals("006583M101", service.allocateLoanAccountNo(affiliatedClient(), "3M1", "loan-create-1").orElseThrow());
         assertEquals("006583M101", service.allocateLoanAccountNo(affiliatedClient(), "3M1", "loan-create-1").orElseThrow());
         assertEquals(1, heldSequence.getLastOrdinal());
+    }
+
+    @Test
+    void locksReservationAndSequenceBeforeReadingEitherRow() {
+        service.allocateLoanAccountNo(affiliatedClient(), "3M1", "loan-create-1");
+
+        final InOrder order = inOrder(jdbcTemplate, reservationRepository, sequenceRepository);
+        order.verify(jdbcTemplate).query(contains("pg_advisory_xact_lock"), ArgumentMatchers.<ResultSetExtractor<Object>>any(),
+                eq("credesal:naming:LOAN:reservation:loan-create-1"));
+        order.verify(reservationRepository).findByNamespaceAndReservationKey("LOAN", "loan-create-1");
+        order.verify(jdbcTemplate).query(contains("pg_advisory_xact_lock"), ArgumentMatchers.<ResultSetExtractor<Object>>any(),
+                eq("credesal:naming:LOAN:sequence:006583M1"));
+        order.verify(sequenceRepository).findByNamespaceAndPrefixForUpdate("LOAN", "006583M1");
+    }
+
+    @Test
+    void firstSequenceInsertFailureDoesNotQueryAgainInAbortedTransaction() {
+        when(sequenceRepository.saveAndFlush(any(CredesalNamingSequence.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate sequence"));
+
+        assertThrows(DataIntegrityViolationException.class,
+                () -> service.allocateLoanAccountNo(affiliatedClient(), "3M1", null));
+        verify(sequenceRepository, times(1)).findByNamespaceAndPrefixForUpdate("LOAN", "006583M1");
     }
 
     @Test

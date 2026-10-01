@@ -31,7 +31,6 @@ import org.apache.fineract.portfolio.namingsequence.domain.CredesalNamingReserva
 import org.apache.fineract.portfolio.namingsequence.domain.CredesalNamingReservationRepository;
 import org.apache.fineract.portfolio.namingsequence.domain.CredesalNamingSequence;
 import org.apache.fineract.portfolio.namingsequence.domain.CredesalNamingSequenceRepository;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +44,7 @@ public class CredesalNamingSequenceServiceImpl implements CredesalNamingSequence
              where external_id ~ '^[0-9]{10}$'
                and right(external_id, 5) = ?
             """;
+    private static final String NAMING_LOCK_SQL = "select pg_advisory_xact_lock(hashtextextended(?, 0))";
 
     private final CredesalNamingSequenceRepository sequenceRepository;
     private final CredesalNamingReservationRepository reservationRepository;
@@ -110,6 +110,7 @@ public class CredesalNamingSequenceServiceImpl implements CredesalNamingSequence
 
     private String allocate(final CredesalNamingNamespace namespace, final String prefix, final String reservationKey) {
         if (StringUtils.isNotBlank(reservationKey)) {
+            lockAllocation(namespace, "reservation", reservationKey);
             final Optional<CredesalNamingReservation> existing = reservationRepository
                     .findByNamespaceAndReservationKey(namespace.name(), reservationKey);
             if (existing.isPresent()) {
@@ -117,6 +118,7 @@ public class CredesalNamingSequenceServiceImpl implements CredesalNamingSequence
             }
         }
 
+        lockAllocation(namespace, "sequence", prefix);
         final CredesalNamingSequence sequence = lockOrCreate(namespace, prefix);
         int next = sequence.getLastOrdinal() + 1;
         while (next <= namespace.getMaxOrdinal()) {
@@ -135,17 +137,17 @@ public class CredesalNamingSequenceServiceImpl implements CredesalNamingSequence
                 "Naming sequence exhausted for " + namespace + " prefix " + prefix + ".");
     }
 
+    private void lockAllocation(final CredesalNamingNamespace namespace, final String kind, final String value) {
+        // Transaction-scoped PostgreSQL locks serialize the first insert as well as later row updates.
+        jdbcTemplate.query(NAMING_LOCK_SQL, rs -> null, "credesal:naming:" + namespace.name() + ":" + kind + ":" + value);
+    }
+
     private CredesalNamingSequence lockOrCreate(final CredesalNamingNamespace namespace, final String prefix) {
         final Optional<CredesalNamingSequence> existing = sequenceRepository.findByNamespaceAndPrefixForUpdate(namespace.name(), prefix);
         if (existing.isPresent()) {
             return existing.get();
         }
-        try {
-            return sequenceRepository.saveAndFlush(CredesalNamingSequence.create(namespace.name(), prefix, seedOrdinal(namespace, prefix)));
-        } catch (final DataIntegrityViolationException ex) {
-            return sequenceRepository.findByNamespaceAndPrefixForUpdate(namespace.name(), prefix)
-                    .orElseThrow(() -> ex);
-        }
+        return sequenceRepository.saveAndFlush(CredesalNamingSequence.create(namespace.name(), prefix, seedOrdinal(namespace, prefix)));
     }
 
     private int seedOrdinal(final CredesalNamingNamespace namespace, final String prefix) {
