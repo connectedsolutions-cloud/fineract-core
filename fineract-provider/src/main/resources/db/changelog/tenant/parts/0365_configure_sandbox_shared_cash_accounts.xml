@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0365-configure-sandbox-shared-cash-accounts" author="credesal" dbms="postgresql">
+        <comment>
+            Keep the disposable sandbox's vault, teller, and cash-disbursement
+            payable accounts shared across offices. Source office GL codes remain
+            available for historical identity but are disabled for new posting.
+            Production is unaffected.
+        </comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+DO $$
+DECLARE
+    vault_parent acc_gl_account%ROWTYPE;
+    vault_id BIGINT;
+    teller_id BIGINT;
+    payable_id BIGINT;
+BEGIN
+    IF current_database() <> 'fineract_sandbox' THEN
+        RETURN;
+    END IF;
+
+    SELECT * INTO STRICT vault_parent FROM acc_gl_account WHERE gl_code = '1110010302';
+    IF vault_parent.account_usage <> 2 OR vault_parent.classification_enum <> 1 OR vault_parent.disabled THEN
+        RAISE EXCEPTION 'Vault parent 1110010302 is not an enabled asset header';
+    END IF;
+    SELECT id INTO STRICT teller_id FROM acc_gl_account
+     WHERE gl_code = '1110010199' AND name = 'CAJA' AND account_usage = 1
+       AND classification_enum = 1 AND NOT disabled
+       AND parent_id = (SELECT id FROM acc_gl_account WHERE gl_code = '111001');
+    SELECT id INTO STRICT payable_id FROM acc_gl_account
+     WHERE gl_code = '222099910201' AND name = 'DESEMBOLSO DE CREDITOS EN EFECTIVO'
+       AND account_usage = 1 AND classification_enum = 2 AND NOT disabled;
+
+    IF (SELECT COUNT(*) FROM acc_gl_account
+         WHERE gl_code IN ('111001020201', '111001030201', '111001030202',
+                           '1110010101', '1110010102')
+           AND account_usage = 1 AND classification_enum = 1) <> 5 THEN
+        RAISE EXCEPTION 'Sandbox source-only cash accounts differ from reviewed COA';
+    END IF;
+    IF EXISTS (SELECT 1 FROM acc_gl_journal_entry
+                WHERE account_id IN (SELECT id FROM acc_gl_account
+                                      WHERE gl_code IN ('111001020201', '111001030201',
+                                                        '111001030202', '1110010101', '1110010102')))
+       OR EXISTS (SELECT 1 FROM acc_product_mapping
+                   WHERE gl_account_id IN (SELECT id FROM acc_gl_account
+                                            WHERE gl_code IN ('111001020201', '111001030201',
+                                                              '111001030202', '1110010101', '1110010102'))) THEN
+        RAISE EXCEPTION 'Sandbox source-only cash accounts have posting or product dependencies';
+    END IF;
+
+    SELECT id INTO vault_id FROM acc_gl_account WHERE gl_code = '111001030200';
+    IF vault_id IS NULL THEN
+        INSERT INTO acc_gl_account (
+            name, parent_id, hierarchy, gl_code, disabled, manual_journal_entries_allowed,
+            account_usage, classification_enum, description, acc_level, acc_last_level)
+        VALUES (
+            'BOVEDA GENERAL', vault_parent.id, '.', '111001030200', FALSE, TRUE,
+            1, 1, 'Shared vault cash account; office is on each journal line.', 7, 1)
+        RETURNING id INTO vault_id;
+        UPDATE acc_gl_account
+           SET hierarchy = vault_parent.hierarchy || vault_id::TEXT || '.'
+         WHERE id = vault_id;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM acc_gl_account
+                    WHERE id = vault_id AND name = 'BOVEDA GENERAL'
+                      AND parent_id = vault_parent.id
+                      AND hierarchy = vault_parent.hierarchy || vault_id::TEXT || '.'
+                      AND account_usage = 1 AND classification_enum = 1
+                      AND NOT disabled AND acc_level = 7 AND acc_last_level = 1) THEN
+        RAISE EXCEPTION 'Shared vault detail account differs from reviewed structure';
+    END IF;
+
+    UPDATE acc_gl_account SET disabled = TRUE
+     WHERE gl_code IN ('111001020201', '111001030201', '111001030202',
+                       '1110010101', '1110010102');
+    INSERT INTO acc_gl_financial_activity_account (gl_account_id, financial_activity_type)
+    VALUES (vault_id, 101), (teller_id, 102), (payable_id, 202)
+    ON CONFLICT (financial_activity_type) DO NOTHING;
+    IF (SELECT COUNT(*) FROM acc_gl_financial_activity_account
+         WHERE (financial_activity_type = 101 AND gl_account_id = vault_id)
+            OR (financial_activity_type = 102 AND gl_account_id = teller_id)
+            OR (financial_activity_type = 202 AND gl_account_id = payable_id)) <> 3 THEN
+        RAISE EXCEPTION 'Sandbox cash financial activity mapping conflicts with reviewed accounts';
+    END IF;
+END $$;
+        ]]></sql>
+    </changeSet>
+
+</databaseChangeLog>

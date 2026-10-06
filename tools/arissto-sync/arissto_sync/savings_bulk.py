@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from contextlib import nullcontext
+from datetime import date
 from typing import Any, Iterable
 
 from .arissto import select_rows, source_connection
@@ -49,6 +50,13 @@ def _group(
     for row in rows:
         grouped[_key(row, company, branch, account)].append(row)
     return grouped
+
+
+def _on_or_before(row: dict[str, Any], field: str, through: date) -> bool:
+    value = row.get(field)
+    if value is None:
+        raise ValueError(f"Savings source event has no {field}")
+    return date.fromisoformat(str(value)[:10]) <= through
 
 
 def build_vista_canary(
@@ -231,10 +239,12 @@ def build_dpf_canary(
 
 def extract_savings_lifecycles(
     settings: Settings, contract: SavingsContract, keys: list[tuple[str, str, str]], conn: Any | None = None,
+    source_through_date: str | None = None,
 ) -> dict[tuple[str, str, str], dict[str, Any]]:
     if not keys:
         return {}
     source = contract.raw["source"]
+    through = date.fromisoformat(source_through_date) if source_through_date else None
     result: dict[tuple[str, str, str], dict[str, Any]] = {}
     connection_context = nullcontext(conn) if conn is not None else source_connection(settings.source)
     with connection_context as conn:
@@ -297,14 +307,15 @@ def extract_savings_lifecycles(
                 ORDER BY p.ID_EMPRESA,p.ID_SUCURSAL,p.ID_CUENTA_AHORRO,p.ID_PROPIETARIO
             """, params)
             cutoff = select_rows(conn, f"""{cte},
-                x AS (SELECT MAX(CAST(FECHA_OPERACION AS date)) cutoff_date FROM dbo.CIERRE_DIARIO WHERE CIERRE='1')
+                x AS (SELECT MAX(CAST(FECHA_OPERACION AS date)) cutoff_date FROM dbo.CIERRE_DIARIO
+                      WHERE CIERRE='1' AND (? IS NULL OR CAST(FECHA_OPERACION AS date)<=?))
                 SELECT a.ID_EMPRESA,a.ID_SUCURSAL,a.ID_CUENTA_AHORRO,x.cutoff_date,d.INTERESES_PROVISIONADOS
                 FROM requested r JOIN dbo.{source['account_table']} a
                   ON a.ID_EMPRESA=r.company_id AND a.ID_SUCURSAL=r.branch_id AND a.ID_CUENTA_AHORRO=r.account_id
                 CROSS JOIN x JOIN dbo.AHO_HISTORICO_DIARIO d ON d.ID_AHORRO=a.ID_AHORRO
                 JOIN dbo.CIERRE_DIARIO c ON c.ID_CIERRE_DIARIO=d.ID_CIERRE_DIARIO
                  AND CAST(c.FECHA_OPERACION AS date)=x.cutoff_date
-            """, params)
+            """, (*params, source_through_date, source_through_date))
             account_by_key = {_key(row, "ID_EMPRESA", "ID_SUCURSAL", "ID_CUENTA_AHORRO"): row for row in accounts}
             movement_by_key = _group(movements, "ID_EMPRESA", "ID_SUCURSAL_CUENTA", "ID_CUENTA_AHORRO")
             history_by_key = _group(history, "ID_EMPRESA", "ID_SUCURSAL", "ID_CUENTA_AHORRO")
@@ -314,10 +325,23 @@ def extract_savings_lifecycles(
                 account = account_by_key.get(key)
                 if account is None:
                     raise ValueError(f"Expected exactly one Arissto savings account for {':'.join(key)}")
+                all_movements = movement_by_key.get(key, [])
+                all_history = history_by_key.get(key, [])
+                movements = ([row for row in all_movements if _on_or_before(row, "FECHA_OPERACION", through)]
+                             if through else all_movements)
+                history = ([row for row in all_history if _on_or_before(row, "FECHA_APERTURA", through)]
+                           if through else all_history)
+                as_of_account = dict(account)
+                if through and len(movements) < len(all_movements) and clean_text(account.get("ID_TIPO_CUENTA_AHORRO")) == "001":
+                    # The live master includes later activity. A VISTA movement's final/previous
+                    # balance supplies the exact balance at the frozen source boundary.
+                    first_later = next(row for row in all_movements if not _on_or_before(row, "FECHA_OPERACION", through))
+                    as_of_account["SALDO"] = (movements[-1]["SALDO_FINAL"] if movements
+                                                else first_later["SALDO_ANTERIOR"])
                 result[key] = {
-                    "account": account,
-                    "movements": movement_by_key.get(key, []),
-                    "history": history_by_key.get(key, []),
+                    "account": as_of_account,
+                    "movements": movements,
+                    "history": history,
                     "owners": owner_by_key.get(key, []),
                     "cutoff": cutoff_by_key.get(key, []),
                 }

@@ -48,7 +48,9 @@ COUNT_KEYS = (
     "SOURCE_JOURNAL_DATE_INVALID", "SOURCE_AMOUNT_INVALID", "SOURCE_AMOUNT_NEGATIVE",
     "SOURCE_AMOUNT_SCALE_UNSUPPORTED", "SOURCE_AMOUNT_TARGET_OVERFLOW",
     "SOURCE_ACCOUNT_UNRESOLVED", "SOURCE_ACCOUNT_AMBIGUOUS",
-    "TARGET_ACCOUNT_UNRESOLVED_OR_AMBIGUOUS", "SOURCE_DESTINATION_BRANCH_UNMAPPED",
+    "TARGET_ACCOUNT_UNRESOLVED_OR_AMBIGUOUS", "TARGET_ACCOUNT_NOT_DETAIL",
+    "TARGET_ACCOUNT_MAPPING_DRIFT",
+    "SOURCE_DESTINATION_BRANCH_UNMAPPED",
     "TARGET_OFFICE_MAPPING_DRIFT", "TARGET_OFFICE_CLOSURE_CONFLICT",
     "SOURCE_JOURNAL_BEFORE_HISTORICAL_ORIGIN", "SOURCE_JOURNAL_ON_OR_AFTER_CUTOFF",
     "SOURCE_OR_TARGET_CURRENCY_UNSUPPORTED",
@@ -515,6 +517,7 @@ def classify_accounting(headers: list[dict[str, Any]], lines: list[dict[str, Any
     annual = contract.raw["annual_liquidation_policy"]
     historical_origin = date.fromisoformat(contract.raw["historical_origin"]["first_eligible_journal_date"])
     target_accounts = (target or {}).get("accounts", {})
+    imported_line_accounts = (target or {}).get("imported_line_accounts", {})
     closure_by_office = (target or {}).get("closure_by_office", {})
     findings: list[dict[str, Any]] = []
     classification_counts: Counter[str] = Counter({key: 0 for key in COUNT_KEYS})
@@ -627,6 +630,14 @@ def classify_accounting(headers: list[dict[str, Any]], lines: list[dict[str, Any
                 candidates = target_accounts.get(contract.target_code(source_code), [])
                 if len(candidates) != 1 or candidates[0].get("disabled") or not candidates[0].get("manual_allowed", True):
                     reasons.add("TARGET_ACCOUNT_UNRESOLVED_OR_AMBIGUOUS")
+                elif candidates[0].get("account_usage") != 1:
+                    reasons.add("TARGET_ACCOUNT_NOT_DETAIL")
+                frozen_line = imported_line_accounts.get(key_text, {}).get(_trim(line.get("line_id")) or "")
+                if frozen_line is not None and (
+                    frozen_line.get("source_account_code") != source_code
+                    or frozen_line.get("target_account_code") != contract.target_code(source_code)
+                ):
+                    reasons.add("TARGET_ACCOUNT_MAPPING_DRIFT")
             branch = _trim(line.get("destination_branch_id"))
             mapped = agency_mapping.get(branch or "")
             if not mapped:
@@ -718,10 +729,11 @@ def _target_snapshot(pg_url: str, contract: AccountingContract, api_user: str | 
         ).fetchall()}
         accounts: dict[str, list[dict[str, Any]]] = defaultdict(list)
         if "acc_gl_account" in tables:
-            for identifier, code, disabled, manual_allowed in conn.execute(
-                "SELECT id,gl_code,disabled,manual_journal_entries_allowed FROM acc_gl_account ORDER BY gl_code,id"
+            for identifier, code, disabled, manual_allowed, account_usage in conn.execute(
+                "SELECT id,gl_code,disabled,manual_journal_entries_allowed,account_usage FROM acc_gl_account ORDER BY gl_code,id"
             ).fetchall():
-                accounts[str(code)].append({"id": int(identifier), "disabled": bool(disabled), "manual_allowed": bool(manual_allowed)})
+                accounts[str(code)].append({"id": int(identifier), "disabled": bool(disabled),
+                                            "manual_allowed": bool(manual_allowed), "account_usage": int(account_usage)})
         offices: dict[int, dict[str, Any]] = {}
         if "m_office" in tables:
             offices = {int(identifier): {"external_id": str(external_id) if external_id is not None else None}
@@ -768,9 +780,21 @@ def _target_snapshot(pg_url: str, contract: AccountingContract, api_user: str | 
                     imported[key] = str(source_hash)
                     if target_id is not None:
                         imported_target_ids[key] = str(target_id)
+        imported_line_accounts: dict[str, dict[str, dict[str, str]]] = defaultdict(dict)
+        line_table = contract.raw["target"]["provenance_line_table"]
+        if parent in tables and line_table in tables:
+            for key, line_id, source_code, target_code in conn.execute(
+                f'SELECT concat_ws(\':\',p.source_company_id,p.source_branch_id,p.source_period_id,p.source_journal_id),'
+                f'l.source_line_id,l.source_account_code,a.gl_code FROM "{parent}" p '
+                f'JOIN "{line_table}" l ON l.journal_provenance_id=p.id '
+                'JOIN acc_gl_account a ON a.id=l.target_gl_account_id'
+            ).fetchall():
+                imported_line_accounts[str(key)][str(line_id)] = {
+                    "source_account_code": str(source_code), "target_account_code": str(target_code)}
         return {"tables": sorted(tables), "accounts": dict(accounts), "offices": offices,
                 "closure_by_office": closures, "currencies": dict(currencies), "imported": imported,
-                "imported_target_ids": imported_target_ids, "api_user_selected": bool(api_user),
+                "imported_target_ids": imported_target_ids,
+                "imported_line_accounts": dict(imported_line_accounts), "api_user_selected": bool(api_user),
                 "api_user_count": api_user_count, "api_user_office_ids": api_user_office_ids}
 
 
@@ -837,6 +861,10 @@ def inspect_accounting(source_config: SourceConfig, contract: AccountingContract
             target_blockers.append("TARGET_CURRENCY_UNSUPPORTED")
         if classified["classification_counts"].get("TARGET_ACCOUNT_UNRESOLVED_OR_AMBIGUOUS", 0):
             target_blockers.append("TARGET_ACCOUNT_UNRESOLVED_OR_AMBIGUOUS")
+        if classified["classification_counts"].get("TARGET_ACCOUNT_NOT_DETAIL", 0):
+            target_blockers.append("TARGET_ACCOUNT_NOT_DETAIL")
+        if classified["classification_counts"].get("TARGET_ACCOUNT_MAPPING_DRIFT", 0):
+            target_blockers.append("TARGET_ACCOUNT_MAPPING_DRIFT")
         if target.get("api_user_selected") and target.get("api_user_count") != 1:
             target_blockers.append("TARGET_API_USER_UNRESOLVED")
         if _missing_api_user_office_ids(target, contract):

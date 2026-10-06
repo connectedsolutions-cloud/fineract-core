@@ -9,20 +9,35 @@
     "native-share-capital"
   ],
   "ordering": "registry-topological",
-  "scope": {"mode": "full-block"},
+  "scope": {
+    "mode": "full-block"
+  },
   "stop_policy": "dependency-gated",
   "retry_policy": "resume-failed-step",
   "accounting_cutoff_policy": "activate-frozen-plan",
   "target_prerequisites": {
     "financial_activity_mappings": [
       {
-        "required_by_services": ["savings-deposits"],
+        "required_by_services": [
+          "savings-deposits"
+        ],
         "financial_activity_id": 200,
         "gl_code": "2130050101",
         "gl_classification": 2,
         "gl_usage": 1
       }
-    ]
+    ],
+    "treasury_bank_accounts": {
+      "required_by_services": [
+        "savings-deposits",
+        "native-share-capital"
+      ],
+      "source_account_ids": [
+        1,
+        3,
+        4
+      ]
+    }
   },
   "unavailable_services": "reject"
 }

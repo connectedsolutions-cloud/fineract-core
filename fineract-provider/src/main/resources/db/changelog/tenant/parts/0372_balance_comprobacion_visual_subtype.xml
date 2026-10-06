@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0372-1-balance-comprobacion-visual-subtype" author="credesal" dbms="postgresql">
+        <comment>Use the printable Mifos Balance de Comprobacion layout for the existing report.</comment>
+        <sql><![CDATA[
+UPDATE stretchy_report
+   SET report_subtype = 'VisualTrialBalance'
+ WHERE report_name = 'Balance de Comprobación'
+   AND report_type = 'Table'
+   AND report_subtype IS DISTINCT FROM 'VisualTrialBalance';
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

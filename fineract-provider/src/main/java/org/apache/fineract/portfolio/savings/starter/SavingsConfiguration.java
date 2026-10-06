@@ -18,6 +18,8 @@
  */
 package org.apache.fineract.portfolio.savings.starter;
 
+import org.apache.fineract.accounting.cutoff.AccountingCutoffPolicyService;
+import org.apache.fineract.accounting.journalentry.service.JournalNumberAllocationService;
 import org.apache.fineract.accounting.journalentry.service.JournalEntryWritePlatformService;
 import org.apache.fineract.accounting.producttoaccountmapping.service.ProductToGLAccountMappingWritePlatformService;
 import org.apache.fineract.commands.service.CommandProcessingService;
@@ -447,11 +449,10 @@ public class SavingsConfiguration {
     @ConditionalOnMissingBean(SavingsSchedularInterestPoster.class)
     public SavingsSchedularInterestPoster savingsSchedularInterestPoster(
             SavingsAccountWritePlatformService savingsAccountWritePlatformService, JdbcTemplate jdbcTemplate,
-            SavingsAccountReadPlatformService savingsAccountReadPlatformService, PlatformSecurityContext platformSecurityContext
-
-    ) {
+            SavingsAccountReadPlatformService savingsAccountReadPlatformService, PlatformSecurityContext platformSecurityContext,
+            JournalNumberAllocationService journalNumberAllocationService, AccountingCutoffPolicyService accountingCutoffPolicyService) {
         return new SavingsSchedularInterestPoster(savingsAccountWritePlatformService, jdbcTemplate, savingsAccountReadPlatformService,
-                platformSecurityContext);
+                platformSecurityContext, journalNumberAllocationService, accountingCutoffPolicyService);
     }
 
     @Bean

@@ -8,6 +8,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from hashlib import sha256
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from .arissto import select_rows, source_connection, source_fingerprint
 from .config import Settings
@@ -47,8 +48,24 @@ SUPPORTED_VISTA_NATIVE_ROLES = {
     "SAVINGS_INTEREST_POSTING": ("explicitInterestPosting", 3),
     "WITHHOLDING_TAX": ("explicitWithholdTax", 18),
 }
+
+
 DPF_MANAGED_VISTA_ROLES = {"FIXED_DEPOSIT_INTEREST_TRANSFER", "FIXED_DEPOSIT_WITHHOLDING_TAX"}
 REVERSAL_ROLES = {"CREDIT_REVERSAL", "DEBIT_REVERSAL"}
+
+
+def _target_business_date(settings: Settings) -> date:
+    dates = FineractApi(settings.target).request("GET", "businessdate")
+    if isinstance(dates, list):
+        for entry in dates:
+            if isinstance(entry, dict) and str(entry.get("type")) == "BUSINESS_DATE":
+                value = entry.get("date")
+                if isinstance(value, list) and len(value) == 3:
+                    return date(*(int(part) for part in value))
+                if isinstance(value, str):
+                    return date.fromisoformat(value[:10])
+    # Fineract returns no configured business dates when it uses the tenant clock.
+    return datetime.now(ZoneInfo("America/El_Salvador")).date()
 
 
 @contextmanager
@@ -165,13 +182,15 @@ def _source_accounts(settings: Settings, contract: SavingsContract,
 
 
 def extract_savings_accounts(settings: Settings, contract: SavingsContract,
-                             source_keys: list[str] | None = None) -> list[dict[str, Any]]:
+                             source_keys: list[str] | None = None,
+                             source_through_date: str | None = None) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     with source_connection(settings.source) as conn:
         accounts = _source_accounts(settings, contract, source_keys, conn)
         compact_keys = [compact_account_key(contract, canonical) for canonical, _account_type in accounts]
         lifecycles = extract_savings_lifecycles(
-            settings, contract, [tuple(key.split(":")) for key in compact_keys], conn  # type: ignore[list-item]
+            settings, contract, [tuple(key.split(":")) for key in compact_keys], conn,  # type: ignore[list-item]
+            source_through_date=source_through_date,
         )
     for (canonical, account_type), compact in zip(accounts, compact_keys, strict=True):
         try:
@@ -367,15 +386,25 @@ def _can_update_source_authoritatively(record: dict[str, Any], existing: dict[st
 
 def build_savings_plan(settings: Settings, state: State, contract: SavingsContract,
                        source_keys: list[str] | None = None,
-                       repair_existing_drift: bool = False) -> tuple[str, dict[str, Any]]:
+                       repair_existing_drift: bool = False,
+                       source_boundary: bool = True) -> tuple[str, dict[str, Any]]:
     if repair_existing_drift and settings.target.name != "local":
         raise RuntimeError("Savings drift repair plans are restricted to the local target")
-    inspection = inspect_savings(settings, contract)
+    source_through_date = (
+        state.accounting_cutoff.get("source_through_date") if source_boundary else None
+    )
+    if source_through_date and date.fromisoformat(source_through_date) > _target_business_date(settings):
+        raise RuntimeError("Savings source-through date is later than Fineract's business date")
+    inspection = inspect_savings(settings, contract, source_through_date)
     non_engine_blockers = [
         item for item in inspection["blockers"]
         if item != "implementation_gate:deterministic_plan_apply_reconcile_and_full_population"
     ]
-    records = extract_savings_accounts(settings, contract, source_keys)
+    selected_close = inspection["source"]["cutoff"].get("cutoff_date")
+    effective_source_date = (
+        str(selected_close)[:10] if selected_close else source_through_date
+    ) if source_through_date else None
+    records = extract_savings_accounts(settings, contract, source_keys, effective_source_date)
     target = _target_context(settings, records)
     by_key = {row["source_key"]: row for row in records}
     actions: list[dict[str, Any]] = []
@@ -451,6 +480,8 @@ def build_savings_plan(settings: Settings, state: State, contract: SavingsContra
         "block": BLOCK, "applicable": not non_engine_blockers and counts["blocked"] == 0,
         "contract_hash": contract.contract_hash, "schema_signature": inspection["schema_signature"],
         "source_fingerprint": source_fingerprint(settings.source),
+        "savings_requested_source_through_date": source_through_date,
+        "savings_source_through_date": effective_source_date,
         "scope": source_keys or "all", "counts": dict(counts), "actions": actions,
         "repair_existing_drift": repair_existing_drift,
         "product_contracts": product_contracts,
@@ -1700,7 +1731,7 @@ def _apply_guard(settings: Settings, state: State, contract: SavingsContract, pl
         raise RuntimeError("Savings contract changed after planning")
     if settings.target.name == "prod" and production_confirmation != settings.target.fingerprint:
         raise RuntimeError(f"Production apply requires --confirm-production {settings.target.fingerprint}")
-    inspection = inspect_savings(settings, contract)
+    inspection = inspect_savings(settings, contract, plan["document"].get("savings_source_through_date"))
     blockers = [
         item for item in inspection["blockers"]
         if item != "implementation_gate:deterministic_plan_apply_reconcile_and_full_population"
@@ -1724,7 +1755,10 @@ def apply_savings_plan(settings: Settings, state: State, contract: SavingsContra
         action for action in plan["document"]["actions"]
         if source_keys is None or action["source_key"] in source_keys
     ]
-    records = extract_savings_accounts(settings, contract, [action["source_key"] for action in actions])
+    records = extract_savings_accounts(
+        settings, contract, [action["source_key"] for action in actions],
+        plan["document"].get("savings_source_through_date"),
+    )
     current = {record["source_key"]: record for record in records}
     for action in actions:
         record = current.get(action["source_key"])
@@ -2095,7 +2129,11 @@ def reconcile_savings(settings: Settings, state: State, contract: SavingsContrac
         raise RuntimeError("Savings run does not belong to the selected target")
     items = state.run_items(run_id)
     keys = {item["source_key"] for item in items if item["status"] in {"succeeded", "unchanged"}}
-    records = {row["source_key"]: row for row in extract_savings_accounts(settings, contract, sorted(keys))}
+    plan = state.plan(run["plan_id"])
+    records = {row["source_key"]: row for row in extract_savings_accounts(
+        settings, contract, sorted(keys),
+        plan["document"].get("savings_source_through_date"),
+    )}
     with postgres_connection(settings.target.pg_url or "") as conn:
         rows = conn.execute("""
             SELECT id,source_key,source_hash,contract_hash,savings_account_id,migration_status

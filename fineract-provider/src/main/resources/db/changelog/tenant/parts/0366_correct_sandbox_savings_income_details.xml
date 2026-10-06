@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0366-correct-sandbox-savings-income-details" author="credesal" dbms="postgresql">
+        <comment>
+            Correct sandbox savings fee and penalty income mappings that used
+            GL headers. New savings products use the matching detail accounts
+            through the revised sync contract. Production is unaffected.
+        </comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+DO $$
+DECLARE
+    fee_header BIGINT;
+    penalty_header BIGINT;
+    fee_detail BIGINT;
+    penalty_detail BIGINT;
+BEGIN
+    IF current_database() <> 'fineract_sandbox' THEN
+        RETURN;
+    END IF;
+    SELECT id INTO STRICT fee_header FROM acc_gl_account
+     WHERE gl_code = '6420' AND account_usage = 2 AND NOT disabled;
+    SELECT id INTO STRICT penalty_header FROM acc_gl_account
+     WHERE gl_code = '6430' AND account_usage = 2 AND NOT disabled;
+    SELECT id INTO STRICT fee_detail FROM acc_gl_account
+     WHERE gl_code = '6423' AND parent_id = fee_header AND account_usage = 1
+       AND classification_enum = 4 AND NOT disabled;
+    SELECT id INTO STRICT penalty_detail FROM acc_gl_account
+     WHERE gl_code = '6433' AND parent_id = penalty_header AND account_usage = 1
+       AND classification_enum = 4 AND NOT disabled;
+    IF EXISTS (SELECT 1 FROM acc_gl_journal_entry
+                WHERE account_id IN (fee_header, penalty_header)) THEN
+        RAISE EXCEPTION 'Savings income header already has journal entries';
+    END IF;
+    UPDATE acc_product_mapping SET gl_account_id = fee_detail
+     WHERE product_type = 2 AND financial_account_type IN (4, 12)
+       AND gl_account_id = fee_header;
+    UPDATE acc_product_mapping SET gl_account_id = penalty_detail
+     WHERE product_type = 2 AND financial_account_type = 5
+       AND gl_account_id = penalty_header;
+    IF EXISTS (SELECT 1 FROM acc_product_mapping
+                WHERE product_type = 2
+                  AND ((financial_account_type IN (4, 12) AND gl_account_id = fee_header)
+                    OR (financial_account_type = 5 AND gl_account_id = penalty_header))) THEN
+        RAISE EXCEPTION 'Savings income header mapping remains after correction';
+    END IF;
+END $$;
+        ]]></sql>
+    </changeSet>
+
+</databaseChangeLog>

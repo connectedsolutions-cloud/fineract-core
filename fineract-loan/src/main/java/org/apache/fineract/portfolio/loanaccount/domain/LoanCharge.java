@@ -178,6 +178,26 @@ public class LoanCharge extends AbstractAuditableWithUTCDateTimeCustom<Long> {
         this.amountOutstanding = amountOutstanding;
     }
 
+    /**
+     * Rebase an Arissto-owned flat charge on its source outstanding snapshot while retaining recorded payments,
+     * waivers, and write-offs. The command handler restricts this operation to the cutover insurance charge.
+     */
+    public void rebaseSourceOwnedOutstanding(final BigDecimal sourceOutstanding) {
+        if (sourceOutstanding == null || sourceOutstanding.signum() < 0 || !isSpecifiedDueDate() || !getChargeCalculation().isFlat()) {
+            throw new IllegalArgumentException("Invalid source-owned charge outstanding balance");
+        }
+        this.amount = sourceOutstanding.add(this.amountPaid == null ? BigDecimal.ZERO : this.amountPaid)
+                .add(this.amountWaived == null ? BigDecimal.ZERO : this.amountWaived)
+                .add(this.amountWrittenOff == null ? BigDecimal.ZERO : this.amountWrittenOff);
+        this.amountOrPercentage = this.amount;
+        this.amountOutstanding = sourceOutstanding;
+        this.paid = sourceOutstanding.signum() == 0 && !this.waived;
+        if (sourceOutstanding.signum() > 0) {
+            this.active = true;
+            this.waived = false;
+        }
+    }
+
     public Money waive(final MonetaryCurrency currency, final Integer loanInstallmentNumber) {
         if (isInstalmentFee()) {
             final LoanInstallmentCharge chargePerInstallment = getInstallmentLoanCharge(loanInstallmentNumber);

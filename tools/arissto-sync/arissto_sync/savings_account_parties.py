@@ -373,6 +373,26 @@ def apply_savings_account_party_plan(settings: Settings, state: State, contract:
     return run_id, dict(counts)
 
 
+def _accepted_upstream_quarantines(state: State, run_id: str) -> set[str]:
+    """Find deposits quarantined by the reconciled parent in this workflow run."""
+    parent = state.conn.execute(
+        "SELECT workflow_run_id FROM workflow_steps WHERE service_id=? AND child_run_id=?",
+        (BLOCK, run_id),
+    ).fetchone()
+    if parent is None:
+        return set()
+    upstream = next((step for step in state.workflow_steps(parent["workflow_run_id"])
+                     if step["service_id"] == "savings-deposits" and step["status"] == "completed"
+                     and step["child_run_id"]), None)
+    if upstream is None:
+        return set()
+    reconciliation = state.run_reconciliation(upstream["child_run_id"])
+    if reconciliation is None or not reconciliation["ok"]:
+        return set()
+    return {item["source_key"] for item in state.run_items(upstream["child_run_id"])
+            if item["status"] == "quarantined"}
+
+
 def reconcile_savings_account_parties(settings: Settings, state: State, contract: SavingsAccountPartyContract,
                                       run_id: str) -> dict[str, Any]:
     run = state.run(run_id)
@@ -382,9 +402,24 @@ def reconcile_savings_account_parties(settings: Settings, state: State, contract
     api = FineractApi(settings.target)
     api_root = contract.raw["target"]["api_root"]
     counts = Counter()
+    upstream_quarantines = _accepted_upstream_quarantines(state, run_id)
     for item in state.run_items(run_id):
-        if item["status"] in {"failed", "quarantined"}:
-            counts[item["status"]] += 1
+        if item["status"] == "quarantined":
+            counts["quarantined"] += 1
+            source_key = item["source_key"]
+            account_key = "AHO_CUENTA_AHORRO|" + source_key[len("AHO_ACCOUNT_PARTIES|"):]
+            desired = source.get(source_key)
+            if not desired or desired["sourceHash"] != item["source_hash"]:
+                counts["source_changed"] += 1
+            elif (source_key.startswith("AHO_ACCOUNT_PARTIES|")
+                    and item["error_code"] == "SavingsAccountPartyDataIssue:missing_migrated_savings_account"
+                    and account_key in upstream_quarantines):
+                counts["accepted_upstream_quarantine"] += 1
+            else:
+                counts["unresolved_quarantine"] += 1
+            continue
+        if item["status"] == "failed":
+            counts["failed"] += 1
             continue
         desired = source.get(item["source_key"])
         if not desired or desired["sourceHash"] != item["source_hash"]:
@@ -396,6 +431,6 @@ def reconcile_savings_account_parties(settings: Settings, state: State, contract
             counts["matched" if digest(current) == digest(expected) else "mismatched"] += 1
         except Exception:
             counts["reconcile_error"] += 1
-    failed = {"failed", "quarantined", "source_changed", "mismatched", "reconcile_error"}
+    failed = {"failed", "unresolved_quarantine", "source_changed", "mismatched", "reconcile_error"}
     return {"run_id": run_id, "status": run["status"], "counts": dict(counts),
             "ok": not any(counts[name] for name in failed)}

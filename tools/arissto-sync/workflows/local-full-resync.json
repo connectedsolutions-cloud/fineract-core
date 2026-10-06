@@ -2,8 +2,12 @@
   "version": 1,
   "id": "local-full-resync",
   "description": "Checkpointed local sandbox re-sync for all 16 services using reviewed deltas without restoring the tenant or replaying unchanged history.",
-  "targets": ["local"],
-  "run_modes": ["full-resync"],
+  "targets": [
+    "local"
+  ],
+  "run_modes": [
+    "full-resync"
+  ],
   "services": [
     "clients",
     "employees",
@@ -23,27 +27,80 @@
     "native-share-yield"
   ],
   "ordering": "registry-topological",
-  "scope": {"mode": "full-block"},
+  "scope": {
+    "mode": "full-block"
+  },
   "stop_policy": "dependency-gated",
   "retry_policy": "resume-failed-step",
   "accounting_cutoff_policy": "snapshot-only",
   "target_prerequisites": {
+    "gl_account_details": [
+      {
+        "required_by_services": [
+          "accounting-journal-entries"
+        ],
+        "parent_gl_code": "2220050501",
+        "gl_code": "222005050199",
+        "name": "OTROS ACREEDORES - MOVIMIENTOS DIRECTOS",
+        "description": "Direct historical Arissto postings to reporting parent 2220050501",
+        "gl_classification": 2,
+        "acc_level": 7
+      },
+      {
+        "required_by_services": [
+          "accounting-journal-entries"
+        ],
+        "parent_gl_code": "314002",
+        "gl_code": "3140020000",
+        "name": "RESULTADOS DEL PRESENTE EJERCICIO - CIERRE TRANSITORIO",
+        "description": "Direct historical Arissto postings to reporting parent 314002",
+        "gl_classification": 3,
+        "acc_level": 6
+      }
+    ],
     "financial_activity_mappings": [
       {
-        "required_by_services": ["loans"],
+        "required_by_services": [
+          "loans"
+        ],
         "financial_activity_id": 100,
         "gl_code": "1510",
         "gl_classification": 1,
         "gl_usage": 1
       },
       {
-        "required_by_services": ["savings-deposits"],
+        "required_by_services": [
+          "savings-deposits"
+        ],
         "financial_activity_id": 200,
         "gl_code": "2130050101",
         "gl_classification": 2,
         "gl_usage": 1
+      },
+      {
+        "required_by_services": [
+          "native-share-yield"
+        ],
+        "financial_activity_id": 201,
+        "gl_code": "222099910101",
+        "gl_classification": 2,
+        "gl_usage": 1
       }
-    ]
+    ],
+    "treasury_bank_accounts": {
+      "required_by_services": [
+        "loans",
+        "savings-deposits",
+        "accounting-journal-entries",
+        "native-share-capital",
+        "native-share-yield"
+      ],
+      "source_account_ids": [
+        1,
+        3,
+        4
+      ]
+    }
   },
   "unavailable_services": "reject"
 }

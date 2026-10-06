@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0381-add-sandbox-marketing-study-gl-detail" author="credesal" dbms="postgresql">
+        <comment>
+            Add the active Arissto detail 8120040800 required by one historical
+            journal after the frozen 0310 chart-of-accounts snapshot.
+        </comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+DO $$
+DECLARE
+    parent_account acc_gl_account%ROWTYPE;
+    detail_id BIGINT;
+BEGIN
+    IF current_database() <> 'fineract_sandbox' THEN
+        RETURN;
+    END IF;
+
+    SELECT * INTO STRICT parent_account FROM acc_gl_account WHERE gl_code = '812004';
+    IF parent_account.name <> 'PUBLICIDAD Y PROMOCIÓN'
+       OR parent_account.account_usage <> 2
+       OR parent_account.classification_enum <> 5
+       OR parent_account.disabled
+       OR parent_account.acc_level <> 5 THEN
+        RAISE EXCEPTION 'Marketing study parent 812004 differs from reviewed COA';
+    END IF;
+
+    SELECT id INTO detail_id FROM acc_gl_account WHERE gl_code = '8120040800';
+    IF detail_id IS NULL THEN
+        INSERT INTO acc_gl_account (
+            name, parent_id, hierarchy, gl_code, disabled, manual_journal_entries_allowed,
+            account_usage, classification_enum, description, acc_level, acc_last_level)
+        VALUES (
+            'ESTUDIO DE MERCADEO', parent_account.id, '.', '8120040800', FALSE, TRUE,
+            1, 5, 'Arissto historical marketing study expense detail.', 6, 1)
+        RETURNING id INTO detail_id;
+        UPDATE acc_gl_account
+           SET hierarchy = parent_account.hierarchy || detail_id::TEXT || '.'
+         WHERE id = detail_id;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM acc_gl_account
+         WHERE id = detail_id AND gl_code = '8120040800'
+           AND name = 'ESTUDIO DE MERCADEO' AND parent_id = parent_account.id
+           AND hierarchy = parent_account.hierarchy || detail_id::TEXT || '.'
+           AND account_usage = 1 AND classification_enum = 5
+           AND NOT disabled AND manual_journal_entries_allowed
+           AND acc_level = 6 AND acc_last_level = 1
+    ) THEN
+        RAISE EXCEPTION 'Marketing study detail 8120040800 differs from reviewed COA';
+    END IF;
+END $$;
+        ]]></sql>
+    </changeSet>
+
+</databaseChangeLog>

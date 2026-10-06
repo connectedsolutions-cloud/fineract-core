@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS loan_sync_changes (
  description TEXT NOT NULL,
  status TEXT NOT NULL DEFAULT 'open',
  created_at TEXT NOT NULL,
- closed_at TEXT
+ closed_at TEXT,
+ notes TEXT
 );
 CREATE TABLE IF NOT EXISTS loan_sync_change_loans (
  change_id INTEGER NOT NULL,
@@ -61,6 +62,10 @@ class ChangeTracker:
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA foreign_keys=ON")
         self.conn.executescript(CHANGE_TRACKER_SCHEMA)
+        columns = {str(row[1]) for row in self.conn.execute("PRAGMA table_info(loan_sync_changes)")}
+        if "notes" not in columns:
+            self.conn.execute("ALTER TABLE loan_sync_changes ADD COLUMN notes TEXT")
+            self.conn.commit()
 
     def close(self) -> None:
         self.conn.close()
@@ -74,17 +79,39 @@ class ChangeTracker:
         pr_reference: str | None = None,
         status: str = "open",
         created_at: str | None = None,
+        notes: str | None = None,
     ) -> int:
         reference = change_reference.strip()
         if not reference:
             raise ValueError("change_reference is required")
         cursor = self.conn.execute(
             "INSERT INTO loan_sync_changes(change_reference,commit_sha,pr_reference,description,"
-            "status,created_at) VALUES(?,?,?,?,?,?)",
-            (reference, commit_sha, pr_reference, description.strip(), status, created_at or now()),
+            "status,created_at,notes) VALUES(?,?,?,?,?,?,?)",
+            (reference, commit_sha, pr_reference, description.strip(), status, created_at or now(), notes),
         )
         self.conn.commit()
         return int(cursor.lastrowid)
+
+    def update_change_status(self, change_id: int, status: str, note: str) -> None:
+        """Record progress or a verified resolution without discarding earlier notes."""
+        status = status.strip()
+        note = note.strip()
+        if not status or not note:
+            raise ValueError("status and note are required")
+        row = self.conn.execute(
+            "SELECT notes FROM loan_sync_changes WHERE id=?", (change_id,),
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"Unknown change ID: {change_id}")
+        timestamp = now()
+        previous_notes = str(row["notes"] or "").strip()
+        notes = f"{previous_notes}\n{timestamp}: {note}" if previous_notes else f"{timestamp}: {note}"
+        closed_at = timestamp if status in {"resolved", "merged", "superseded", "rejected", "closed"} else None
+        self.conn.execute(
+            "UPDATE loan_sync_changes SET status=?,closed_at=?,notes=? WHERE id=?",
+            (status, closed_at, notes, change_id),
+        )
+        self.conn.commit()
 
     def add_loan(
         self,
@@ -138,6 +165,9 @@ def migrate_legacy_change_tracking(base_state_path: Path, state_paths: Iterable[
                 tables = _tables(source)
                 if "loan_sync_changes" not in tables:
                     continue
+                source_columns = {
+                    str(row[1]) for row in source.execute("PRAGMA table_info(loan_sync_changes)")
+                }
                 changes = source.execute("SELECT * FROM loan_sync_changes ORDER BY id").fetchall()
                 for change in changes:
                     legacy_reference = str(change["pr_reference"])
@@ -145,9 +175,10 @@ def migrate_legacy_change_tracking(base_state_path: Path, state_paths: Iterable[
                     pr_reference = None if commit_sha else legacy_reference
                     cursor = tracker.conn.execute(
                         "INSERT OR IGNORE INTO loan_sync_changes(change_reference,commit_sha,pr_reference,"
-                        "description,status,created_at,closed_at) VALUES(?,?,?,?,?,?,?)",
+                        "description,status,created_at,closed_at,notes) VALUES(?,?,?,?,?,?,?,?)",
                         (legacy_reference, commit_sha, pr_reference, change["description"], change["status"],
-                         change["created_at"], change["closed_at"]),
+                         change["created_at"], change["closed_at"],
+                         change["notes"] if "notes" in source_columns else None),
                     )
                     migrated_changes += cursor.rowcount
                     durable_id = tracker.conn.execute(

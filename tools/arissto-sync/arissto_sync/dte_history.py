@@ -23,7 +23,14 @@ from .state import State, now
 
 BLOCK = "dte-history"
 OPERATION = "create_historical_dte"
+MH_TIMESTAMP_UPDATE_OPERATION = "update_historical_mh_timestamps"
 SOURCE_ORIGIN = "ARISSTO_HISTORY"
+MH_TIMESTAMP_COLUMNS = frozenset({"authority_processed_at", "mh_submitted_at", "mh_processed_at"})
+SOURCE_HASH_WRITE_POLICY = {
+    "historical_invoice_tables": "controlled-parameterized-sql-create-only",
+    "mh_submission": "forbidden", "native_financial_tables": "forbidden",
+    "update": "forbidden", "delete": "forbidden",
+}
 DEFAULT_DTE_WORKERS = 2
 DEFAULT_DTE_BATCH_SIZE = 500
 MAX_DTE_WORKERS = 4
@@ -131,9 +138,9 @@ class DteHistoryContract:
         }:
             raise ValueError("DTE history missing-mode fallback changed")
         if value.get("write_policy") != {
-            "historical_invoice_tables": "controlled-parameterized-sql-create-only",
+            "historical_invoice_tables": "controlled-parameterized-sql-create-and-mh-timestamps",
             "mh_submission": "forbidden", "native_financial_tables": "forbidden",
-            "update": "forbidden", "delete": "forbidden",
+            "update": "mh-timestamps-only", "delete": "forbidden",
         }:
             raise ValueError("DTE history write boundary changed")
         return cls(value)
@@ -148,7 +155,9 @@ class DteHistoryContract:
 
     def source_hash(self, row: dict[str, Any]) -> str:
         durable_source = {key: value for key, value in row.items() if key not in NON_DURABLE_SOURCE_FIELDS}
-        return _hash({"contract": self.contract_hash, "source": durable_source})
+        # Preserve hashes stored under the original create-only contract.
+        source_contract = {**self.raw, "write_policy": SOURCE_HASH_WRITE_POLICY}
+        return _hash({"contract": _hash(source_contract), "source": durable_source})
 
 
 def _pg_database(url: str) -> str:
@@ -544,11 +553,17 @@ def _target_catalog(conn: Any, settings: Settings) -> dict[str, Any]:
         ).fetchall()
     }
     legal = {}
-    for identifier, generation, control in conn.execute(
-        "SELECT id,codigo_generacion,numero_control FROM m_invoice"
+    for identifier, generation, control, emitted, origin in conn.execute(
+        "SELECT id,codigo_generacion,numero_control,fec_emi,source_origin FROM m_invoice"
     ).fetchall():
-        legal[clean(generation)] = int(identifier)
-        legal[clean(control)] = int(identifier)
+        owner = {"invoice_id": int(identifier), "source_origin": clean(origin)}
+        if clean(generation):
+            legal[clean(generation)] = owner
+        if clean(control) and emitted:
+            control_year = (clean(control), emitted.year)
+            if control_year in legal and legal[control_year]["invoice_id"] != int(identifier):
+                raise RuntimeError("Duplicate target invoice control number within an emission year")
+            legal[control_year] = owner
     return {
         "clients": clients, "transactions": transactions, "issuer": issuer,
         "audit_user_id": int(users[0][0]) if len(users) == 1 else None,
@@ -556,8 +571,67 @@ def _target_catalog(conn: Any, settings: Settings) -> dict[str, Any]:
     }
 
 
+def _target_matches_except_mh_timestamps(conn: Any, invoice_id: int,
+                                         payload: dict[str, Any]) -> bool:
+    """A timestamp correction may not hide any other mapped target difference."""
+    for table, values in (
+        ("m_invoice", {key: value for key, value in payload["invoice"].items()
+                       if key not in MH_TIMESTAMP_COLUMNS}),
+        ("m_invoice_receiver", payload["receiver"]),
+        ("m_invoice_summary", payload["summary"]),
+    ):
+        columns = tuple(values)
+        conditions = " AND ".join(f"{column} IS NOT DISTINCT FROM %s" for column in columns)
+        identity = "id" if table == "m_invoice" else "invoice_id"
+        matched = conn.execute(
+            f"SELECT 1 FROM {table} WHERE {identity}=%s AND {conditions}",
+            (invoice_id, *[values[column] for column in columns]),
+        ).fetchone()
+        if not matched:
+            return False
+    count = conn.execute("SELECT COUNT(*) FROM m_invoice_line WHERE invoice_id=%s", (invoice_id,)).fetchone()[0]
+    if int(count) != len(payload["lines"]):
+        return False
+    for line in payload["lines"]:
+        values = dict(line)
+        values["tributos_json"] = json.dumps(values["tributos_json"]) if values["tributos_json"] else None
+        columns = tuple(values)
+        conditions = " AND ".join(
+            f"{column} IS NOT DISTINCT FROM %s{'::jsonb' if column == 'tributos_json' else ''}"
+            for column in columns
+        )
+        if not conn.execute(
+            f"SELECT 1 FROM m_invoice_line WHERE invoice_id=%s AND {conditions}",
+            (invoice_id, *[values[column] for column in columns]),
+        ).fetchone():
+            return False
+    invoice = payload["invoice"]
+    return bool(conn.execute(
+        "SELECT 1 FROM m_invoice WHERE id=%s AND ("
+        "authority_processed_at IS DISTINCT FROM %s OR "
+        "mh_submitted_at IS DISTINCT FROM %s OR "
+        "mh_processed_at IS DISTINCT FROM %s)",
+        (invoice_id, invoice["authority_processed_at"], invoice["mh_submitted_at"],
+         invoice["mh_processed_at"]),
+    ).fetchone())
+
+
 def _schema_signature(source_schema: dict[str, Any], target_schema: dict[str, Any]) -> str:
     return _hash({"source": source_schema, "target": target_schema})
+
+
+def _legal_control_key(row: dict[str, Any]) -> tuple[str | None, int | None]:
+    emitted = row.get("emission_at")
+    return clean(row.get("control_number")), emitted.year if isinstance(emitted, date) else None
+
+
+def _duplicate_source_controls(rows: list[dict[str, Any]]) -> dict[tuple[str, int | None], int]:
+    counts = Counter(_legal_control_key(row) for row in rows)
+    return {
+        (control, year): count
+        for (control, year), count in counts.items()
+        if control and count > 1
+    }
 
 
 def inspect_dte_history(settings: Settings, contract: DteHistoryContract) -> dict[str, Any]:
@@ -568,6 +642,15 @@ def inspect_dte_history(settings: Settings, contract: DteHistoryContract) -> dic
         rows = extract_dte_history(settings)
         counts["eligible_source_documents"] = len(rows)
         counts["eligible_source_lines"] = sum(len(row["lines"]) for row in rows)
+        duplicate_controls = _duplicate_source_controls(rows)
+        counts["duplicate_control_years"] = len(duplicate_controls)
+        counts["documents_with_duplicate_control_in_year"] = sum(duplicate_controls.values())
+        if duplicate_controls:
+            blockers.append({
+                "source": "duplicate_legal_control_numbers_in_year",
+                "control_count": len(duplicate_controls),
+                "document_count": sum(duplicate_controls.values()),
+            })
         source_schema = {"header": sorted(rows[0]) if rows else [], "line": sorted(rows[0]["lines"][0]) if rows and rows[0]["lines"] else []}
     except Exception as exc:
         blockers.append({"source_extraction": type(exc).__name__})
@@ -590,6 +673,18 @@ def inspect_dte_history(settings: Settings, contract: DteHistoryContract) -> dic
                             target_shape_blockers.append({"target_table": table, "missing_columns": missing})
                     blockers.extend(target_shape_blockers)
                     if not target_shape_blockers:
+                        control_indexes = {
+                            name for (name,) in conn.execute(
+                                "SELECT indexname FROM pg_indexes "
+                                "WHERE schemaname=current_schema() AND tablename='m_invoice' "
+                                "AND indexname IN ('uk_invoice_numero_control','uk_invoice_control_year')"
+                            ).fetchall()
+                        }
+                        if (
+                            "uk_invoice_control_year" not in control_indexes
+                            or "uk_invoice_numero_control" in control_indexes
+                        ):
+                            blockers.append({"target": "invoice_control_year_migration_required"})
                         catalog = _target_catalog(conn, settings)
                         if not catalog["audit_user_id"]:
                             blockers.append({"target": "unique_api_audit_user_required"})
@@ -619,6 +714,7 @@ def build_dte_history_plan(settings: Settings, state: State, contract: DteHistor
     if not settings.target.pg_url:
         raise RuntimeError("Target PostgreSQL URL is required for DTE history planning")
     rows = extract_dte_history(settings)
+    duplicate_controls = _duplicate_source_controls(rows)
     wanted = {key.upper() for key in (source_keys or [])}
     known = {source_key(row) for row in rows}
     missing = sorted(wanted - known)
@@ -635,18 +731,37 @@ def build_dte_history_plan(settings: Settings, state: State, contract: DteHistor
         row_hash = contract.source_hash(row)
         current = catalog["existing"].get(key)
         payload, issue = _payload(row, contract, catalog)
-        if current:
-            action = "unchanged" if current["source_hash"] == row_hash else "conflict"
-            if action == "conflict":
-                issue = "immutable_source_changed"
-        elif key in catalog["legal"] or clean(row.get("control_number")) in catalog["legal"]:
-            action, issue = "conflict", "legal_identity_owned_by_non_history_invoice"
+        control_year = _legal_control_key(row)
+        if control_year in duplicate_controls:
+            action, issue = "conflict", "duplicate_source_control_number_in_year"
+        elif current:
+            if current["source_hash"] == row_hash:
+                action = "unchanged"
+            elif issue or payload is None:
+                action = "quarantine"
+            else:
+                with postgres_connection(settings.target.pg_url) as conn:
+                    safe_mh_change = _target_matches_except_mh_timestamps(
+                        conn, current["invoice_id"], payload,
+                    )
+                action = "update_mh_timestamps" if safe_mh_change else "conflict"
+                if not safe_mh_change:
+                    issue = "source_change_beyond_mh_timestamps"
+        elif owner := catalog["legal"].get(key) or catalog["legal"].get(control_year):
+            action = "conflict"
+            issue = (
+                "legal_identity_owned_by_history_invoice"
+                if owner["source_origin"] == SOURCE_ORIGIN
+                else "legal_identity_owned_by_non_history_invoice"
+            )
         elif issue:
             action = "quarantine"
         else:
             action = "create"
         item = {"source_key": key, "source_hash": row_hash, "action": action,
                 "target_id": current["invoice_id"] if current else None}
+        if action == "update_mh_timestamps":
+            item["expected_target_hash"] = current["source_hash"]
         if issue:
             item["reason"] = issue
         actions.append(item)
@@ -702,6 +817,32 @@ def _insert(conn: Any, payload: dict[str, Any], source_hash: str, audit_user_id:
     return invoice_id
 
 
+def _update_mh_timestamps(conn: Any, action: dict[str, Any], payload: dict[str, Any],
+                          audit_user_id: int) -> int:
+    invoice_id = int(action["target_id"])
+    locked = conn.execute(
+        "SELECT codigo_generacion,source_origin,source_hash FROM m_invoice WHERE id=%s FOR UPDATE",
+        (invoice_id,),
+    ).fetchone()
+    if not locked or (
+        clean(locked[0]) != action["source_key"]
+        or clean(locked[1]) != SOURCE_ORIGIN
+        or clean(locked[2]) != action["expected_target_hash"]
+    ):
+        raise RuntimeError("DTE history target changed after plan")
+    if not _target_matches_except_mh_timestamps(conn, invoice_id, payload):
+        raise RuntimeError("DTE history change is not limited to MH timestamps")
+    invoice = payload["invoice"]
+    conn.execute(
+        "UPDATE m_invoice SET authority_processed_at=%s,mh_submitted_at=%s,"
+        "mh_processed_at=%s,source_hash=%s,lastmodifiedby_id=%s,"
+        "lastmodified_date=CURRENT_TIMESTAMP WHERE id=%s",
+        (invoice["authority_processed_at"], invoice["mh_submitted_at"],
+         invoice["mh_processed_at"], action["source_hash"], audit_user_id, invoice_id),
+    )
+    return invoice_id
+
+
 def _chunks(values: list[Any], size: int) -> Iterator[list[Any]]:
     for offset in range(0, len(values), size):
         yield values[offset:offset + size]
@@ -712,11 +853,22 @@ def _write_dte_batch(
 ) -> list[tuple[dict[str, Any], int]]:
     """Write one destination batch atomically using a worker-owned connection."""
     written: list[tuple[dict[str, Any], int]] = []
+    action_kind = batch[0][0]["action"]
+    if action_kind not in {"create", "update_mh_timestamps"} or any(
+        action["action"] != action_kind for action, _payload in batch
+    ):
+        raise ValueError("DTE history batch must have one write action")
     with _write_connection(target_url) as conn:
         writer = ControlledSqlWriter(conn, BLOCK)
-        with writer.entity_transaction(OPERATION):
+        with writer.entity_transaction(
+            OPERATION if action_kind == "create" else MH_TIMESTAMP_UPDATE_OPERATION
+        ):
             for action, payload in batch:
-                target_id = _insert(conn, payload, action["source_hash"], audit_user_id)
+                target_id = (
+                    _insert(conn, payload, action["source_hash"], audit_user_id)
+                    if action_kind == "create"
+                    else _update_mh_timestamps(conn, action, payload, audit_user_id)
+                )
                 written.append((action, target_id))
     return written
 
@@ -782,13 +934,15 @@ def apply_dte_history_plan(settings: Settings, state: State, contract: DteHistor
             continue
         row = rows.get(key)
         if row is None or contract.source_hash(row) != action["source_hash"]:
-            journal.append((run_id, key, "create", action["source_hash"], None, "failed",
+            journal.append((run_id, key, action["action"], action["source_hash"],
+                            str(action.get("target_id")) if action.get("target_id") else None, "failed",
                             "RuntimeError:source_changed_after_plan"))
             counts["failed"] += 1
             continue
         payload, issue = _payload(row, contract, catalog)
         if issue or payload is None:
-            journal.append((run_id, key, "create", action["source_hash"], None, "failed",
+            journal.append((run_id, key, action["action"], action["source_hash"],
+                            str(action.get("target_id")) if action.get("target_id") else None, "failed",
                             f"DteHistoryDataIssue:{issue}"))
             counts["failed"] += 1
             continue
@@ -797,7 +951,10 @@ def apply_dte_history_plan(settings: Settings, state: State, contract: DteHistor
         state.record_items(journal)
 
     target_url = settings.target.pg_url or ""
-    batches = list(_chunks(pending, controls.batch_size))
+    batches = [
+        batch for kind in ("create", "update_mh_timestamps")
+        for batch in _chunks([item for item in pending if item[0]["action"] == kind], controls.batch_size)
+    ]
     if batches:
         with ThreadPoolExecutor(
             max_workers=min(controls.workers, len(batches)), thread_name_prefix="arissto-dte",
@@ -815,19 +972,21 @@ def apply_dte_history_plan(settings: Settings, state: State, contract: DteHistor
                     for action, target_id in written
                 ]
                 items = [
-                    (run_id, action["source_key"], "create", action["source_hash"],
+                    (run_id, action["source_key"], action["action"], action["source_hash"],
                      str(target_id), "succeeded", None)
                     for action, target_id in written
                 ]
                 items.extend(
-                    (run_id, action["source_key"], "create", action["source_hash"], None, "failed", error)
+                    (run_id, action["source_key"], action["action"], action["source_hash"],
+                     str(action.get("target_id")) if action.get("target_id") else None, "failed", error)
                     for action, error in failed
                 )
                 if mappings:
                     state.save_mappings(mappings)
                 if items:
                     state.record_items(items)
-                counts["create"] += len(written)
+                for action, _target_id in written:
+                    counts[action["action"]] += 1
                 counts["failed"] += len(failed)
     status = "completed_with_errors" if counts["failed"] else (
         "completed_with_quarantine" if counts["quarantined"] else "completed"

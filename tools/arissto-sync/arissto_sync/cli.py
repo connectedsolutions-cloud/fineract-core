@@ -120,6 +120,7 @@ from .loan_reference_canary import (
 )
 from .orchestration import (
     FineractRestartControls,
+    assert_no_pending_access_snapshot,
     build_workflow_plan,
     execute_workflow,
     inspect_local_workflow,
@@ -321,6 +322,10 @@ def parser() -> argparse.ArgumentParser:
     workflow_resume.add_argument("--cycle")
     workflow_resume.add_argument("--target", choices=("local", "prod"), required=True)
     workflow_resume.add_argument("--confirm-production")
+    workflow_resume.add_argument(
+        "--reload-local-fineract", action="store_true",
+        help="restart the owned local Fineract process before resuming, to load updated backend code",
+    )
     workflow_stop = workflow_commands.add_parser("stop", help="request termination of a running local workflow")
     workflow_stop.add_argument("--workflow-run", required=True)
     workflow_stop.add_argument("--cycle")
@@ -668,6 +673,7 @@ def main(argv=None) -> int:
                     reset = reset_local_fineract(
                         settings, args.reset_tenant, args.reset_confirm,
                     )
+                assert_no_pending_access_snapshot(settings.target.tenant)
                 cycle = catalog.create(
                     args.cycle, settings.target.name, settings.target.fingerprint,
                     args.baseline_ref, args.note,
@@ -800,6 +806,7 @@ def main(argv=None) -> int:
                 emit(resume_workflow(
                     settings, state, args.workflow_run, args.cycle, args.env_file,
                     args.confirm_production,
+                    reload_local_fineract=args.reload_local_fineract,
                 ))
             elif args.workflow_command == "stop":
                 emit(stop_workflow(state, args.workflow_run))

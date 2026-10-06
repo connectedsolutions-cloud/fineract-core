@@ -20,6 +20,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from arissto_sync.savings_engine import (
+    _apply_guard,
     _apply_dpf,
     _dpf_expected_statuses_at_cutoff,
     _dpf_expected_replay_count,
@@ -38,9 +39,11 @@ from arissto_sync.savings_engine import (
     _reverse_unmapped_dpf_interest,
     _reverse_unmapped_dpf_transfers,
     _reverse_unmapped_vista_interest_tax,
+    build_savings_plan,
 )
 from arissto_sync.savings_bulk import extract_savings_lifecycles
 from arissto_sync.savings_lifecycle_proof import VistaCanary
+from arissto_sync.service_runtime import ServiceRuntime
 
 
 CONFIG = Path(__file__).resolve().parents[1] / "config" / "savings_deposits.json"
@@ -207,6 +210,122 @@ class SavingsContractTests(unittest.TestCase):
         self.assertEqual(len(result), 501)
         self.assertEqual(len(calls), 10)
         self.assertEqual(source_context.__enter__.call_count, 1)
+
+    def test_bulk_lifecycle_uses_frozen_day_and_reconstructs_vista_balance(self):
+        key = ("001", "001", "0000000001")
+        calls = []
+
+        def source_rows(_connection, sql, params=()):
+            calls.append((sql, params))
+            if "SELECT a.*" in sql:
+                return [{"ID_EMPRESA": key[0], "ID_SUCURSAL": key[1],
+                         "ID_CUENTA_AHORRO": key[2], "ID_TIPO_CUENTA_AHORRO": "001",
+                         "SALDO": Decimal("125.00")}]
+            if "transaction_label" in sql:
+                return [
+                    {"ID_EMPRESA": key[0], "ID_SUCURSAL_CUENTA": key[1],
+                     "ID_CUENTA_AHORRO": key[2], "FECHA_OPERACION": date(2026, 10, 3),
+                     "SALDO_FINAL": Decimal("100.00")},
+                    {"ID_EMPRESA": key[0], "ID_SUCURSAL_CUENTA": key[1],
+                     "ID_CUENTA_AHORRO": key[2], "FECHA_OPERACION": date(2026, 10, 4),
+                     "SALDO_ANTERIOR": Decimal("100.00"), "SALDO_FINAL": Decimal("125.00")},
+                ]
+            if "x.cutoff_date" in sql:
+                return [{"ID_EMPRESA": key[0], "ID_SUCURSAL": key[1],
+                         "ID_CUENTA_AHORRO": key[2], "cutoff_date": date(2026, 10, 3),
+                         "INTERESES_PROVISIONADOS": Decimal("1.00")}]
+            return []
+
+        with patch("arissto_sync.savings_bulk.select_rows", side_effect=source_rows):
+            result = extract_savings_lifecycles(
+                SimpleNamespace(source=object()), self.contract, [key], object(), "2026-10-03"
+            )[key]
+
+        self.assertEqual(result["account"]["SALDO"], Decimal("100.00"))
+        self.assertEqual(len(result["movements"]), 1)
+        self.assertEqual(result["movements"][0]["FECHA_OPERACION"], date(2026, 10, 3))
+        cutoff_sql, cutoff_params = calls[-1]
+        self.assertIn("CAST(FECHA_OPERACION AS date)<=?", cutoff_sql)
+        self.assertEqual(cutoff_params[-2:], ("2026-10-03", "2026-10-03"))
+
+    def test_full_resync_keeps_operational_savings_delta_scope(self):
+        runtime = object.__new__(ServiceRuntime)
+        runtime.settings = object()
+        runtime.state = object()
+        runtime.contracts = {"savings-deposits": self.contract}
+        runtime.run_mode = "full-resync"
+        with patch("arissto_sync.service_runtime.build_savings_plan", return_value=("plan", {})) as build:
+            runtime.plan("savings-deposits")
+        self.assertFalse(build.call_args.kwargs["source_boundary"])
+
+    def test_initial_savings_plan_freezes_last_completed_close(self):
+        settings = SimpleNamespace(
+            source=object(), target=SimpleNamespace(name="local", fingerprint="sandbox")
+        )
+        state = MagicMock()
+        state.accounting_cutoff = {"source_through_date": "2026-10-05"}
+        state.save_plan.return_value = "plan-id"
+        inspection = {
+            "blockers": [], "schema_signature": "schema",
+            "source": {"cutoff": {"cutoff_date": date(2026, 10, 3)}},
+        }
+        with (
+            patch("arissto_sync.savings_engine._target_business_date", return_value=date(2026, 10, 5)),
+            patch("arissto_sync.savings_engine.inspect_savings", return_value=inspection) as inspect,
+            patch("arissto_sync.savings_engine.extract_savings_accounts", return_value=[]) as extract,
+            patch("arissto_sync.savings_engine._target_context", return_value={}),
+            patch("arissto_sync.savings_engine._planned_product_contracts", return_value=[]),
+            patch("arissto_sync.savings_engine.source_fingerprint", return_value="source"),
+        ):
+            _, document = build_savings_plan(settings, state, self.contract)
+        inspect.assert_called_once_with(settings, self.contract, "2026-10-05")
+        extract.assert_called_once_with(settings, self.contract, None, "2026-10-03")
+        self.assertTrue(document["applicable"])
+        self.assertEqual(document["savings_requested_source_through_date"], "2026-10-05")
+        self.assertEqual(document["savings_source_through_date"], "2026-10-03")
+
+    def test_full_resync_plan_does_not_cap_savings_at_last_close(self):
+        settings = SimpleNamespace(
+            source=object(), target=SimpleNamespace(name="local", fingerprint="sandbox")
+        )
+        state = MagicMock()
+        state.accounting_cutoff = {"source_through_date": "2026-10-05"}
+        state.save_plan.return_value = "plan-id"
+        inspection = {
+            "blockers": [], "schema_signature": "schema",
+            "source": {"cutoff": {"cutoff_date": date(2026, 10, 3)}},
+        }
+        with (
+            patch("arissto_sync.savings_engine.inspect_savings", return_value=inspection) as inspect,
+            patch("arissto_sync.savings_engine.extract_savings_accounts", return_value=[]) as extract,
+            patch("arissto_sync.savings_engine._target_context", return_value={}),
+            patch("arissto_sync.savings_engine._planned_product_contracts", return_value=[]),
+            patch("arissto_sync.savings_engine.source_fingerprint", return_value="source"),
+        ):
+            _, document = build_savings_plan(settings, state, self.contract, source_boundary=False)
+        inspect.assert_called_once_with(settings, self.contract, None)
+        extract.assert_called_once_with(settings, self.contract, None, None)
+        self.assertIsNone(document["savings_source_through_date"])
+
+    def test_savings_apply_rechecks_the_frozen_effective_close(self):
+        settings = SimpleNamespace(
+            source=object(), target=SimpleNamespace(name="local", fingerprint="sandbox")
+        )
+        state = MagicMock()
+        state.plan.return_value = {
+            "block": "savings-deposits", "target_fingerprint": "sandbox",
+            "source_fingerprint": "source", "contract_hash": self.contract.contract_hash,
+            "document": {"applicable": True, "schema_signature": "schema",
+                         "savings_source_through_date": "2026-10-03"},
+        }
+        with (
+            patch("arissto_sync.savings_engine.source_fingerprint", return_value="source"),
+            patch("arissto_sync.savings_engine.inspect_savings", return_value={
+                "blockers": [], "schema_signature": "schema",
+            }) as inspect,
+        ):
+            _apply_guard(settings, state, self.contract, "plan-id", None)
+        inspect.assert_called_once_with(settings, self.contract, "2026-10-03")
 
     def test_unmapped_native_interest_tax_is_undone_and_verified(self):
         select_connection = MagicMock()
@@ -670,11 +789,13 @@ class SavingsContractTests(unittest.TestCase):
             patch("arissto_sync.savings.select_rows", side_effect=source_results),
             patch("arissto_sync.savings.source_fingerprint", return_value="source-fingerprint"),
         ):
-            report = inspect_savings(settings, self.contract)
+            report = inspect_savings(settings, self.contract, "2026-10-05")
         self.assertTrue(report["read_ready"])
         self.assertFalse(report["ready"])
         self.assertNotIn("cutoff_field_selection", report["blockers"])
         self.assertNotIn("cutoff_completed_close_snapshot_missing", report["blockers"])
+        self.assertNotIn("cutoff_completed_close_not_at_source_through_date", report["blockers"])
+        self.assertEqual(report["source"]["cutoff"]["cutoff_date"], datetime(2026, 8, 25))
         self.assertEqual(report["source"]["cutoff"]["distinct_accounts"], 157)
         self.assertEqual(report["source"]["fixed_deposit_cycles"]["cycle_count"], 405)
         self.assertNotIn("fixed_deposit_cycles:unplaced_interest_rows", report["blockers"])

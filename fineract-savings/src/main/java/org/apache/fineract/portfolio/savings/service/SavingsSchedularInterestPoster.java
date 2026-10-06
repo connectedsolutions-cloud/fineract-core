@@ -34,7 +34,9 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.fineract.accounting.cutoff.AccountingCutoffPolicyService;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntryType;
+import org.apache.fineract.accounting.journalentry.service.JournalNumberAllocationService;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.service.MathUtil;
 import org.apache.fineract.infrastructure.jobs.exception.JobExecutionException;
@@ -58,6 +60,8 @@ public class SavingsSchedularInterestPoster {
     private final JdbcTemplate jdbcTemplate;
     private final SavingsAccountReadPlatformService savingsAccountReadPlatformService;
     private final PlatformSecurityContext platformSecurityContext;
+    private final JournalNumberAllocationService journalNumberAllocationService;
+    private final AccountingCutoffPolicyService accountingCutoffPolicyService;
 
     private final List<SavingsAccountData> savingsAccountDataList = new ArrayList<>();
     private Collection<SavingsAccountData> savingAccounts;
@@ -113,12 +117,17 @@ public class SavingsSchedularInterestPoster {
                     final SavingsAccountTransactionData dataFromFetch = savingsAccountTransactionDataHashMap.get(key);
                     savingsAccountTransactionData.setId(dataFromFetch.getId());
                     if (savingsAccountData.getGlAccountIdForSavingsControl() != 0
-                            && savingsAccountData.getGlAccountIdForInterestOnSavings() != 0) {
+                            && savingsAccountData.getGlAccountIdForInterestOnSavings() != 0
+                            && accountingCutoffPolicyService.shouldGenerateAccounting(savingsAccountTransactionData.getTransactionDate())) {
                         OffsetDateTime auditDatetime = DateUtils.getAuditOffsetDateTime();
+                        String groupKey = SAVINGS_TRANSACTION_IDENTIFIER + savingsAccountTransactionData.getId() + "|"
+                                + savingsAccountTransactionData.getTransactionDate();
+                        String journalNumber = journalNumberAllocationService.assign(groupKey,
+                                savingsAccountTransactionData.getTransactionDate());
                         paramsForGLInsertion.add(
                                 new Object[] { savingsAccountTransactionData.getAccountCredit(), savingsAccountData.getOfficeId(), null,
                                         currencyCode, SAVINGS_TRANSACTION_IDENTIFIER + savingsAccountTransactionData.getId().toString(),
-                                        savingsAccountTransactionData.getId(), null, false, null, false,
+                                        savingsAccountTransactionData.getId(), null, false, journalNumber, false,
                                         savingsAccountTransactionData.getTransactionDate(), JournalEntryType.CREDIT.getValue().longValue(),
                                         savingsAccountTransactionData.getAmount(), null, JournalEntryType.CREDIT.getValue().longValue(),
                                         savingsAccountData.getId(), auditDatetime, auditDatetime, false, BigDecimal.ZERO, BigDecimal.ZERO,
@@ -128,7 +137,7 @@ public class SavingsSchedularInterestPoster {
                         paramsForGLInsertion
                                 .add(new Object[] { savingsAccountTransactionData.getAccountDebit(), savingsAccountData.getOfficeId(), null,
                                         currencyCode, SAVINGS_TRANSACTION_IDENTIFIER + savingsAccountTransactionData.getId().toString(),
-                                        savingsAccountTransactionData.getId(), null, false, null, false,
+                                        savingsAccountTransactionData.getId(), null, false, journalNumber, false,
                                         savingsAccountTransactionData.getTransactionDate(), JournalEntryType.DEBIT.getValue().longValue(),
                                         savingsAccountTransactionData.getAmount(), null, JournalEntryType.DEBIT.getValue().longValue(),
                                         savingsAccountData.getId(), auditDatetime, auditDatetime, false, BigDecimal.ZERO, BigDecimal.ZERO,

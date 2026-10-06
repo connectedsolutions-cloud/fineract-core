@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0368-1-invoice-control-year-postgresql" author="credesal" dbms="postgresql">
+        <dropUniqueConstraint tableName="m_invoice" constraintName="uk_invoice_numero_control"/>
+        <sql>CREATE UNIQUE INDEX uk_invoice_control_year ON m_invoice (numero_control, EXTRACT(YEAR FROM fec_emi))</sql>
+    </changeSet>
+
+    <changeSet id="0368-2-invoice-control-year-mysql" author="credesal" dbms="mysql,mariadb">
+        <dropUniqueConstraint tableName="m_invoice" constraintName="uk_invoice_numero_control"/>
+        <sql>ALTER TABLE m_invoice ADD COLUMN numero_control_year INT GENERATED ALWAYS AS (YEAR(fec_emi)) STORED</sql>
+        <addUniqueConstraint tableName="m_invoice" columnNames="numero_control,numero_control_year"
+                             constraintName="uk_invoice_control_year"/>
+    </changeSet>
+
+</databaseChangeLog>

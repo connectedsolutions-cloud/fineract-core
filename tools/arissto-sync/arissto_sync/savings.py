@@ -345,8 +345,8 @@ class SavingsContract:
         if value["target_shared_gl"] != {
             "savingsReferenceAccountId": {"gl_code": "1110040202", "classification_enum": 1},
             "transfersInSuspenseAccountId": {"gl_code": "2130050101", "classification_enum": 2},
-            "incomeFromFeeAccountId": {"gl_code": "6420", "classification_enum": 4},
-            "incomeFromPenaltyAccountId": {"gl_code": "6430", "classification_enum": 4},
+            "incomeFromFeeAccountId": {"gl_code": "6423", "classification_enum": 4},
+            "incomeFromPenaltyAccountId": {"gl_code": "6433", "classification_enum": 4},
             "feesReceivableAccountId": {"gl_code": "1530", "classification_enum": 1},
             "penaltiesReceivableAccountId": {"gl_code": "1540", "classification_enum": 1},
         }:
@@ -630,7 +630,8 @@ def _schema_signature(source_tables: list[dict[str, Any]], target_schema: dict[s
     return hashlib.sha256(json.dumps(material, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
-def inspect_savings(settings: Settings, contract: SavingsContract) -> dict[str, Any]:
+def inspect_savings(settings: Settings, contract: SavingsContract,
+                    source_through_date: str | None = None) -> dict[str, Any]:
     requirements = _source_requirements(contract)
     source_schema: list[dict[str, Any]] = []
     blockers: list[str] = []
@@ -811,6 +812,7 @@ def inspect_savings(settings: Settings, contract: SavingsContract) -> dict[str, 
                 JOIN [dbo].[{source['daily_table']}] d
                   ON d.ID_CIERRE_DIARIO=c.ID_CIERRE_DIARIO
                 WHERE RTRIM(c.CIERRE)=?
+                  AND (? IS NULL OR CAST(c.{cutoff['date_field']} AS date)<=?)
             ), snapshot AS (
                 SELECT d.*
                 FROM [dbo].[{source['daily_table']}] d
@@ -830,7 +832,8 @@ def inspect_savings(settings: Settings, contract: SavingsContract) -> dict[str, 
                    CAST(COALESCE(SUM(s.{cutoff['selected_accounting_field']}),0) AS DECIMAL(20,8))
                        AS accrued_interest_accounting
             FROM cutoff x LEFT JOIN snapshot s ON 1=1
-        """, (cutoff["completed_close_value"], cutoff["completed_close_value"]))
+        """, (cutoff["completed_close_value"], source_through_date, source_through_date,
+              cutoff["completed_close_value"]))
         isr_rows = select_rows(conn, f"""
             SELECT
                 SUM(CASE WHEN RTRIM(h.TIPO_HISTORICO)='1'

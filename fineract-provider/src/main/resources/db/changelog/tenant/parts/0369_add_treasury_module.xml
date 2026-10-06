@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0369-treasury-bank-account" author="credesal">
+        <createTable tableName="m_treasury_bank_account">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="gl_account_id" type="BIGINT">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="currency_code" type="VARCHAR(3)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="office_id" type="BIGINT"/>
+            <column name="active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="external_account_reference" type="VARCHAR(100)"/>
+            <column name="balance" type="DECIMAL(19,6)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by_user_id" type="BIGINT"/>
+            <column name="created_on" type="TIMESTAMP WITH TIME ZONE"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_treasury_bank_account" baseColumnNames="gl_account_id"
+                                 constraintName="fk_treasury_bank_gl" referencedTableName="acc_gl_account" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="m_treasury_bank_account" baseColumnNames="office_id"
+                                 constraintName="fk_treasury_bank_office" referencedTableName="m_office" referencedColumnNames="id"/>
+    </changeSet>
+
+    <changeSet id="0369-treasury-movement" author="credesal">
+        <createTable tableName="m_treasury_movement">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="business_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="value_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="office_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="movement_type" type="VARCHAR(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="amount" type="DECIMAL(19,6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="currency_code" type="VARCHAR(3)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="journal_owner" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="journal_transaction_id" type="VARCHAR(50)"/>
+            <column name="ref_num" type="VARCHAR(20)"/>
+            <column name="bank_reference" type="VARCHAR(100)"/>
+            <column name="payee_name" type="VARCHAR(200)"/>
+            <column name="staff_id" type="BIGINT"/>
+            <column name="note" type="VARCHAR(500)"/>
+            <column name="counter_gl_account_id" type="BIGINT"/>
+            <column name="reverses_movement_id" type="BIGINT"/>
+            <column name="created_by_user_id" type="BIGINT"/>
+            <column name="created_on" type="TIMESTAMP WITH TIME ZONE"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_treasury_movement" baseColumnNames="office_id"
+                                 constraintName="fk_treasury_movement_office" referencedTableName="m_office" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="m_treasury_movement" baseColumnNames="staff_id"
+                                 constraintName="fk_treasury_movement_staff" referencedTableName="m_staff" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="m_treasury_movement" baseColumnNames="counter_gl_account_id"
+                                 constraintName="fk_treasury_movement_counter_gl" referencedTableName="acc_gl_account" referencedColumnNames="id"/>
+    </changeSet>
+
+    <changeSet id="0369-treasury-movement-line" author="credesal">
+        <createTable tableName="m_treasury_movement_line">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="movement_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="bank_account_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="direction" type="VARCHAR(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="amount" type="DECIMAL(19,6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="balance_after" type="DECIMAL(19,6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_treasury_movement_line" baseColumnNames="movement_id"
+                                 constraintName="fk_treasury_line_movement" referencedTableName="m_treasury_movement" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="m_treasury_movement_line" baseColumnNames="bank_account_id"
+                                 constraintName="fk_treasury_line_bank" referencedTableName="m_treasury_bank_account" referencedColumnNames="id"/>
+        <createIndex tableName="m_treasury_movement_line" indexName="idx_treasury_line_bank">
+            <column name="bank_account_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0369-treasury-movement-link" author="credesal">
+        <createTable tableName="m_treasury_movement_link">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="movement_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="link_type" type="VARCHAR(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="entity_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_treasury_movement_link" baseColumnNames="movement_id"
+                                 constraintName="fk_treasury_link_movement" referencedTableName="m_treasury_movement" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="m_treasury_movement_link" columnNames="link_type, entity_id"
+                             constraintName="uk_treasury_link_entity"/>
+    </changeSet>
+
+    <changeSet id="0369-gl-journal-number-sequence" author="credesal">
+        <createTable tableName="m_gl_journal_number_sequence">
+            <column name="period_key" type="VARCHAR(6)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="last_value" type="INT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="0369-treasury-permissions" author="credesal">
+        <insert tableName="m_permission">
+            <column name="grouping" value="special"/>
+            <column name="code" value="READ_TREASURY"/>
+            <column name="entity_name" value="TREASURY"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="special"/>
+            <column name="code" value="CREATE_TREASURY_BANKACCOUNT"/>
+            <column name="entity_name" value="TREASURY"/>
+            <column name="action_name" value="CREATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="special"/>
+            <column name="code" value="CREATE_TREASURY_MOVEMENT"/>
+            <column name="entity_name" value="TREASURY"/>
+            <column name="action_name" value="CREATE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="special"/>
+            <column name="code" value="REVERSE_TREASURY_MOVEMENT"/>
+            <column name="entity_name" value="TREASURY"/>
+            <column name="action_name" value="REVERSE"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

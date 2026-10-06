@@ -6,8 +6,9 @@ historical plan and never performs a fresh/clean reset.
 
 Two production workflows are packaged. `prod-party-resync` is the conservative
 default and contains `clients`, `employees`, `client-staff-assignments`,
-`client-pep`, and `client-family-references`. `prod-full-resync` contains all 15
-available services and mirrors the dependency-complete local delta graph. Every
+`client-pep`, and `client-family-references`. `prod-full-resync` contains all 16
+available services, including `native-share-yield`, and mirrors the
+dependency-complete local delta graph. Every
 selected service declares a reviewed `full_resync` contract; the broader
 workflow must still pass the production-like acceptance gates below before it
 is selected by the service or timer.

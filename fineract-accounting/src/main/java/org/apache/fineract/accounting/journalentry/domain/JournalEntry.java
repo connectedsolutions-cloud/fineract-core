@@ -102,8 +102,14 @@ public class JournalEntry extends AbstractAuditableWithUTCDateTimeCustom<Long> {
     @Column(name = "entity_id")
     private Long entityId;
 
+    @Setter
     @Column(name = "ref_num")
     private String referenceNumber;
+
+    /** Separate a reversal from its original journal when Fineract reuses the transaction id. */
+    @Setter
+    @jakarta.persistence.Transient
+    private String journalNumberGroupKey;
 
     @Column(name = "submitted_on_date", nullable = false)
     private LocalDate submittedOnDate;

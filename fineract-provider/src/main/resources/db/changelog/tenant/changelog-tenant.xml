@@ -380,5 +380,28 @@
     <include file="parts/0358_register_estado_resultados_consolidado_report.xml" relativeToChangelogFile="true" />
     <include file="parts/0359_register_informe_auxiliar_mayor_report.xml" relativeToChangelogFile="true" />
     <include file="parts/0360_add_source_exact_resync_schedule_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0361_comprobante_contable_office_multiselect.xml" relativeToChangelogFile="true" />
+    <include file="parts/0362_office_multiselect_all_reports.xml" relativeToChangelogFile="true" />
     <include file="parts/0363_add_saved_reports.xml" relativeToChangelogFile="true" />
+    <include file="parts/0364_add_source_exact_historical_refinancing_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0365_configure_sandbox_shared_cash_accounts.xml" relativeToChangelogFile="true" />
+    <include file="parts/0366_correct_sandbox_savings_income_details.xml" relativeToChangelogFile="true" />
+    <include file="parts/0367_add_sandbox_hybrid_posting_details.xml" relativeToChangelogFile="true" />
+    <include file="parts/0368_allow_invoice_control_reuse_across_years.xml" relativeToChangelogFile="true" />
+    <include file="parts/0369_add_treasury_module.xml" relativeToChangelogFile="true" />
+    <include file="parts/0370_add_treasury_bank_alias.xml" relativeToChangelogFile="true" />
+    <include file="parts/0371_register_balance_saldos_report.xml" relativeToChangelogFile="true" />
+    <include file="parts/0372_balance_comprobacion_visual_subtype.xml" relativeToChangelogFile="true" />
+    <include file="parts/0373_fix_balance_saldos_office_scope.xml" relativeToChangelogFile="true" />
+    <include file="parts/0374_correct_balance_saldos_detallado_parity.xml" relativeToChangelogFile="true" />
+    <include file="parts/0375_fix_concentracion_movimientos_runtime.xml" relativeToChangelogFile="true" />
+    <include file="parts/0376_fix_prestamos_morosidad_runtime.xml" relativeToChangelogFile="true" />
+    <include file="parts/0377_use_native_prestamos_morosidad_flows.xml" relativeToChangelogFile="true" />
+    <include file="parts/0378_enable_visual_loan_arrears.xml" relativeToChangelogFile="true" />
+    <include file="parts/0379_add_source_exact_insurance_rebase_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0380_monthly_gl_journal_assignment.xml" relativeToChangelogFile="true" />
+    <include file="parts/0381_add_sandbox_marketing_study_gl_detail.xml" relativeToChangelogFile="true" />
+    <include file="parts/0382_zero_empty_prestamos_morosidad_portfolios.xml" relativeToChangelogFile="true" />
+    <include file="parts/0383_filter_prestamos_morosidad_by_class_and_product.xml" relativeToChangelogFile="true" />
+    <include file="parts/0384_use_contractual_loan_term_date.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

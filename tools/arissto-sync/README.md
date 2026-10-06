@@ -150,7 +150,7 @@ fails closed.
 Production has two explicitly guarded full re-sync definitions. The narrower
 `prod-party-resync` remains available for Clients, Employees, current
 client-staff assignments, PEP, and accepted family references.
-`prod-full-resync` exposes the separately promoted 15-service production delta
+`prod-full-resync` exposes the separately promoted 16-service production delta
 graph. Both require a versioned release, the exact
 production fingerprint, and one accepted production reconciliation checkpoint
 per selected service. The production deployment stays on the smaller workflow
@@ -248,6 +248,12 @@ failure links, and crash state remain queryable:
 ./arissto-sync workflow resume --workflow-run WORKFLOW_RUN_ID --cycle sandbox-2026-09-02-a --target local
 ./arissto-sync workflow stop --workflow-run WORKFLOW_RUN_ID --cycle sandbox-2026-09-02-a --target local
 ```
+
+After a local Fineract backend fix, add `--reload-local-fineract` to `workflow
+resume`. The guarded option accepts only the local target and the restart
+command frozen in the original plan. It restarts the owned local process,
+pauses and verifies the sandbox scheduler, then queues the same workflow run
+without resetting the tenant or creating a new cycle.
 
 Pass `--cycle sandbox-2026-09-02-a` to `status`, `resume`, and `stop`. Omitting
 `--cycle` from `history` compares the workflow across every preserved cycle;

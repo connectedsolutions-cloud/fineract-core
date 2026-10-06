@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more
+     contributor license agreements. See the NOTICE file distributed with
+     this work for additional information regarding copyright ownership.
+     The ASF licenses this file to you under the Apache License, Version 2.0. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0383-1-filter-prestamos-morosidad-by-class-and-product" author="credesal" dbms="postgresql">
+        <comment>Add optional loan product and risk classification selectors to the visual portfolio report.</comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+INSERT INTO stretchy_parameter (
+    id, parameter_name, parameter_variable, parameter_label,
+    "parameter_displayType", "parameter_FormatType", parameter_default, parameter_sql
+)
+SELECT COALESCE((SELECT MAX(id) FROM stretchy_parameter), 0) + 1,
+       'CredesalLoanProductMulti', 'loanProductId', 'Loan Product',
+       'multiselect', 'number', 'optional',
+       $options$SELECT id, name FROM m_product_loan WHERE currency_code = 'USD' ORDER BY name$options$
+ WHERE NOT EXISTS (SELECT 1 FROM stretchy_parameter WHERE parameter_name = 'CredesalLoanProductMulti');
+
+INSERT INTO stretchy_parameter (
+    id, parameter_name, parameter_variable, parameter_label,
+    "parameter_displayType", "parameter_FormatType", parameter_default, parameter_sql
+)
+SELECT COALESCE((SELECT MAX(id) FROM stretchy_parameter), 0) + 1,
+       'CredesalLoanRiskClassMulti', 'riskClass', 'Classification',
+       'multiselect', 'string', 'optional',
+       $options$SELECT code AS id, code AS name FROM (VALUES
+           ('A1', 1), ('A2', 2), ('B', 3), ('C1', 4),
+           ('C2', 5), ('D1', 6), ('D2', 7), ('E', 8)
+       ) AS classes(code, sort_order) ORDER BY sort_order$options$
+ WHERE NOT EXISTS (SELECT 1 FROM stretchy_parameter WHERE parameter_name = 'CredesalLoanRiskClassMulti');
+
+UPDATE stretchy_report
+   SET report_sql = $report$
+WITH selected_offices AS (
+    SELECT office_under.id
+      FROM m_office selected_office
+      JOIN m_office office_under
+        ON office_under.hierarchy LIKE selected_office.hierarchy || '%'
+     WHERE credesal_report_office_is_root(
+         selected_office.id, '${officeId}', '${currentUserHierarchy}'
+     )
+       AND office_under.hierarchy LIKE '${currentUserHierarchy}' || '%'
+),
+resolved_cutoff AS (
+    SELECT LEAST(
+               CAST('${endDate}' AS DATE),
+               COALESCE((SELECT MAX(last_closed_business_date) FROM m_loan), CURRENT_DATE)
+           ) AS snapshot_date
+     WHERE CAST('${startDate}' AS DATE) <= LEAST(
+               CAST('${endDate}' AS DATE),
+               COALESCE((SELECT MAX(last_closed_business_date) FROM m_loan), CURRENT_DATE)
+           )
+),
+eligible_loans AS (
+    SELECT loan.id,
+           loan.product_id,
+           loan.disbursedon_date,
+           loan.expected_maturedon_date,
+           loan.currency_code,
+           client.office_id
+      FROM m_loan loan
+      JOIN m_client client ON client.id = loan.client_id
+      JOIN selected_offices selected ON selected.id = client.office_id
+      CROSS JOIN resolved_cutoff cutoff
+     WHERE loan.disbursedon_date <= cutoff.snapshot_date
+       AND (loan.closedon_date IS NULL OR loan.closedon_date > cutoff.snapshot_date)
+       AND (loan.writtenoffon_date IS NULL OR loan.writtenoffon_date > cutoff.snapshot_date)
+       AND loan.currency_code = 'USD'
+       AND (NULLIF(BTRIM('${loanProductId}'), '') IS NULL
+            OR '${loanProductId}' = '-1'
+            OR loan.product_id::TEXT = ANY(string_to_array('${loanProductId}', ',')))
+),
+loan_cash_flows AS (
+    SELECT loan.id AS loan_id,
+           COALESCE(SUM(transaction.amount) FILTER (
+               WHERE transaction.transaction_type_enum = 1
+           ), 0.00) AS disbursed_amount,
+           COALESCE(SUM(transaction.principal_portion_derived) FILTER (
+               WHERE transaction.transaction_type_enum = 2
+           ), 0.00) AS principal_repaid
+      FROM eligible_loans loan
+      CROSS JOIN resolved_cutoff cutoff
+ LEFT JOIN m_loan_transaction transaction
+        ON transaction.loan_id = loan.id
+       AND transaction.transaction_date <= cutoff.snapshot_date
+       AND NOT transaction.is_reversed
+       AND transaction.transaction_type_enum IN (1, 2)
+     GROUP BY loan.id
+),
+installment_paid AS (
+    SELECT mapping.loan_repayment_schedule_id,
+           SUM(mapping.principal_portion_derived) AS principal_paid,
+           SUM(mapping.interest_portion_derived) AS interest_paid
+      FROM m_loan_transaction_repayment_schedule_mapping mapping
+      JOIN m_loan_transaction transaction
+        ON transaction.id = mapping.loan_transaction_id
+      JOIN eligible_loans loan ON loan.id = transaction.loan_id
+      CROSS JOIN resolved_cutoff cutoff
+     WHERE transaction.transaction_date <= cutoff.snapshot_date
+       AND transaction.transaction_type_enum = 2
+       AND NOT transaction.is_reversed
+     GROUP BY mapping.loan_repayment_schedule_id
+),
+loan_arrears AS (
+    SELECT schedule.loan_id,
+           COALESCE(SUM(GREATEST(
+               schedule.principal_amount - COALESCE(paid.principal_paid, 0.00), 0.00
+           )), 0.00) AS overdue_principal,
+           COALESCE(SUM(GREATEST(
+               schedule.interest_amount - COALESCE(paid.interest_paid, 0.00), 0.00
+           )), 0.00) AS overdue_interest,
+           MIN(schedule.duedate) FILTER (
+               WHERE schedule.principal_amount - COALESCE(paid.principal_paid, 0.00) > 0.01
+                  OR schedule.interest_amount - COALESCE(paid.interest_paid, 0.00) > 0.01
+           ) AS first_overdue_date
+      FROM m_loan_repayment_schedule schedule
+      JOIN eligible_loans loan ON loan.id = schedule.loan_id
+      CROSS JOIN resolved_cutoff cutoff
+ LEFT JOIN installment_paid paid ON paid.loan_repayment_schedule_id = schedule.id
+     WHERE schedule.duedate < cutoff.snapshot_date
+     GROUP BY schedule.loan_id
+),
+portfolio AS (
+    SELECT cutoff.snapshot_date,
+           CASE WHEN loan.expected_maturedon_date - loan.disbursedon_date <= 366
+                THEN 1 ELSE 2 END AS term_order,
+           CASE WHEN loan.expected_maturedon_date - loan.disbursedon_date <= 366
+                THEN 'CORTO PLAZO' ELSE 'LARGO PLAZO' END AS term_type,
+           office.hierarchy AS office_hierarchy,
+           office.id AS office_id,
+           office.name AS office_name,
+           product.id AS product_id,
+           product.name AS credit_line,
+           CASE
+               WHEN arrears.first_overdue_date IS NULL OR cutoff.snapshot_date - arrears.first_overdue_date <= 7 THEN '1'
+               WHEN cutoff.snapshot_date - arrears.first_overdue_date <= 30 THEN '2'
+               WHEN cutoff.snapshot_date - arrears.first_overdue_date <= 60 THEN '3'
+               WHEN cutoff.snapshot_date - arrears.first_overdue_date <= 90 THEN '4'
+               WHEN cutoff.snapshot_date - arrears.first_overdue_date <= 120 THEN '5'
+               WHEN cutoff.snapshot_date - arrears.first_overdue_date <= 150 THEN '6'
+               WHEN cutoff.snapshot_date - arrears.first_overdue_date <= 180 THEN '7'
+               ELSE '8'
+           END AS risk_classification_id,
+           CASE
+               WHEN arrears.first_overdue_date IS NULL OR cutoff.snapshot_date - arrears.first_overdue_date <= 7 THEN 'A1'
+               WHEN cutoff.snapshot_date - arrears.first_overdue_date <= 30 THEN 'A2'
+               WHEN cutoff.snapshot_date - arrears.first_overdue_date <= 60 THEN 'B'
+               WHEN cutoff.snapshot_date - arrears.first_overdue_date <= 90 THEN 'C1'
+               WHEN cutoff.snapshot_date - arrears.first_overdue_date <= 120 THEN 'C2'
+               WHEN cutoff.snapshot_date - arrears.first_overdue_date <= 150 THEN 'D1'
+               WHEN cutoff.snapshot_date - arrears.first_overdue_date <= 180 THEN 'D2'
+               ELSE 'E'
+           END AS risk_classification,
+           CASE
+               WHEN arrears.first_overdue_date IS NULL OR cutoff.snapshot_date - arrears.first_overdue_date <= 7 THEN 1
+               WHEN cutoff.snapshot_date - arrears.first_overdue_date <= 30 THEN 2
+               WHEN cutoff.snapshot_date - arrears.first_overdue_date <= 60 THEN 3
+               WHEN cutoff.snapshot_date - arrears.first_overdue_date <= 90 THEN 4
+               WHEN cutoff.snapshot_date - arrears.first_overdue_date <= 120 THEN 5
+               WHEN cutoff.snapshot_date - arrears.first_overdue_date <= 150 THEN 6
+               WHEN cutoff.snapshot_date - arrears.first_overdue_date <= 180 THEN 7
+               ELSE 8
+           END AS risk_order,
+           cash.disbursed_amount,
+           GREATEST(cash.disbursed_amount - cash.principal_repaid, 0.00) AS principal_balance,
+           LEAST(COALESCE(arrears.overdue_principal, 0.00),
+                 GREATEST(cash.disbursed_amount - cash.principal_repaid, 0.00)) AS overdue_principal,
+           COALESCE(arrears.overdue_interest, 0.00) AS overdue_interest,
+           CASE WHEN COALESCE(arrears.overdue_principal, 0.00) > 0.01
+                THEN '2' ELSE '1' END AS portfolio_status
+      FROM eligible_loans loan
+      CROSS JOIN resolved_cutoff cutoff
+      JOIN loan_cash_flows cash ON cash.loan_id = loan.id
+ LEFT JOIN loan_arrears arrears ON arrears.loan_id = loan.id
+      JOIN m_office office ON office.id = loan.office_id
+      JOIN m_product_loan product ON product.id = loan.product_id
+     WHERE cash.disbursed_amount - cash.principal_repaid > 0.01
+),
+classification_rows AS (
+    SELECT term_order,
+           term_type,
+           office_hierarchy,
+           office_id,
+           office_name,
+           product_id,
+           credit_line,
+           risk_order,
+           risk_classification,
+           COUNT(*) AS loan_count,
+           COUNT(*) FILTER (WHERE risk_classification_id <> '1') AS loans_in_arrears_count,
+           SUM(disbursed_amount) AS disbursed_amount,
+           SUM(principal_balance) AS principal_balance,
+           COALESCE(SUM(principal_balance) FILTER (WHERE risk_classification_id <> '1'), 0.00) AS affected_portfolio,
+           SUM(overdue_principal) AS overdue_principal,
+           SUM(overdue_interest) AS overdue_interest,
+           COALESCE(SUM(principal_balance) FILTER (WHERE portfolio_status = '1'), 0.00) AS current_portfolio,
+           COALESCE(SUM(principal_balance) FILTER (WHERE portfolio_status = '2'), 0.00) AS overdue_portfolio
+      FROM portfolio
+     WHERE NULLIF(BTRIM('${riskClass}'), '') IS NULL
+        OR '${riskClass}' = '-1'
+        OR risk_classification = ANY(string_to_array('${riskClass}', ','))
+     GROUP BY term_order, term_type, office_hierarchy, office_id, office_name,
+              product_id, credit_line, risk_order, risk_classification
+),
+display_rows AS (
+    SELECT term_order,
+           term_type,
+           office_hierarchy,
+           office_id,
+           office_name,
+           product_id,
+           credit_line,
+           1 AS row_order,
+           risk_order,
+           'CLASIFICACION'::VARCHAR AS row_type,
+           risk_classification AS classification,
+           loan_count,
+           loans_in_arrears_count,
+           disbursed_amount,
+           principal_balance,
+           COALESCE(affected_portfolio, 0.00) AS affected_portfolio,
+           overdue_principal,
+           overdue_interest,
+           COALESCE(current_portfolio, 0.00) AS current_portfolio,
+           COALESCE(overdue_portfolio, 0.00) AS overdue_portfolio
+      FROM classification_rows
+
+    UNION ALL
+
+    SELECT term_order, term_type, office_hierarchy, office_id, office_name,
+           product_id, credit_line, 2, 999, 'TOTAL_LINEA', NULL,
+           SUM(loan_count), SUM(loans_in_arrears_count), SUM(disbursed_amount),
+           SUM(principal_balance), SUM(affected_portfolio), SUM(overdue_principal),
+           SUM(overdue_interest), SUM(current_portfolio), SUM(overdue_portfolio)
+      FROM classification_rows
+     GROUP BY term_order, term_type, office_hierarchy, office_id, office_name,
+              product_id, credit_line
+
+    UNION ALL
+
+    SELECT term_order, term_type, office_hierarchy, office_id, office_name,
+           NULL, NULL, 3, 999, 'TOTAL_SUCURSAL', NULL,
+           SUM(loan_count), SUM(loans_in_arrears_count), SUM(disbursed_amount),
+           SUM(principal_balance), SUM(affected_portfolio), SUM(overdue_principal),
+           SUM(overdue_interest), SUM(current_portfolio), SUM(overdue_portfolio)
+      FROM classification_rows
+     GROUP BY term_order, term_type, office_hierarchy, office_id, office_name
+
+    UNION ALL
+
+    SELECT term_order, term_type, '~~~~', NULL, NULL,
+           NULL, NULL, 4, 999, 'TOTAL_PLAZO', NULL,
+           SUM(loan_count), SUM(loans_in_arrears_count), SUM(disbursed_amount),
+           SUM(principal_balance), SUM(affected_portfolio), SUM(overdue_principal),
+           SUM(overdue_interest), SUM(current_portfolio), SUM(overdue_portfolio)
+      FROM classification_rows
+     GROUP BY term_order, term_type
+
+    UNION ALL
+
+    SELECT 3, NULL, '~~~~', NULL, NULL,
+           NULL, NULL, 5, 999, 'TOTAL_GENERAL', NULL,
+           SUM(loan_count), SUM(loans_in_arrears_count), SUM(disbursed_amount),
+           SUM(principal_balance), SUM(affected_portfolio), SUM(overdue_principal),
+           SUM(overdue_interest), SUM(current_portfolio), SUM(overdue_portfolio)
+      FROM classification_rows
+    HAVING COUNT(*) > 0
+),
+grand_total AS (
+    SELECT COALESCE(SUM(principal_balance), 0.00) AS principal_balance
+      FROM classification_rows
+)
+SELECT ROW_NUMBER() OVER (
+           ORDER BY row.term_order, row.office_hierarchy COLLATE "C",
+                    row.product_id NULLS LAST, row.row_order, row.risk_order
+       ) AS "Orden",
+       row.row_type AS "Tipo Fila",
+       row.term_type AS "Tipo Plazo",
+       row.office_id AS "Id Oficina",
+       row.office_name AS "Sucursal",
+       row.product_id AS "Id Línea Crédito",
+       row.credit_line AS "Línea Crédito",
+       row.classification AS "CLSF",
+       row.loan_count AS "Cantidad Préstamos",
+       row.loans_in_arrears_count AS "Cantidad Préstamos en Mora",
+       ROUND(row.disbursed_amount, 2) AS "Monto Desembolsado",
+       ROUND(row.principal_balance, 2) AS "Saldo Capital",
+       ROUND(row.affected_portfolio, 2) AS "Cartera Afectada",
+       ROUND(row.overdue_principal, 2) AS "Capital Vencido",
+       ROUND(row.overdue_interest, 2) AS "Interés Vencido",
+       ROUND(row.current_portfolio, 2) AS "Cartera Vigente",
+       ROUND(row.overdue_portfolio, 2) AS "Cartera Vencida",
+       CASE WHEN total.principal_balance = 0.00 THEN 0.0000
+            ELSE ROUND(row.principal_balance * 100.0 / total.principal_balance, 4)
+        END AS "Porcentaje Cartera %",
+       CASE WHEN total.principal_balance = 0.00 THEN 0.0000
+            ELSE ROUND(row.overdue_principal * 100.0 / total.principal_balance, 4)
+        END AS "Porcentaje Vencido %",
+       cutoff.snapshot_date AS "Fecha Corte",
+       TO_CHAR(CAST('${startDate}' AS DATE), 'YYYY-MM') AS "Período"
+  FROM display_rows row
+ CROSS JOIN grand_total total
+ CROSS JOIN resolved_cutoff cutoff
+ ORDER BY row.term_order, row.office_hierarchy COLLATE "C",
+          row.product_id NULLS LAST, row.row_order, row.risk_order
+$report$,
+       report_subtype = 'VisualLoanArrears',
+       use_report = TRUE
+ WHERE report_name = 'Detalle de Saldos de Préstamos y Morosidad';
+
+INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+SELECT report.id, parameter.id, parameter.parameter_variable
+  FROM stretchy_report report
+ CROSS JOIN stretchy_parameter parameter
+ WHERE report.report_name = 'Detalle de Saldos de Préstamos y Morosidad'
+   AND parameter.parameter_name IN ('CredesalLoanProductMulti', 'CredesalLoanRiskClassMulti')
+   AND NOT EXISTS (
+       SELECT 1 FROM stretchy_report_parameter usage
+        WHERE usage.report_id = report.id
+          AND usage.parameter_id = parameter.id
+   );
+
+DO $validation$
+BEGIN
+    IF (
+        SELECT COUNT(*)
+          FROM stretchy_report_parameter usage
+          JOIN stretchy_report report ON report.id = usage.report_id
+         WHERE report.report_name = 'Detalle de Saldos de Préstamos y Morosidad'
+           AND usage.report_parameter_name IN ('officeId', 'startDate', 'endDate', 'loanProductId', 'riskClass')
+    ) <> 5 THEN
+        RAISE EXCEPTION 'Detalle de Saldos de Préstamos y Morosidad requires office, dates, product and classification parameters';
+    END IF;
+END
+$validation$;
+
+INSERT INTO m_permission (grouping, code, entity_name, action_name, can_maker_checker)
+SELECT 'report', 'READ_Detalle de Saldos de Préstamos y Morosidad',
+       'Detalle de Saldos de Préstamos y Morosidad', 'READ', FALSE
+ WHERE NOT EXISTS (
+     SELECT 1 FROM m_permission
+      WHERE code = 'READ_Detalle de Saldos de Préstamos y Morosidad'
+ );
+        ]]></sql>
+    </changeSet>
+
+</databaseChangeLog>

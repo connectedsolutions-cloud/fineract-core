@@ -33,6 +33,8 @@ public interface LoanChargeWritePlatformService {
 
     CommandProcessingResult updateLoanCharge(Long loanId, Long loanChargeId, JsonCommand command);
 
+    CommandProcessingResult rebaseSourceExactInsuranceCharge(Long loanId, Long loanChargeId, JsonCommand command);
+
     CommandProcessingResult waiveLoanCharge(Long loanId, Long loanChargeId, JsonCommand command);
 
     CommandProcessingResult deleteLoanCharge(Long loanId, Long loanChargeId, JsonCommand command);

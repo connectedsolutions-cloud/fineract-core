@@ -367,6 +367,50 @@ class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest {
     }
 
     @Test
+    void sourceExactRepaymentBeforeCurrentFirstDueCanPayFrozenHistoricalInterestWithoutReplayResidue() {
+        final LoanRepaymentScheduleInstallment installment = installment(1, LocalDate.of(2026, 2, 6), LocalDate.of(2026, 9, 28),
+                new BigDecimal("30.00"), new BigDecimal("8.51"));
+        final LocalDate historicalPaymentDate = LocalDate.of(2026, 7, 11);
+        final SourceExactRepaymentAllocation allocation = new SourceExactRepaymentAllocation(new BigDecimal("25.26"),
+                new BigDecimal("9.74"), BigDecimal.ZERO, BigDecimal.ZERO);
+        final LoanTransaction repayment = repayment(historicalPaymentDate, new BigDecimal("35.00"));
+        repayment.markAsSourceExactAllocation(allocation);
+
+        processor.processTransaction(repayment, CURRENCY, List.of(installment), new HashSet<>(), null);
+
+        assertMoney("25.26", repayment.getPrincipalPortion(CURRENCY));
+        assertMoney("9.74", repayment.getInterestPortion(CURRENCY));
+        assertMoney("9.74", installment.getInterestPaid(CURRENCY));
+        assertEquals(0, new BigDecimal("1.23").compareTo(installment.getPostDueInterestCharged()));
+
+        installment.resetDerivedComponents();
+        assertMoney("8.51", installment.getInterestCharged(CURRENCY));
+        assertNull(installment.getPostDueInterestCharged());
+
+        final LoanTransaction replay = repayment(historicalPaymentDate, new BigDecimal("35.00"));
+        replay.markAsSourceExactAllocation(allocation);
+        processor.processTransaction(replay, CURRENCY, List.of(installment), new HashSet<>(), null);
+
+        assertMoney("25.26", replay.getPrincipalPortion(CURRENCY));
+        assertMoney("9.74", replay.getInterestPortion(CURRENCY));
+        assertEquals(0, new BigDecimal("1.23").compareTo(installment.getPostDueInterestCharged()));
+    }
+
+    @Test
+    void sourceExactRepaymentBeforeCurrentFirstDueDoesNotAddInterestWhenScheduleHasCapacity() {
+        final LoanRepaymentScheduleInstallment installment = installment(1, LocalDate.of(2026, 2, 6), LocalDate.of(2026, 10, 21),
+                new BigDecimal("30.00"), new BigDecimal("10.00"));
+        final LoanTransaction repayment = repayment(LocalDate.of(2026, 7, 11), new BigDecimal("35.00"));
+        repayment.markAsSourceExactAllocation(new SourceExactRepaymentAllocation(new BigDecimal("25.26"), new BigDecimal("9.74"),
+                BigDecimal.ZERO, BigDecimal.ZERO));
+
+        processor.processTransaction(repayment, CURRENCY, List.of(installment), new HashSet<>(), null);
+
+        assertMoney("9.74", repayment.getInterestPortion(CURRENCY));
+        assertNull(installment.getPostDueInterestCharged());
+    }
+
+    @Test
     void sourceExactReplayIgnoresStaleFeeIdentityWhenFeeAllocationIsZero() {
         final LoanRepaymentScheduleInstallment installment = installment(new BigDecimal("12.01"), new BigDecimal("1.15"));
         final LoanTransaction repayment = repayment(DUE_DATE, new BigDecimal("13.16"));

@@ -58,6 +58,31 @@ class ChangeTrackerTests(unittest.TestCase):
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM loan_sync_change_loans").fetchone()[0], 1)
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM loan_sync_change_decisions").fetchone()[0], 1)
 
+    def test_existing_tracker_gains_issue_notes_and_records_resolution(self):
+        tracker_path = change_tracker_path(self.base_state)
+        with sqlite3.connect(tracker_path) as connection:
+            connection.execute(
+                "CREATE TABLE loan_sync_changes (id INTEGER PRIMARY KEY, change_reference TEXT UNIQUE, "
+                "description TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, closed_at TEXT)"
+            )
+            connection.execute(
+                "INSERT INTO loan_sync_changes VALUES(1, 'run:old', 'Allocation drift', 'open', '2026-08-30', NULL)"
+            )
+
+        tracker = ChangeTracker(self.base_state)
+        try:
+            tracker.update_change_status(1, "in-progress", "Repair implemented; validation pending")
+            tracker.update_change_status(1, "resolved", "Run 2026-09-28 reconciled all affected loans")
+            row = tracker.conn.execute(
+                "SELECT status,closed_at,notes FROM loan_sync_changes WHERE id=1"
+            ).fetchone()
+            self.assertEqual(row["status"], "resolved")
+            self.assertIsNotNone(row["closed_at"])
+            self.assertIn("Repair implemented; validation pending", row["notes"])
+            self.assertIn("Run 2026-09-28 reconciled all affected loans", row["notes"])
+        finally:
+            tracker.close()
+
     def test_cycle_creation_migrates_legacy_tracker_before_retention(self):
         old_cycle = self.catalog.create("old", "local", "target-a", "baseline-a")
         with sqlite3.connect(old_cycle["state_path"]) as connection:

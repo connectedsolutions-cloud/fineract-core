@@ -188,7 +188,10 @@ class ServiceRuntime:
         if block == SHARE_YIELD_BLOCK:
             return build_share_yield_plan(self.settings, self.state, contract, None)
         if block == SAVINGS_BLOCK:
-            return build_savings_plan(self.settings, self.state, contract, None, False)
+            return build_savings_plan(
+                self.settings, self.state, contract, None, False,
+                source_boundary=self.run_mode != "full-resync",
+            )
         if block == SAVINGS_ACCOUNT_PARTIES_BLOCK:
             return build_savings_account_party_plan(self.settings, self.state, contract, None)
         if block == AML_ALERT_BLOCK:

@@ -230,6 +230,17 @@ the journal from `acc_gl_journal_entry` or reconciliation.
 
 ## Journal number and target mapping
 
+In composed fresh/clean and checkpointed full re-sync workflows, the immutable
+workflow plan freezes the highest Arissto number already assigned before the
+first Fineract-owned accounting date, grouped by the number's YYYYMM prefix.
+This highwater includes headers that are not yet eligible posted journals: an
+audit on 2026-09-28 found 2026090450 assigned while the highest state-3 number
+was 2026090446. The runner checks the source highwater again after historical
+journal reconciliation and fails on drift, then asks Fineract to raise each
+monthly counter to at least that value. It never lowers a counter or imports
+ineligible headers merely to reserve their numbers. See the
+[Arissto numbering evidence](../../../../../../credesal-db-space/docs/learnings/contabilidad-libro-mayor-y-partidas.md#numeración-que-se-reinicia-por-período).
+
 `CNT_PARTIDAS.NUMERO_PARTIDA` generally follows the verified `YYYYMM####`
 monthly pattern, but isolated month-prefix errors exist. The engine preserves
 `RTRIM(NUMERO_PARTIDA)` exactly, records a non-blocking mismatch observation,
@@ -244,6 +255,62 @@ and never regenerates it or derives the effective date from it.
 | Detail `ID_SUCURSAL_DESTINO` | Per-line `acc_gl_journal_entry.office_id` and `dimensions.office` | Resolve both native office ID and stable dimension tag from the frozen crosswalk; never replace the posted destination with one journal-wide office |
 | Detail `DEBE`/`HABER` | Entry type and amount | Preserve one non-zero side per normalized line |
 | Header/detail concepts | Dedicated header/line provenance columns plus `description` display projection | Preserve all four fields independently; never concatenate them into the native 500-character column |
+
+### Vault COA consolidation
+
+The reviewed COA crosswalk maps Arissto vault posting codes `111001030201`
+(Agencia Central), `111001030202` (Usulután), and the older generic
+`111001020201` to one Fineract detail account, `111001030200` (`BOVEDA
+GENERAL`), beneath parent `1110010302` (`BOVEDA`). The source code remains in
+line provenance. The posted office remains independent of the account code:
+each line uses its own destination-branch mapping for native `office_id` and
+`dimensions.office`. Financial activity `101` must use that same target GL
+account for native vault operations. See the
+[COA bootstrap and target configuration](../chart-of-accounts/README.md).
+
+Teller cash follows the same office model: Arissto `1110010101` and
+`1110010102` resolve to the existing canonical Fineract detail account
+`1110010199` (`CAJA`), while source codes and posted offices remain distinct
+in provenance and journal dimensions. Native financial activity `102` (`Cash
+at Teller`) uses `1110010199`; it does not use either office-specific source
+account.
+
+Cash loan disbursement clearing follows the same consolidation: source
+liability codes `222099940102` and `222099940103` resolve to the one target
+detail liability `222099910201` (`DESEMBOLSO DE CREDITOS EN EFECTIVO`), with
+the posted office carried on each journal line. Native financial activity
+`202` (`Disbursements Payable`) uses that target account in the sandbox.
+
+Historical loan portfolio alternatives follow the approved one-account-per-
+product decision: source `1142030101` resolves to `1141030101` for line
+`00010`, and source `1142040101` resolves to `1141040101` for line `00001`.
+The source code remains in provenance; the target product and dimensions
+retain the loan-line and office context.
+
+The historical-journal planner verifies that each resolved target is an
+enabled detail account (`account_usage=1`). A target header is quarantined
+with `TARGET_ACCOUNT_NOT_DETAIL`. The two hybrid source posting codes now have
+dedicated target details: `2220050501` maps to `222005050199` beneath the
+unchanged OTROS ACREEDORES reporting header, and `314002` maps to `3140020000`
+beneath the unchanged RESULTADOS DEL PRESENTE EJERCICIO reporting header.
+Annual profit and loss remain on `3140020100` and `3140020200`. Direct source
+movements retain their original codes in provenance and are never substituted
+by materialized parent balances. The same versioned crosswalk serves fresh/clean
+and checkpointed full re-sync plans; existing imported journals are immutable
+and must not be silently remapped as an incremental source change.
+The inspector compares each previously imported source line's frozen target GL
+code with the current crosswalk. A mismatch is
+`TARGET_ACCOUNT_MAPPING_DRIFT` and blocks a checkpointed full re-sync. A
+fresh/clean sandbox after migration `0367` uses the new details from its first
+ledger plan. An already populated target with old header postings needs an
+explicitly reviewed historical-account transition; source-hash deltas cannot
+perform that transition.
+The composed workflow prerequisite checks the two original reporting headers
+and creates only missing reviewed detail children through the Fineract GL API
+before ledger inspection. It verifies existing detail accounts and fails on
+structural drift. The prerequisite is frozen in the fresh/clean, local full
+re-sync, and production full re-sync workflow definitions; it does not run for
+selections without the accounting service.
 
 ### Agency dimension crosswalk
 

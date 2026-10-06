@@ -31,8 +31,10 @@ captured baseline. The operator names the
 restored baseline and either confirms that local Fineract was already restored,
 or enables **Reset local Fineract first**. The optional reset requires a
 disposable tenant plus the exact `TENANT:DATABASE` confirmation. It stops
-Fineract, invokes the whole-tenant baseline restore, restarts Fineract, verifies
-readiness, and only then creates the cycle. Without that option, cycle creation
+Fineract, invokes the whole-tenant baseline restore, starts Fineract for
+Liquibase, restores protected user, employee, saved-report, and reviewed financial
+activity mapping settings, and then restarts Fineract and verifies readiness before
+creating the cycle. Without that option, cycle creation
 only records tracking state and does not reset Fineract.
 
 Full re-sync selects an existing open cycle and never restores or resets the

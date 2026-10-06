@@ -403,6 +403,12 @@
         <class>org.apache.fineract.portfolio.namingsequence.domain.CredesalNamingSequence</class>
         <class>org.apache.fineract.portfolio.namingsequence.domain.CredesalNamingReservation</class>
 
+        <!-- Treasury -->
+        <class>org.apache.fineract.portfolio.treasury.domain.TreasuryBankAccount</class>
+        <class>org.apache.fineract.portfolio.treasury.domain.TreasuryMovement</class>
+        <class>org.apache.fineract.portfolio.treasury.domain.TreasuryMovementLine</class>
+        <class>org.apache.fineract.portfolio.treasury.domain.TreasuryMovementLink</class>
+
         <exclude-unlisted-classes>false</exclude-unlisted-classes>
         <properties>
             <property name="eclipselink.weaving" value="static" />

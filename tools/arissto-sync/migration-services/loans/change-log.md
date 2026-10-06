@@ -14,7 +14,9 @@ those databases after their cycle is superseded.
 ## Tables
 
 - `loan_sync_changes`: one row per commit or PR, with a stable
-  `change_reference`, optional `commit_sha` and `pr_reference`, description, and status.
+  `change_reference`, optional `commit_sha` and `pr_reference`, description,
+  status, and issue-level `notes`. Existing databases gain the notes column
+  automatically when the tracker opens.
 - `loan_sync_change_loans`: one row per source loan affected by a change, including
   the optional Fineract loan ID and a short result.
 - `loan_sync_change_decisions`: decisions and rationale associated with a change.
@@ -33,7 +35,10 @@ rows from surviving per-cycle or shared state databases before retention runs.
 3. Add significant policy or implementation choices to
    `loan_sync_change_decisions`, including the reason for the decision.
 4. When the PR is resolved, update its status to `merged`, `superseded`, or
-   `rejected` and set `closed_at`.
+   `rejected` and set `closed_at`. For run observations, use `open` while a fix
+   awaits validation and `resolved` only after a reconciliation verifies it.
+   Call `ChangeTracker.update_change_status(change_id, status, note)` to append
+   a dated progress or resolution note and maintain `closed_at`.
 
 Keep entries brief and non-sensitive. Do not store borrower names, account
 numbers, credentials, transaction payloads, or sampled source rows. Stable loan

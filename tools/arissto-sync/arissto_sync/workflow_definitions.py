@@ -94,6 +94,31 @@ def load_workflow(identifier: str, root: Path = WORKFLOWS_PATH) -> WorkflowDefin
     prerequisites = value.get("target_prerequisites", {})
     if not isinstance(prerequisites, dict):
         raise ValueError("Workflow target_prerequisites must be an object")
+    account_details = prerequisites.get("gl_account_details", [])
+    if not isinstance(account_details, list):
+        raise ValueError("Workflow gl_account_details must be a list")
+    seen_gl_codes: set[str] = set()
+    for detail in account_details:
+        if not isinstance(detail, dict):
+            raise ValueError("Workflow GL account detail must be an object")
+        code = detail.get("gl_code")
+        parent_code = detail.get("parent_gl_code")
+        if (not isinstance(code, str) or not code.isdigit() or code in seen_gl_codes
+                or not isinstance(parent_code, str) or not parent_code.isdigit() or code == parent_code):
+            raise ValueError("Workflow GL account detail requires unique numeric child and parent codes")
+        seen_gl_codes.add(code)
+        if not isinstance(detail.get("name"), str) or not detail["name"].strip():
+            raise ValueError("Workflow GL account detail name must be nonblank")
+        if not isinstance(detail.get("description"), str) or not detail["description"].strip():
+            raise ValueError("Workflow GL account detail description must be nonblank")
+        if (not isinstance(detail.get("gl_classification"), int)
+                or detail["gl_classification"] not in {1, 2, 3, 4, 5, 6}
+                or not isinstance(detail.get("acc_level"), int) or detail["acc_level"] <= 1):
+            raise ValueError("Workflow GL account detail classification and level are invalid")
+        required_by = detail.get("required_by_services")
+        if (not isinstance(required_by, list) or not required_by
+                or not all(isinstance(service_id, str) and service_id in services for service_id in required_by)):
+            raise ValueError("Workflow GL account detail required_by_services must name selected services")
     mappings = prerequisites.get("financial_activity_mappings", [])
     if not isinstance(mappings, list):
         raise ValueError("Workflow financial_activity_mappings must be a list")
@@ -121,6 +146,19 @@ def load_workflow(identifier: str, root: Path = WORKFLOWS_PATH) -> WorkflowDefin
         for field in ("gl_classification", "gl_usage"):
             if not isinstance(mapping.get(field), int) or mapping[field] <= 0:
                 raise ValueError(f"Workflow financial activity {field} must be a positive integer")
+    treasury = prerequisites.get("treasury_bank_accounts")
+    if treasury is not None:
+        if not isinstance(treasury, dict):
+            raise ValueError("Workflow treasury_bank_accounts must be an object")
+        required_by = treasury.get("required_by_services")
+        if (
+            not isinstance(required_by, list) or not required_by
+            or not all(isinstance(service_id, str) and service_id in services for service_id in required_by)
+        ):
+            raise ValueError("Workflow treasury bank required_by_services must name selected services")
+        source_ids = treasury.get("source_account_ids")
+        if source_ids != [1, 3, 4] or "prod" in targets:
+            raise ValueError("Reviewed treasury bank bootstrap is local-only for source accounts 1, 3, and 4")
     return WorkflowDefinition(
         identifier=identifier,
         version=value["version"],

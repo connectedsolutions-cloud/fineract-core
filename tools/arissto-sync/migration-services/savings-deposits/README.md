@@ -274,7 +274,7 @@ Arissto codes used for principal control, interest expense, accrued-interest
 liability, and ISR exist as enabled target GL accounts. The shared target roles
 are also resolved from the convention already used by both local deposit
 products: reference `1110040202`, transfer suspense `2130050101`, fee/penalty
-income `6420`/`6430`, and receivables `1530`/`1540`. Inspection verifies that
+income details `6423`/`6433`, and receivables `1530`/`1540`. Inspection verifies that
 all are enabled with the required classifications, so the GL-selection blocker
 is cleared.
 

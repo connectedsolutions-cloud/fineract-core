@@ -43,4 +43,7 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, Long
 
     List<JournalEntry> findByLoanTransactionIdAndReversedFalseOrderByIdAsc(Long loanTransactionId);
 
+    @Query("select journalEntry.referenceNumber from JournalEntry journalEntry where journalEntry.transactionId = :transactionId and journalEntry.referenceNumber is not null")
+    List<String> findReferenceNumbersByTransactionId(@Param("transactionId") String transactionId);
+
 }

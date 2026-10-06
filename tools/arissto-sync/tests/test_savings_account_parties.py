@@ -12,6 +12,7 @@ from arissto_sync.savings_account_parties import (
     build_savings_account_party_plan,
     collections,
     digest,
+    reconcile_savings_account_parties,
 )
 
 
@@ -136,6 +137,66 @@ class SavingsAccountPartyContractTests(unittest.TestCase):
         self.assertEqual((run_id, counts), ("run-id", {}))
         fingerprint.assert_called_once_with(source)
         state.finish_run.assert_called_once_with("run-id", "completed", {})
+
+    def test_reconciliation_accepts_only_matching_upstream_quarantine(self):
+        settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target-fingerprint"))
+        account_key = "AHO_CUENTA_AHORRO|001|001|0000000161"
+        party_key = "AHO_ACCOUNT_PARTIES|001|001|0000000161"
+        party_item = {
+            "source_key": party_key, "source_hash": "party-hash", "target_id": None,
+            "status": "quarantined",
+            "error_code": "SavingsAccountPartyDataIssue:missing_migrated_savings_account",
+        }
+        matched_item = {
+            "source_key": "AHO_ACCOUNT_PARTIES|001|001|0000000100", "source_hash": "matched-hash",
+            "target_id": "10", "status": "succeeded", "error_code": None,
+        }
+        state = Mock()
+        state.run.return_value = {
+            "block": "savings-account-parties", "target_fingerprint": "target-fingerprint",
+            "status": "completed_with_errors",
+        }
+        state.conn.execute.return_value.fetchone.return_value = {"workflow_run_id": "workflow-run"}
+        state.workflow_steps.return_value = [
+            {"service_id": "savings-deposits", "status": "completed", "child_run_id": "deposit-run"},
+        ]
+        state.run_reconciliation.return_value = {"ok": True}
+        source = {matched_item["source_key"]: {
+            "sourceHash": "matched-hash", "beneficiaries": [], "authorizedPersons": [],
+        }, party_key: {
+            "sourceHash": "party-hash", "beneficiaries": [], "authorizedPersons": [],
+        }}
+
+        with (
+            patch("arissto_sync.savings_account_parties.collections", return_value=source),
+            patch("arissto_sync.savings_account_parties.FineractApi"),
+            patch("arissto_sync.savings_account_parties._api_collections",
+                  return_value={"beneficiaries": [], "authorizedPersons": []}),
+        ):
+            for upstream_status, party_error, party_hash, expected_ok in (
+                ("quarantined", party_item["error_code"], "party-hash", True),
+                ("succeeded", party_item["error_code"], "party-hash", False),
+                ("quarantined", "SavingsAccountPartyDataIssue:invalid_beneficiary_allocation", "party-hash", False),
+                ("quarantined", party_item["error_code"], "changed-hash", False),
+            ):
+                with self.subTest(upstream_status=upstream_status, party_error=party_error,
+                                  party_hash=party_hash):
+                    party_item["error_code"] = party_error
+                    source[party_key]["sourceHash"] = party_hash
+                    state.run_items.side_effect = lambda run_id: (
+                        [matched_item, party_item] if run_id == "party-run" else
+                        [{"source_key": account_key, "status": upstream_status}]
+                    )
+                    result = reconcile_savings_account_parties(
+                        settings, state, self.contract, "party-run"
+                    )
+                    self.assertEqual(result["ok"], expected_ok)
+                    self.assertEqual(result["counts"]["matched"], 1)
+                    self.assertEqual(result["counts"]["quarantined"], 1)
+                    self.assertEqual(
+                        result["counts"].get("accepted_upstream_quarantine", 0),
+                        int(expected_ok),
+                    )
 
 
 if __name__ == "__main__":

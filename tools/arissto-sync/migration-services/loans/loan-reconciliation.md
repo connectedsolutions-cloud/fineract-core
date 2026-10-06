@@ -1083,6 +1083,36 @@ Gate 5 closed on 2026-09-13 with this accepted evidence:
    and readiness checks. It must still link by deterministic transaction
    identity and create no second repayment or other financial row.
 
+### October 2 full-sync quarantine increase
+
+The immutable loans plan `56c07a5311144ed6a745eedb5662ece8` in local workflow
+run `6d51bc3cdec54cf5a3826a480ab708e0` contained 32 loan quarantines;
+child run `cb1525de7ab64df7a96565a06db3da26` recorded all 32 as quarantined.
+Compared with the historical 19 reviewed no-write cases, the difference is:
+
+- One additional source-derived, net-zero voided refinance successor, `2621`
+  (`2502 → 2621`). This is the 19th voided attempt, alongside the unchanged
+  superseded source-error shell `2120`; it is an intentional no-write action.
+  [Arissto evidence](../../../../../../credesal-db-space/docs/learnings/refinanciamientos.md#los-18-enlaces-revertidos-son-operaciones-anuladas)
+- Three direct regenerated-schedule mismatches: `2357`, `2427`, and `2499`.
+  Their current source plans represent principal remaining at the adjustment,
+  while later source repayments reduce their present balances. The planner's
+  original all-payments-before-first-due check rejected those source states.
+  [Arissto evidence](../../../../../../credesal-db-space/docs/learnings/prestamos.md#pagos-posteriores-a-la-regeneración-del-plan)
+- Nine connected refinance predecessors, quarantined only because their chain
+  contains one of those three loans: `2071`, `2160`, `2267` (root `2357`);
+  `2046`, `2181`, `2240`, `2334` (root `2427`); and `2210`, `2354`
+  (root `2499`). These are graph propagation, not nine independent source
+  anomalies.
+
+The planner now has a narrow, source-timestamp-guarded repair for the three
+direct signatures. A read-only dry build against current Arissto source rows
+produced no quarantine reasons for those three actions, and the focused loan
+unit suite passed. A resumed sandbox workflow plan was prepared for review;
+the repair is not yet validated by apply and reconciliation. The historical
+Gate 5 count of 19 remains valid for its September 13 snapshot, while the
+later source snapshot has 20 intentional no-write cases.
+
 ## Acceptance criteria
 
 Gate 5 was accepted after the following criteria were satisfied for the

@@ -20,11 +20,15 @@ package org.apache.fineract.accounting.journalentry.service;
 
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.accounting.cutoff.AccountingCutoffPolicyService;
+import org.apache.fineract.accounting.cutoff.AccountingPostingContext;
+import org.apache.fineract.accounting.cutoff.AccountingPostingOrigin;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntry;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntryRepository;
 import org.apache.fineract.infrastructure.event.business.domain.journalentry.LoanJournalEntryCreatedBusinessEvent;
 import org.apache.fineract.infrastructure.event.business.service.BusinessEventNotifierService;
+import org.apache.fineract.accounting.journalentry.service.JournalNumberAllocationService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -33,11 +37,27 @@ public class JournalEntryPersistenceServiceImpl implements JournalEntryPersisten
     private final JournalEntryRepository repository;
     private final AccountingCutoffPolicyService cutoffPolicyService;
     private final BusinessEventNotifierService businessEventNotifierService;
+    private final AccountingPostingContext postingContext;
+    private final JournalNumberAllocationService journalReferenceNumberService;
 
     @Override
+    @Transactional
     public JournalEntry saveAndFlush(JournalEntry journalEntry) {
         cutoffPolicyService.assertJournalPersistenceAllowed(journalEntry.getTransactionDate());
         boolean isNew = journalEntry.isNew();
+        if (isNew) {
+            if (journalEntry.getTransactionId() == null || journalEntry.getTransactionId().isBlank()) {
+                throw new IllegalArgumentException("A journal transaction id is required before number allocation");
+            }
+            String groupKey = journalEntry.getJournalNumberGroupKey();
+            if (groupKey == null) {
+                groupKey = journalEntry.getTransactionId() + "|" + journalEntry.getTransactionDate();
+            }
+            String number = postingContext.getOrigin() == AccountingPostingOrigin.ARISSTO_HISTORICAL_GL_IMPORT
+                    ? journalReferenceNumberService.reserveImported(groupKey, journalEntry.getTransactionId(), journalEntry.getReferenceNumber())
+                    : journalReferenceNumberService.assign(groupKey, journalEntry.getTransactionDate());
+            journalEntry.setReferenceNumber(number);
+        }
         JournalEntry savedJournalEntry = repository.saveAndFlush(journalEntry);
         if (isNew && journalEntry.getLoanTransactionId() != null) {
             businessEventNotifierService.notifyPostBusinessEvent(new LoanJournalEntryCreatedBusinessEvent(savedJournalEntry));

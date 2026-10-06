@@ -2,8 +2,9 @@
 
 ## Status
 
-`available` for reviewed local workflows and checkpointed local full re-sync.
-The controlled local workflow completed with exact reconciliation. Enabling the
+`available` for reviewed workflows and checkpointed full re-sync.
+The controlled local workflow completed with exact reconciliation; production
+use remains subject to the production workflow acceptance gates. Enabling the
 `Accrue Share Yield` scheduler remains a separate operational decision.
 
 This service migrates the financial meaning that the purchase-only native

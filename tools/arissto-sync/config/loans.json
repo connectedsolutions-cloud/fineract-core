@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "terminal_adjustment_policy": "closed-after-outgoing-refinance-later-repayment-v1",
   "source": {
     "product_table": "CRD_LINEA_CREDITO",
     "loan_table": "CRD_CARTERA",
@@ -237,6 +238,42 @@
     "1638": {
       "classification": "reviewed-early-payoff-future-interest-cutover",
       "terminal_adjustment_maximum_source": "source-schedule-total"
+    },
+    "2357": {
+      "classification": "reviewed-refinance-application-quote-date",
+      "expected_disbursement_source": "effective-financial-disbursement",
+      "predecessor_source_key": "2267",
+      "expected_effective_disbursement_date": "2026-07-30",
+      "expected_contractual_origin_date": "2026-09-28",
+      "expected_principal": "433.00",
+      "expected_payoff_amount": "432.95"
+    },
+    "2427": {
+      "classification": "reviewed-refinance-application-quote-date",
+      "expected_disbursement_source": "effective-financial-disbursement",
+      "predecessor_source_key": "2334",
+      "expected_effective_disbursement_date": "2026-08-12",
+      "expected_contractual_origin_date": "2026-09-29",
+      "expected_principal": "493.00",
+      "expected_payoff_amount": "492.18"
+    },
+    "2498": {
+      "classification": "reviewed-refinance-application-quote-date",
+      "expected_disbursement_source": "effective-financial-disbursement",
+      "predecessor_source_key": "2294",
+      "expected_effective_disbursement_date": "2026-08-28",
+      "expected_contractual_origin_date": "2026-09-28",
+      "expected_principal": "165.00",
+      "expected_payoff_amount": "164.88"
+    },
+    "2499": {
+      "classification": "reviewed-refinance-application-quote-date",
+      "expected_disbursement_source": "effective-financial-disbursement",
+      "predecessor_source_key": "2354",
+      "expected_effective_disbursement_date": "2026-08-28",
+      "expected_contractual_origin_date": "2026-09-28",
+      "expected_principal": "172.00",
+      "expected_payoff_amount": "171.71"
     }
   },
   "active_manual_schedule_imports": {

@@ -98,7 +98,8 @@ enabled in the local target.
 
 The shared roles use the convention already common to both local target deposit
 products: savings reference `1110040202`, transfer suspense `2130050101`,
-fee/penalty income `6420`/`6430`, and fee/penalty receivables `1530`/`1540`.
+normal fee/penalty income details `6423`/`6433`, and fee/penalty receivables
+`1530`/`1540`. The parent headers `6420`/`6430` are not posting accounts.
 The sync contract stores these as GL codes and resolves their target IDs at run
 time; inspection rejects missing, disabled, or misclassified accounts.
 

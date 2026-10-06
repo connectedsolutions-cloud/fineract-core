@@ -38,10 +38,16 @@ from arissto_sync.loans import (
     _loan_outstanding_allocation,
     _terminal_adjustment_allocation,
     _loan_legacy_timeline_differences,
+    _loan_apply_guard,
+    _loan_source_hash_view,
+    _stable_hash,
     _mark_unchanged_mapped_loans,
     _freeze_full_resync_schedule_guards,
     _proof_namespace_lifecycle,
     _refinance_component_bridge,
+    _refinance_components,
+    _replay_refinance_component,
+    _partial_refinance_status_matches,
     _refinance_fee_charge_external_id,
     _loan_schedule_differences,
     _propagate_intrinsic_refinance_quarantines,
@@ -68,6 +74,7 @@ from arissto_sync.loans import (
     reconcile_loans,
 )
 from arissto_sync.loans import _full_resync_cutover_insurance_events
+from arissto_sync.loans import _rebase_full_resync_cutover_insurance
 from arissto_sync.connections import FineractError
 from arissto_sync.engine import datatable_api_payload
 from arissto_sync.state import State
@@ -172,7 +179,10 @@ class LoanFullResyncInsuranceTests(unittest.TestCase):
     def cutover_action() -> dict:
         return {
             "action": "recover-loan",
-            "full_resync_insurance_guard": {"policy": "settle-cutover-delta-v1"},
+            "full_resync_insurance_guard": {
+                "policy": "source-snapshot-rebase-v1",
+                "charge_external_id": "ARISSTO:CRD-INS-CUTOVER:2100",
+            },
             "lifecycle": {
                 "migration_cutover_date": "2026-09-20",
                 "cutover_insurance_charge": {
@@ -189,7 +199,7 @@ class LoanFullResyncInsuranceTests(unittest.TestCase):
             },
         }
 
-    def test_full_resync_routes_exact_insurance_delta_to_cutover_charge(self):
+    def test_full_resync_new_repayment_keeps_its_historical_charge(self):
         loan = {"charges": [{
             "id": 10,
             "externalId": "ARISSTO:CRD-INS-CUTOVER:2100",
@@ -199,7 +209,7 @@ class LoanFullResyncInsuranceTests(unittest.TestCase):
 
         routed = _full_resync_cutover_insurance_events(loan, self.cutover_action())
 
-        self.assertEqual(routed, {"ARISSTO:CRD-MOV:0000031021"})
+        self.assertEqual(routed, set())
 
     def test_full_resync_accepts_replayed_repayment_owned_by_cutover_charge(self):
         loan = {
@@ -219,7 +229,7 @@ class LoanFullResyncInsuranceTests(unittest.TestCase):
 
         self.assertEqual(routed, {"ARISSTO:CRD-MOV:0000031021"})
 
-    def test_full_resync_rejects_already_posted_repayment_owned_by_historical_charge(self):
+    def test_full_resync_preserves_already_posted_repayment_owned_by_historical_charge(self):
         loan = {
             "charges": [
                 {
@@ -241,8 +251,86 @@ class LoanFullResyncInsuranceTests(unittest.TestCase):
             }],
         }
 
-        with self.assertRaisesRegex(RuntimeError, "existing_source_exact_fee_charge_mismatch"):
-            _full_resync_cutover_insurance_events(loan, self.cutover_action())
+        self.assertEqual(_full_resync_cutover_insurance_events(loan, self.cutover_action()), set())
+
+    def test_missing_cutover_charge_is_created_then_rebased_to_source(self):
+        action = self.cutover_action()
+        action["lifecycle"]["expected"] = {"fee_balance": "1.53"}
+        action["lifecycle"]["cutover_insurance_charge"].update({
+            "amount": "1.53", "charge_id": 2, "due_date": "2026-09-20",
+        })
+        loan = {"id": 55, "charges": []}
+        created = {"id": 55, "charges": [{
+            "id": 99, "externalId": "ARISSTO:CRD-INS-CUTOVER:2100", "amountOutstanding": "1.00",
+        }]}
+        rebased = {"id": 55, "charges": [{
+            "id": 99, "externalId": "ARISSTO:CRD-INS-CUTOVER:2100", "amountOutstanding": "1.53",
+        }]}
+        api = MagicMock()
+        api.request.side_effect = [{}, created, {}, rebased]
+
+        result = _rebase_full_resync_cutover_insurance(api, loan, action, "run-1")
+
+        self.assertEqual(result, rebased)
+        self.assertEqual(api.request.call_args_list[0].kwargs["query"], {"command": "sourceExactAddCharge"})
+        self.assertEqual(api.request.call_args_list[2].kwargs["query"], {"command": "sourceExactRebaseInsurance"})
+        self.assertEqual(api.request.call_args_list[2].args[2]["sourceOutstanding"], "1.53")
+
+    def test_cutover_charge_rebases_both_up_and_down_without_replaying_payment(self):
+        action = self.cutover_action()
+        action["lifecycle"]["expected"] = {"fee_balance": "1.53"}
+        loan = {"id": 55, "charges": [{
+            "id": 99, "externalId": "ARISSTO:CRD-INS-CUTOVER:2100", "amountOutstanding": "1.02",
+        }]}
+        rebased = {"id": 55, "charges": [{
+            "id": 99, "externalId": "ARISSTO:CRD-INS-CUTOVER:2100", "amountOutstanding": "1.53",
+        }]}
+        api = MagicMock()
+        api.request.side_effect = [{}, rebased]
+        self.assertEqual(_rebase_full_resync_cutover_insurance(api, loan, action, "run-1"), rebased)
+        self.assertEqual(api.request.call_args_list[0].args[0:2], ("POST", "loans/55/charges/99"))
+
+        action["lifecycle"]["expected"]["fee_balance"] = "0.37"
+        lower = {"id": 55, "charges": [{
+            "id": 99, "externalId": "ARISSTO:CRD-INS-CUTOVER:2100", "amountOutstanding": "0.37",
+        }]}
+        api.request.reset_mock()
+        api.request.side_effect = [{}, lower]
+        self.assertEqual(_rebase_full_resync_cutover_insurance(api, rebased, action, "run-2"), lower)
+
+    def test_rebased_snapshot_is_no_write_on_replay(self):
+        action = self.cutover_action()
+        action["lifecycle"]["expected"] = {"fee_balance": "0.54"}
+        loan = {"id": 55, "charges": [{
+            "id": 99, "externalId": "ARISSTO:CRD-INS-CUTOVER:2100", "amountOutstanding": "0.54",
+        }]}
+        api = MagicMock()
+        self.assertIs(_rebase_full_resync_cutover_insurance(api, loan, action, "run-2"), loan)
+        api.request.assert_not_called()
+
+    def test_zero_source_balance_clears_existing_cutover_charge(self):
+        action = self.cutover_action()
+        action["lifecycle"]["cutover_insurance_charge"] = None
+        action["lifecycle"]["expected"] = {"fee_balance": "0.00"}
+        loan = {"id": 55, "charges": [{
+            "id": 99, "externalId": "ARISSTO:CRD-INS-CUTOVER:2100", "amountOutstanding": "0.39",
+        }]}
+        cleared = {"id": 55, "charges": [{
+            "id": 99, "externalId": "ARISSTO:CRD-INS-CUTOVER:2100", "amountOutstanding": "0.00",
+        }]}
+        api = MagicMock()
+        api.request.side_effect = [{}, cleared]
+        self.assertEqual(_rebase_full_resync_cutover_insurance(api, loan, action, "run-3"), cleared)
+        self.assertEqual(api.request.call_args_list[0].args[2]["sourceOutstanding"], "0.00")
+
+    def test_zero_source_balance_and_no_charge_is_no_write(self):
+        action = self.cutover_action()
+        action["lifecycle"]["cutover_insurance_charge"] = None
+        action["lifecycle"]["expected"] = {"fee_balance": "0.00"}
+        loan = {"id": 55, "charges": []}
+        api = MagicMock()
+        self.assertIs(_rebase_full_resync_cutover_insurance(api, loan, action, "run-3"), loan)
+        api.request.assert_not_called()
 
 
 class LoanInspectionTests(unittest.TestCase):
@@ -1401,7 +1489,9 @@ class LoanInspectionTests(unittest.TestCase):
 
         self.assertNotIn("ambiguous_first_accrual_day_signature", result["quarantine_reasons"])
         frozen = result["lifecycle"]
-        self.assertEqual(frozen["application_payload"]["expectedDisbursementDate"], "2023-04-28")
+        self.assertEqual(frozen["application_payload"]["expectedDisbursementDate"], "2023-04-29")
+        self.assertEqual(frozen["approval_payload"]["expectedDisbursementDate"], "2023-04-29")
+        self.assertEqual(next(event["date"] for event in frozen["events"] if event["role"] == "disbursement"), "2023-04-28")
         self.assertEqual(frozen["application_payload"]["interestChargedFromDate"], "2023-04-28")
         self.assertEqual(frozen["application_payload"]["daysInYearType"], 365)
         self.assertEqual(
@@ -1438,7 +1528,9 @@ class LoanInspectionTests(unittest.TestCase):
 
         self.assertNotIn("ambiguous_first_accrual_day_signature", result["quarantine_reasons"])
         frozen = result["lifecycle"]
-        self.assertEqual(frozen["application_payload"]["expectedDisbursementDate"], "2023-05-12")
+        self.assertEqual(frozen["application_payload"]["expectedDisbursementDate"], "2023-05-15")
+        self.assertEqual(frozen["approval_payload"]["expectedDisbursementDate"], "2023-05-15")
+        self.assertEqual(next(event["date"] for event in frozen["events"] if event["role"] == "disbursement"), "2023-05-12")
         self.assertEqual(frozen["application_payload"]["interestChargedFromDate"], "2023-05-14")
         self.assertEqual(frozen["application_payload"]["daysInYearType"], 365)
 
@@ -2274,24 +2366,31 @@ class LoanInspectionTests(unittest.TestCase):
                 )
                 self.assertEqual(
                     result["lifecycle"]["schedule_reconciliation_policy"],
-                    "exact-source-schedule",
+                    "unordered-source-schedule-dates"
+                    if name == "non-monotonic" else "exact-source-schedule",
                 )
 
-    def test_non_monotonic_source_schedule_is_quarantined_before_fineract(self):
-        loan, lifecycle, target, payload = self.lifecycle_fixture()
-        loan["ID_CREDITO"] = 2374
-        lifecycle["schedule"][1]["FECHA_PAGO"] = "2026-06-26"
+    def test_non_monotonic_source_schedule_uses_native_schedule(self):
+        for due_date in ("2026-06-25", "2026-06-26"):
+            with self.subTest(due_date=due_date):
+                loan, lifecycle, target, payload = self.lifecycle_fixture()
+                loan["ID_CREDITO"] = 1728
+                lifecycle["schedule"][1]["FECHA_PAGO"] = due_date
 
-        result = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+                result = _build_loan_lifecycle_action(
+                    self.contract, loan, lifecycle, target, payload,
+                )
 
-        self.assertIn(
-            "non_monotonic_source_schedule_dates",
-            result["quarantine_reasons"],
-        )
-        self.assertEqual(
-            result["lifecycle"]["schedule_reconciliation_policy"],
-            "exact-source-schedule",
-        )
+                self.assertNotIn("non_monotonic_source_schedule_dates", result["quarantine_reasons"])
+                self.assertEqual(
+                    result["lifecycle"]["schedule_reconciliation_policy"],
+                    "unordered-source-schedule-dates",
+                )
+                self.assertIsNone(result["lifecycle"]["schedule_writer"])
+                self.assertEqual(
+                    result["lifecycle"]["source_schedule_provenance"],
+                    result["lifecycle"]["schedule"],
+                )
 
     def test_active_terminal_same_day_principal_is_aggregated_without_financial_loss(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
@@ -2392,7 +2491,7 @@ class LoanInspectionTests(unittest.TestCase):
             },
         )
 
-    def test_closed_terminal_same_day_principal_without_exact_refinance_fails_closed(self):
+    def test_closed_terminal_same_day_without_exact_refinance_uses_native_schedule(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         loan.update({"ID_CREDITO": 2374, "source_state": "3"})
         lifecycle["schedule"].append({
@@ -2408,8 +2507,12 @@ class LoanInspectionTests(unittest.TestCase):
 
         result = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
 
-        self.assertIn("non_monotonic_source_schedule_dates", result["quarantine_reasons"])
+        self.assertNotIn("non_monotonic_source_schedule_dates", result["quarantine_reasons"])
         self.assertIsNone(result["lifecycle"]["same_day_terminal_aggregation"])
+        self.assertEqual(
+            result["lifecycle"]["schedule_reconciliation_policy"],
+            "unordered-source-schedule-dates",
+        )
 
     def test_reviewed_manual_schedule_exception_can_keep_non_monotonic_dates(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
@@ -2545,6 +2648,106 @@ class LoanInspectionTests(unittest.TestCase):
         self.assertEqual(event["successor_source_key"], "3000")
         self.assertIsNone(result["lifecycle"]["terminal_adjustment"])
 
+    def test_closed_partial_refinance_predecessor_gets_later_terminal_adjustment(self):
+        loan, lifecycle, target, payload = self.lifecycle_fixture()
+        loan.update({
+            "source_state": "3", "ULTIMO_SALDO": "0", "SALDO_INTERES": "0",
+            "SALDO_SEGURO": "0", "SALDO_TOTAL": "0",
+        })
+        lifecycle["movements"].append({
+            "ID_CREDITO": 2068, "ID_MOVIMIENTO_CARTERA": "102", "CODIGO_SISTEMA": 4,
+            "ID_TRANSACCION": "00019", "REVERSION": "", "FECHA_OPERACION": "2026-06-21",
+            "MONTO": "40", "MONTO_CAPITAL": "40",
+        })
+        lifecycle["refinance_outgoing"] = [{
+            "old_credit_id": 2068, "new_credit_id": 3000,
+            "payoff_movement_id": "102", "payoff_amount": "40",
+            "payoff_date": "2026-06-21", "disbursement_movement_id": "200",
+        }]
+        before_later_payment = _build_loan_lifecycle_action(
+            self.contract, loan, lifecycle, target, payload,
+        )
+        self.assertIsNone(before_later_payment["lifecycle"]["terminal_adjustment"])
+
+        lifecycle["movements"].append({
+            "ID_CREDITO": 2068, "ID_MOVIMIENTO_CARTERA": "103", "CODIGO_SISTEMA": 14,
+            "ID_TRANSACCION": "00011", "REVERSION": "", "FECHA_OPERACION": "2026-06-25",
+            "MONTO": "10", "MONTO_CAPITAL": "10",
+        })
+        after_later_payment = _build_loan_lifecycle_action(
+            self.contract, loan, lifecycle, target, payload,
+        )
+        adjustment = after_later_payment["lifecycle"]["terminal_adjustment"]
+        self.assertEqual(adjustment["date"], "2026-06-25")
+        self.assertEqual(adjustment["external_id"], "ARISSTO:CRD-CUTOVER:2068")
+        self.assertEqual(adjustment["amount_policy"], "exact_target_component_delta_to_source_terminal_balances")
+
+        lifecycle["movements"][-1]["FECHA_OPERACION"] = "2026-06-21"
+        same_day_close = _build_loan_lifecycle_action(
+            self.contract, loan, lifecycle, target, payload,
+        )
+        self.assertEqual(same_day_close["lifecycle"]["terminal_adjustment"]["date"], "2026-06-21")
+
+    def test_reviewed_refinance_quote_dates_use_source_payoff_day_and_fail_closed(self):
+        reviewed = (
+            (2357, 2267, "2026-07-30", "2026-09-28", "433.00", "432.95"),
+            (2427, 2334, "2026-08-12", "2026-09-29", "493.00", "492.18"),
+            (2498, 2294, "2026-08-28", "2026-09-28", "165.00", "164.88"),
+            (2499, 2354, "2026-08-28", "2026-09-28", "172.00", "171.71"),
+        )
+        for successor, predecessor, payoff_date, contractual_date, principal, payoff in reviewed:
+            with self.subTest(successor=successor):
+                loan, lifecycle, target, payload = self.lifecycle_fixture()
+                loan.update({
+                    "ID_CREDITO": successor, "MONTO_APROBADO": principal,
+                    "MONTO_DESEMBOLSADO": principal,
+                    "FECHA_OTORGAMIENTO": contractual_date,
+                })
+                lifecycle["application"].update({
+                    "FECHA_SOLICITUD": payoff_date,
+                    "FECHA_APROBADO": payoff_date,
+                    "FECHA_DESEMBOLSO": payoff_date,
+                })
+                lifecycle["movements"][0].update({
+                    "ID_CREDITO": successor, "FECHA_OPERACION": payoff_date,
+                    "MONTO": principal, "MONTO_CAPITAL": principal,
+                })
+                lifecycle["movements"] = lifecycle["movements"][:1]
+                lifecycle["charge_details"] = []
+                lifecycle["refinance_incoming"] = [{
+                    "old_credit_id": predecessor, "new_credit_id": successor,
+                    "payoff_movement_id": "99", "payoff_amount": payoff,
+                    "payoff_principal": payoff, "payoff_interest": "0.00",
+                    "payoff_fee": "0.00", "payoff_penalty": "0.00",
+                    "payoff_date": payoff_date, "disbursement_movement_id": "100",
+                }]
+                result = _build_loan_lifecycle_action(
+                    self.contract, loan, lifecycle, target, payload,
+                )
+                self.assertNotIn(
+                    "reviewed_refinance_application_date_signature_changed",
+                    result["quarantine_reasons"],
+                )
+                frozen = result["lifecycle"]
+                self.assertEqual(
+                    frozen["application_payload"]["expectedDisbursementDate"], payoff_date,
+                )
+                self.assertEqual(
+                    frozen["approval_payload"]["expectedDisbursementDate"], payoff_date,
+                )
+                self.assertEqual(
+                    frozen["native_creation_override"]["expected_contractual_origin_date"],
+                    contractual_date,
+                )
+                lifecycle["refinance_incoming"][0]["payoff_amount"] = "1.00"
+                changed = _build_loan_lifecycle_action(
+                    self.contract, loan, lifecycle, target, payload,
+                )
+                self.assertIn(
+                    "reviewed_refinance_application_date_signature_changed",
+                    changed["quarantine_reasons"],
+                )
+
     def test_lifecycle_plan_freezes_source_exact_incoming_refinance_payoff(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         lifecycle["refinance_incoming"] = [{
@@ -2615,6 +2818,7 @@ class LoanInspectionTests(unittest.TestCase):
                 "payoff_fee": "0.00", "payoff_penalty": "0.00",
                 "payoff_date": "2026-06-11", "disbursement_movement_id": "100",
                 "predecessor_current_state": 3, "predecessor_current_balance": "0.00",
+                "predecessor_post_payoff_state": 3,
                 "later_posted_payment_count": 0,
             },
             {
@@ -2624,6 +2828,7 @@ class LoanInspectionTests(unittest.TestCase):
                 "payoff_fee": "0.00", "payoff_penalty": "0.00",
                 "payoff_date": "2026-06-11", "disbursement_movement_id": "100",
                 "predecessor_current_state": 1, "predecessor_current_balance": "12.00",
+                "predecessor_post_payoff_state": 1,
                 "later_posted_payment_count": 1,
             },
         ]
@@ -2635,6 +2840,265 @@ class LoanInspectionTests(unittest.TestCase):
         self.assertEqual(
             [item["settlement_type"] for item in settlements],
             ["FULL_CLOSE", "PARTIAL_PAYDOWN"],
+        )
+
+    def test_refunded_later_collection_does_not_turn_full_payoff_into_partial(self):
+        loan, lifecycle, target, payload = self.lifecycle_fixture()
+        lifecycle["refinance_incoming"] = [{
+            "old_credit_id": 2107, "new_credit_id": 2068,
+            "payoff_movement_id": "91", "payoff_amount": "146.67",
+            "payoff_principal": "146.67", "payoff_interest": "0.00",
+            "payoff_fee": "0.00", "payoff_penalty": "0.00",
+            "payoff_date": "2026-06-11", "disbursement_movement_id": "100",
+            "predecessor_current_state": 3, "predecessor_current_balance": "0.00",
+            "predecessor_post_payoff_state": 1,
+            "later_posted_payment_count": 0,
+        }]
+
+        result = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+
+        self.assertEqual(result["quarantine_reasons"], [])
+        self.assertEqual(
+            result["lifecycle"]["refinance"]["settlements"][0]["settlement_type"],
+            "FULL_CLOSE",
+        )
+
+        lifecycle["refinance_incoming"][0]["later_posted_payment_count"] = 1
+        genuine_partial = _build_loan_lifecycle_action(
+            self.contract, loan, lifecycle, target, payload,
+        )
+        self.assertIn(
+            "refinance_without_full_close_settlement",
+            genuine_partial["quarantine_reasons"],
+        )
+
+    def test_lifecycle_plan_keeps_historical_partial_paydown_when_predecessor_closes_later(self):
+        loan, lifecycle, target, payload = self.lifecycle_fixture()
+        lifecycle["refinance_incoming"] = [
+            {
+                "old_credit_id": 1, "new_credit_id": 2068,
+                "payoff_movement_id": "91", "payoff_amount": "42.00",
+                "payoff_principal": "40.00", "payoff_interest": "2.00",
+                "payoff_fee": "0.00", "payoff_penalty": "0.00",
+                "payoff_date": "2026-06-11", "disbursement_movement_id": "100",
+                "predecessor_current_state": 3, "predecessor_current_balance": "0.00",
+                "predecessor_post_payoff_state": 3,
+                "later_posted_payment_count": 0,
+            },
+            {
+                "old_credit_id": 2, "new_credit_id": 2068,
+                "payoff_movement_id": "92", "payoff_amount": "30.50",
+                "payoff_principal": "30.00", "payoff_interest": "0.50",
+                "payoff_fee": "0.00", "payoff_penalty": "0.00",
+                "payoff_date": "2026-06-11", "disbursement_movement_id": "100",
+                "predecessor_current_state": 3, "predecessor_current_balance": "0.00",
+                "predecessor_post_payoff_state": 1,
+                "later_posted_payment_count": 6,
+            },
+        ]
+
+        result = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+
+        self.assertEqual(result["quarantine_reasons"], [])
+        self.assertEqual(
+            [item["settlement_type"] for item in result["lifecycle"]["refinance"]["settlements"]],
+            ["FULL_CLOSE", "PARTIAL_PAYDOWN"],
+        )
+
+        target["loans"] = {"ARISSTO:CRD:2": {"status": 600}}
+        existing_result = _build_loan_lifecycle_action(
+            self.contract, loan, lifecycle, target, payload
+        )
+        self.assertIn(
+            "historical_partial_paydown_closed_later_requires_chain_replay:2",
+            existing_result["quarantine_reasons"],
+        )
+
+        target["loans"]["ARISSTO:CRD:2068"] = {"status": 300}
+        source_settlements = result["lifecycle"]["refinance"]["settlements"]
+        target["refinancing_settlements"] = {"ARISSTO:CRD:2068": {
+            settlement["predecessor_external_id"]: {
+                "settlement_type": settlement["settlement_type"],
+                "amount": settlement["payoff_amount"],
+                "allocation": settlement["payoff_allocation"],
+                "repayment_external_id": settlement["payoff_external_id"],
+            }
+            for settlement in source_settlements
+        }}
+        matched_result = _build_loan_lifecycle_action(
+            self.contract, loan, lifecycle, target, payload
+        )
+        self.assertEqual(matched_result["quarantine_reasons"], [])
+
+        target["refinancing_settlements"]["ARISSTO:CRD:2068"]["ARISSTO:CRD:2"]["amount"] = "29.50"
+        changed_result = _build_loan_lifecycle_action(
+            self.contract, loan, lifecycle, target, payload
+        )
+        self.assertIn(
+            "historical_refinance_chain_rebuild_required:2",
+            changed_result["quarantine_reasons"],
+        )
+
+        target["loans"].pop("ARISSTO:CRD:2068")
+        target["loans"]["ARISSTO:CRD:2"] = {
+            "status": 300, "latest_source_transaction_date": "2026-09-21",
+            "native_transactions": [{
+                "loanId": 22, "externalId": "ARISSTO:CRD-MOV:later",
+                "date": "2026-09-21", "amount": "5.00", "principal": "5.00",
+                "interest": "0.00", "fee": "0.00", "penalty": "0.00",
+            }],
+        }
+        target["refinancing_settlements"] = {}
+        ahead_result = _build_loan_lifecycle_action(
+            self.contract, loan, lifecycle, target, payload
+        )
+        self.assertEqual(ahead_result["quarantine_reasons"], [])
+        self.assertTrue(ahead_result["lifecycle"]["refinance"]["historical_insert_repair"])
+        self.assertEqual(ahead_result["lifecycle_hash"], result["lifecycle_hash"])
+        self.assertEqual(
+            ahead_result["lifecycle"]["refinance"]["settlements"][1]["expected_later_transactions"],
+            target["loans"]["ARISSTO:CRD:2"]["native_transactions"],
+        )
+
+        target["loans"]["ARISSTO:CRD:2"]["native_transactions"] = []
+        missing_history = _build_loan_lifecycle_action(
+            self.contract, loan, lifecycle, target, payload
+        )
+        self.assertIn(
+            "historical_refinance_target_history_missing:2",
+            missing_history["quarantine_reasons"],
+        )
+
+    def test_lifecycle_plan_quarantines_payment_after_historical_closed_payoff(self):
+        loan, lifecycle, target, payload = self.lifecycle_fixture()
+        lifecycle["refinance_incoming"] = [
+            {
+                "old_credit_id": 1, "new_credit_id": 2068,
+                "payoff_movement_id": "91", "payoff_amount": "42.00",
+                "payoff_principal": "40.00", "payoff_interest": "2.00",
+                "payoff_fee": "0.00", "payoff_penalty": "0.00",
+                "payoff_date": "2026-06-11", "disbursement_movement_id": "100",
+                "predecessor_current_state": 3, "predecessor_current_balance": "0.00",
+                "predecessor_post_payoff_state": 3,
+                "later_posted_payment_count": 1,
+            },
+        ]
+
+        result = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+
+        self.assertIn(
+            "refinance_payment_after_closed_payoff:1", result["quarantine_reasons"]
+        )
+
+    def test_partial_refinance_component_posts_successor_before_later_predecessor_payments(self):
+        predecessor = {
+            "source_key": "loan:2", "depends_on": [],
+            "lifecycle": {"events": [
+                {"external_id": "disburse-2", "date": "2026-07-01"},
+                {"external_id": "payoff-2", "date": "2026-08-07"},
+                {"external_id": "payment-2", "date": "2026-09-21"},
+            ]},
+        }
+        successor = {
+            "source_key": "loan:3", "depends_on": ["loan:2"],
+            "lifecycle": {
+                "events": [
+                    {"external_id": "disburse-3", "date": "2026-08-07"},
+                    {"external_id": "payment-3", "date": "2026-09-11"},
+                ],
+                "refinance": {
+                    "disbursement_external_id": "disburse-3",
+                    "settlements": [{
+                        "predecessor_source_key": "2",
+                        "payoff_external_id": "payoff-2",
+                        "settlement_type": "PARTIAL_PAYDOWN",
+                    }],
+                },
+            },
+        }
+        calls = []
+
+        def apply_phase(action, events, finalize):
+            calls.append((action["source_key"], [event["external_id"] for event in events], finalize))
+            return int(action["source_key"].split(":")[1]), False
+
+        component = _refinance_components([successor, predecessor])[0]
+        result = _replay_refinance_component(component, apply_phase)
+
+        self.assertEqual(set(result), {"loan:2", "loan:3"})
+        self.assertEqual(calls, [
+            ("loan:2", ["disburse-2"], False),
+            ("loan:3", ["disburse-3"], False),
+            ("loan:2", ["disburse-2", "payoff-2", "payment-2"], True),
+            ("loan:3", ["disburse-3", "payment-3"], True),
+        ])
+
+    def test_partial_refinance_allows_later_native_closure_only_on_existing_disbursement(self):
+        settlement = {
+            "predecessor_source_terminal_state": 3,
+            "later_posted_payment_count": 6,
+        }
+        self.assertTrue(_partial_refinance_status_matches(
+            settlement, 300, Decimal("134.68"), disbursement_already_posted=False,
+        ))
+        self.assertTrue(_partial_refinance_status_matches(
+            settlement, 600, Decimal("0.00"), disbursement_already_posted=True,
+        ))
+        self.assertFalse(_partial_refinance_status_matches(
+            settlement, 600, Decimal("0.00"), disbursement_already_posted=False,
+        ))
+        self.assertFalse(_partial_refinance_status_matches(
+            settlement, 600, Decimal("1.00"), disbursement_already_posted=True,
+        ))
+
+    def test_mixed_component_stages_both_predecessors_before_successor(self):
+        full = {
+            "source_key": "loan:1784", "depends_on": [],
+            "lifecycle": {"events": [
+                {"external_id": "disburse-1784", "date": "2026-07-01"},
+                {"external_id": "payoff-1784", "date": "2026-08-07"},
+            ]},
+        }
+        partial = {
+            "source_key": "loan:2265", "depends_on": [],
+            "lifecycle": {"events": [
+                {"external_id": "disburse-2265", "date": "2026-07-01"},
+                {"external_id": "payoff-2265", "date": "2026-08-07"},
+                {"external_id": "payment-2265", "date": "2026-09-21"},
+            ]},
+        }
+        successor = {
+            "source_key": "loan:2402", "depends_on": ["loan:1784", "loan:2265"],
+            "lifecycle": {
+                "events": [{"external_id": "disburse-2402", "date": "2026-08-07"}],
+                "refinance": {
+                    "disbursement_external_id": "disburse-2402",
+                    "settlements": [
+                        {"predecessor_source_key": "1784", "payoff_external_id": "payoff-1784",
+                         "settlement_type": "FULL_CLOSE"},
+                        {"predecessor_source_key": "2265", "payoff_external_id": "payoff-2265",
+                         "settlement_type": "PARTIAL_PAYDOWN"},
+                    ],
+                },
+            },
+        }
+        calls = []
+
+        def apply_phase(action, events, finalize):
+            calls.append((action["source_key"], [event["external_id"] for event in events], finalize))
+            return int(action["source_key"].split(":")[1]), False
+
+        component = _refinance_components([successor, partial, full])[0]
+        _replay_refinance_component(component, apply_phase)
+
+        self.assertEqual(calls[:3], [
+            ("loan:1784", ["disburse-1784"], False),
+            ("loan:2265", ["disburse-2265"], False),
+            ("loan:2402", ["disburse-2402"], False),
+        ])
+        self.assertLess(
+            calls.index(("loan:2402", ["disburse-2402"], False)),
+            calls.index(("loan:2265", ["disburse-2265", "payoff-2265", "payment-2265"], True)),
         )
 
     def test_lifecycle_plan_quarantines_inconsistent_consolidation_liquidations(self):
@@ -2963,6 +3427,7 @@ class LoanInspectionTests(unittest.TestCase):
             "externalId": "ARISSTO:CRD-INS:7001:101:0001", "amount": .1, "amountOutstanding": 0,
         }], "transactions": active["transactions"] + [{
             "id": 2, "externalId": "ARISSTO:CRD-MOV:101", "amount": 10,
+            "date": [2026, 6, 20],
             "principalPortion": 8, "interestPortion": 1.9,
             "feeChargesPortion": .1, "penaltyChargesPortion": 0,
         }]}
@@ -3014,7 +3479,7 @@ class LoanInspectionTests(unittest.TestCase):
         )
         self.assertEqual(repayment_payload["feeChargeExternalId"], "ARISSTO:CRD-INS:7001:101:0001")
 
-    def test_full_resync_repayment_settles_existing_cutover_insurance_charge(self):
+    def test_full_resync_repayment_preserves_source_fee_charge_and_rebases_cutover(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
         repayment = built["lifecycle"]["events"][-1]
@@ -3023,7 +3488,10 @@ class LoanInspectionTests(unittest.TestCase):
         action = {
             "action": "recover-loan",
             "external_id": "ARISSTO:CRD:2068",
-            "full_resync_insurance_guard": {"policy": "settle-cutover-delta-v1"},
+            "full_resync_insurance_guard": {
+                "policy": "source-snapshot-rebase-v1",
+                "charge_external_id": built["lifecycle"]["cutover_insurance_charge"]["external_id"],
+            },
             "lifecycle": built["lifecycle"],
         }
         cutover_external_id = built["lifecycle"]["cutover_insurance_charge"]["external_id"]
@@ -3045,12 +3513,16 @@ class LoanInspectionTests(unittest.TestCase):
             "charges": [{
                 "id": 99, "externalId": cutover_external_id,
                 "amount": 0.20, "amountOutstanding": 0.10,
+            }, {
+                "id": 100, "externalId": repayment["historical_insurance_charges"][0]["external_id"],
+                "amount": 0.10, "amountOutstanding": 0,
             }],
             "transactions": active["transactions"] + [{
                 "id": 2, "externalId": repayment["external_id"], "amount": 10,
+                "date": [2026, 6, 20],
                 "principalPortion": 8, "interestPortion": 1.9,
                 "feeChargesPortion": .1, "penaltyChargesPortion": 0,
-                "loanChargePaidByList": [{"chargeId": 99, "amount": .1}],
+                "loanChargePaidByList": [{"chargeId": 100, "amount": .1}],
             }],
         }
         api = MagicMock()
@@ -3078,12 +3550,9 @@ class LoanInspectionTests(unittest.TestCase):
             request for request in api.request.call_args_list
             if request.kwargs.get("query") == {"command": "sourceExactRepayment"}
         )
-        self.assertEqual(repayment_request.args[2]["feeChargeExternalId"], cutover_external_id)
+        self.assertEqual(repayment_request.args[2]["feeChargeExternalId"],
+                         repayment["historical_insurance_charges"][0]["external_id"])
         self.assertEqual(ensure_insurance.call_count, 1)
-        self.assertEqual(
-            ensure_insurance.call_args.args[2]["historical_insurance_charges"][0]["classification"],
-            "source_insurance_cutover_outstanding",
-        )
 
     def test_source_exact_accrual_catchup_uses_frozen_cutoff_and_identity(self):
         api = MagicMock()
@@ -3181,6 +3650,7 @@ class LoanInspectionTests(unittest.TestCase):
                 {"id": 1, "externalId": "ARISSTO:CRD-MOV:100", "amount": 350},
                 {
                     "id": 2, "externalId": "ARISSTO:CRD-MOV:101", "amount": 10,
+                    "date": [2026, 6, 20],
                     "principalPortion": 8, "interestPortion": 1.9,
                     "feeChargesPortion": .1, "penaltyChargesPortion": 0,
                 },
@@ -3221,6 +3691,7 @@ class LoanInspectionTests(unittest.TestCase):
         }
         paid = {**active, "transactions": [{
             "id": 2, "externalId": repayment_event["external_id"], "amount": 10,
+            "date": [2026, 6, 20],
             "principalPortion": 8, "interestPortion": 1.9,
             "feeChargesPortion": .1, "penaltyChargesPortion": 0,
         }]}
@@ -3345,6 +3816,7 @@ class LoanInspectionTests(unittest.TestCase):
         built["lifecycle"]["events"] = []
         built["lifecycle"]["refinance"] = {
             "predecessor_external_id": "ARISSTO:CRD:2096",
+            "settlement_classifier": "historical-post-payoff-state-v2",
         }
         action = {"external_id": "ARISSTO:CRD:2243", "lifecycle": built["lifecycle"]}
         predecessor = {"id": 342, "clientId": 900}
@@ -3375,6 +3847,15 @@ class LoanInspectionTests(unittest.TestCase):
         preview_payload = api.calculate_loan_schedule.call_args.args[0]
         self.assertEqual(preview_payload["loanIdToClose"], 342)
 
+    def test_lifecycle_writer_rejects_old_refinance_classification_plan(self):
+        loan, lifecycle, target, payload = self.lifecycle_fixture()
+        built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        built["lifecycle"]["refinance"] = {"predecessor_external_id": "ARISSTO:CRD:2096"}
+        action = {"external_id": "ARISSTO:CRD:2243", "lifecycle": built["lifecycle"]}
+
+        with self.assertRaisesRegex(RuntimeError, "loan_plan_predates_historical_refinance_classifier"):
+            _apply_loan_lifecycle(MagicMock(), action, 90)
+
     def test_lifecycle_writer_only_closes_full_predecessor_for_mixed_consolidation(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
@@ -3383,6 +3864,7 @@ class LoanInspectionTests(unittest.TestCase):
         built["lifecycle"]["events"] = []
         built["lifecycle"]["refinance"] = {
             "operation_type": "CONSOLIDATION",
+            "settlement_classifier": "historical-post-payoff-state-v2",
             "settlements": [
                 {"predecessor_external_id": "ARISSTO:CRD:1", "settlement_type": "FULL_CLOSE"},
                 {"predecessor_external_id": "ARISSTO:CRD:2", "settlement_type": "PARTIAL_PAYDOWN"},
@@ -3446,6 +3928,104 @@ class LoanInspectionTests(unittest.TestCase):
         ):
             _apply_loan_lifecycle(MagicMock(), action, 90)
 
+    def test_apply_guard_accepts_frozen_quarantine_and_rejects_reason_drift(self):
+        loan = {"ID_CREDITO": 346, "line_id": "00010"}
+        source_product = {"line_id": "00010"}
+        lifecycle = {"refinance": None, "events": []}
+        source_hash = _stable_hash({
+            "header": loan, "lifecycle": _loan_source_hash_view(lifecycle),
+        })
+        settings = SimpleNamespace(
+            target=SimpleNamespace(name="local", fingerprint="sandbox"),
+            source=SimpleNamespace(),
+        )
+        inspection = {
+            "source_blockers": [], "target_blockers": [],
+            "schema_signature": "source-schema", "target_schema_signature": "target-schema",
+        }
+        cases = [
+            ("reviewed quarantine", "quarantine-loan",
+             ["reviewed_voided_refinance_attempt_omitted"],
+             ["reviewed_voided_refinance_attempt_omitted"], True),
+            ("propagated chain quarantine", "quarantine-loan",
+             ["refinance_chain_quarantined:loan:1728:non_monotonic_source_schedule_dates"],
+             [], True),
+            ("new quarantine", "create-loan", [], ["new_source_problem"], False),
+            ("changed quarantine", "quarantine-loan", ["old_source_problem"],
+             ["new_source_problem"], False),
+            ("resolved quarantine", "quarantine-loan", ["old_source_problem"], [], False),
+        ]
+        for label, disposition, planned_reasons, rebuilt_reasons, accepted in cases:
+            with self.subTest(label=label):
+                action = {
+                    "entity_type": "loan", "entity_source_key": "346",
+                    "source_key": "loan:346", "external_id": "ARISSTO:CRD:346",
+                    "action": disposition, "quarantine_reasons": planned_reasons,
+                    "source_hash": source_hash, "lifecycle": lifecycle,
+                }
+                state = MagicMock()
+                state.plan.return_value = {
+                    "block": "loans", "target_fingerprint": "sandbox",
+                    "source_fingerprint": "arissto", "contract_hash": self.contract.digest,
+                    "document": {
+                        "applicable": True, "product_writer_registered": True,
+                        "loan_writer_registered": True, "collateral_writer_registered": True,
+                        "schema_signature": "source-schema",
+                        "target_schema_signature": "target-schema",
+                        "migration_cutover_date": "2026-09-24",
+                        "scope": {}, "actions": [action],
+                    },
+                }
+                with (
+                    patch("arissto_sync.loans.source_fingerprint", return_value="arissto"),
+                    patch("arissto_sync.loans._plan_scope_inspections", return_value=[inspection]),
+                    patch("arissto_sync.loans.extract_loan_plan_rows", return_value=([loan], [source_product])),
+                    patch("arissto_sync.loans.extract_loan_lifecycle_rows", return_value={346: {}}),
+                    patch("arissto_sync.loans.resolve_loan_product_target", return_value={"resources": {}}),
+                    patch("arissto_sync.loans.build_loan_product_payload", return_value={}),
+                    patch("arissto_sync.loans._build_loan_lifecycle_action", return_value={
+                        "lifecycle": lifecycle, "quarantine_reasons": rebuilt_reasons,
+                    }),
+                    patch("arissto_sync.loans._collateral_runtime_contract", return_value=([], [], [])),
+                ):
+                    if accepted:
+                        returned_plan, _ = _loan_apply_guard(
+                            settings, state, self.contract, "frozen-plan", None,
+                        )
+                        self.assertEqual(returned_plan["document"]["actions"][0]["action"], disposition)
+                    else:
+                        with self.assertRaisesRegex(
+                            RuntimeError, "Loan target or source became inapplicable after planning",
+                        ):
+                            _loan_apply_guard(settings, state, self.contract, "frozen-plan", None)
+
+    def test_apply_guard_rejects_old_refinance_plan_before_target_or_source_reads(self):
+        state = MagicMock()
+        state.plan.return_value = {
+            "block": "loans", "target_fingerprint": "sandbox", "source_fingerprint": "arissto",
+            "contract_hash": self.contract.digest,
+            "document": {
+                "applicable": True,
+                "product_writer_registered": True,
+                "loan_writer_registered": True,
+                "collateral_writer_registered": True,
+                "actions": [{"entity_type": "loan", "lifecycle": {"refinance": {
+                    "settlement_classifier": "terminal-status-v1",
+                }}}],
+            },
+        }
+        settings = SimpleNamespace(
+            target=SimpleNamespace(name="local", fingerprint="sandbox"),
+            source=SimpleNamespace(),
+        )
+        with (
+            patch("arissto_sync.loans.source_fingerprint", return_value="arissto"),
+            patch("arissto_sync.loans._plan_scope_inspections") as inspect,
+            self.assertRaisesRegex(RuntimeError, "predates the historical refinancing classifier"),
+        ):
+            _loan_apply_guard(settings, state, self.contract, "old-plan", None)
+        inspect.assert_not_called()
+
     def test_closed_source_loan_keeps_cash_exact_and_uses_explicit_cutover_adjustment(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         loan.update({
@@ -3476,6 +4056,7 @@ class LoanInspectionTests(unittest.TestCase):
         }],
                 "transactions": active["transactions"] + [{
             "id": 2, "externalId": "ARISSTO:CRD-MOV:101", "amount": 10,
+            "date": [2026, 6, 20],
             "principalPortion": 8, "interestPortion": 1.9,
             "feeChargesPortion": .1, "penaltyChargesPortion": 0,
         }]}
@@ -3675,8 +4256,10 @@ class LoanInspectionTests(unittest.TestCase):
                 ],
             },
             "transactions": [
-                {"id": 1, "externalId": "ARISSTO:CRD-MOV:100", "amount": 350},
+                {"id": 1, "externalId": "ARISSTO:CRD-MOV:100", "amount": 350,
+                 "date": [2026, 6, 11]},
                 {"id": 2, "externalId": "ARISSTO:CRD-MOV:101", "amount": 10,
+                 "date": [2026, 6, 20],
                  "principalPortion": 8, "interestPortion": 1.9,
                  "feeChargesPortion": .1, "penaltyChargesPortion": 0},
             ],
@@ -3708,6 +4291,15 @@ class LoanInspectionTests(unittest.TestCase):
         self.assertNotIn(
             "interest_balance", {row["kind"] for row in result["variances"]}
         )
+
+        target_loan["transactions"][1]["date"] = [2026, 6, 21]
+        with (
+            patch("arissto_sync.loans.FineractApi", return_value=api),
+            patch("arissto_sync.loans._find_loan", return_value=target_loan),
+        ):
+            wrong_date = reconcile_loans(settings, state, self.contract, "run")
+        self.assertIn("transaction_date", {row["kind"] for row in wrong_date["mismatches"]})
+        target_loan["transactions"][1]["date"] = [2026, 6, 20]
 
         # Remaining contractual interest is not the Arissto accrued-interest
         # comparator. Changing only that future-inclusive value must not create
@@ -3803,7 +4395,7 @@ class LoanInspectionTests(unittest.TestCase):
             patch("arissto_sync.loans._find_loan", return_value=target_loan),
         ):
             zero_cash_refinance = reconcile_loans(settings, state, self.contract, "run")
-        self.assertTrue(zero_cash_refinance["ok"])
+        self.assertTrue(zero_cash_refinance["ok"], zero_cash_refinance["mismatches"])
         self.assertNotIn(
             "transaction_missing", {row["kind"] for row in zero_cash_refinance["mismatches"]}
         )
@@ -3924,6 +4516,7 @@ class LoanInspectionTests(unittest.TestCase):
             self.contract, self.product("00001", "002", "C-CONSUMO MULTIDESTINOS"), resources
         )
 
+        self.assertEqual(payload["name"], "00001 C-CONSUMO MULTIDESTINOS")
         self.assertEqual(payload["externalId"], "ARISSTO:CRD-LINE:00001")
         self.assertEqual(payload["numberingCode"], "3C1")
         self.assertEqual(payload["idTipoLinea"], "002")
@@ -3938,6 +4531,7 @@ class LoanInspectionTests(unittest.TestCase):
         self.assertEqual(payload["paymentChannelToFundSourceMappings"][0]["paymentTypeId"], 9)
         self.assertTrue(payload["allowVariableInstallments"])
         self.assertTrue(payload["canDefineInstallmentAmount"])
+        self.assertFalse(payload["syncExpectedWithDisbursementDate"])
         self.assertEqual(payload["minimumGap"], 1)
         self.assertEqual(payload["maximumGap"], 366)
         for parameter in ACCOUNTING_RESPONSE_KEYS:
@@ -3950,6 +4544,35 @@ class LoanInspectionTests(unittest.TestCase):
         )
         self.assertEqual(microcredit["maxInterestRatePerPeriod"], "30.00")
         self.assertEqual(microcredit["numberingCode"], "3M1")
+
+    def test_legacy_migration_product_name_is_a_safe_update(self):
+        settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target"), source=SimpleNamespace())
+        source_product = self.product("00001", "002", "C-CONSUMO MULTIDESTINOS")
+        payload = build_loan_product_payload(self.contract, source_product, self.target_resources())
+        existing = self.api_product(payload)
+        existing["name"] = "Arissto 00001 C-CONSUMO MULTIDESTINOS"
+        target = {"resources": self.target_resources(), "products": {"00001": existing}, "crosswalks": {}}
+        with patch("arissto_sync.loans.source_fingerprint", return_value="source"):
+            plan = compose_loan_plan(
+                settings, self.contract, [self.loan(24, "00001")], [source_product], target
+            )
+        self.assertTrue(plan["applicable"])
+        self.assertEqual(plan["actions"][0]["action"], "update-product")
+        self.assertEqual(plan["actions"][0]["payload"]["name"], "00001 C-CONSUMO MULTIDESTINOS")
+
+    def test_unrelated_product_name_remains_a_conflict(self):
+        settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target"), source=SimpleNamespace())
+        source_product = self.product("00001", "002", "C-CONSUMO MULTIDESTINOS")
+        payload = build_loan_product_payload(self.contract, source_product, self.target_resources())
+        existing = self.api_product(payload)
+        existing["name"] = "Manually renamed product"
+        target = {"resources": self.target_resources(), "products": {"00001": existing}, "crosswalks": {}}
+        with patch("arissto_sync.loans.source_fingerprint", return_value="source"):
+            plan = compose_loan_plan(
+                settings, self.contract, [self.loan(24, "00001")], [source_product], target
+            )
+        self.assertFalse(plan["applicable"])
+        self.assertEqual(plan["actions"][0]["action"], "conflict-product")
 
     def test_missing_product_numbering_code_is_a_backfillable_update(self):
         settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target"), source=SimpleNamespace())
@@ -4447,6 +5070,70 @@ class LoanInspectionTests(unittest.TestCase):
             )
 
         self.assertEqual(counts, {"succeeded": 1, "loans_succeeded": 2})
+
+    def test_apply_plan_stages_partial_refinance_component_before_final_replay(self):
+        product = {
+            "source_key": "product:00001", "entity_type": "product", "entity_source_key": "00001",
+            "source_company_id": "001", "action": "create-product", "depends_on": [],
+            "source_hash": "product-hash", "external_id": "ARISSTO:CRD-LINE:00001",
+            "payload": {}, "crosswalk": {"repair_after_product_resolution": True}, "target_id": None,
+        }
+        predecessor = {
+            "source_key": "loan:2", "entity_type": "loan", "entity_source_key": "2",
+            "action": "create-loan", "depends_on": ["product:00001"],
+            "product_action_key": "product:00001", "source_hash": "loan-hash-2",
+            "external_id": "ARISSTO:CRD:2", "target_id": None,
+            "lifecycle": {"events": [
+                {"external_id": "disburse-2", "date": "2026-07-01"},
+                {"external_id": "payoff-2", "date": "2026-08-07"},
+                {"external_id": "payment-2", "date": "2026-09-21"},
+            ]},
+        }
+        successor = {
+            "source_key": "loan:3", "entity_type": "loan", "entity_source_key": "3",
+            "action": "create-loan", "depends_on": ["product:00001", "loan:2"],
+            "product_action_key": "product:00001", "source_hash": "loan-hash-3",
+            "external_id": "ARISSTO:CRD:3", "target_id": None,
+            "lifecycle": {
+                "events": [{"external_id": "disburse-3", "date": "2026-08-07"}],
+                "refinance": {
+                    "disbursement_external_id": "disburse-3",
+                    "settlements": [{
+                        "predecessor_source_key": "2", "payoff_external_id": "payoff-2",
+                        "settlement_type": "PARTIAL_PAYDOWN",
+                    }],
+                },
+            },
+        }
+        plan = {"id": "plan", "document": {"actions": [product, predecessor, successor]}}
+        settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target"))
+        state = MagicMock()
+        state.start_run.return_value = "run"
+        calls = []
+
+        def worker(_settings, _worker_local, _gate, _controls, action, _product_id,
+                   _collateral_product_id, _run_id, *, events_override=None, finalize=True):
+            calls.append((action["source_key"], len(events_override or []), finalize))
+            return int(action["entity_source_key"]), False
+
+        with (
+            patch("arissto_sync.loans._loan_apply_guard", return_value=(
+                plan, {"products": {"00001": None}, "crosswalks": {}},
+            )),
+            patch("arissto_sync.loans._resolve_or_create_loan_product", return_value=(91, False)),
+            patch("arissto_sync.loans._upsert_loan_product_crosswalk"),
+            patch("arissto_sync.loans._loan_worker", side_effect=worker),
+        ):
+            _, counts = apply_loan_plan(
+                settings, state, self.contract, "plan",
+                controls=LoanApplyControls(workers=2, pause_seconds=0, recovery_attempts=1),
+            )
+
+        self.assertEqual(counts, {"succeeded": 1, "loans_succeeded": 2})
+        self.assertEqual(calls, [
+            ("loan:2", 1, False), ("loan:3", 1, False),
+            ("loan:2", 3, True), ("loan:3", 1, True),
+        ])
 
     def test_product_retry_selection_includes_its_dependent_loans(self):
         actions = [

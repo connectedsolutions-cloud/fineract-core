@@ -56,3 +56,11 @@ deterministic external IDs and collection replacement. Reconciliation reads the
 two API collections and compares their canonical field content to the current
 source hash. Retry is limited to failed/quarantined run items selected by the
 standard engine state contract; Arissto remains read-only.
+
+When the reconciled `savings-deposits` step in the same workflow quarantines an
+account, a missing mapped account leaves its party collection quarantined and
+visible in the run record, but does not fail reconciliation of the eligible
+collections. A missing account without that exact accepted upstream quarantine,
+or any other party quarantine or mismatch, still fails reconciliation. This
+allows an open-day source snapshot to proceed without inventing a deposit
+account or attaching parties to a guessed target.

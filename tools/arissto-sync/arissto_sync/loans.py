@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import copy
 import json
 import os
 import re
@@ -234,6 +235,8 @@ class LoanContract:
         value = json.loads(path.read_text(encoding="utf-8"))
         if value.get("version") != 1:
             raise ValueError("Loans mapping requires version 1")
+        if value.get("terminal_adjustment_policy") != "closed-after-outgoing-refinance-later-repayment-v1":
+            raise ValueError("Loans mapping requires the reviewed terminal adjustment policy")
         for section in (
             "source", "identity", "collateral_contract", "product_contract", "target", "supported_transactions",
             "historical_schedule_exceptions", "historical_reference_only_schedules",
@@ -469,6 +472,22 @@ class LoanContract:
             "expected_first_source_core_installment": "205.29",
             "schedule_writer": "fineract-source-exact-active-schedule-v1",
         }
+        reviewed_refinance_dates = {
+            "2357": ("2267", "2026-07-30", "2026-09-28", "433.00", "432.95"),
+            "2427": ("2334", "2026-08-12", "2026-09-29", "493.00", "492.18"),
+            "2498": ("2294", "2026-08-28", "2026-09-28", "165.00", "164.88"),
+            "2499": ("2354", "2026-08-28", "2026-09-28", "172.00", "171.71"),
+        }
+        for loan_id, (predecessor, effective, contractual, principal, payoff) in reviewed_refinance_dates.items():
+            expected_native_creation_overrides[loan_id] = {
+                "classification": "reviewed-refinance-application-quote-date",
+                "expected_disbursement_source": "effective-financial-disbursement",
+                "predecessor_source_key": predecessor,
+                "expected_effective_disbursement_date": effective,
+                "expected_contractual_origin_date": contractual,
+                "expected_principal": principal,
+                "expected_payoff_amount": payoff,
+            }
         if value["native_creation_overrides"] != expected_native_creation_overrides:
             raise ValueError("Loans mapping has an unreviewed native creation override scope")
         expected_active_manual_imports = {
@@ -545,6 +564,22 @@ def _stable_hash(value: Any) -> str:
     return hashlib.sha256(material.encode()).hexdigest()
 
 
+def _loan_source_hash_view(lifecycle: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Keep mutable target repair evidence outside the Arissto source identity."""
+    if lifecycle is None:
+        return None
+    view = copy.deepcopy(lifecycle)
+    refinance = view.get("refinance")
+    if refinance:
+        refinance.pop("historical_insert_repair", None)
+        refinance.pop("requires_historical_insert", None)
+        refinance.pop("expected_later_transactions", None)
+        for settlement in refinance.get("settlements") or []:
+            settlement.pop("requires_historical_insert", None)
+            settlement.pop("expected_later_transactions", None)
+    return view
+
+
 def _enum_id(value: Any) -> int | None:
     if isinstance(value, dict):
         value = value.get("id")
@@ -593,6 +628,21 @@ def _source_exact_installments(action: dict[str, Any]) -> list[dict[str, Any]]:
             "interest": row["interest"],
         })
         previous_due_date = row["due_date"]
+    if lifecycle.get("source_exact_remaining_schedule_policy"):
+        policy = lifecycle["source_exact_remaining_schedule_policy"]
+        if not installments:
+            raise RuntimeError("loan_source_exact_remaining_schedule_empty")
+        installments = [{
+            "installmentNumber": 1,
+            "fromDate": disbursement["date"],
+            "dueDate": policy["bridge_due_date"],
+            "principal": policy["bridge_principal"],
+            "interest": policy["bridge_interest"],
+        }, *[
+            {**row, "installmentNumber": row["installmentNumber"] + 1,
+             "fromDate": policy["bridge_due_date"] if index == 0 else row["fromDate"]}
+            for index, row in enumerate(installments)
+        ]]
     return installments
 
 
@@ -626,7 +676,7 @@ def build_loan_product_payload(
         raise ValueError(f"Credit line {line_id} has no reviewed native product terms")
     gl_ids = target_resources["gl_ids"]
     payload: dict[str, Any] = {
-        "name": f"Arissto {line_id} {line_name}"[:100],
+        "name": f"{line_id} {line_name}"[:100],
         "shortName": f"A{line_id[-3:]}",
         "numberingCode": f"3{line_family}1",
         "description": f"Native migration product for Arissto credit line {line_id}",
@@ -648,6 +698,7 @@ def build_loan_product_payload(
         "daysInMonthType": 1,
         "daysInYearType": 1,
         "isInterestRecalculationEnabled": False,
+        "syncExpectedWithDisbursementDate": False,
         "loanScheduleType": "CUMULATIVE",
         "loanScheduleProcessingType": "HORIZONTAL",
         "canUseForTopup": True,
@@ -728,6 +779,7 @@ def loan_product_contract_view(value: dict[str, Any], *, planned: bool) -> dict[
         view[name] = _enum_id(value.get(name))
     view["transactionProcessingStrategyCode"] = value.get("transactionProcessingStrategyCode")
     view["isInterestRecalculationEnabled"] = bool(value.get("isInterestRecalculationEnabled", False))
+    view["syncExpectedWithDisbursementDate"] = bool(value.get("syncExpectedWithDisbursementDate", False))
     view["canUseForTopup"] = bool(value.get("canUseForTopup", False))
     view["canDefineInstallmentAmount"] = bool(value.get("canDefineInstallmentAmount", False))
     view["allowVariableInstallments"] = bool(value.get("allowVariableInstallments", False))
@@ -1607,7 +1659,8 @@ def extract_loan_lifecycle_rows(
             ORDER BY p.ID_CREDITO,p.NO_CUOTA,p.FECHA_PAGO,p.ID_PLAN_PAGO
         """, tuple(batch)))
             schedule_adjustments.extend(select_rows(conn, f"""
-            SELECT r.ID_CREDITO,COUNT(DISTINCT r.ID_REESTRUCTURACION) AS adjustment_count
+            SELECT r.ID_CREDITO,COUNT(DISTINCT r.ID_REESTRUCTURACION) AS adjustment_count,
+                   MAX(r.DT_CREO) AS last_adjustment_created_at
             FROM [dbo].[{source['schedule_adjustment_table']}] r
             WHERE r.ID_CREDITO IN ({placeholders})
             GROUP BY r.ID_CREDITO
@@ -1673,10 +1726,15 @@ def extract_loan_lifecycle_rows(
                    CASE WHEN oldc.ID_SOCIO=newc.ID_SOCIO THEN 1 ELSE 0 END AS same_owner,
                    oldc.ID_ESTADO_CARTERA AS predecessor_current_state,
                    oldc.SALDO_TOTAL AS predecessor_current_balance,
+                   (SELECT TOP (1) p.ID_ESTADO_CARTERA FROM dbo.CRD_MOVIMIENTO_PRE_POS p
+                    WHERE p.ID_CRD_MOVIMIENTO=old.ID_CRD_MOVIMIENTO AND p.PRE_POS='2')
+                       AS predecessor_post_payoff_state,
                    (SELECT COUNT(*) FROM [dbo].[{source['movement_table']}] later
                     WHERE later.ID_CREDITO=old.ID_CREDITO
                       AND later.FECHA_OPERACION>old.FECHA_OPERACION
                       AND COALESCE(RTRIM(later.REVERSION),'')<>'1'
+                      AND NOT (later.MONTO_PAGADO=0 AND later.REINTEGRO_MONTO=later.MONTO
+                               AND later.MONTO>0)
                       AND ((later.CODIGO_SISTEMA=4 AND RTRIM(later.ID_TRANSACCION) IN ('00001','00013'))
                         OR (later.CODIGO_SISTEMA=14 AND RTRIM(later.ID_TRANSACCION)='00011')))
                        AS later_posted_payment_count,
@@ -1745,6 +1803,7 @@ def extract_loan_lifecycle_rows(
     for row in schedule_adjustments:
         result[int(row["ID_CREDITO"])]["schedule_adjustment_summary"] = {
             "adjustment_count": int(row.get("adjustment_count") or 0),
+            "last_adjustment_created_at": row.get("last_adjustment_created_at"),
         }
     for row in movements:
         result[int(row["ID_CREDITO"])]["movements"].append(row)
@@ -1957,6 +2016,39 @@ def resolve_loan_product_target(
             "AND t.transaction_type_enum<>1 WHERE l.external_id=ANY(%s) GROUP BY l.external_id",
             (loan_external_ids,),
         ).fetchall() if loan_external_ids else []
+        latest_source_transaction_rows = conn.execute(
+            "SELECT l.external_id,MAX(t.transaction_date) FROM m_loan l "
+            "JOIN m_loan_transaction t ON t.loan_id=l.id "
+            "WHERE l.external_id=ANY(%s) AND t.is_reversed=false "
+            "AND (t.external_id LIKE 'ARISSTO:CRD-MOV:%%' "
+            "OR t.external_id LIKE 'PROOF:%%:ARISSTO:CRD-MOV:%%') "
+            "GROUP BY l.external_id",
+            (loan_external_ids,),
+        ).fetchall() if loan_external_ids else []
+        native_transaction_rows = conn.execute(
+            "SELECT l.external_id,l.id,t.external_id,t.transaction_date,t.amount,"
+            "t.principal_portion_derived,t.interest_portion_derived,"
+            "t.fee_charges_portion_derived,t.penalty_charges_portion_derived "
+            "FROM m_loan l JOIN m_loan_transaction t ON t.loan_id=l.id "
+            "WHERE l.external_id=ANY(%s) AND t.is_reversed=false "
+            "AND t.transaction_type_enum NOT IN (10,17,19,32,34) "
+            "AND (t.external_id LIKE 'ARISSTO:%%' "
+            "OR t.external_id LIKE 'PROOF:%%:ARISSTO:%%') "
+            "ORDER BY l.external_id,t.transaction_date,t.id",
+            (loan_external_ids,),
+        ).fetchall() if loan_external_ids else []
+        refinancing_settlement_rows = conn.execute(
+            "SELECT successor.external_id,predecessor.external_id,s.settlement_type,"
+            "s.settlement_amount,s.principal_portion,s.interest_portion,"
+            "s.fee_charges_portion,s.penalty_charges_portion,repayment.external_id "
+            "FROM m_loan_refinancing_settlement s "
+            "JOIN m_loan_topup topup ON topup.id=s.refinancing_id "
+            "JOIN m_loan successor ON successor.id=topup.loan_id "
+            "JOIN m_loan predecessor ON predecessor.id=s.closure_loan_id "
+            "LEFT JOIN m_loan_transaction repayment ON repayment.id=s.repayment_transaction_id "
+            "WHERE successor.external_id=ANY(%s)",
+            (loan_external_ids,),
+        ).fetchall() if loan_external_ids else []
     crosswalks = {
         str(row[0]): {
             "source_key": str(row[0]), "source_hash": str(row[1]), "contract_hash": str(row[2]),
@@ -2034,6 +2126,32 @@ def resolve_loan_product_target(
             "interest": _decimal_text(interest),
         })
     transaction_counts = {str(external_id): int(count) for external_id, count in transaction_count_rows}
+    latest_source_transaction_dates = {
+        str(external_id): transaction_date.isoformat()
+        for external_id, transaction_date in latest_source_transaction_rows
+        if transaction_date is not None
+    }
+    native_transactions: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for loan_external_id, loan_id, transaction_external_id, date_value, amount, principal, interest, fee, penalty in native_transaction_rows:
+        native_transactions[str(loan_external_id)].append({
+            "loanId": int(loan_id), "externalId": str(transaction_external_id),
+            "date": date_value.isoformat(), "amount": _decimal_text(amount),
+            "principal": _decimal_text(principal), "interest": _decimal_text(interest),
+            "fee": _decimal_text(fee), "penalty": _decimal_text(penalty),
+        })
+    refinancing_settlements: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
+    for successor, predecessor, settlement_type, amount, principal, interest, fee, penalty, repayment in refinancing_settlement_rows:
+        refinancing_settlements[str(successor)][str(predecessor)] = {
+            "settlement_type": str(settlement_type),
+            "amount": _decimal_text(amount),
+            "allocation": {
+                "principal": _decimal_text(principal),
+                "interest": _decimal_text(interest),
+                "fee": _decimal_text(fee),
+                "penalty": _decimal_text(penalty),
+            },
+            "repayment_external_id": str(repayment) if repayment is not None else None,
+        }
     return {
         "resources": {
             "gl_ids": gl_ids,
@@ -2043,6 +2161,7 @@ def resolve_loan_product_target(
             "mobile_collection_payment_type_id": int(payment_types[0]["id"]),
         },
         "products": products,
+        "refinancing_settlements": dict(refinancing_settlements),
         "collateral_product": collateral_product,
         "crosswalks": crosswalks,
         "clients": {
@@ -2064,6 +2183,8 @@ def resolve_loan_product_target(
                 "status": int(status),
                 "schedule": schedules_by_external_id.get(str(external_id), []),
                 "non_disbursement_transaction_count": transaction_counts.get(str(external_id), 0),
+                "latest_source_transaction_date": latest_source_transaction_dates.get(str(external_id)),
+                "native_transactions": native_transactions.get(str(external_id), []),
             }
             for external_id, identifier, product_id, client_id, status in loan_rows
         },
@@ -2536,17 +2657,31 @@ def _build_loan_lifecycle_action(
         for event in events
     )
     terminal_adjustment = None
+    payoff_candidates = [
+        event for event in events
+        if event["role"] in {"repayment", "adjusted-repayment", "mobile-collection-repayment"}
+        and not event["source_reversed"]
+    ]
+    # An outgoing refinance may be a partial paydown. If Arissto records a later
+    # repayment and now reports the predecessor closed, that later close still
+    # needs the same bounded source-exact terminal bridge as an ordinary loan.
+    # Do not backdate a bridge ahead of the refinance settlement itself.
+    last_refinance_payoff_index = max(
+        (index for index, event in enumerate(events)
+         if event["role"] == "native-refinance-payoff"),
+        default=None,
+    )
+    terminal_repayment_after_refinance = (
+        bool(payoff_candidates)
+        and last_refinance_payoff_index is not None
+        and events.index(payoff_candidates[-1]) > last_refinance_payoff_index
+    )
     if (
         _clean(loan.get("source_state")) == "3"
         and _amount(loan.get("SALDO_TOTAL")) == 0
         and (not has_disbursement_reversal or has_effective_disbursement)
-        and not refinance_outgoing
+        and (not refinance_outgoing or terminal_repayment_after_refinance)
     ):
-        payoff_candidates = [
-            event for event in events
-            if event["role"] in {"repayment", "adjusted-repayment", "mobile-collection-repayment"}
-            and not event["source_reversed"]
-        ]
         if payoff_candidates:
             payoff = payoff_candidates[-1]
             maximum_amount = _amount(loan.get("MONTO_APROBADO"))
@@ -2610,6 +2745,10 @@ def _build_loan_lifecycle_action(
             loan.get("FECHA_OTORGAMIENTO") or planned_disbursement_value,
             "planned disbursement",
         )
+    )
+    contractual_origin_date = (
+        _iso_date(loan["FECHA_OTORGAMIENTO"], "contractual origin")
+        if loan.get("FECHA_OTORGAMIENTO") else effective_disbursement_date
     )
     approval_value = None if application is None else (
         application.get("FECHA_APROBADO") or application.get("FECHA_RESOLUCION")
@@ -2739,6 +2878,25 @@ def _build_loan_lifecycle_action(
         principal = _amount(loan.get("MONTO_DESEMBOLSADO"))
     if principal == 0:
         principal = _amount(application_principal)
+    native_expected_disbursement_date = contractual_origin_date
+    if native_creation_override.get("expected_disbursement_source") == "effective-financial-disbursement":
+        reviewed_link = refinance_incoming[0] if len(refinance_incoming) == 1 else None
+        reviewed_signature_matches = (
+            reviewed_link is not None
+            and str(reviewed_link["old_credit_id"]) == native_creation_override["predecessor_source_key"]
+            and _iso_date(reviewed_link["payoff_date"], "reviewed refinance payoff") == effective_disbursement_date
+            and effective_disbursement_date == native_creation_override["expected_effective_disbursement_date"]
+            and contractual_origin_date == native_creation_override["expected_contractual_origin_date"]
+            and principal == _amount(native_creation_override["expected_principal"])
+            and _amount(reviewed_link["payoff_amount"]) == _amount(native_creation_override["expected_payoff_amount"])
+            and _amount(reviewed_link["payoff_amount"]) <= principal
+        )
+        if reviewed_signature_matches:
+            # Native refinancing quotes the predecessor at this application date.
+            # The contractual origin remains frozen in the reviewed override.
+            native_expected_disbursement_date = effective_disbursement_date
+        else:
+            quarantines.append("reviewed_refinance_application_date_signature_changed")
     first_accrual_day_policy = _classify_first_accrual_day(
         loan, schedule, effective_disbursement_date,
     )
@@ -2767,7 +2925,7 @@ def _build_loan_lifecycle_action(
         "loanType": "individual",
         "externalId": contract.raw["identity"]["loan_external_id"].format(ID_CREDITO=loan_id),
         "submittedOnDate": submitted_date,
-        "expectedDisbursementDate": effective_disbursement_date,
+        "expectedDisbursementDate": native_expected_disbursement_date,
         "dateFormat": "yyyy-MM-dd",
         "locale": "en",
         "charges": [],
@@ -2826,16 +2984,36 @@ def _build_loan_lifecycle_action(
         settlements = []
         for link in sorted(refinance_incoming, key=lambda value: int(value["old_credit_id"])):
             predecessor_id = int(link["old_credit_id"])
+            post_payoff_state = link.get("predecessor_post_payoff_state")
+            later_payment_count = int(link.get("later_posted_payment_count") or 0)
+            if later_payment_count and post_payoff_state is None:
+                quarantines.append(f"refinance_post_payoff_state_missing:{predecessor_id}")
+            elif later_payment_count and int(post_payoff_state) != 1:
+                quarantines.append(f"refinance_payment_after_closed_payoff:{predecessor_id}")
+            partial_paydown = post_payoff_state is not None and int(post_payoff_state) == 1 and (
+                later_payment_count > 0
+                or (
+                    int(link.get("predecessor_current_state") or -1) == 1
+                    and _amount(link.get("predecessor_current_balance")) > Decimal("0.01")
+                )
+            )
+            predecessor_external_id = contract.raw["identity"]["loan_external_id"].format(
+                ID_CREDITO=predecessor_id
+            )
+            existing_predecessor = target.get("loans", {}).get(predecessor_external_id)
             settlement = {
             "predecessor_source_key": str(predecessor_id),
-            "predecessor_external_id": contract.raw["identity"]["loan_external_id"].format(
-                ID_CREDITO=predecessor_id
-            ),
+            "predecessor_external_id": predecessor_external_id,
             "payoff_external_id": contract.raw["identity"]["movement_external_id"].format(
                 ID_MOVIMIENTO_CARTERA=_clean(link["payoff_movement_id"])
             ),
             "payoff_amount": format(_amount(link["payoff_amount"]), "f"),
             "payoff_date": _iso_date(link["payoff_date"], "refinance payoff"),
+            "predecessor_source_terminal_state": int(link.get("predecessor_current_state") or -1),
+            "predecessor_source_terminal_balance": format(
+                _amount(link.get("predecessor_current_balance")), "f"
+            ),
+            "later_posted_payment_count": later_payment_count,
             "payoff_allocation": {
                 "principal": format(_amount(link.get("payoff_principal")), "f"),
                 "interest": format(_amount(link.get("payoff_interest")), "f"),
@@ -2843,11 +3021,7 @@ def _build_loan_lifecycle_action(
                 "penalty": format(_amount(link.get("payoff_penalty")), "f"),
             },
             "settlement_type": (
-                "PARTIAL_PAYDOWN"
-                if int(link.get("predecessor_current_state") or -1) == 1
-                and _amount(link.get("predecessor_current_balance")) > Decimal("0.01")
-                and int(link.get("later_posted_payment_count") or 0) > 0
-                else "FULL_CLOSE"
+                "PARTIAL_PAYDOWN" if partial_paydown else "FULL_CLOSE"
             ),
             "adjustment_external_id": contract.raw["identity"]["refinance_adjustment_external_id"].format(
                 OLD_ID_CREDITO=predecessor_id, NEW_ID_CREDITO=loan_id
@@ -2856,6 +3030,45 @@ def _build_loan_lifecycle_action(
                 OLD_ID_CREDITO=predecessor_id, NEW_ID_CREDITO=loan_id
             ),
             }
+            successor_external_id = contract.raw["identity"]["loan_external_id"].format(
+                ID_CREDITO=loan_id
+            )
+            target_settlement = target.get("refinancing_settlements", {}).get(
+                successor_external_id, {}
+            ).get(predecessor_external_id)
+            target_matches = _target_refinance_settlement_matches(settlement, target_settlement)
+            existing_successor = target.get("loans", {}).get(successor_external_id)
+            if (
+                existing_successor is not None
+                and int(existing_successor.get("status") or -1) in {300, 600, 601, 602, 700}
+                and not target_matches
+            ):
+                quarantines.append(f"historical_refinance_chain_rebuild_required:{predecessor_id}")
+            if (
+                partial_paydown
+                and existing_predecessor is not None
+                and int(existing_predecessor.get("status") or -1) in {600, 601, 602, 700}
+                and not target_matches
+            ):
+                quarantines.append(
+                    f"historical_partial_paydown_closed_later_requires_chain_replay:{predecessor_id}"
+                )
+            if (
+                partial_paydown
+                and existing_predecessor is not None
+                and not target_matches
+                and (existing_predecessor.get("latest_source_transaction_date") or "")
+                > settlement["payoff_date"]
+            ):
+                if (
+                    int(existing_predecessor.get("status") or -1) == 300
+                    and (existing_successor is None or int(existing_successor.get("status") or -1) in {100, 200})
+                ):
+                    settlement["requires_historical_insert"] = True
+                else:
+                    quarantines.append(
+                        f"historical_partial_paydown_target_ahead_of_unposted_settlement:{predecessor_id}"
+                    )
             if str(link.get("same_owner")) in {"0", "False", "false"}:
                 settlement["legacy_cross_client_evidence"] = {
                     "authorization_basis": "LEGACY_SOURCE_LIQUIDATION",
@@ -2906,11 +3119,29 @@ def _build_loan_lifecycle_action(
             settlement["transfer_external_id"] = (
                 f"{disbursement_external_id}:REFINANCE:{settlement['predecessor_source_key']}"
             )
+        historical_insert = any(settlement.get("requires_historical_insert") for settlement in settlements)
+        if historical_insert:
+            for settlement in settlements:
+                predecessor = target.get("loans", {}).get(settlement["predecessor_external_id"]) or {}
+                settlement["expected_later_transactions"] = [
+                    row for row in predecessor.get("native_transactions") or []
+                    if row["date"] >= settlement["payoff_date"]
+                ]
+                if (
+                    settlement.get("requires_historical_insert")
+                    and not settlement["expected_later_transactions"]
+                ):
+                    quarantines.append(
+                        "historical_refinance_target_history_missing:"
+                        f"{settlement['predecessor_source_key']}"
+                    )
         refinance = {
             "operation_type": "SINGLE_REFINANCE" if len(settlements) == 1 else "CONSOLIDATION",
             "disbursement_external_id": disbursement_external_id,
             "settlements": settlements,
             "classification": "native_fineract_refinancing_with_source_exact_component_bridge",
+            "settlement_classifier": "historical-post-payoff-state-v2",
+            "historical_insert_repair": historical_insert,
         }
         if len(settlements) == 1:
             # Preserve the frozen-plan shape accepted by older recovery and reporting code.
@@ -3190,12 +3421,140 @@ def _build_loan_lifecycle_action(
                 "target_installment": merged_period["number"],
                 "due_date": merged_period["due_date"],
             }
-    reviewed_native_schedule = reviewed_schedule_exception or reviewed_reference_only_schedule
-    if not reviewed_native_schedule and any(
+    # A regenerated source plan can describe only the remaining principal. Keep
+    # the historical paid principal in one explicit target period, then import
+    # every current Arissto installment without recalculating its components.
+    remaining_schedule_policy = None
+    current_schedule_principal = sum(
+        (_amount(row.get("principal")) for row in effective_schedule), Decimal("0.00")
+    )
+    if (
+        Decimal("0.00") < current_schedule_principal < principal and effective_schedule
+        and not reviewed_schedule_exception and not reviewed_reference_only_schedule
+        and not active_manual_import
+        and all(current["due_date"] > previous["due_date"]
+                for previous, current in zip(effective_schedule, effective_schedule[1:]))
+    ):
+        first_due = date.fromisoformat(effective_schedule[0]["due_date"])
+        bridge_due = first_due - timedelta(days=1)
+        principal_paid = sum(
+            (-_amount(event.get("allocation", {}).get("principal"))
+             if event["role"] == "repayment-reversal" else
+             _amount(event.get("allocation", {}).get("principal")))
+            for event in events
+            if event["role"] in {
+                "repayment", "adjusted-repayment", "mobile-collection-repayment",
+                "repayment-reversal", "source-exact-component-reallocation",
+            }
+        )
+        interest_paid = sum(
+            (-_amount(event.get("allocation", {}).get("interest"))
+             if event["role"] == "repayment-reversal" else
+             _amount(event.get("allocation", {}).get("interest")))
+            for event in events
+            if event["role"] in {
+                "repayment", "adjusted-repayment", "mobile-collection-repayment",
+                "repayment-reversal", "source-exact-component-reallocation",
+            }
+        )
+        bridge_principal = principal - current_schedule_principal
+        source_state = _clean(loan.get("source_state"))
+        expected_principal = _amount(loan.get("ULTIMO_SALDO"))
+        # These three reviewed regenerated plans have servicing after the plan
+        # was saved. Partition by the source adjustment timestamp so payments
+        # with interest but no principal remain in the historical bridge.
+        reviewed_post_adjustment_signatures = {
+            2357: (Decimal("433.00"), Decimal("175.28"), "2026-09-29", 2),
+            2427: (Decimal("493.00"), Decimal("438.80"), "2026-09-30", 1),
+            2499: (Decimal("172.00"), Decimal("118.69"), "2026-09-29", 2),
+        }
+        reviewed_signature = reviewed_post_adjustment_signatures.get(int(loan["ID_CREDITO"]))
+        reviewed_post_adjustment = False
+        adjustment_created_at = schedule_adjustment_summary.get("last_adjustment_created_at")
+        if reviewed_signature == (
+            principal, current_schedule_principal, effective_schedule[0]["due_date"],
+            int(schedule_adjustment_summary.get("adjustment_count") or 0),
+        ) and isinstance(adjustment_created_at, datetime):
+            movement_created_at = {
+                _clean(row.get("ID_MOVIMIENTO_CARTERA")): row.get("DT_CREO")
+                for row in movements
+            }
+            historical_principal = Decimal("0.00")
+            historical_interest = Decimal("0.00")
+            historical_events = []
+            later_events = []
+            missing_created_at = False
+            for event in events:
+                if event["role"] not in {
+                    "repayment", "adjusted-repayment", "mobile-collection-repayment",
+                    "repayment-reversal", "source-exact-component-reallocation",
+                }:
+                    continue
+                created_at = movement_created_at.get(_clean(event.get("source_movement_id")))
+                if not isinstance(created_at, datetime):
+                    missing_created_at = True
+                    break
+                if created_at <= adjustment_created_at:
+                    historical_events.append(event)
+                    sign = -1 if event["role"] == "repayment-reversal" else 1
+                    historical_principal += sign * _amount(event.get("allocation", {}).get("principal"))
+                    historical_interest += sign * _amount(event.get("allocation", {}).get("interest"))
+                else:
+                    later_events.append(event)
+            if not missing_created_at:
+                last_historical_date = max(
+                    (event["date"] for event in historical_events
+                     if event["role"] != "disbursement"), default=None,
+                )
+                reviewed_post_adjustment = (
+                    bool(later_events) and historical_principal == bridge_principal
+                    and last_historical_date is not None
+                    and last_historical_date <= bridge_due.isoformat()
+                    and all(event["date"] > last_historical_date for event in later_events
+                            if event["role"] != "disbursement")
+                    and historical_interest >= 0
+                    and expected_principal == principal - principal_paid
+                    and (source_state == "1" or
+                         (source_state == "3" and principal_paid == principal))
+                )
+                if reviewed_post_adjustment:
+                    interest_paid = historical_interest
+        complete_history = (
+            source_state == "1" and principal_paid == bridge_principal
+            and expected_principal == current_schedule_principal
+        ) or (
+            source_state == "3" and principal_paid == principal
+            and expected_principal == Decimal("0.00")
+        )
+        if (
+            (complete_history or reviewed_post_adjustment) and interest_paid >= 0
+            and date.fromisoformat(effective_disbursement_date) < bridge_due
+            and (reviewed_post_adjustment or all(
+                date.fromisoformat(event["date"]) <= bridge_due for event in events
+                if event["role"] != "disbursement"))
+            and [row["number"] for row in effective_schedule]
+            == list(range(1, len(effective_schedule) + 1))
+            and all(current["due_date"] > previous["due_date"]
+                    for previous, current in zip(effective_schedule, effective_schedule[1:]))
+        ):
+            remaining_schedule_policy = {
+                "classification": "source-exact-remaining-principal-with-historical-bridge",
+                "bridge_due_date": bridge_due.isoformat(),
+                "bridge_principal": format(bridge_principal, "f"),
+                "bridge_interest": format(interest_paid, "f"),
+            }
+        elif int(schedule_adjustment_summary.get("adjustment_count") or 0) > 0:
+            quarantines.append("source_exact_remaining_schedule_signature_mismatch")
+    unordered_source_schedule = any(
         current["due_date"] <= previous["due_date"]
         for previous, current in zip(effective_schedule, effective_schedule[1:])
-    ):
-        quarantines.append("non_monotonic_source_schedule_dates")
+    )
+    if unordered_source_schedule and source_schedule_provenance is None:
+        source_schedule_provenance = normalized_schedule
+    reviewed_native_schedule = (
+        reviewed_schedule_exception or reviewed_reference_only_schedule
+        or unordered_source_schedule
+    )
     lifecycle = {
         "application_payload": application_payload,
         "guarantors": guarantors,
@@ -3205,11 +3564,12 @@ def _build_loan_lifecycle_action(
         "first_accrual_day_policy": first_accrual_day_policy,
         "contractual_schedule_anchor_policy": contractual_anchor_policy,
         "active_manual_schedule_import_policy": active_manual_import_policy,
+        "source_exact_remaining_schedule_policy": remaining_schedule_policy,
         "native_creation_override": native_creation_override or None,
         "approval_payload": {
             "approvedOnDate": approved_date,
             "approvedLoanAmount": format(principal, "f"),
-            "expectedDisbursementDate": effective_disbursement_date,
+            "expectedDisbursementDate": native_expected_disbursement_date,
             "dateFormat": "yyyy-MM-dd",
             "locale": "en",
         },
@@ -3219,12 +3579,15 @@ def _build_loan_lifecycle_action(
         "schedule_reconciliation_policy": (
             "reviewed-manual-adjustment" if reviewed_schedule_exception
             else "historical-reference-only" if reviewed_reference_only_schedule
+            else "unordered-source-schedule-dates" if unordered_source_schedule
             else "exact-source-schedule"
         ),
         "schedule_writer": (
             None if reviewed_native_schedule
             else "fineract-source-exact-active-schedule-v1"
             if same_day_terminal_aggregation is not None
+            else "fineract-source-exact-remaining-schedule-v1"
+            if remaining_schedule_policy is not None
             else (active_manual_import_policy or {}).get("schedule_writer")
             or native_creation_override.get("schedule_writer")
             or (
@@ -3269,9 +3632,14 @@ def _build_loan_lifecycle_action(
             "pair_count", "repayment_pair_count", "disbursement_pair_count", "issues"
         )},
     }
+    if (
+        lifecycle["schedule_reconciliation_policy"] == "exact-source-schedule"
+        and lifecycle["schedule_writer"] == "fineract-variable-installments-v1"
+    ):
+        lifecycle["source_exact_manual_fallback"] = "initial-zero-servicing-v1"
     return {
         "lifecycle": lifecycle,
-        "lifecycle_hash": _stable_hash(lifecycle),
+        "lifecycle_hash": _stable_hash(_loan_source_hash_view(lifecycle)),
         "quarantine_reasons": sorted(set(quarantines)),
         "client_external_id": client_external_id,
         "staff_external_ids": staff_external_ids,
@@ -3466,7 +3834,14 @@ def compose_loan_plan(
                     row["field"] != "numberingCode" or row["actual"] in (None, "")
                     for row in mismatch
                 )
-                if fields.issubset(migration_enablement_fields | {"numberingCode"}) and numbering_code_backfill:
+                source_line_name = _clean(source_product.get("line_name") or source_product.get("NOMBRE_LINEA"))
+                legacy_name = f"Arissto {line_id} {source_line_name}"[:100]
+                legacy_name_rename = all(
+                    row["field"] != "name" or row["actual"] == legacy_name
+                    for row in mismatch
+                )
+                if (fields.issubset(migration_enablement_fields | {"numberingCode", "name"})
+                        and numbering_code_backfill and legacy_name_rename):
                     action, reason = "update-product", None
                 else:
                     action, reason = "conflict-product", "external_id_product_contract_differs"
@@ -3531,13 +3906,17 @@ def compose_loan_plan(
             }
         # The source guard must describe Arissto, not the local-only proof
         # identity overlay applied to the frozen writer payload below.
-        source_hash = _stable_hash({"header": loan, "lifecycle": lifecycle_action["lifecycle"]})
+        source_hash = _stable_hash({
+            "header": loan, "lifecycle": _loan_source_hash_view(lifecycle_action["lifecycle"]),
+        })
         if proof_namespace and lifecycle_action.get("lifecycle"):
             external_id = _proof_external_id(proof_namespace, external_id)
             lifecycle_action["lifecycle"] = _proof_namespace_lifecycle(
                 lifecycle_action["lifecycle"], proof_namespace
             )
-            lifecycle_action["lifecycle_hash"] = _stable_hash(lifecycle_action["lifecycle"])
+            lifecycle_action["lifecycle_hash"] = _stable_hash(
+                _loan_source_hash_view(lifecycle_action["lifecycle"])
+            )
         existing_loan = target.get("loans", {}).get(external_id)
         action_name = "quarantine-loan" if lifecycle_action["quarantine_reasons"] else (
             "recover-loan" if existing_loan else "create-loan"
@@ -3626,7 +4005,7 @@ def build_loan_plan(
     if skip_unchanged:
         _freeze_full_resync_schedule_guards(document, target)
         _mark_unchanged_mapped_loans(document, state, settings.target.fingerprint)
-        _freeze_full_resync_insurance_guards(document)
+        _freeze_full_resync_insurance_guards(document, contract)
     document["schema_signature"] = inspections[0]["schema_signature"]
     document["target_schema_signature"] = inspections[0]["target_schema_signature"]
     plan_id = state.save_plan(
@@ -3672,11 +4051,17 @@ def _mark_unchanged_mapped_loans(
     document["counts"] = dict(Counter(action["action"] for action in document["actions"]))
 
 
-def _freeze_full_resync_insurance_guards(document: dict[str, Any]) -> None:
-    """Authorize cutover-insurance settlement only from a full re-sync plan."""
+def _freeze_full_resync_insurance_guards(document: dict[str, Any], contract: LoanContract) -> None:
+    """Freeze the source-owned cutover charge identity for each changed loan."""
     for action in document["actions"]:
         if action.get("entity_type") == "loan" and action.get("action") == "recover-loan":
-            action["full_resync_insurance_guard"] = {"policy": "settle-cutover-delta-v1"}
+            loan_id = str(action["source_key"]).rsplit(":", 1)[-1]
+            action["full_resync_insurance_guard"] = {
+                "policy": "source-snapshot-rebase-v1",
+                "charge_external_id": contract.raw["identity"]["insurance_cutover_charge_external_id"].format(
+                    ID_CREDITO=loan_id,
+                ),
+            }
 
 
 def _loan_apply_guard(
@@ -3703,6 +4088,14 @@ def _loan_apply_guard(
         raise RuntimeError("Loans plan predates the Gate 4 lifecycle writer; create a new plan")
     if not document.get("collateral_writer_registered"):
         raise RuntimeError("Loans plan predates the collateral writer; create a new plan")
+    if any(
+        action.get("entity_type") == "loan"
+        and (action.get("lifecycle") or {}).get("refinance")
+        and (action["lifecycle"]["refinance"] or {}).get("settlement_classifier")
+        != "historical-post-payoff-state-v2"
+        for action in document.get("actions", [])
+    ):
+        raise RuntimeError("Loans plan predates the historical refinancing classifier; create a new plan")
     requested = document.get("scope", {}).get("requested_source_keys") or None
     inspections = _plan_scope_inspections(settings, contract, requested)
     blockers = sorted({
@@ -3761,11 +4154,59 @@ def _loan_apply_guard(
                 build_loan_product_payload(contract, source_product, target["resources"]),
                 document.get("migration_cutover_date"),
             ) if current and source_product else None
+            # The plan may intentionally freeze a quarantine. Chain markers are
+            # added after each intrinsic lifecycle is built, so compare only the
+            # intrinsic reasons here and keep the frozen disposition unchanged.
+            planned_intrinsic_reasons = sorted(
+                reason for reason in action.get("quarantine_reasons") or []
+                if not reason.startswith("refinance_chain_quarantined:")
+            )
+            rebuilt_reasons = sorted(
+                (rebuilt_lifecycle or {}).get("quarantine_reasons") or []
+            )
+            if rebuilt_reasons != planned_intrinsic_reasons:
+                raise RuntimeError(
+                    f"Loan target or source became inapplicable after planning:"
+                    f"{action['source_key']}:{','.join(rebuilt_reasons)}"
+                )
             current_hash = _stable_hash({
-                "header": current, "lifecycle": rebuilt_lifecycle["lifecycle"]
+                "header": current,
+                "lifecycle": _loan_source_hash_view(rebuilt_lifecycle["lifecycle"]),
             }) if rebuilt_lifecycle else None
             if current is None or current_hash != action["source_hash"]:
                 raise RuntimeError(f"Loan source changed after planning: {action['source_key']}")
+            planned_refinance = (action.get("lifecycle") or {}).get("refinance") or {}
+            rebuilt_refinance = ((rebuilt_lifecycle or {}).get("lifecycle") or {}).get("refinance") or {}
+            if planned_refinance.get("historical_insert_repair"):
+                planned_settlements = _refinance_settlements(planned_refinance)
+                rebuilt_settlements = _refinance_settlements(rebuilt_refinance)
+                if rebuilt_refinance.get("historical_insert_repair"):
+                    planned_evidence = {
+                        row["predecessor_source_key"]: row.get("expected_later_transactions") or []
+                        for row in planned_settlements
+                    }
+                    rebuilt_evidence = {
+                        row["predecessor_source_key"]: row.get("expected_later_transactions") or []
+                        for row in rebuilt_settlements
+                    }
+                    if planned_evidence != rebuilt_evidence:
+                        raise RuntimeError(
+                            f"Loan historical repair target changed after planning: {action['source_key']}"
+                        )
+                else:
+                    successor = target.get("loans", {}).get(action["external_id"]) or {}
+                    target_settlements = target.get("refinancing_settlements", {}).get(
+                        action["external_id"], {}
+                    )
+                    already_applied = int(successor.get("status") or -1) in {300, 600, 601, 602, 700} and all(
+                        _target_refinance_settlement_matches(
+                            row, target_settlements.get(row["predecessor_external_id"])
+                        ) for row in planned_settlements
+                    )
+                    if not already_applied:
+                        raise RuntimeError(
+                            f"Loan historical repair target changed after planning: {action['source_key']}"
+                        )
             guard = action.get("full_resync_schedule_guard")
             if guard:
                 current_target = target.get("loans", {}).get(action["external_id"])
@@ -3879,7 +4320,7 @@ def _resolve_or_create_loan_product(
             for key in (
                 "canUseForTopup", "allowVariableInstallments", "canDefineInstallmentAmount",
                 "minimumGap", "maximumGap",
-                "maxInterestRatePerPeriod", "numberingCode",
+                "maxInterestRatePerPeriod", "numberingCode", "name",
             )
             if key in action["payload"]
         }
@@ -4132,35 +4573,19 @@ def _transaction_fee_charge_external_ids(
 def _full_resync_cutover_insurance_events(
     loan: dict[str, Any], action: dict[str, Any],
 ) -> set[str]:
-    """Select post-cutover repayments that exactly reduce carried insurance."""
+    """Keep existing cutover payment ownership; new events get their own source charge."""
     insurance_guard = action.get("full_resync_insurance_guard") or {}
     if (
         action.get("action") != "recover-loan"
-        or insurance_guard.get("policy") != "settle-cutover-delta-v1"
+        or insurance_guard.get("policy") != "source-snapshot-rebase-v1"
     ):
         return set()
     lifecycle = action["lifecycle"]
-    cutover = lifecycle.get("cutover_insurance_charge")
+    cutover_external_id = insurance_guard["charge_external_id"]
     cutover_date = lifecycle.get("migration_cutover_date")
-    if cutover is None or not cutover_date:
+    if not cutover_date:
         return set()
-    existing_cutover = _loan_charge_by_external_id(loan, cutover["external_id"])
-    if existing_cutover is None:
-        raise RuntimeError(
-            f"full_resync_cutover_insurance_charge_missing:{cutover['external_id']}"
-        )
-    current_outstanding = _amount(existing_cutover.get("amountOutstanding"))
-    expected_outstanding = _amount(cutover["amount"])
-    required_reduction = current_outstanding - expected_outstanding
-    if required_reduction < Decimal("-0.01"):
-        raise RuntimeError(
-            "full_resync_cutover_insurance_target_below_source:"
-            f"{cutover['external_id']}:{current_outstanding}:{expected_outstanding}"
-        )
-
     routed: set[str] = set()
-    missing_candidates: list[dict[str, Any]] = []
-    conflicting_candidates: list[dict[str, Any]] = []
     for event in lifecycle.get("events") or []:
         if (
             event.get("role") not in {"repayment", "adjusted-repayment", "mobile-collection-repayment"}
@@ -4170,36 +4595,47 @@ def _full_resync_cutover_insurance_events(
         ):
             continue
         transaction = _transaction_by_external_id(loan, str(event["external_id"]))
-        if transaction is None:
-            missing_candidates.append(event)
-            continue
-        owners = _transaction_fee_charge_external_ids(loan, transaction)
-        if cutover["external_id"] in owners:
+        if transaction is not None and cutover_external_id in _transaction_fee_charge_external_ids(loan, transaction):
             routed.add(str(event["external_id"]))
-        else:
-            conflicting_candidates.append(event)
+    return routed
 
-    missing_total = sum(
-        (_amount(event["allocation"]["fee"]) for event in missing_candidates), Decimal("0.00")
-    )
-    if abs(required_reduction) <= Decimal("0.01"):
-        return routed
-    if abs(missing_total - required_reduction) <= Decimal("0.01"):
-        routed.update(str(event["external_id"]) for event in missing_candidates)
-        return routed
-    conflicting_total = sum(
-        (_amount(event["allocation"]["fee"]) for event in conflicting_candidates), Decimal("0.00")
-    )
-    if abs(missing_total + conflicting_total - required_reduction) <= Decimal("0.01"):
-        identities = ",".join(str(event["external_id"]) for event in conflicting_candidates)
-        raise RuntimeError(
-            "existing_source_exact_fee_charge_mismatch:"
-            f"{cutover['external_id']}:{identities}"
-        )
-    raise RuntimeError(
-        "full_resync_cutover_insurance_delta_not_representable:"
-        f"{cutover['external_id']}:{current_outstanding}:{expected_outstanding}:{missing_total}"
-    )
+
+def _rebase_full_resync_cutover_insurance(
+    api: FineractApi, loan: dict[str, Any], action: dict[str, Any], attempt_key: str | None,
+) -> dict[str, Any]:
+    guard = action.get("full_resync_insurance_guard") or {}
+    if guard.get("policy") != "source-snapshot-rebase-v1":
+        return loan
+    lifecycle = action["lifecycle"]
+    expected = _amount(lifecycle["expected"]["fee_balance"])
+    external_id = guard["charge_external_id"]
+    charge = _loan_charge_by_external_id(loan, external_id)
+    template = lifecycle.get("cutover_insurance_charge")
+    if charge is None and expected > 0:
+        if template is None or template["external_id"] != external_id:
+            raise RuntimeError(f"full_resync_insurance_charge_template_missing:{external_id}")
+        api.request("POST", f"loans/{int(loan['id'])}/charges", {
+            "chargeId": int(template["charge_id"]), "amount": template["amount"],
+            "dueDate": template["due_date"], "externalId": external_id,
+            "dateFormat": "yyyy-MM-dd", "locale": "en",
+        }, query={"command": "sourceExactAddCharge"},
+            idempotency_key=_attempt_idempotency_key(external_id, attempt_key))
+        loan = api.request("GET", f"loans/{int(loan['id'])}", query={"associations": "all"})
+        charge = _loan_charge_by_external_id(loan, external_id)
+    if charge is None:
+        if expected == 0:
+            return loan
+        raise RuntimeError(f"full_resync_insurance_charge_not_recoverable:{external_id}")
+    if _amount(charge.get("amountOutstanding")) != expected:
+        api.request("POST", f"loans/{int(loan['id'])}/charges/{int(charge['id'])}", {
+            "sourceSystem": "ARISSTO", "sourceOutstanding": format(expected, "f"),
+        }, query={"command": "sourceExactRebaseInsurance"},
+            idempotency_key=_attempt_idempotency_key(f"{external_id}:rebase:{expected}", attempt_key))
+        loan = api.request("GET", f"loans/{int(loan['id'])}", query={"associations": "all"})
+        charge = _loan_charge_by_external_id(loan, external_id)
+    if charge is None or _amount(charge.get("amountOutstanding")) != expected:
+        raise RuntimeError(f"full_resync_insurance_rebase_not_verified:{external_id}")
+    return loan
 
 
 def _verify_transaction_fee_charge(
@@ -4686,6 +5122,18 @@ def _loan_schedule_differences(
     return differences
 
 
+def _source_exact_expected_schedule(lifecycle: dict[str, Any]) -> list[dict[str, Any]]:
+    schedule = lifecycle.get("schedule") or []
+    policy = lifecycle.get("source_exact_remaining_schedule_policy")
+    if not policy:
+        return schedule
+    return [{
+        "number": 1, "due_date": policy["bridge_due_date"],
+        "principal": policy["bridge_principal"],
+        "interest": policy["bridge_interest"],
+    }, *[{**row, "number": int(row["number"]) + 1} for row in schedule]]
+
+
 def _source_exact_schedule_variations(
     source_schedule: list[dict[str, Any]], repayment_schedule: dict[str, Any],
 ) -> dict[str, Any]:
@@ -4835,6 +5283,71 @@ def _ensure_source_exact_active_schedule(
     return refreshed
 
 
+def _target_schedule_rows_for_hash(repayment_schedule: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = []
+    for period in repayment_schedule.get("periods") or []:
+        if (
+            period.get("period") in (None, 0) or period.get("dueDate") is None
+            or period.get("downPaymentPeriod") or period.get("isAdditional")
+        ):
+            continue
+        rows.append({
+            "installmentNumber": int(period["period"]),
+            "fromDate": _iso_date(period["fromDate"], "target schedule from date"),
+            "dueDate": _iso_date(period["dueDate"], "target schedule due date"),
+            "principal": format(_amount(period.get("principalOriginalDue", period.get("principalDue"))), "f"),
+            "interest": format(_amount(period.get("interestOriginalDue", period.get("interestDue"))), "f"),
+        })
+    return rows
+
+
+def _ensure_source_exact_initial_manual_schedule(
+    api: FineractApi, loan: dict[str, Any], action: dict[str, Any], attempt_key: str | None,
+) -> dict[str, Any]:
+    """Replace an unserviced native schedule with exact source components."""
+    lifecycle = action["lifecycle"]
+    expected = _source_exact_expected_schedule(lifecycle)
+    current = loan.get("repaymentSchedule") or {}
+    if not _loan_schedule_differences(expected, current):
+        return loan
+    if int((loan.get("status") or {}).get("id") or -1) != 300:
+        raise RuntimeError("loan_source_exact_initial_schedule_requires_active_loan")
+    if not any(
+        _enum_id(row.get("type")) == 1 and not _target_transaction_is_reversed(row)
+        for row in _loan_transactions(loan)
+    ):
+        raise RuntimeError("loan_source_exact_initial_schedule_disbursement_missing")
+    transactions = [row for row in _loan_transactions(loan)
+                    if not _target_transaction_is_reversed(row)
+                    and _enum_id(row.get("type")) != 1]
+    if transactions:
+        guard = action.get("full_resync_schedule_guard")
+        if guard and guard.get("policy") == "replace-and-reprocess-v1":
+            return _ensure_source_exact_resync_schedule(api, loan, action, attempt_key)
+        raise RuntimeError("loan_source_exact_initial_schedule_servicing_already_started")
+    current_rows = _target_schedule_rows_for_hash(current)
+    replacement_rows = _source_exact_installments(action)
+    replacement_hash = _source_exact_schedule_hash(replacement_rows)
+    api.request("POST", f"loans/{int(loan['id'])}", {
+        "sourceSystem": SOURCE_SYSTEM,
+        "sourceLoanExternalId": action["external_id"],
+        "installments": replacement_rows,
+        "expectedCurrentScheduleHash": _source_exact_schedule_hash(current_rows),
+        "replacementScheduleHash": replacement_hash,
+        "expectedNonDisbursementTransactionCount": 0,
+        "dateFormat": "yyyy-MM-dd", "locale": "en",
+    }, query={"command": "sourceExactResyncSchedule"},
+        idempotency_key=_attempt_idempotency_key(
+            f"{action['external_id']}:source-exact-initial:{replacement_hash}", attempt_key,
+        ))
+    refreshed = _find_loan(api, action["external_id"])
+    if refreshed is None or _loan_schedule_differences(
+        expected, refreshed.get("repaymentSchedule") or {},
+    ):
+        raise RuntimeError("loan_source_exact_initial_schedule_persisted_mismatch")
+    return refreshed
+
+
 def _ensure_source_exact_resync_schedule(
     api: FineractApi, loan: dict[str, Any], action: dict[str, Any], attempt_key: str | None,
 ) -> dict[str, Any]:
@@ -4866,7 +5379,8 @@ def _ensure_source_exact_resync_schedule(
     if refreshed is None:
         raise RuntimeError("loan_missing_after_source_exact_resync_schedule")
     differences = _loan_schedule_differences(
-        action["lifecycle"].get("schedule") or [], refreshed.get("repaymentSchedule") or {},
+        _source_exact_expected_schedule(action["lifecycle"]),
+        refreshed.get("repaymentSchedule") or {},
     )
     if differences:
         raise RuntimeError(
@@ -4912,8 +5426,14 @@ def _verify_transaction_amount(transaction: dict[str, Any], event: dict[str, Any
         )
 
 
+def _transaction_date_matches(transaction: dict[str, Any], event: dict[str, Any]) -> bool:
+    value = transaction.get("date") or transaction.get("transactionDate")
+    return value is not None and _iso_date(value, "loan transaction") == event["date"]
+
+
 def _validate_existing_loan(
-    loan: dict[str, Any], action: dict[str, Any], product_id: int,
+    loan: dict[str, Any], action: dict[str, Any], product_id: int, *,
+    check_expected_date: bool = False,
 ) -> None:
     payload = action["lifecycle"]["application_payload"]
     conflicts = []
@@ -4923,6 +5443,10 @@ def _validate_existing_loan(
         conflicts.append("client")
     if _amount(loan.get("principal")) != _amount(payload["principal"]):
         conflicts.append("principal")
+    if check_expected_date:
+        target_expected = (loan.get("timeline") or {}).get("expectedDisbursementDate")
+        if target_expected is None or _iso_date(target_expected, "target expected disbursement") != payload["expectedDisbursementDate"]:
+            conflicts.append("expected_disbursement_date")
     if conflicts:
         raise RuntimeError(f"existing_loan_contract_conflict:{','.join(conflicts)}")
 
@@ -5103,6 +5627,37 @@ def _refinance_settlements(refinance: dict[str, Any] | None) -> list[dict[str, A
     return [refinance]
 
 
+def _target_refinance_settlement_matches(
+    source: dict[str, Any], target: dict[str, Any] | None,
+) -> bool:
+    if target is None or target.get("settlement_type") != source["settlement_type"]:
+        return False
+    if target.get("repayment_external_id") != source["payoff_external_id"]:
+        return False
+    if _amount(target.get("amount")) != _amount(source["payoff_amount"]):
+        return False
+    return all(
+        _amount((target.get("allocation") or {}).get(component))
+        == _amount(source["payoff_allocation"][component])
+        for component in ("principal", "interest", "fee", "penalty")
+    )
+
+
+def _partial_refinance_status_matches(
+    settlement: dict[str, Any], status: int, residual: Decimal,
+    *, disbursement_already_posted: bool,
+) -> bool:
+    if status == 300 and residual > Decimal("0.01"):
+        return True
+    return (
+        disbursement_already_posted
+        and int(settlement.get("predecessor_source_terminal_state") or -1) == 3
+        and int(settlement.get("later_posted_payment_count") or 0) > 0
+        and status in {600, 601, 602, 700}
+        and residual <= Decimal("0.01")
+    )
+
+
 def _refinance_fee_charge_external_id(settlement: dict[str, Any]) -> str | None:
     fee_allocation = _amount(settlement["payoff_allocation"]["fee"])
     if fee_allocation <= 0:
@@ -5122,15 +5677,20 @@ def _refinance_fee_charge_external_id(settlement: dict[str, Any]) -> str | None:
 def _apply_loan_lifecycle(
     api: FineractApi, action: dict[str, Any], product_id: int, attempt_key: str | None = None,
     collateral_product_id: int | None = None,
+    *, events_override: list[dict[str, Any]] | None = None, finalize: bool = True,
 ) -> tuple[int, bool]:
     lifecycle = action.get("lifecycle")
     if not lifecycle:
         raise RuntimeError("loan_plan_missing_frozen_lifecycle")
+    refinance = lifecycle.get("refinance")
+    if refinance and refinance.get("settlement_classifier") != "historical-post-payoff-state-v2":
+        raise RuntimeError("loan_plan_predates_historical_refinance_classifier")
     if (
         lifecycle.get("schedule_reconciliation_policy") == "exact-source-schedule"
         and lifecycle.get("schedule_writer") not in {
             "fineract-variable-installments-v1",
             "fineract-source-exact-active-schedule-v1",
+            "fineract-source-exact-remaining-schedule-v1",
         }
     ):
         raise RuntimeError("loan_plan_predates_source_exact_schedule_writer")
@@ -5139,6 +5699,19 @@ def _apply_loan_lifecycle(
     )
     existing = _find_loan(api, action["external_id"])
     recovered = existing is not None
+    manual_schedule_needed = lifecycle.get("schedule_writer") == "fineract-source-exact-remaining-schedule-v1"
+    if (
+        lifecycle.get("schedule_reconciliation_policy") == "exact-source-schedule"
+        and lifecycle.get("schedule_writer") == "fineract-variable-installments-v1"
+        and any(
+            event["role"] == "disbursement"
+            and event["date"] != lifecycle["application_payload"]["expectedDisbursementDate"]
+            for event in lifecycle.get("events") or []
+        )
+    ):
+        # Fineract may regenerate the plan at actual disbursement. Restore the
+        # frozen source schedule before replaying any servicing transactions.
+        manual_schedule_needed = True
     if existing is None:
         payload = {key: value for key, value in lifecycle["application_payload"].items() if value is not None}
         payload["productId"] = int(product_id)
@@ -5200,9 +5773,14 @@ def _apply_loan_lifecycle(
                 # Amount/date variations require a persisted pending application.
                 # Prove that the native base schedule has the same row cardinality
                 # before creating that non-posting application.
-                _source_exact_schedule_variations(
-                    lifecycle.get("schedule") or [], calculated_schedule,
-                )
+                try:
+                    _source_exact_schedule_variations(
+                        lifecycle.get("schedule") or [], calculated_schedule,
+                    )
+                except RuntimeError as error:
+                    if not lifecycle.get("source_exact_manual_fallback"):
+                        raise
+                    manual_schedule_needed = True
         result = api.request(
             "POST", "loans", payload,
             idempotency_key=_attempt_idempotency_key(action["external_id"], attempt_key),
@@ -5213,7 +5791,14 @@ def _apply_loan_lifecycle(
             raise RuntimeError("created_loan_not_recoverable_by_external_id")
     loan_id = int(existing["id"])
     existing = _ensure_pending_native_creation_override(api, existing, action, attempt_key)
-    _validate_existing_loan(existing, action, product_id)
+    _validate_existing_loan(
+        existing, action, product_id,
+        check_expected_date=recovered and any(
+            event["role"] == "disbursement"
+            and event["date"] != lifecycle["application_payload"]["expectedDisbursementDate"]
+            for event in lifecycle.get("events") or []
+        ),
+    )
     existing = _ensure_existing_loan_collateral_attachments(
         api, existing, loan_collaterals, action["external_id"], attempt_key,
     )
@@ -5230,7 +5815,22 @@ def _apply_loan_lifecycle(
             "credesal_loan_legacy_timeline", str(loan_id), datatable_api_payload(legacy_timeline)
         )
     if lifecycle.get("schedule_writer") == "fineract-variable-installments-v1":
-        existing = _ensure_source_exact_pending_schedule(api, existing, action, attempt_key)
+        try:
+            existing = _ensure_source_exact_pending_schedule(api, existing, action, attempt_key)
+        except RuntimeError as error:
+            if not lifecycle.get("source_exact_manual_fallback") or not str(error).startswith((
+                "loan_source_exact_schedule_preview_mismatch:",
+                "loan_source_exact_schedule_installment_count_unsupported:",
+                "loan_source_exact_schedule_has_no_supported_variations:",
+                "existing_loan_schedule_mismatch_before_continue:",
+            )):
+                raise
+            if int((existing.get("status") or {}).get("id") or -1) == 300 and not any(
+                _enum_id(transaction.get("type")) == 1
+                for transaction in _loan_transactions(existing)
+            ):
+                raise
+            manual_schedule_needed = True
 
     _ensure_source_exact_guarantors(
         api, loan_id, lifecycle.get("guarantors") or [], action["external_id"], attempt_key
@@ -5252,7 +5852,7 @@ def _apply_loan_lifecycle(
     loan = existing
     cutover_settlement_event_ids = _full_resync_cutover_insurance_events(loan, action)
     cutover_charge = lifecycle.get("cutover_insurance_charge")
-    for event in lifecycle["events"]:
+    for event in lifecycle["events"] if events_override is None else events_override:
         loan = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
         role = event["role"]
         existing_transaction = _transaction_by_external_id(loan, event["external_id"])
@@ -5263,6 +5863,7 @@ def _apply_loan_lifecycle(
             ]
             if existing_transaction is None and topup_disbursements:
                 existing_transaction = topup_disbursements[0]
+        existing_refinance_disbursement = existing_transaction is not None
         if role == "disbursement" and event["external_id"] in reversed_disbursements:
             reversed_transaction = _find_loan_transaction(api, loan, event["external_id"])
             if reversed_transaction is not None and _target_transaction_is_reversed(reversed_transaction):
@@ -5293,9 +5894,19 @@ def _apply_loan_lifecycle(
                 disbursement_command = "sourceExactDisburse"
                 disbursement_payload["externalId"] = event["external_id"]
                 if refinance and event["external_id"] == refinance["disbursement_external_id"]:
-                    disbursement_command = "sourceExactRefinancingDisburse"
+                    disbursement_command = (
+                        "sourceExactHistoricalRefinancingDisburse"
+                        if refinance.get("historical_insert_repair")
+                        else "sourceExactRefinancingDisburse"
+                    )
                     settlements = _refinance_settlements(refinance)
                     disbursement_payload["refinancingSettlements"] = []
+                    if refinance.get("historical_insert_repair"):
+                        disbursement_payload["expectedLaterTransactions"] = [
+                            transaction
+                            for settlement in settlements
+                            for transaction in settlement.get("expected_later_transactions") or []
+                        ]
                     for settlement in settlements:
                         settlement_payload = {
                             "loanIdToClose": int(_find_loan(api, settlement["predecessor_external_id"])["id"]),
@@ -5343,7 +5954,10 @@ def _apply_loan_lifecycle(
                         _verify_repayment_allocation(partial_payment, {
                             "allocation": settlement["payoff_allocation"]
                         })
-                        if predecessor_status != 300 or residual <= Decimal("0.01"):
+                        if not _partial_refinance_status_matches(
+                            settlement, predecessor_status, residual,
+                            disbursement_already_posted=existing_refinance_disbursement,
+                        ):
                             raise RuntimeError(
                                 "partial_refinance_predecessor_not_active_after_payment:"
                                 f"{predecessor_status}:{residual}"
@@ -5390,6 +6004,9 @@ def _apply_loan_lifecycle(
             if lifecycle.get("schedule_writer") == "fineract-source-exact-active-schedule-v1":
                 loan = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
                 loan = _ensure_source_exact_active_schedule(api, loan, action, attempt_key)
+            elif manual_schedule_needed:
+                loan = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
+                loan = _ensure_source_exact_initial_manual_schedule(api, loan, action, attempt_key)
         elif role == "source-exact-component-reallocation":
             if existing_transaction is None:
                 status = int((loan.get("status") or {}).get("id") or -1)
@@ -5417,6 +6034,8 @@ def _apply_loan_lifecycle(
                 if existing_transaction is None:
                     raise RuntimeError(f"created_component_reallocation_not_recoverable:{event['external_id']}")
             _verify_transaction_amount(existing_transaction, event)
+            if not _transaction_date_matches(existing_transaction, event):
+                raise RuntimeError(f"loan_transaction_date_mismatch:{event['external_id']}")
             _verify_repayment_allocation(existing_transaction, event)
         elif role in {"repayment", "adjusted-repayment", "mobile-collection-repayment"}:
             # A reversed source repayment is posted only so its paired reversal has a native transaction to undo.
@@ -5428,9 +6047,13 @@ def _apply_loan_lifecycle(
             fee_charge_external_id = None
             if not source_reversed and _amount(event["allocation"]["fee"]) > 0:
                 if event["external_id"] in cutover_settlement_event_ids:
-                    if cutover_charge is None:
+                    insurance_guard = action.get("full_resync_insurance_guard") or {}
+                    fee_charge_external_id = (
+                        str(cutover_charge["external_id"]) if cutover_charge is not None
+                        else insurance_guard.get("charge_external_id")
+                    )
+                    if fee_charge_external_id is None:
                         raise RuntimeError("full_resync_cutover_insurance_plan_missing")
-                    fee_charge_external_id = str(cutover_charge["external_id"])
                     if _loan_charge_by_external_id(loan, fee_charge_external_id) is None:
                         raise RuntimeError(
                             f"full_resync_cutover_insurance_charge_missing:{fee_charge_external_id}"
@@ -5471,6 +6094,8 @@ def _apply_loan_lifecycle(
                 if existing_transaction is None:
                     raise RuntimeError(f"created_repayment_not_recoverable:{event['external_id']}")
             _verify_transaction_amount(existing_transaction, event)
+            if not _transaction_date_matches(existing_transaction, event):
+                raise RuntimeError(f"loan_transaction_date_mismatch:{event['external_id']}")
             _verify_repayment_allocation(existing_transaction, event)
             if event["external_id"] in cutover_settlement_event_ids and fee_charge_external_id is not None:
                 _verify_transaction_fee_charge(loan, existing_transaction, fee_charge_external_id)
@@ -5508,13 +6133,18 @@ def _apply_loan_lifecycle(
         else:
             raise RuntimeError(f"unsupported_frozen_loan_event:{role}")
 
-    if cutover_charge is not None:
+    if not finalize:
+        return loan_id, recovered
+
+    if cutover_charge is not None and not action.get("full_resync_insurance_guard"):
         loan = _ensure_source_insurance_charges(
             api,
             loan,
             {"historical_insurance_charges": [cutover_charge]},
             attempt_key,
         )
+
+    loan = _rebase_full_resync_cutover_insurance(api, loan, action, attempt_key)
 
     recurring_charge = lifecycle.get("recurring_insurance_charge")
     if recurring_charge is not None:
@@ -5673,6 +6303,136 @@ def _with_fineract_recovery(operation: Any, gate: _FineractCircuitBreaker, attem
     raise last_error
 
 
+class LoanComponentApplyError(RuntimeError):
+    def __init__(self, source_key: str, cause: Exception):
+        detail = (str(cause).splitlines() or [""])[0]
+        super().__init__(f"{source_key}:{type(cause).__name__}:{detail}")
+        self.source_key = source_key
+        self.cause = cause
+
+
+def _refinance_components(actions: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+    """Group selected loans that share a native refinancing relationship."""
+    by_key = {action["source_key"]: action for action in actions}
+    adjacent: dict[str, set[str]] = {key: set() for key in by_key}
+    for action in actions:
+        for dependency in action.get("depends_on", []):
+            if dependency in by_key:
+                adjacent[action["source_key"]].add(dependency)
+                adjacent[dependency].add(action["source_key"])
+    remaining = set(by_key)
+    components = []
+    while remaining:
+        frontier = [min(remaining)]
+        keys = set()
+        while frontier:
+            key = frontier.pop()
+            if key in keys:
+                continue
+            keys.add(key)
+            frontier.extend(adjacent[key] - keys)
+        remaining -= keys
+        components.append([by_key[key] for key in sorted(keys)])
+    return components
+
+
+def _has_partial_refinance(component: list[dict[str, Any]]) -> bool:
+    return any(
+        settlement.get("settlement_type") == "PARTIAL_PAYDOWN"
+        for action in component
+        for settlement in _refinance_settlements(
+            (action.get("lifecycle") or {}).get("refinance")
+        )
+    )
+
+
+def _event_prefix(
+    action: dict[str, Any], external_id: str, *, include_event: bool,
+) -> list[dict[str, Any]]:
+    events = (action.get("lifecycle") or {}).get("events") or []
+    matching = [index for index, event in enumerate(events) if event["external_id"] == external_id]
+    if len(matching) != 1:
+        raise RuntimeError(f"loan_component_event_identity_ambiguous:{action['source_key']}:{external_id}")
+    return events[:matching[0] + (1 if include_event else 0)]
+
+
+def _replay_refinance_component(
+    component: list[dict[str, Any]], apply_phase: Any,
+) -> dict[str, tuple[int, bool]]:
+    """Post dated refinance boundaries before replaying later loan events."""
+    by_key = {action["source_key"]: action for action in component}
+    successors = {
+        action["source_key"]: action for action in component
+        if (action.get("lifecycle") or {}).get("refinance")
+    }
+    completed_successors: set[str] = set()
+    processed_counts: dict[str, int] = {}
+    final_results: dict[str, tuple[int, bool]] = {}
+
+    def phase(action: dict[str, Any], events: list[dict[str, Any]], finalize: bool) -> tuple[int, bool]:
+        key = action["source_key"]
+        if not finalize and processed_counts.get(key, -1) >= len(events):
+            return (0, True)
+        try:
+            result = apply_phase(action, events, finalize)
+        except Exception as exc:
+            raise LoanComponentApplyError(key, exc) from exc
+        processed_counts[key] = len(events)
+        return result
+
+    while len(completed_successors) < len(successors):
+        ready = []
+        for key, action in successors.items():
+            if key in completed_successors:
+                continue
+            refinance = action["lifecycle"]["refinance"]
+            predecessor_keys = [
+                loan_action_key(settlement["predecessor_source_key"])
+                for settlement in _refinance_settlements(refinance)
+            ]
+            if any(predecessor in successors and predecessor not in completed_successors
+                   for predecessor in predecessor_keys):
+                continue
+            disbursement = next(
+                (event for event in action["lifecycle"]["events"]
+                 if event["external_id"] == refinance["disbursement_external_id"]),
+                None,
+            )
+            if disbursement is None:
+                raise LoanComponentApplyError(key, RuntimeError("refinance_disbursement_event_missing"))
+            ready.append((disbursement["date"], key, action))
+        if not ready:
+            raise RuntimeError("loan_component_refinance_cycle_or_missing_predecessor")
+        _, key, action = min(ready)
+        refinance = action["lifecycle"]["refinance"]
+        for settlement in _refinance_settlements(refinance):
+            predecessor_key = loan_action_key(settlement["predecessor_source_key"])
+            predecessor = by_key.get(predecessor_key)
+            if predecessor is None:
+                raise LoanComponentApplyError(key, RuntimeError(
+                    f"refinance_predecessor_action_missing:{predecessor_key}"
+                ))
+            prefix = _event_prefix(predecessor, settlement["payoff_external_id"], include_event=False)
+            phase(predecessor, prefix, False)
+        prefix = _event_prefix(action, refinance["disbursement_external_id"], include_event=True)
+        phase(action, prefix, False)
+        completed_successors.add(key)
+
+    remaining = dict(by_key)
+    while remaining:
+        ready = [
+            action for action in remaining.values()
+            if not any(dependency in remaining for dependency in action.get("depends_on", []))
+        ]
+        if not ready:
+            raise RuntimeError("loan_component_finalization_dependency_cycle")
+        for action in sorted(ready, key=lambda value: value["source_key"]):
+            key = action["source_key"]
+            final_results[key] = phase(action, action["lifecycle"]["events"], True)
+            del remaining[key]
+    return final_results
+
+
 def _loan_worker(
     settings: Settings,
     worker_local: threading.local,
@@ -5682,17 +6442,25 @@ def _loan_worker(
     product_id: int,
     collateral_product_id: int | None,
     run_id: str,
+    *, events_override: list[dict[str, Any]] | None = None, finalize: bool = True,
 ) -> tuple[int, bool]:
     api = getattr(worker_local, "api", None)
     if api is None:
         api = FineractApi(settings.target)
         worker_local.api = api
+    phase_options = (
+        {"events_override": events_override, "finalize": finalize}
+        if events_override is not None or not finalize else {}
+    )
     if collateral_product_action_key() in action.get("depends_on", []):
         operation = lambda: _apply_loan_lifecycle(
             api, action, product_id, run_id, collateral_product_id,
+            **phase_options,
         )
     else:
-        operation = lambda: _apply_loan_lifecycle(api, action, product_id, run_id)
+        operation = lambda: _apply_loan_lifecycle(
+            api, action, product_id, run_id, **phase_options,
+        )
     return _with_fineract_recovery(
         operation,
         gate,
@@ -5783,6 +6551,64 @@ def apply_loan_plan(
     loan_outcomes: dict[str, bool] = {}
     pending = {action["source_key"]: action for action in loan_actions}
     worker_local = threading.local()
+    for component in _refinance_components(loan_actions):
+        if not _has_partial_refinance(component):
+            continue
+        if any(action["action"] == "quarantine-loan" for action in component):
+            continue
+        if any(product_outcomes.get(action["product_action_key"]) is None for action in component):
+            continue
+        if collateral_product_id is None and any(
+            collateral_product_action_key() in action.get("depends_on", [])
+            for action in component
+        ):
+            continue
+
+        def apply_phase(
+            action: dict[str, Any], events: list[dict[str, Any]], finalize: bool,
+        ) -> tuple[int, bool]:
+            return _loan_worker(
+                settings, worker_local, gate, controls, action,
+                int(product_outcomes[action["product_action_key"]]),
+                collateral_product_id, run_id,
+                events_override=events, finalize=finalize,
+            )
+
+        try:
+            component_results = _replay_refinance_component(component, apply_phase)
+        except Exception as exc:
+            failed_key = (
+                exc.source_key if isinstance(exc, LoanComponentApplyError)
+                else component[0]["source_key"]
+            )
+            safe_detail = str(exc).splitlines()[0][:4000]
+            for action in component:
+                key = action["source_key"]
+                status = "failed" if key == failed_key else "blocked"
+                state.record_item(
+                    run_id, key, action["action"], action["source_hash"], status,
+                    action.get("target_id"),
+                    safe_detail if status == "failed" else "loan_component_replay_failed",
+                )
+                counts[f"loans_{status}"] += 1
+                loan_outcomes[key] = False
+                del pending[key]
+        else:
+            for action in component:
+                key = action["source_key"]
+                loan_id, recovered = component_results[key]
+                state.save_mapping(
+                    settings.target.fingerprint, BLOCK, key, str(loan_id), action["source_hash"]
+                )
+                status = "unchanged" if action["action"] == "unchanged-loan" else (
+                    "recovered" if recovered else "succeeded"
+                )
+                state.record_item(
+                    run_id, key, action["action"], action["source_hash"], status, str(loan_id)
+                )
+                counts[f"loans_{status}"] += 1
+                loan_outcomes[key] = True
+                del pending[key]
     with ThreadPoolExecutor(max_workers=controls.workers, thread_name_prefix="arissto-loan") as executor:
         while pending:
             ready: list[tuple[dict[str, Any], int]] = []
@@ -6177,17 +7003,20 @@ def reconcile_loans(
             (variances if expected["source_state"] == "1" else mismatches).append(difference)
 
         repayment_schedule = loan.get("repaymentSchedule") or {}
-        source_schedule = lifecycle.get("schedule") or []
+        source_schedule = _source_exact_expected_schedule(lifecycle)
         schedule_differences = _loan_schedule_differences(source_schedule, repayment_schedule)
         schedule_reconciliation_policy = lifecycle.get("schedule_reconciliation_policy")
         reviewed_schedule_exception = schedule_reconciliation_policy in {
             "reviewed-manual-adjustment", "historical-reference-only",
+            "unordered-source-schedule-dates",
         }
         for difference in schedule_differences:
             difference["source_key"] = item["source_key"]
             difference["classification"] = (
                 "historical_reference_only_schedule_variance"
                 if schedule_reconciliation_policy == "historical-reference-only"
+                else "unordered_source_schedule_date_variance"
+                if schedule_reconciliation_policy == "unordered-source-schedule-dates"
                 else "reviewed_manual_adjustment_schedule_variance"
                 if reviewed_schedule_exception
                 else "blocking_schedule_mismatch"
@@ -6219,6 +7048,16 @@ def reconcile_loans(
                     "movement": event["source_movement_id"],
                 })
                 continue
+            if (
+                transaction is not None
+                and (not is_topup_disbursement or transaction.get("externalId") == event["external_id"])
+                and not _transaction_date_matches(transaction, event)
+            ):
+                mismatches.append({
+                    "source_key": item["source_key"], "kind": "transaction_date",
+                    "movement": event["source_movement_id"],
+                    "source": event["date"],
+                })
             represented_amount = _amount((transaction or {}).get("amount"))
             if is_topup_disbursement:
                 target_settlements = {
@@ -6270,6 +7109,13 @@ def reconcile_loans(
                             "predecessor_source_key": settlement["predecessor_source_key"],
                         })
                     else:
+                        if not _transaction_date_matches(transfer, event):
+                            mismatches.append({
+                                "source_key": item["source_key"],
+                                "kind": "refinancing_transfer_date",
+                                "movement": event["source_movement_id"],
+                                "predecessor_source_key": settlement["predecessor_source_key"],
+                            })
                         represented_amount += _amount(transfer.get("amount"))
             if represented_amount != _amount(event["amount"]):
                 mismatches.append({

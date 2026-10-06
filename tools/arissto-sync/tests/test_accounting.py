@@ -59,7 +59,7 @@ def line(line_id, debit="0.00", credit="0.00", **changes):
 def target(**changes):
     value = {
         "accounts": {
-            "1110010199": [{"id": 7, "disabled": False, "manual_allowed": True}],
+            "1110010199": [{"id": 7, "disabled": False, "manual_allowed": True, "account_usage": 1}],
         },
         "offices": {
             1: {"external_id": "1"},
@@ -222,7 +222,7 @@ class AccountingInspectorTests(unittest.TestCase):
 
     def test_stable_reason_codes_cover_status_shape_period_account_agency_and_closure(self):
         target = {
-            "accounts": {"1110010199": [{"id": 7, "disabled": False, "manual_allowed": True}]},
+            "accounts": {"1110010199": [{"id": 7, "disabled": False, "manual_allowed": True, "account_usage": 1}]},
             "closure_by_office": {1: date(2026, 1, 31)},
         }
         bad_header = header(
@@ -286,6 +286,103 @@ class AccountingInspectorTests(unittest.TestCase):
         self.assertEqual(first["bindings"]["policy"]["planner_version"], "accounting-explicit-key-plan-v2")
         self.assertEqual(len(first["plan_hash"]), 64)
         self.assertEqual(len(action["planned_hash"]), 64)
+
+    def test_vault_office_accounts_converge_on_one_detail_with_distinct_offices(self):
+        shared_code = "111001030200"
+        self.assertEqual(self.contract.target_code("111001020201"), shared_code)
+        document = self.plan(
+            lines=[
+                line("01", debit="3.00", account_code="111001030201", destination_branch_id="001"),
+                line("02", credit="3.00", account_code="111001030202", destination_branch_id="002"),
+            ],
+            target_snapshot=target(accounts={shared_code: [{"id": 88, "disabled": False, "manual_allowed": True, "account_usage": 1}]}),
+        )
+        action = document["actions"][0]
+        self.assertEqual(action["disposition"], "APPLICABLE")
+        lines = action["payload"]["lines"]
+        self.assertEqual([item["source_account_code"] for item in lines], ["111001030201", "111001030202"])
+        self.assertEqual([item["target_account_code"] for item in lines], [shared_code, shared_code])
+        self.assertEqual([item["target_gl_account_id"] for item in lines], [88, 88])
+        self.assertEqual([item["office_id"] for item in lines], [1, 2])
+        self.assertEqual([item["dimensions"] for item in lines], [{"office": "1"}, {"office": "2"}])
+
+    def test_historical_alternate_loan_portfolio_resolves_to_product_primary(self):
+        self.assertEqual(self.contract.target_code("1142030101"), "1141030101")
+        document = self.plan(
+            lines=[
+                line("01", debit="3.00", account_code="1142040101"),
+                line("02", credit="3.00", account_code="1110010101"),
+            ],
+            target_snapshot=target(accounts={
+                "1141040101": [{"id": 92, "disabled": False, "manual_allowed": True, "account_usage": 1}],
+                "1110010199": [{"id": 7, "disabled": False, "manual_allowed": True, "account_usage": 1}],
+            }),
+        )
+        action = document["actions"][0]
+        self.assertEqual(action["disposition"], "APPLICABLE")
+        self.assertEqual(action["payload"]["lines"][0]["source_account_code"], "1142040101")
+        self.assertEqual(action["payload"]["lines"][0]["target_account_code"], "1141040101")
+
+    def test_historical_journal_cannot_post_to_gl_header(self):
+        document = self.plan(target_snapshot=target(accounts={
+            "1110010199": [{"id": 7, "disabled": False, "manual_allowed": True, "account_usage": 2}],
+        }))
+        self.assertEqual(document["actions"][0]["disposition"], "QUARANTINED")
+        self.assertIn("TARGET_ACCOUNT_NOT_DETAIL", document["actions"][0]["reason_codes"])
+
+    def test_hybrid_parent_source_lines_use_new_detail_children_for_both_offices(self):
+        self.assertEqual(self.contract.target_code("2220050501"), "222005050199")
+        self.assertEqual(self.contract.target_code("314002"), "3140020000")
+        detail_accounts = {
+            "222005050199": [{"id": 81, "disabled": False, "manual_allowed": True, "account_usage": 1}],
+            "3140020000": [{"id": 82, "disabled": False, "manual_allowed": True, "account_usage": 1}],
+        }
+        source_lines = [
+            line("01", debit="3.00", account_code="2220050501", destination_branch_id="001"),
+            line("02", credit="3.00", account_code="314002", destination_branch_id="002"),
+        ]
+        document = self.plan(lines=source_lines, target_snapshot=target(accounts=detail_accounts))
+        action = document["actions"][0]
+        self.assertEqual(action["disposition"], "APPLICABLE")
+        self.assertEqual([item["target_account_code"] for item in action["payload"]["lines"]],
+                         ["222005050199", "3140020000"])
+        self.assertEqual([item["office_id"] for item in action["payload"]["lines"]], [1, 2])
+        self.assertEqual([item["source_account_code"] for item in action["payload"]["lines"]],
+                         ["2220050501", "314002"])
+
+        checkpointed = self.plan(lines=source_lines, target_snapshot=target(
+            accounts=detail_accounts,
+            imported={"001:001:00065:10": action["source_hash"]},
+            imported_line_accounts={"001:001:00065:10": {
+                "01": {"source_account_code": "2220050501", "target_account_code": "222005050199"},
+                "02": {"source_account_code": "314002", "target_account_code": "3140020000"},
+            }},
+        ))
+        self.assertEqual(checkpointed["actions"][0]["disposition"], "UNCHANGED")
+
+        missing_details = self.plan(lines=source_lines, target_snapshot=target(accounts={
+            "2220050501": [{"id": 81, "disabled": False, "manual_allowed": True, "account_usage": 2}],
+            "314002": [{"id": 82, "disabled": False, "manual_allowed": True, "account_usage": 2}],
+        }))
+        self.assertEqual(missing_details["actions"][0]["disposition"], "QUARANTINED")
+
+    def test_existing_hybrid_parent_posting_blocks_full_resync_mapping_drift(self):
+        source_lines = [
+            line("01", debit="3.00", account_code="2220050501"),
+            line("02", credit="3.00", account_code="314002"),
+        ]
+        document = self.plan(lines=source_lines, target_snapshot=target(
+            accounts={
+                "222005050199": [{"id": 81, "disabled": False, "manual_allowed": True, "account_usage": 1}],
+                "3140020000": [{"id": 82, "disabled": False, "manual_allowed": True, "account_usage": 1}],
+            },
+            imported_line_accounts={"001:001:00065:10": {
+                "01": {"source_account_code": "2220050501", "target_account_code": "2220050501"},
+                "02": {"source_account_code": "314002", "target_account_code": "314002"},
+            }},
+        ))
+        self.assertEqual(document["actions"][0]["disposition"], "QUARANTINED")
+        self.assertIn("TARGET_ACCOUNT_MAPPING_DRIFT", document["actions"][0]["reason_codes"])
 
     def test_inclusive_source_through_date_includes_that_day_and_excludes_next_day(self):
         cutoff = accounting_cutoff_for_source_through("2026-09-17")

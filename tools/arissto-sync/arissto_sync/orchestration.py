@@ -20,12 +20,14 @@ from urllib.parse import urlparse
 import requests
 
 from .config import ROOT, Settings
+from .arissto import select_rows, source_connection
 from .connections import FineractApi, FineractError, postgres_connection
 from .engine import preflight
 from .dte_history import DteApplyControls
 from .loans import LoanApplyControls
 from .service_registry import load_registry, service_report
 from .service_runtime import ServiceRuntime
+from .treasury_prerequisite import ensure_treasury_bank_accounts
 from .state import State
 from .workflow_definitions import (
     inspect_workflow, load_workflow, require_workflow_ready, select_workflow_services,
@@ -277,6 +279,85 @@ def _enum_identifier(value: Any) -> int | None:
         return None
 
 
+def ensure_gl_account_details(
+    api: FineractApi,
+    prerequisites: dict[str, Any] | None,
+    selected_services: list[str] | tuple[str, ...],
+) -> dict[str, Any]:
+    """Create only missing, reviewed posting details; reject divergent COA state."""
+    configured = (prerequisites or {}).get("gl_account_details", [])
+    selected = set(selected_services)
+    required = [item for item in configured if selected.intersection(item.get("required_by_services", []))]
+    if not required:
+        return {"performed": False, "actions": []}
+
+    accounts = _api_items(api.request("GET", "glaccounts"))
+    actions: list[dict[str, Any]] = []
+    prepared: list[tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]] = []
+    for expected in required:
+        parent_code = str(expected["parent_gl_code"])
+        gl_code = str(expected["gl_code"])
+        parents = [row for row in accounts if str(row.get("glCode") or "") == parent_code]
+        if len(parents) != 1:
+            raise RuntimeError(f"Posting detail {gl_code} requires exactly one parent {parent_code}")
+        parent = parents[0]
+        if (
+            bool(parent.get("disabled"))
+            or _enum_identifier(parent.get("type")) != int(expected["gl_classification"])
+            or _enum_identifier(parent.get("usage")) != 2
+            or parent.get("accLevel") != int(expected["acc_level"]) - 1
+        ):
+            raise RuntimeError(f"Posting detail {gl_code} has a divergent parent {parent_code}")
+
+        matches = [row for row in accounts if str(row.get("glCode") or "") == gl_code]
+        if len(matches) > 1:
+            raise RuntimeError(f"Posting detail {gl_code} is duplicated")
+        if matches:
+            _verify_gl_posting_detail(matches[0], expected, parent)
+        prepared.append((expected, parent, matches))
+
+    for expected, parent, matches in prepared:
+        parent_code = str(expected["parent_gl_code"])
+        gl_code = str(expected["gl_code"])
+        action = "unchanged"
+        if not matches:
+            api.request("POST", "glaccounts", {
+                "name": str(expected["name"]),
+                "glCode": gl_code,
+                "parentId": int(parent["id"]),
+                "type": int(expected["gl_classification"]),
+                "usage": 1,
+                "manualEntriesAllowed": True,
+                "disabled": False,
+                "description": str(expected["description"]),
+                "accLevel": int(expected["acc_level"]),
+                "accLastLevel": 1,
+            })
+            accounts = _api_items(api.request("GET", "glaccounts"))
+            matches = [row for row in accounts if str(row.get("glCode") or "") == gl_code]
+            action = "created"
+        if len(matches) != 1:
+            raise RuntimeError(f"Posting detail {gl_code} failed post-bootstrap verification")
+        _verify_gl_posting_detail(matches[0], expected, parent)
+        actions.append({"gl_code": gl_code, "parent_gl_code": parent_code, "action": action})
+    return {"performed": True, "actions": actions}
+
+
+def _verify_gl_posting_detail(detail: dict[str, Any], expected: dict[str, Any], parent: dict[str, Any]) -> None:
+    gl_code = str(expected["gl_code"])
+    if (
+        str(detail.get("name") or "") != str(expected["name"])
+        or _enum_identifier(detail.get("parentId")) != int(parent["id"])
+        or _enum_identifier(detail.get("type")) != int(expected["gl_classification"])
+        or _enum_identifier(detail.get("usage")) != 1
+        or bool(detail.get("disabled"))
+        or detail.get("manualEntriesAllowed") is not True
+        or detail.get("accLevel") != int(expected["acc_level"])
+        or detail.get("accLastLevel") != 1
+    ):
+        raise RuntimeError(f"Posting detail {gl_code} differs from reviewed COA")
+
+
 def ensure_financial_activity_mappings(
     api: FineractApi,
     prerequisites: dict[str, Any] | None,
@@ -359,17 +440,17 @@ def ensure_financial_activity_mappings(
     return {"performed": True, "actions": actions}
 
 
-def _restart_local_fineract(settings: Settings, controls: FineractRestartControls) -> None:
+def _restart_local_fineract(settings: Settings, controls: FineractRestartControls, *, force: bool = False) -> None:
     if settings.target.name != "local":
         raise ValueError("Automatic Fineract restart is strictly local")
     # Recheck immediately so an already-recovered API is never restarted.
-    if _fineract_api_ready(settings):
+    if not force and _fineract_api_ready(settings):
         return
     try:
         subprocess.run(
             list(controls.command), cwd=FINERACT_ROOT, stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True,
-            timeout=controls.timeout_seconds, check=True,
+            timeout=controls.timeout_seconds, check=True, start_new_session=True,
         )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError("Local Fineract restart command timed out") from exc
@@ -384,6 +465,36 @@ def _restart_local_fineract(settings: Settings, controls: FineractRestartControl
             return
         time.sleep(min(controls.poll_seconds, max(0.0, deadline - time.monotonic())))
     raise RuntimeError("Local Fineract API did not become ready after restart")
+
+
+def _start_local_for_liquibase(settings: Settings, controls: FineractRestartControls) -> None:
+    """Wait for schema migration even if baseline credentials differ from current ones."""
+    subprocess.run(
+        list(controls.command), cwd=FINERACT_ROOT, stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True,
+        timeout=controls.timeout_seconds, check=True,
+    )
+    deadline = time.monotonic() + controls.timeout_seconds
+    while time.monotonic() < deadline:
+        try:
+            if _fineract_api_ready(settings):
+                return
+        except FineractError as exc:
+            if exc.status_code in {401, 403}:
+                return
+            raise
+        time.sleep(min(controls.poll_seconds, max(0.0, deadline - time.monotonic())))
+    raise RuntimeError("Local Fineract did not finish Liquibase startup")
+
+
+def assert_no_pending_access_snapshot(tenant: str) -> None:
+    baseline_dir = Path(os.environ.get("TENANT_BASELINE_DIR") or FINERACT_ROOT / ".tenant-baselines")
+    pending = baseline_dir / f"{tenant.replace('-', '_')}.access-snapshot"
+    if pending.exists():
+        raise RuntimeError(
+            "Protected tenant configuration is pending restore; complete restore-access "
+            "before creating a workflow cycle"
+        )
 
 
 def reset_local_fineract(
@@ -428,7 +539,6 @@ def reset_local_fineract(
             f"Stopping local Fineract failed with exit code {exc.returncode}; the tenant was not reset"
         ) from exc
 
-    reset_error: Exception | None = None
     try:
         subprocess.run(
             [str(reset_script), "reset", tenant, "--confirm", confirmation],
@@ -437,20 +547,37 @@ def reset_local_fineract(
             check=True,
         )
     except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as exc:
-        reset_error = exc
+        _restart_local_fineract(settings, restart_controls)
+        if isinstance(exc, subprocess.TimeoutExpired):
+            raise RuntimeError("Tenant reset timed out; local Fineract was restarted") from exc
+        raise RuntimeError(
+            f"Tenant reset failed with exit code {exc.returncode}; local Fineract was restarted"
+        ) from exc
 
     try:
-        _restart_local_fineract(settings, restart_controls)
-    except Exception as restart_error:
-        if reset_error:
-            raise RuntimeError("Tenant reset failed, and local Fineract could not be restarted") from restart_error
-        raise
-    if reset_error:
-        if isinstance(reset_error, subprocess.TimeoutExpired):
-            raise RuntimeError("Tenant reset timed out; local Fineract was restarted") from reset_error
+        _start_local_for_liquibase(settings, restart_controls)
+        subprocess.run(
+            list(reset_controls.stop_command), cwd=FINERACT_ROOT, stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            timeout=reset_controls.timeout_seconds, check=True,
+        )
+        subprocess.run(
+            [str(reset_script), "restore-access", tenant, "--confirm", confirmation],
+            cwd=FINERACT_ROOT, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, text=True, timeout=reset_controls.timeout_seconds,
+            check=True,
+        )
+    except Exception as exc:
+        try:
+            _restart_local_fineract(settings, restart_controls)
+        except Exception:
+            pass
         raise RuntimeError(
-            f"Tenant reset failed with exit code {reset_error.returncode}; local Fineract was restarted"
-        ) from reset_error
+            "Protected tenant configuration was not restored; the private snapshot "
+            "remains pending and no workflow cycle may start"
+        ) from exc
+    _restart_local_fineract(settings, restart_controls)
+    assert_no_pending_access_snapshot(tenant)
     return {"performed": True, "tenant": tenant, "target": "local"}
 
 
@@ -565,6 +692,60 @@ def verify_active_accounting_cutoff(
         if snapshot[field] != bound[field]:
             raise RuntimeError(f"Tenant accounting cutoff {field} changed after planning")
     return bound
+
+
+
+
+def source_journal_number_highwater(settings: Settings, cutoff: dict[str, Any]) -> dict[str, Any]:
+    """Freeze every assigned Arissto journal number before Fineract's first day."""
+    with source_connection(settings.source) as conn:
+        rows = select_rows(
+            conn,
+            "SELECT RTRIM(NUMERO_PARTIDA) AS journal_number "
+            "FROM dbo.CNT_PARTIDAS WHERE FECHA_PARTIDA < ?",
+            (cutoff["date"],),
+        )
+    maxima: dict[str, int] = {}
+    numbers: list[str] = []
+    for row in rows:
+        number = str(row["journal_number"] or "")
+        if not re.fullmatch(r"[0-9]{10}", number) or not 1 <= int(number[6:]) <= 9999:
+            raise RuntimeError("Arissto has an invalid assigned journal number before the cutoff")
+        period = number[:6]
+        if not 1 <= int(period[4:]) <= 12:
+            raise RuntimeError("Arissto has an invalid assigned journal month before the cutoff")
+        maxima[period] = max(maxima.get(period, 0), int(number[6:]))
+        numbers.append(number)
+    if not maxima:
+        raise RuntimeError("Arissto has no assigned journal numbers before the cutoff")
+    snapshot_hash = hashlib.sha256("\n".join(sorted(numbers)).encode()).hexdigest()
+    return {
+        "maxima": dict(sorted(maxima.items())),
+        "header_count": len(numbers),
+        "snapshot_hash": snapshot_hash,
+    }
+
+
+def seed_imported_journal_numbers(api: FineractApi, snapshot: dict[str, Any],
+                                  source_highwater: dict[str, Any]) -> dict[str, Any]:
+    """Seed monthly counters only after an exact cutoff match."""
+    verify_active_accounting_cutoff(api, snapshot)
+    seeded = api.request(
+        "POST", "treasury/journalnumbers/seed-imported",
+        {"cutoffDate": snapshot["date"], "dateFormat": "yyyy-MM-dd", "locale": "en",
+         "sourceMaxima": source_highwater["maxima"]},
+    )
+    if (
+        not isinstance(seeded, dict)
+        or seeded.get("cutoffDate") != snapshot["date"]
+        or not seeded.get("periods")
+        or any(
+            int(seeded["periods"].get(period, -1)) < value
+            for period, value in source_highwater["maxima"].items()
+        )
+    ):
+        raise RuntimeError("Journal-number seed did not verify the frozen cutoff and imported periods")
+    return seeded
 
 
 def pre_cutoff_native_gl_report(
@@ -786,6 +967,9 @@ def build_workflow_plan(
         document["runtime_controls"]["accounting-journal-entries"] = {
             "scope": "source-periods" if accounting_periods else "full-company",
             "source_periods": list(accounting_periods),
+            "journal_number_highwater": source_journal_number_highwater(
+                settings, state.accounting_cutoff,
+            ),
         }
     plan_id = state.save_workflow_plan(
         definition.identifier, definition.version, definition.definition_hash,
@@ -1002,6 +1186,14 @@ def _execute_workflow(
     frozen_accounting = plan["document"].get("runtime_controls", {}).get(
         "accounting-journal-entries", {}
     )
+    if (
+        "accounting-journal-entries" in plan["document"]["ordered_services"]
+        and run_mode in {"fresh-clean", "full-resync", "resumed"}
+        and "journal_number_highwater" not in frozen_accounting
+    ):
+        raise RuntimeError(
+            "Workflow plan predates the Arissto journal-number highwater; create a new plan"
+        )
     runtime = ServiceRuntime(
         settings, state, loan_controls, dte_controls,
         tuple(frozen_accounting.get("source_periods", ())), run_mode,
@@ -1029,8 +1221,18 @@ def _execute_workflow(
                     status="ready", details=api_user_offices,
                 )
             try:
+                gl_bootstrap = ensure_gl_account_details(
+                    prerequisite_api,
+                    plan["document"]["definition"].get("target_prerequisites"),
+                    plan["document"]["ordered_services"],
+                )
                 prerequisite_bootstrap = ensure_financial_activity_mappings(
-                    FineractApi(settings.target),
+                    prerequisite_api,
+                    plan["document"]["definition"].get("target_prerequisites"),
+                    plan["document"]["ordered_services"],
+                )
+                treasury_bootstrap = ensure_treasury_bank_accounts(
+                    settings, prerequisite_api,
                     plan["document"]["definition"].get("target_prerequisites"),
                     plan["document"]["ordered_services"],
                 )
@@ -1041,10 +1243,14 @@ def _execute_workflow(
                     message=_safe_message(exc),
                 )
                 raise
-            if prerequisite_bootstrap["performed"]:
+            if gl_bootstrap["performed"] or prerequisite_bootstrap["performed"] or treasury_bootstrap["performed"]:
                 state.record_workflow_event(
                     run_id, "target-prerequisites-ready", "workflow-prerequisite",
-                    status="ready", details=prerequisite_bootstrap,
+                    status="ready", details={
+                        "gl_account_details": gl_bootstrap["actions"],
+                        "financial_activity_mappings": prerequisite_bootstrap["actions"],
+                        "treasury_bank_accounts": treasury_bootstrap["actions"],
+                    },
                 )
             cutoff_policy = plan["document"]["definition"].get(
                 "accounting_cutoff_policy", "snapshot-only"
@@ -1285,6 +1491,28 @@ def _execute_workflow(
                         }
                         if not reconciliation.get("ok"):
                             raise RuntimeError("Service reconciliation failed")
+                        if service_id == "accounting-journal-entries" and run_mode in {"fresh-clean", "full-resync", "resumed"}:
+                            phase = "journal-number-seed"
+                            state.heartbeat_workflow(run_id, service_id, phase)
+                            state.update_workflow_step(step["id"], phase=phase)
+                            journal_api = FineractApi(settings.target)
+                            source_highwater = source_journal_number_highwater(
+                                settings, child_plan["accounting_cutoff"],
+                            )
+                            if source_highwater != frozen_accounting["journal_number_highwater"]:
+                                raise RuntimeError(
+                                    "Arissto journal-number highwater changed after workflow planning"
+                                )
+                            seeded = seed_imported_journal_numbers(
+                                journal_api, child_plan["accounting_cutoff"], source_highwater,
+                            )
+                            state.record_workflow_event(
+                                run_id, "journal-number-seeded", phase,
+                                step_id=step["id"], service_id=service_id,
+                                attempt=step["attempt"], status="verified",
+                                details=seeded,
+                            )
+                            summary["journal_number_seed"] = seeded
                         if run_mode == "full-resync":
                             checkpoint = state.advance_sync_checkpoint(
                                 settings.target.fingerprint, plan["workflow_id"], service_id,
@@ -1468,7 +1696,10 @@ def start_workflow(
 def resume_workflow(
     settings: Settings, state: State, run_id: str, cycle_id: str | None,
     env_file: str | None = None, production_confirmation: str | None = None,
+    reload_local_fineract: bool = False,
 ) -> dict[str, Any]:
+    if reload_local_fineract and settings.target.name != "local":
+        raise ValueError("Fineract reload on resume is strictly local")
     if settings.target.name == "local":
         if not cycle_id:
             raise ValueError("Local workflow resume requires a sync cycle")
@@ -1480,6 +1711,24 @@ def resume_workflow(
     run = refresh_workflow_run(state, run_id)
     if run["status"] not in {"failed", "interrupted"}:
         raise ValueError(f"Workflow run {run_id} cannot resume from status {run['status']}")
+    if reload_local_fineract:
+        plan = state.workflow_plan(run["workflow_plan_id"])
+        frozen_restart = plan["document"].get("runtime_controls", {}).get("fineract_restart", {})
+        if not frozen_restart or tuple(frozen_restart["command"]) != FineractRestartControls.command:
+            raise ValueError("Workflow plan does not authorize the guarded local Fineract restart")
+        controls = FineractRestartControls(
+            attempts=int(frozen_restart["attempts"]),
+            timeout_seconds=float(frozen_restart["timeout_seconds"]),
+            poll_seconds=float(frozen_restart["poll_seconds"]),
+            command=tuple(frozen_restart["command"]),
+        )
+        with target_workflow_lock(settings):
+            _restart_local_fineract(settings, controls, force=True)
+            scheduler_api = FineractApi(settings.target)
+            scheduler_status = scheduler_api.request("GET", "scheduler")
+            if scheduler_status.get("active") is True:
+                scheduler_api.request("POST", "scheduler", {}, query={"command": "stop"})
+            assert_scheduler_paused(scheduler_api)
     state.queue_workflow_run(run_id)
     log_path = Path(run["log_path"] or settings.state_path.parent / "workflow-runs" / f"{run_id}.log")
     command = [sys.executable, "-m", "arissto_sync.cli"]

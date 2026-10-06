@@ -13,14 +13,49 @@ Before their first service step, the runner idempotently configures and activate
 the cutoff frozen in the parent plan. It reuses an exact active match and rejects
 a mismatched active or sealed cutoff before financial writes.
 
+For fresh/clean, checkpointed full re-sync, and their resumed workflows that include
+accounting-journal-entries, the runner seeds Fineract's monthly GL counter
+immediately after that service reconciles and before accepting its checkpoint
+or starting downstream services. The restricted Fineract endpoint reads only
+successfully imported Arissto journal provenance for the frozen cutoff and
+the highest assigned Arissto number per YYYYMM prefix frozen in the immutable
+workflow plan. The source highwater includes numbers consumed by unposted
+headers. The plan also freezes a hash of all assigned numbers; the runner
+re-reads it before seeding and fails on drift. To include the complete source
+calendar day, plan after Arissto day close or use an approved source watermark.
+Fineract
+raises each counter to the highest of that source value, its current value,
+and valid numbers already posted in Fineract; it never lowers a counter.
+The source number's prefix controls the month, including reviewed back-period
+exceptions. Full re-sync inherits the original accounting cutoff and does not
+post newer Arissto GL over Fineract-owned accounting.
+
 Workflow definitions may also declare reviewed target prerequisites. Workflows
 that select loans require Fineract financial activity `100` (`ASSET_TRANSFER`)
 to map to active detail asset account `1510`. Workflows that select
 `savings-deposits` require activity `200` (`LIABILITY_TRANSFER`) to map to active
-detail liability account `2130050101`. The runner creates only these mappings through
-the Fineract API when the accounts already exist. It never seeds the chart of
-accounts, never replaces a conflicting mapping, verifies each result, and records
-the actions before any service step begins.
+detail liability account `2130050101`. Workflows selecting
+`native-share-yield` require activity `201` (`PAYABLE_DIVIDENDS`) to map to
+enabled detail liability `222099910101`, matching the preferred-share yield
+payable used for accrual and settlement. Workflows selecting
+`accounting-journal-entries` also require posting details `222005050199` beneath
+`2220050501` and `3140020000` beneath `314002`. The runner verifies each
+parent and creates only a missing reviewed detail through the Fineract GL API.
+It rejects a conflicting code, parent, classification, or usage, verifies the
+created account, and records the action before any service step begins. The
+financial activity mappings are then created or verified through the API.
+The runner does not replay journals or change existing GL account categories.
+
+Local financial workflows also require the three reviewed treasury bank masters
+from Arissto operational account IDs `1`, `3`, and `4` (Atlántida, Cuscatlán,
+and AMC). Before any child service runs, the runner verifies their active asset
+GL accounts, office `1`, USD currency, and source account references. It creates
+missing entries through the Fineract treasury API, verifies the result, and
+rejects conflicting target records. Account numbers are read from Arissto at
+run time and are never written to the workflow plan or event log. Source account
+`2` remains excluded because its institution conflicts with the COA label and
+its number is a placeholder. This prerequisite runs only for the local
+`sandbox` tenant and does not migrate bank-book movements or balances.
 
 Version 1 is sequential, full-block, and fail-closed. Local definitions may
 support fresh/clean, resumed migration, or checkpointed `full-resync`. A
@@ -115,8 +150,9 @@ remain available across fresh/clean runs; only operational cycle state is remove
   references. It does not reset the target, perform deletes, or include financial
   services. Each service requires an accepted production reconciliation
   checkpoint before planning.
-- `prod-full-resync`: production-only, checkpointed delta sync for all 15
-  registry-available services in the same dependency order as
+- `prod-full-resync`: production-only, checkpointed delta sync for all 16
+  registry-available services, including `native-share-yield`, in the same
+  dependency order as
   `local-full-resync`. It preserves the production target, freezes the accepted
   accounting cutoff shared by every checkpoint, skips unchanged source hashes,
   and requires exact fingerprint confirmation plus a versioned release. Its

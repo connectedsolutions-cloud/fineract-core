@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0367-add-sandbox-hybrid-posting-details" author="credesal" dbms="postgresql">
+        <comment>
+            Add reviewed detail children for direct historical postings to two
+            hybrid Arissto parent accounts in the disposable sandbox only.
+            Existing journal entries are not rewritten.
+        </comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+DO $$
+DECLARE
+    spec RECORD;
+    parent_account acc_gl_account%ROWTYPE;
+    detail_id BIGINT;
+BEGIN
+    IF current_database() <> 'fineract_sandbox' THEN
+        RETURN;
+    END IF;
+    FOR spec IN
+        SELECT * FROM (VALUES
+            ('2220050501', '222005050199', 'OTROS ACREEDORES - MOVIMIENTOS DIRECTOS', 2, 7),
+            ('314002', '3140020000', 'RESULTADOS DEL PRESENTE EJERCICIO - CIERRE TRANSITORIO', 3, 6)
+        ) AS reviewed(parent_code, detail_code, detail_name, classification, detail_level)
+    LOOP
+        SELECT * INTO STRICT parent_account FROM acc_gl_account
+         WHERE gl_code = spec.parent_code;
+        IF parent_account.account_usage <> 2
+           OR parent_account.classification_enum <> spec.classification
+           OR parent_account.disabled
+           OR parent_account.acc_level <> spec.detail_level - 1 THEN
+            RAISE EXCEPTION 'Hybrid posting parent % differs from reviewed COA', spec.parent_code;
+        END IF;
+        SELECT id INTO detail_id FROM acc_gl_account WHERE gl_code = spec.detail_code;
+        IF detail_id IS NULL THEN
+            INSERT INTO acc_gl_account (
+                name, parent_id, hierarchy, gl_code, disabled, manual_journal_entries_allowed,
+                account_usage, classification_enum, description, acc_level, acc_last_level)
+            VALUES (
+                spec.detail_name, parent_account.id, '.', spec.detail_code, FALSE, TRUE,
+                1, spec.classification,
+                'Direct historical Arissto postings to reporting parent ' || spec.parent_code,
+                spec.detail_level, 1)
+            RETURNING id INTO detail_id;
+            UPDATE acc_gl_account
+               SET hierarchy = parent_account.hierarchy || detail_id::TEXT || '.'
+             WHERE id = detail_id;
+        END IF;
+        IF NOT EXISTS (
+            SELECT 1 FROM acc_gl_account
+             WHERE id = detail_id AND gl_code = spec.detail_code
+               AND name = spec.detail_name AND parent_id = parent_account.id
+               AND hierarchy = parent_account.hierarchy || detail_id::TEXT || '.'
+               AND account_usage = 1 AND classification_enum = spec.classification
+               AND NOT disabled AND manual_journal_entries_allowed
+               AND acc_level = spec.detail_level AND acc_last_level = 1
+        ) THEN
+            RAISE EXCEPTION 'Hybrid posting detail % differs from reviewed COA', spec.detail_code;
+        END IF;
+    END LOOP;
+END $$;
+        ]]></sql>
+    </changeSet>
+
+</databaseChangeLog>

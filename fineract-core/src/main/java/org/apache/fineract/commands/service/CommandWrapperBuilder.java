@@ -804,6 +804,15 @@ public class CommandWrapperBuilder {
         return this;
     }
 
+    public CommandWrapperBuilder sourceExactRebaseInsuranceCharge(final Long loanId, final Long loanChargeId) {
+        this.actionName = "SOURCEEXACTREBASEINSURANCE";
+        this.entityName = "LOANCHARGE";
+        this.entityId = loanChargeId;
+        this.loanId = loanId;
+        this.href = "/loans/" + loanId + "/charges/" + loanChargeId + "?command=sourceExactRebaseInsurance";
+        return this;
+    }
+
     public CommandWrapperBuilder updateLoanCharge(final Long loanId, final Long loanChargeId) {
         this.actionName = "UPDATE";
         this.entityName = "LOANCHARGE";
@@ -1309,6 +1318,15 @@ public class CommandWrapperBuilder {
         this.entityId = loanId;
         this.loanId = loanId;
         this.href = "/loans/" + loanId + "?command=sourceExactRefinancingDisburse";
+        return this;
+    }
+
+    public CommandWrapperBuilder sourceExactHistoricalRefinancingDisburseLoanApplication(final Long loanId) {
+        this.actionName = "SOURCEEXACTHISTORICALREFINANCINGDISBURSE";
+        this.entityName = "LOAN";
+        this.entityId = loanId;
+        this.loanId = loanId;
+        this.href = "/loans/" + loanId + "?command=sourceExactHistoricalRefinancingDisburse";
         return this;
     }
 

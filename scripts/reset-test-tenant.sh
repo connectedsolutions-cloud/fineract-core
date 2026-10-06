@@ -21,12 +21,14 @@ Usage:
   ./scripts/reset-test-tenant.sh capture TENANT [options]
   ./scripts/reset-test-tenant.sh reset TENANT --confirm TENANT:DATABASE [options]
   ./scripts/reset-test-tenant.sh recreate TENANT --confirm TENANT:DATABASE [options]
+  ./scripts/reset-test-tenant.sh restore-access TENANT --confirm TENANT:DATABASE [options]
 
 Actions:
   status    Show the registered database, core counts, and baseline metadata.
   capture   Save an exact pre-cycle PostgreSQL baseline. Fineract must be stopped.
-  reset     Replace the tenant database with its captured baseline.
-  recreate  Replace the tenant database with an empty database for Liquibase.
+  reset     Save protected access and financial mappings, then restore the baseline.
+  recreate  Save protected access and financial mappings, then recreate for Liquibase.
+  restore-access  Restore protected access and mappings after Liquibase; Fineract must be stopped.
 
 Options:
   --baseline-dir DIR  Baseline directory (default: fineract-core/.tenant-baselines).
@@ -76,7 +78,7 @@ if [[ "$ACTION" == "--help" || "$ACTION" == "-h" || -z "$ACTION" ]]; then
   usage
   [[ -n "$ACTION" ]] && exit 0 || exit 2
 fi
-[[ "$ACTION" =~ ^(status|capture|reset|recreate)$ ]] || die "Unknown action: $ACTION"
+[[ "$ACTION" =~ ^(status|capture|reset|recreate|restore-access)$ ]] || die "Unknown action: $ACTION"
 [[ "$TENANT" =~ ^[A-Za-z][A-Za-z0-9_-]*$ ]] || die "Invalid tenant identifier: $TENANT"
 [[ "$TENANT" != "default" ]] || die "The default tenant can never be reset by this tool"
 
@@ -133,6 +135,16 @@ DUMP_FILE="$BASELINE_DIR/${SAFE_TENANT}.dump"
 META_FILE="$BASELINE_DIR/${SAFE_TENANT}.meta"
 COUNTS_FILE="$BASELINE_DIR/${SAFE_TENANT}.counts"
 BASELINE_STATE_FILE="$BASELINE_DIR/${SAFE_TENANT}.state.sqlite3"
+ACCESS_SNAPSHOT_DIR="$BASELINE_DIR/${SAFE_TENANT}.access-snapshot"
+ACCESS_HELPER="$ROOT/scripts/preserve-test-tenant-access.py"
+ACCESS_PYTHON="$ROOT/tools/arissto-sync/.venv/bin/python"
+
+capture_access() {
+  [[ ! -e "$ACCESS_SNAPSHOT_DIR" ]] || die \
+    "A protected configuration snapshot is pending at $ACCESS_SNAPSHOT_DIR; restore it before another reset"
+  [[ -x "$ACCESS_PYTHON" ]] || die "Sync Python environment is missing: $ACCESS_PYTHON"
+  "$ACCESS_PYTHON" "$ACCESS_HELPER" capture "$DB_NAME" "$ACCESS_SNAPSHOT_DIR"
+}
 
 fineract_is_running() {
   if command -v nc >/dev/null 2>&1; then
@@ -309,10 +321,12 @@ case "$ACTION" in
     else
       echo "Baseline: none"
     fi
+    [[ ! -d "$ACCESS_SNAPSHOT_DIR" ]] || echo "Protected configuration snapshot: pending restore"
     ;;
 
   capture)
     require_fineract_stopped
+    [[ ! -e "$ACCESS_SNAPSHOT_DIR" ]] || die "Restore protected configuration before capturing a baseline"
     database_exists || die "Tenant database does not exist: $DB_NAME"
     require_clean_sync_baseline
     [[ ! -e "$DUMP_FILE" && ! -e "$META_FILE" && ! -e "$COUNTS_FILE" ]] || \
@@ -351,6 +365,7 @@ case "$ACTION" in
     expected_sha="$(awk -F= '$1=="sha256" {print $2}' "$META_FILE")"
     actual_sha="$(shasum -a 256 "$DUMP_FILE" | awk '{print $1}')"
     [[ -n "$expected_sha" && "$actual_sha" == "$expected_sha" ]] || die "Baseline checksum mismatch"
+    capture_access
     archive_state
     replace_with_empty_database
     pg_restore --exit-on-error --no-owner --no-privileges --dbname="$DB_NAME" "$DUMP_FILE"
@@ -366,16 +381,28 @@ case "$ACTION" in
       die "Restored tenant counts do not match the baseline"
     }
     restore_baseline_state
-    echo "Reset complete: $TENANT -> $DB_NAME"
-    echo "Restart Fineract before using the tenant."
+    echo "Baseline restored: $TENANT -> $DB_NAME"
+    echo "Protected configuration is pending. Start Fineract for Liquibase, stop it, then run restore-access."
     ;;
 
   recreate)
     require_fineract_stopped
     [[ "$CONFIRM" == "$TENANT:$DB_NAME" ]] || die "Expected --confirm $TENANT:$DB_NAME"
+    capture_access
     archive_state
     replace_with_empty_database
     echo "Recreated empty database: $DB_NAME"
-    echo "Restart Fineract with Liquibase enabled, verify the tenant, then stop it and run capture."
+    echo "Start Fineract with Liquibase, stop it, run restore-access for protected configuration, then capture the baseline."
+    ;;
+
+  restore-access)
+    require_fineract_stopped
+    [[ "$CONFIRM" == "$TENANT:$DB_NAME" ]] || die "Expected --confirm $TENANT:$DB_NAME"
+    [[ -f "$ACCESS_SNAPSHOT_DIR/manifest.json" ]] || die "No protected configuration snapshot for $TENANT"
+    database_exists || die "Tenant database does not exist: $DB_NAME"
+    [[ -x "$ACCESS_PYTHON" ]] || die "Sync Python environment is missing: $ACCESS_PYTHON"
+    "$ACCESS_PYTHON" "$ACCESS_HELPER" restore "$DB_NAME" "$ACCESS_SNAPSHOT_DIR"
+    require_clean_sync_baseline
+    echo "Protected configuration restored: $TENANT -> $DB_NAME"
     ;;
 esac

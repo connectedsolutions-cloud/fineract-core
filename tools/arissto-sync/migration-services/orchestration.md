@@ -84,6 +84,17 @@ child service plan inherits both values, including execution or resume after
 midnight. The advanced `--cutoff-date` option supplies `T` directly and is not
 the normal operator input.
 
+A service that needs a completed Arissto daily-close snapshot may use the latest
+completed close on or before `S`. It must freeze that effective source date in
+its child plan and scope its operational extraction, apply, and reconciliation
+to the same date. A close behind `S` alone is not a readiness failure; a missing
+completed close remains one. This rule currently applies to `savings-deposits`.
+The other 15 services do not require an exact completed daily close at `S`.
+The per-service source date does not move `S` or `T`; the accounting service
+still imports eligible journals through `S` and uses `CNT_MAYOR` only through
+the latest fully closed source period. Exact matches between the frozen plan and
+the active Fineract accounting cutoff remain mandatory.
+
 Financial workflow definitions select `activate-frozen-plan`. Before their
 first service step, the runner idempotently creates or updates a matching draft
 cutoff and activates it. A matching active cutoff is reused; a mismatched active
@@ -106,7 +117,10 @@ required by their selected services. Native loan refinancing requires activity
 `100` (`ASSET_TRANSFER`) to use active detail asset account `1510`
 (`transferencias`). Savings and fixed-deposit transfers require activity `200`
 (`LIABILITY_TRANSFER`) to use active detail liability account `2130050101`
-(`transitorias`). These are intentionally orchestration prerequisites instead of
+(`transitorias`). Native preferred-share yield settlement requires activity
+`201` (`PAYABLE_DIVIDENDS`) to use active detail liability `222099910101`
+(`RENDIMIENTO ACCIONES PREFERIDAS`), the reviewed target of Arissto
+`222099940101`. These are intentionally orchestration prerequisites instead of
 tenant Liquibase seeds because not every tenant is guaranteed to own the Credesal
 chart of accounts.
 
@@ -125,9 +139,21 @@ party-only and unrelated workflow subsets do not query or change financial
 activity mappings. A whole-tenant baseline reset may remove either mapping, in
 which case the next reviewed workflow recreates it idempotently.
 
-The dashboard-default `local-full-sync` workflow declares both prerequisites
-because it exposes loans and savings/deposits. `local-credit-collections` also
-declares both, while `local-membership-financial` declares only activity `200`.
+The local financial workflow definitions also freeze a treasury-bank prerequisite
+for reviewed Arissto bank IDs `1`, `3`, and `4`. Immediately before child service
+planning, the runner reads their current operational master and account numbers
+from Arissto, verifies the matching active asset detail GL accounts and existing
+treasury records, and creates only missing records through the treasury API.
+It fails on source drift, placeholder account numbers, duplicate GL mappings,
+or conflicting target identities. The prerequisite requires the local
+`sandbox:fineract_sandbox` target; production workflows do not declare it.
+Only source IDs, GL codes, and `created`/`unchanged` actions enter workflow
+events. No opening balance or bank-book transaction is posted.
+
+The dashboard-default `local-full-sync` workflow declares activities `100`,
+`200`, and `201` because it exposes loans, savings/deposits, and native share
+yield. `local-full-resync` declares the same three. `local-credit-collections`
+declares `100` and `200`, while `local-membership-financial` declares only `200`.
 Planned, non-executable services remain outside the workflows.
 
 ## First composed flow
@@ -378,9 +404,14 @@ The local dashboard's **New run** action always creates a fresh cycle. The
 operator can confirm an already-restored baseline or request the optional
 whole-tenant reset. That reset requires a disposable non-default tenant and the
 exact `TENANT:DATABASE` confirmation, refuses active workflows, stops Fineract,
-runs the existing snapshot restore tool, restarts Fineract, and verifies API
-readiness before cycle creation. After plan review, approval calls `start`
-immediately.
+runs the existing snapshot restore tool, starts Fineract for Liquibase, stops
+it, restores users, employees, user-to-staff links, staff profiles and offices,
+roles, permissions, office access, password preferences, saved-report lists,
+and reviewed financial activity mappings, then restarts Fineract and verifies
+API readiness. The reset tool captures this protected configuration before
+replacing the tenant.
+A failed protected-state restore retains its private snapshot and blocks cycle
+creation. After plan review, approval calls `start` immediately.
 
 The same optional step is available from the orchestrator CLI:
 
@@ -485,8 +516,8 @@ authorization, and retention behavior is also unit-tested. Operational
 acceptance still requires a controlled production-like pass and an unchanged
 second pass before the timer is enabled.
 Production exposes two reviewed definitions. `prod-party-resync` retains the
-narrow party-domain option. `prod-full-resync` selects all 15 available services
-and applies the same checkpointed delta contracts as the local full re-sync,
+narrow party-domain option. `prod-full-resync` selects all 16 available services, including
+`native-share-yield`, and applies the same checkpointed delta contracts as the local full re-sync,
 with production fingerprint confirmation and versioned-release enforcement.
 All checkpoints selected by a production plan must share one immutable
 accounting cutoff. Publishing the definition does not enable or promote the

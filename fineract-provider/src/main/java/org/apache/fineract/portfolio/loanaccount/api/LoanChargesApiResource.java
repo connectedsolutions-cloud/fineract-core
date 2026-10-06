@@ -500,6 +500,9 @@ public class LoanChargesApiResource {
         } else if (CommandParameterUtil.is(commandParam, COMMAND_ADJUSTMENT)) {
             final CommandWrapper commandRequest = builder.adjustmentForLoanCharge(resolvedLoanId, resolvedLoanChargeId).build();
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        } else if (CommandParameterUtil.is(commandParam, "sourceExactRebaseInsurance")) {
+            final CommandWrapper commandRequest = builder.sourceExactRebaseInsuranceCharge(resolvedLoanId, resolvedLoanChargeId).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
         } else {
             throw new UnrecognizedQueryParamException("command", commandParam);
         }

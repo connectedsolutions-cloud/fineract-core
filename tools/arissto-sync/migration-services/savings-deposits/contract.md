@@ -123,6 +123,18 @@ the authoritative native funding event.
   evidence. Historical daily rows are not copied into an extension ledger.
 - At cutoff, inspection selects the latest completed `CIERRE_DIARIO` date and
   requires exactly one `AHO_HISTORICO_DIARIO` row per account.
+- In a fresh/clean or resumed initial workflow with a frozen `source_through_date`,
+  inspection selects the latest completed savings close on or before that date.
+  The child plan freezes that effective savings date separately from the requested
+  workflow date. Extraction uses the selected close snapshot and includes movements
+  and posted-interest history only through that inclusive date. The live VISTA
+  master balance is projected back from its movement stream when later source
+  movements exist. A missing completed close remains a blocker. Planning refuses
+  a requested source-through date later than the Fineract business date; it never
+  posts later source events merely because the latest Arissto close has advanced.
+  A full re-sync retains the accounting ownership boundary but reads reviewed
+  operational savings deltas after it; its child plan freezes that distinct
+  source scope.
 - `INTERESES_PROVISIONADOS` is retained as both the operational and accounting
   opening-accrual amount. It reconciles all active DPFs to an independent
   Actual/Actual calculation within one cent; `INT_PROV` is a daily increment

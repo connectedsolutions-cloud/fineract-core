@@ -84,7 +84,11 @@ transaction, but must never create the same repayment again.
   signatures remain quarantined
 - Fully reversed, net-zero refinance attempts are retained as reviewed
   provenance-only no-write actions and removed from the effective graph;
-  partial signatures remain quarantined. Multi-predecessor consolidations use
+  partial signatures remain quarantined. At apply, a loan already frozen as a
+  quarantine remains a no-write action only when its intrinsic quarantine
+  reasons still match the plan; a new or changed reason fails the source/target
+  guard. Refinance-chain markers are plan-level propagation, not intrinsic
+  lifecycle reasons. Multi-predecessor consolidations use
   the dedicated atomic settlement contract. The same-client shape is
   canary-proved. Completed legacy cross-client settlements use a separate,
   permission-gated source-exact path with liquidation/payoff audit evidence;
@@ -448,8 +452,9 @@ resolved legacy aggregate: when it
 duplicates `MONTO_SEGURO`, it is not added again. Debt insurance follows the
 historical/future charge contract. A `source_insurance_cutover_outstanding`
 amount is a snapshot balance, so retry convergence compares the persisted
-charge's `amountOutstanding`; its immutable original amount may be higher when
-a later source insurance movement has already been replayed separately.
+charge's `amountOutstanding`. Full re-sync rebases that source-owned balance
+through Fineract's migration-only command while retaining its recorded paid,
+waived, and written-off amounts. This may change the charge's total amount.
 Historical insurance movement charges still require their original amounts to
 match exactly. Savings and contribution components are
 currently unpopulated in the reviewed credit flow; any future non-zero value
@@ -478,6 +483,15 @@ already-applied replacement is idempotent. Fresh/clean and resumed-sync plans do
 not receive this authorization. Source absence never deletes a loan or financial
 event, unsupported changes fail or quarantine, and the checkpoint advances only
 after strict reconciliation.
+
+An unposted historical partial refinance with later source-owned native
+transactions on still-open predecessors uses the separately permissioned
+`sourceExactHistoricalRefinancingDisburse` command. Its plan freezes those
+target transactions; Fineract checks them under lock and rolls back the dated
+native transfer if reprocessing changes any frozen date, amount, or allocation.
+This route requires a controlled sandbox replay before operational use.
+Corrections to a settlement that Fineract already posted still block pending
+the broader native reverse-and-replay command.
 
 For a changed active loan whose carried cutover-insurance balance decreased,
 apply computes the exact difference between the existing Fineract cutover

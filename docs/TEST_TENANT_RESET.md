@@ -19,7 +19,13 @@ by row; it restores a baseline captured before that entire graph existed.
 Versioned, product-independent prerequisites such as reviewed charges, payment
 types, chart-of-account rows, and code values belong in Liquibase and are part
 of the baseline. They are not sync output and remain available when the loan
-service recreates its products.
+service recreates its products. The guarded local reset also snapshots reviewed
+financial activity mappings `100`, `101`, `102`, `200`, `201`, and `202` by GL
+code before replacing the database and restores them after Liquibase. It
+accepts only the reviewed active detail accounts and refuses a conflicting
+restored mapping. Unmapped activity `103` and unused opening-balance activity
+`300` are not copied forward. A mapping absent before reset remains subject to
+its normal workflow prerequisite or Liquibase bootstrap.
 
 The operator tool is [`scripts/reset-test-tenant.sh`](../scripts/reset-test-tenant.sh).
 It is intentionally separate from `arissto-sync`: the sync engine remains

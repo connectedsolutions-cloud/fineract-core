@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more
+     contributor license agreements. See the NOTICE file distributed with
+     this work for additional information regarding copyright ownership.
+     The ASF licenses this file to you under the Apache License, Version 2.0. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0362-1-office-multiselect-all-reports" author="credesal" dbms="postgresql">
+        <comment>
+            Make the shared Office report parameter an optional multi-select.
+            An empty selection includes every office in the current user's hierarchy.
+        </comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+CREATE OR REPLACE FUNCTION credesal_report_office_is_root(
+    office_id BIGINT,
+    office_filter TEXT,
+    user_hierarchy TEXT
+) RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+AS $fn$
+    SELECT CASE
+        WHEN office_id IS NULL THEN FALSE
+        WHEN NULLIF(BTRIM(office_filter), '') IS NULL THEN
+            EXISTS (
+                SELECT 1
+                  FROM m_office user_office
+                 WHERE user_office.id = office_id
+                   AND user_office.hierarchy = user_hierarchy
+            )
+        ELSE
+            EXISTS (
+                SELECT 1
+                  FROM m_office selected
+                 WHERE selected.id = office_id
+                   AND selected.hierarchy LIKE user_hierarchy || '%'
+                   AND selected.id IN (
+                       SELECT CAST(BTRIM(token) AS BIGINT)
+                         FROM unnest(string_to_array(office_filter, ',')) AS token
+                        WHERE BTRIM(token) ~ '^[0-9]+$'
+                   )
+                   AND NOT EXISTS (
+                       SELECT 1
+                         FROM m_office ancestor
+                        WHERE ancestor.id <> selected.id
+                          AND ancestor.hierarchy LIKE user_hierarchy || '%'
+                          AND selected.hierarchy LIKE ancestor.hierarchy || '%'
+                          AND ancestor.id IN (
+                              SELECT CAST(BTRIM(token) AS BIGINT)
+                                FROM unnest(string_to_array(office_filter, ',')) AS token
+                               WHERE BTRIM(token) ~ '^[0-9]+$'
+                          )
+                   )
+            )
+    END
+$fn$;
+
+CREATE OR REPLACE FUNCTION credesal_report_office_in_scope(
+    office_id BIGINT,
+    office_filter TEXT,
+    user_hierarchy TEXT
+) RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+AS $fn$
+    SELECT EXISTS (
+        SELECT 1
+          FROM m_office office
+         WHERE office.id = office_id
+           AND office.hierarchy LIKE user_hierarchy || '%'
+           AND (
+               NULLIF(BTRIM(office_filter), '') IS NULL
+               OR EXISTS (
+                   SELECT 1
+                     FROM m_office selected
+                    WHERE selected.hierarchy LIKE user_hierarchy || '%'
+                      AND office.hierarchy LIKE selected.hierarchy || '%'
+                      AND selected.id IN (
+                          SELECT CAST(BTRIM(token) AS BIGINT)
+                            FROM unnest(string_to_array(office_filter, ',')) AS token
+                           WHERE BTRIM(token) ~ '^[0-9]+$'
+                      )
+               )
+           )
+    )
+$fn$;
+
+CREATE OR REPLACE FUNCTION credesal_rewrite_office_filter(source_sql TEXT) RETURNS TEXT
+LANGUAGE plpgsql
+AS $fn$
+DECLARE
+    result TEXT := source_sql;
+    pattern TEXT;
+    flags TEXT;
+    match TEXT[];
+    expr TEXT;
+    replacement TEXT;
+    guard INTEGER := 0;
+BEGIN
+    IF result IS NULL OR position('${officeId}' IN result) = 0 THEN
+        RETURN result;
+    END IF;
+
+    result := regexp_replace(
+        result,
+        '([A-Za-z_][A-Za-z0-9_.]*)\s*=\s*CAST\(''\$\{officeId\}''\s+AS\s+BIGINT\)',
+        'credesal_report_office_is_root(\1, ''${officeId}'', ''${currentUserHierarchy}'')',
+        'g'
+    );
+
+    WHILE guard < 20 LOOP
+        guard := guard + 1;
+        match := regexp_match(
+            result,
+            '([A-Za-z_][A-Za-z0-9_.]*)\s*=\s*''\$\{officeId\}''\s+or\s+''\$\{officeId\}''\s*=\s*-?1',
+            'i'
+        );
+        EXIT WHEN match IS NULL;
+        expr := match[1];
+        replacement := CASE
+            WHEN expr ~* 'office_id' OR result !~* 'hierarchy\s+like'
+                THEN 'credesal_report_office_in_scope'
+            ELSE 'credesal_report_office_is_root'
+        END;
+        result := regexp_replace(
+            result,
+            '([A-Za-z_][A-Za-z0-9_.]*)\s*=\s*''\$\{officeId\}''\s+or\s+''\$\{officeId\}''\s*=\s*-?1',
+            replacement || '(\1, ''${officeId}'', ''${currentUserHierarchy}'')',
+            'i'
+        );
+    END LOOP;
+
+    guard := 0;
+    WHILE guard < 20 LOOP
+        guard := guard + 1;
+        match := regexp_match(
+            result,
+            '([A-Za-z_][A-Za-z0-9_.]*)\s*=\s*\$\{officeId\}\s+or\s+\$\{officeId\}\s*=\s*-?1',
+            'i'
+        );
+        EXIT WHEN match IS NULL;
+        expr := match[1];
+        replacement := CASE
+            WHEN expr ~* 'office_id' OR result !~* 'hierarchy\s+like'
+                THEN 'credesal_report_office_in_scope'
+            ELSE 'credesal_report_office_is_root'
+        END;
+        result := regexp_replace(
+            result,
+            '([A-Za-z_][A-Za-z0-9_.]*)\s*=\s*\$\{officeId\}\s+or\s+\$\{officeId\}\s*=\s*-?1',
+            replacement || '(\1, ''${officeId}'', ''${currentUserHierarchy}'')',
+            'i'
+        );
+    END LOOP;
+
+    result := regexp_replace(
+        result,
+        '\$\{officeId\}\s*=\s*-1\s+or\s+((?:COALESCE\s*\([^)]*\)|[A-Za-z_][A-Za-z0-9_.]*))\s*=\s*\$\{officeId\}',
+        'credesal_report_office_in_scope(\1, ''${officeId}'', ''${currentUserHierarchy}'')',
+        'gi'
+    );
+
+    guard := 0;
+    WHILE guard < 40 LOOP
+        guard := guard + 1;
+        match := regexp_match(result, '([A-Za-z_][A-Za-z0-9_.]*)\s*=\s*''\$\{officeId\}''', 'i');
+        EXIT WHEN match IS NULL;
+        expr := match[1];
+        replacement := CASE
+            WHEN expr ~* 'office_id' OR result !~* 'hierarchy\s+like'
+                THEN 'credesal_report_office_in_scope'
+            ELSE 'credesal_report_office_is_root'
+        END;
+        result := regexp_replace(
+            result,
+            '([A-Za-z_][A-Za-z0-9_.]*)\s*=\s*''\$\{officeId\}''',
+            replacement || '(\1, ''${officeId}'', ''${currentUserHierarchy}'')',
+            'i'
+        );
+    END LOOP;
+
+    guard := 0;
+    WHILE guard < 80 LOOP
+        guard := guard + 1;
+        match := regexp_match(result, '([A-Za-z_][A-Za-z0-9_.]*)\s*=\s*\$\{officeId\}(?!'')', 'i');
+        EXIT WHEN match IS NULL;
+        expr := match[1];
+        replacement := CASE
+            WHEN expr ~* 'office_id' OR result !~* 'hierarchy\s+like'
+                THEN 'credesal_report_office_in_scope'
+            ELSE 'credesal_report_office_is_root'
+        END;
+        result := regexp_replace(
+            result,
+            '([A-Za-z_][A-Za-z0-9_.]*)\s*=\s*\$\{officeId\}(?!'')',
+            replacement || '(\1, ''${officeId}'', ''${currentUserHierarchy}'')',
+            'i'
+        );
+    END LOOP;
+
+    RETURN result;
+END;
+$fn$;
+
+UPDATE stretchy_report
+   SET report_sql = credesal_rewrite_office_filter(report_sql)
+ WHERE report_sql LIKE '%${officeId}%';
+
+UPDATE stretchy_parameter
+   SET parameter_sql = credesal_rewrite_office_filter(parameter_sql)
+ WHERE parameter_sql LIKE '%${officeId}%';
+
+UPDATE stretchy_report
+   SET report_sql = replace(
+       report_sql,
+       $old$selected_scope AS (
+    SELECT selected_office.id AS selected_office_id,
+           selected_office.name AS selected_office_name,
+           CAST('${endDate}' AS DATE) AS report_date,
+           DATE_TRUNC('month', CAST('${endDate}' AS DATE))::DATE AS month_start,
+           MAKE_DATE(EXTRACT(YEAR FROM CAST('${endDate}' AS DATE))::INTEGER, 1, 1) AS year_start
+      FROM m_office selected_office
+     WHERE credesal_report_office_is_root(selected_office.id, '${officeId}', '${currentUserHierarchy}')
+       AND selected_office.hierarchy LIKE '${currentUserHierarchy}' || '%'
+),
+selected_offices AS (
+    SELECT office_under.id
+      FROM selected_scope scope
+      JOIN m_office selected_office ON selected_office.id = scope.selected_office_id
+      JOIN m_office office_under
+        ON office_under.hierarchy LIKE selected_office.hierarchy || '%'
+       AND office_under.hierarchy LIKE '${currentUserHierarchy}' || '%'
+),
+$old$,
+       $new$selected_roots AS (
+    SELECT selected_office.id,
+           selected_office.name,
+           selected_office.hierarchy
+      FROM m_office selected_office
+     WHERE credesal_report_office_is_root(selected_office.id, '${officeId}', '${currentUserHierarchy}')
+),
+selected_scope AS (
+    SELECT CASE WHEN COUNT(*) = 1 THEN MIN(selected_office.id) ELSE 0 END AS selected_office_id,
+           CASE
+               WHEN COUNT(*) = 1 THEN MIN(selected_office.name)
+               ELSE 'Varias oficinas'
+           END AS selected_office_name,
+           CAST('${endDate}' AS DATE) AS report_date,
+           DATE_TRUNC('month', CAST('${endDate}' AS DATE))::DATE AS month_start,
+           MAKE_DATE(EXTRACT(YEAR FROM CAST('${endDate}' AS DATE))::INTEGER, 1, 1) AS year_start
+      FROM selected_roots selected_office
+),
+selected_offices AS (
+    SELECT DISTINCT office_under.id
+      FROM selected_roots selected_office
+      JOIN m_office office_under
+        ON office_under.hierarchy LIKE selected_office.hierarchy || '%'
+       AND office_under.hierarchy LIKE '${currentUserHierarchy}' || '%'
+),
+$new$
+   )
+ WHERE report_name = 'Estado de Resultados Consolidado'
+   AND position('FROM selected_scope scope' IN report_sql) > 0;
+
+UPDATE stretchy_report
+   SET report_sql = replace(
+       replace(
+           report_sql,
+           'credesal_report_office_is_root(office.id,',
+           'credesal_report_office_in_scope(office.id,'
+       ),
+       $old$FROM display_rows row
+ CROSS JOIN selected_office office
+$old$,
+       $new$FROM display_rows row
+ CROSS JOIN (
+    SELECT CASE WHEN COUNT(*) = 1 THEN MIN(id) ELSE 0 END AS id,
+           CASE WHEN COUNT(*) = 1 THEN MIN(external_id) ELSE 'VARIAS' END AS external_id,
+           CASE WHEN COUNT(*) = 1 THEN MIN(office_name) ELSE 'Varias oficinas' END AS office_name
+      FROM selected_office
+ ) office
+$new$
+   )
+ WHERE report_name = 'Comprobante Contable por Sucursal'
+   AND position('CROSS JOIN selected_office office' IN report_sql) > 0;
+
+UPDATE stretchy_parameter
+   SET "parameter_displayType" = 'multiselect',
+       parameter_default = 'optional',
+       "selectOne" = NULL,
+       "selectAll" = NULL
+ WHERE parameter_name = 'OfficeIdSelectOne';
+
+        ]]></sql>
+    </changeSet>
+
+</databaseChangeLog>

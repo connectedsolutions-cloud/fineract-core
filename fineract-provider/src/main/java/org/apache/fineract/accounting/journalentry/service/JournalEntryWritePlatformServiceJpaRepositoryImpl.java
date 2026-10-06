@@ -60,6 +60,7 @@ import org.apache.fineract.accounting.journalentry.exception.JournalEntryRuntime
 import org.apache.fineract.accounting.journalentry.serialization.JournalEntryCommandFromApiJsonDeserializer;
 import org.apache.fineract.accounting.provisioning.domain.LoanProductProvisioningEntry;
 import org.apache.fineract.accounting.provisioning.domain.ProvisioningEntry;
+import org.apache.fineract.portfolio.treasury.service.TreasuryProductLinkService;
 import org.apache.fineract.accounting.rule.domain.AccountingRule;
 import org.apache.fineract.accounting.rule.domain.AccountingRuleRepository;
 import org.apache.fineract.accounting.rule.exception.AccountingRuleNotFoundException;
@@ -138,6 +139,7 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
     private final LoanAmortizationAllocationMappingRepository loanAmortizationAllocationMappingRepository;
     private final LoanTransactionRepository loanTransactionRepository;
     private final AccountingCutoffPolicyService cutoffPolicyService;
+    private final TreasuryProductLinkService treasuryProductLinkService;
 
     @Transactional
     @Override
@@ -167,6 +169,10 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
             /** Set a transaction Id and save these Journal entries **/
             final String transactionId = generateTransactionId(officeId);
             final String referenceNumber = command.stringValueOfParameterNamed(JournalEntryJsonInputParams.REFERENCE_NUMBER.getValue());
+            if (StringUtils.isNotBlank(referenceNumber)) {
+                throw new GeneralPlatformDomainRuleException("error.msg.journal.number.system.owned",
+                        "Journal numbers are assigned by Fineract; referenceNumber must be omitted");
+            }
 
             ExternalAssetOwner externalAssetOwner = null;
             final ExternalId externalId = ExternalIdFactory
@@ -373,6 +379,7 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
                     journalEntry.getDescription(), journalEntry.getEntityType(), journalEntry.getEntityId(),
                     journalEntry.getReferenceNumber(), journalEntry.getLoanTransactionId(), journalEntry.getSavingsTransactionId(),
                     journalEntry.getClientTransactionId(), journalEntry.getShareTransactionId(), journalEntry.getDimensions());
+            reversalJournalEntry.setJournalNumberGroupKey("REV|" + transactionId + "|" + transactionDate);
             helper.persistJournalEntry(reversalJournalEntry);
         }
     }
@@ -458,6 +465,7 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
                         journalEntry.getShareTransactionId(), journalEntry.getDimensions());
             }
             // save the reversal entry
+            reversalJournalEntry.setJournalNumberGroupKey("REV|" + reversalTransactionId + "|" + reversalTransactionDate);
             helper.persistJournalEntry(reversalJournalEntry);
             journalEntry.setReversalJournalEntry(reversalJournalEntry);
             journalEntry.setReversed(true);
@@ -560,6 +568,7 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
             final AccountingProcessorForLoan accountingProcessorForLoan = this.accountingProcessorForLoanFactory
                     .determineProcessor(loanDTO);
             accountingProcessorForLoan.createJournalEntriesForLoan(loanDTO);
+            this.treasuryProductLinkService.recordLoan(loanDTO);
         }
     }
 
@@ -580,6 +589,7 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
             final AccountingProcessorForSavings accountingProcessorForSavings = this.accountingProcessorForSavingsFactory
                     .determineProcessor(savingsDTO);
             accountingProcessorForSavings.createJournalEntriesForSavings(savingsDTO);
+            this.treasuryProductLinkService.recordSavings(savingsDTO);
         }
     }
 

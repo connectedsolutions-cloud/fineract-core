@@ -52,6 +52,28 @@ class WorkflowSelectionTests(unittest.TestCase):
                 ]
                 self.assertIn(self.LIABILITY_TRANSFER_PREREQUISITE, mappings)
 
+    def test_native_share_yield_selection_requires_dividend_payable_mapping(self):
+        expected = {
+            "required_by_services": ["native-share-yield"],
+            "financial_activity_id": 201,
+            "gl_code": "222099910101",
+            "gl_classification": 2,
+            "gl_usage": 1,
+        }
+        for workflow_id in ("local-full-sync", "local-full-resync", "prod-full-resync"):
+            with self.subTest(workflow_id=workflow_id):
+                selected = select_workflow_services(
+                    load_workflow(workflow_id), ["native-share-yield"]
+                )
+                mappings = selected.document["target_prerequisites"]["financial_activity_mappings"]
+                required = [
+                    mapping for mapping in mappings
+                    if set(mapping["required_by_services"]).intersection(selected.services)
+                ]
+                self.assertIn(expected, required)
+                self.assertEqual({mapping["financial_activity_id"] for mapping in required},
+                                 {100, 200, 201})
+
     def test_savings_selection_keeps_liability_transfer_mapping_in_scope(self):
         selected = select_workflow_services(
             load_workflow("local-full-sync"), ["savings-deposits"]

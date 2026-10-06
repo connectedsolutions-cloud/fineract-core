@@ -352,6 +352,11 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         }
 
         Loan loan = loanAssembler.assembleFrom(loanId);
+        if (SourceExactRefinancingRepairContext.isActive()
+                && (loan.getExternalId().isEmpty() || !isSourceExactScheduleExternalId(loan.getExternalId().getValue()))) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.refinancing.repair.successor.invalid",
+                    "Historical refinancing requires an Arissto successor loan");
+        }
         initializeLegacySourceExactRefinancing(loan, command, sourceExactTopup);
 
         if (loan.loanProduct().isDisallowExpectedDisbursements()) {
@@ -414,6 +419,11 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                 final Map<Long, SourceExactRefinancingSettlement> sourceExactSettlements = sourceExactTopup
                         ? sourceExactRefinancingSettlementsFrom(command, loan)
                         : Map.of();
+                if (SourceExactRefinancingRepairContext.isActive() && sourceExactSettlements.values().stream()
+                        .noneMatch(settlement -> "PARTIAL_PAYDOWN".equals(settlement.settlementType()))) {
+                    throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.refinancing.repair.partial.required",
+                            "Historical refinancing repair requires a partial predecessor settlement");
+                }
                 final List<Long> predecessorIds = sourceExactTopup ? sourceExactSettlements.keySet().stream().sorted().toList()
                         : loan.getTopupLoanDetails().getLoanIdsToClose();
                 final List<Loan> lockedPredecessors = loanRepository.findAllByIdForRefinancingUpdate(predecessorIds);
@@ -425,6 +435,9 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                         .filter(SourceExactRefinancingSettlement::legacyCrossClient)
                         .map(SourceExactRefinancingSettlement::predecessorLoanId).collect(java.util.stream.Collectors.toSet());
                 validateLegacyCrossClientMarkers(loan, lockedPredecessors, legacyCrossClientPredecessorIds);
+                if (SourceExactRefinancingRepairContext.isActive()) {
+                    validateHistoricalRefinancingTarget(command, lockedPredecessors, actualDisbursementDate, Set.of());
+                }
                 final Map<Long, BigDecimal> quotedSettlements = sourceExactTopup
                         ? loanApplicationValidator.validateSourceExactRefinancingLoans(loan, actualDisbursementDate,
                                 legacyCrossClientPredecessorIds)
@@ -472,6 +485,12 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                                 sourceExactSettlement.sourcePayoffDate(), lockedPredecessorsById.get(predecessorLoanId).getClientId(),
                                 loan.getClientId());
                     }
+                }
+                if (SourceExactRefinancingRepairContext.isActive()) {
+                    final Set<String> insertedPayoffs = sourceExactSettlements.values().stream()
+                            .map(settlement -> settlement.repaymentExternalId().getValue())
+                            .collect(java.util.stream.Collectors.toSet());
+                    validateHistoricalRefinancingTarget(command, lockedPredecessors, actualDisbursementDate, insertedPayoffs);
                 }
                 if (settlementTotal.compareTo(disburseAmount.getAmount()) > 0) {
                     throw new GeneralPlatformDomainRuleException("error.msg.loan.refinancing.settlements.must.not.exceed.disbursement",
@@ -2227,6 +2246,79 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         if (!loan.getTopupLoanDetails().isConsolidation()) {
             loan.getTopupLoanDetails().setAccountTransferDetails(accountTransferDetails.getId());
         }
+    }
+
+    private void validateHistoricalRefinancingTarget(final JsonCommand command, final List<Loan> predecessors,
+            final LocalDate settlementDate, final Set<String> newlyInsertedPayoffs) {
+        final List<Loan> currentPredecessors = predecessors.stream().map(predecessor -> loanAssembler.assembleFrom(predecessor.getId()))
+                .toList();
+        assertHistoricalRefinancingTarget(command.arrayOfParameterNamed("expectedLaterTransactions"), currentPredecessors,
+                settlementDate, newlyInsertedPayoffs);
+    }
+
+    static void assertHistoricalRefinancingTarget(final JsonArray rows, final List<Loan> predecessors,
+            final LocalDate settlementDate, final Set<String> newlyInsertedPayoffs) {
+        if (rows == null) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.refinancing.repair.guard.missing",
+                    "Historical refinancing requires a frozen list of later native transactions");
+        }
+        final Map<String, JsonObject> expected = new HashMap<>();
+        for (final JsonElement element : rows) {
+            if (!element.isJsonObject()) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.refinancing.repair.guard.invalid",
+                        "A historical refinancing target transaction must be an object");
+            }
+            final JsonObject row = element.getAsJsonObject();
+            if (!row.has("loanId") || !row.has("externalId") || !row.has("date") || !row.has("amount")
+                    || !row.has("principal") || !row.has("interest") || !row.has("fee") || !row.has("penalty")) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.refinancing.repair.guard.invalid",
+                        "A historical refinancing target transaction is incomplete");
+            }
+            final String key = row.get("loanId").getAsLong() + ":" + row.get("externalId").getAsString();
+            if (expected.put(key, row) != null) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.refinancing.repair.guard.duplicate",
+                        "A historical refinancing target transaction appeared twice");
+            }
+        }
+        for (final Loan predecessor : predecessors) {
+            final String externalId = predecessor.getExternalId().getValue();
+            if (!isSourceExactScheduleExternalId(externalId) || (newlyInsertedPayoffs.isEmpty() && !predecessor.isOpen())) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.refinancing.repair.predecessor.invalid",
+                        "Historical refinancing requires an open Arissto predecessor");
+            }
+            for (final LoanTransaction transaction : predecessor.getLoanTransactions()) {
+                if (!predecessor.isUserTransaction(transaction) || transaction.getTransactionDate().isBefore(settlementDate)) {
+                    continue;
+                }
+                final String transactionExternalId = transaction.getExternalId().getValue();
+                if (newlyInsertedPayoffs.contains(transactionExternalId)) {
+                    continue;
+                }
+                if (transactionExternalId == null || !(transactionExternalId.startsWith("ARISSTO:")
+                        || transactionExternalId.matches("PROOF:[a-z0-9][a-z0-9-]{0,23}:ARISSTO:.*"))) {
+                    throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.refinancing.repair.unowned.activity",
+                            "Historical refinancing cannot revise a predecessor with unrelated later activity");
+                }
+                final JsonObject row = expected.remove(predecessor.getId() + ":" + transactionExternalId);
+                if (row == null || !transaction.getTransactionDate().toString().equals(row.get("date").getAsString())
+                        || !sameRepairAmount(transaction.getAmount(predecessor.getCurrency()).getAmount(), row, "amount")
+                        || !sameRepairAmount(transaction.getPrincipalPortion(predecessor.getCurrency()).getAmount(), row, "principal")
+                        || !sameRepairAmount(transaction.getInterestPortion(predecessor.getCurrency()).getAmount(), row, "interest")
+                        || !sameRepairAmount(transaction.getFeeChargesPortion(predecessor.getCurrency()).getAmount(), row, "fee")
+                        || !sameRepairAmount(transaction.getPenaltyChargesPortion(predecessor.getCurrency()).getAmount(), row, "penalty")) {
+                    throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.refinancing.repair.target.changed",
+                            "A historical refinancing target transaction changed after planning");
+                }
+            }
+        }
+        if (!expected.isEmpty()) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.refinancing.repair.target.changed",
+                    "A historical refinancing target transaction disappeared after planning");
+        }
+    }
+
+    private static boolean sameRepairAmount(final BigDecimal actual, final JsonObject expected, final String field) {
+        return expected.has(field) && actual.compareTo(expected.get(field).getAsBigDecimal()) == 0;
     }
 
     private void initializeLegacySourceExactRefinancing(final Loan loan, final JsonCommand command, final boolean sourceExactTopup) {

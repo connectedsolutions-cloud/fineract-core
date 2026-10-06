@@ -92,6 +92,7 @@ import org.apache.fineract.portfolio.loanaccount.exception.LoanNotFoundException
 import org.apache.fineract.portfolio.loanaccount.exception.LoanRepaymentScheduleNotFoundException;
 import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.LoanScheduleType;
 import org.apache.fineract.portfolio.loanaccount.service.LoanUtilService;
+import org.apache.fineract.portfolio.loanaccount.service.SourceExactRefinancingRepairContext;
 import org.apache.fineract.portfolio.loanproduct.domain.LoanProduct;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
@@ -145,6 +146,9 @@ public class LoanTransactionValidatorImpl implements LoanTransactionValidator {
                     LoanApiConstants.sourceExactFeeChargeExternalIdParameterName,
                     LoanApiConstants.sourceExactTopupRepaymentExternalIdParameterName,
                     LoanApiConstants.sourceExactTopupTransferExternalIdParameterName, LoanApiConstants.refinancingSettlements));
+            if (SourceExactRefinancingRepairContext.isActive()) {
+                supportedParameters.add("expectedLaterTransactions");
+            }
         }
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, supportedParameters);
 

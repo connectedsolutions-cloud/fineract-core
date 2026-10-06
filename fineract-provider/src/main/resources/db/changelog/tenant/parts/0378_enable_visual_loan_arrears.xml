@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more
+     contributor license agreements. See the NOTICE file distributed with
+     this work for additional information regarding copyright ownership.
+     The ASF licenses this file to you under the Apache License, Version 2.0. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0378-1-enable-visual-loan-arrears" author="credesal" dbms="postgresql">
+        <comment>Show the native loan portfolio report through its Mifos preview and print renderer.</comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+UPDATE stretchy_report
+   SET report_subtype = 'VisualLoanArrears'
+ WHERE report_name = 'Detalle de Saldos de Préstamos y Morosidad'
+   AND report_subtype IS DISTINCT FROM 'VisualLoanArrears';
+        ]]></sql>
+    </changeSet>
+
+</databaseChangeLog>

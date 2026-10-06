@@ -17,6 +17,15 @@ The generation UUID is both the sync source key and the native invoice legal
 identity. Integer fiscal and projection keys are extraction details only; they
 are not copied to Fineract and must never be joined to one another.
 
+`numero_control` is unique within the DTE emission calendar year, while the
+generation UUID remains globally unique. A control number reused in another
+year retains its exact Arissto value. Inspection blocks only repeated
+`(numero_control, emission year)` pairs in the source; a plan marks those as
+`duplicate_source_control_number_in_year`. Existing target ownership checks
+use the same year and report the actual `source_origin`. The target database
+enforces uniqueness by control number and emission year. Source evidence is recorded in
+[`fiscal-dte.md`](../../../../../../credesal-db-space/docs/learnings/fiscal-dte.md#control-number-reuse-across-calendar-years-observed-on-2026-09-24).
+
 Arissto leaves `tipomodelo` and `tipooperacion` null for the reviewed ordinary
 cohort. When both fields are missing and neither a contingency type nor a
 contingency reason is present, the importer uses CAT-003 model `1` (prior
@@ -64,27 +73,43 @@ loan movement does not void a legally sealed DTE.
 
 ## Write boundary
 
-The block uses a narrowly allowlisted, parameterized PostgreSQL transaction to
-create one native invoice aggregate. This exception exists because
+The block uses narrowly allowlisted, parameterized PostgreSQL transactions to
+create one native invoice aggregate or correct MH timestamps on an imported
+aggregate. This exception exists because
 the operational invoice API validates new UUID-v4 documents and is designed to
 submit them to MH, while Arissto history contains pre-existing UUID-v3 legal
 identities.
 
-The writer must never update or delete an invoice, call an MH endpoint, create
-or reverse a loan transaction, or create accounting entries. A legal identity
-already owned by a non-history invoice is quarantined. A changed source hash for
-an imported document is an immutable conflict. Fineract checks
+The writer must never delete an invoice, call an MH endpoint, create or reverse
+a loan transaction, or create accounting entries. A generation UUID or same-year
+control number already owned by another invoice is quarantined. If an imported
+Arissto document changes,
+the planner permits an MH-timestamp correction only when every other mapped
+invoice, receiver, summary, and line field still matches Fineract. The writer
+locks and checks the same history identity and previous hash, verifies the
+non-timestamp fields again, then updates only `authority_processed_at`,
+`mh_submitted_at`, `mh_processed_at`, the source hash, and audit columns in one
+transaction. Other source changes remain conflicts pending a broader reviewed
+update policy. Existing source hashes retain the create-only contract's hash
+basis, so this policy change does not schedule unchanged invoices for updates.
+Fineract checks
 `m_invoice.source_origin` and rejects both metadata updates and MH submission
 for imported records.
 Mifos also renders every terminal `ACCEPTED`, `REJECTED`, or `VOIDED` invoice
 read-only.
 
-Create actions are sorted by generation code, grouped into bounded atomic
+DTEs whose exact source loan movement has no imported transaction remain
+quarantined. A parent loan/refinance quarantine must be resolved in the Loans
+contract first. A reversed payoff movement on a migrated loan also needs a
+reviewed transaction or historical-document ownership rule; the DTE importer
+must not substitute a nearby payment, amount, date, or client match.
+
+Create and timestamp-correction actions are sorted by generation code, grouped into bounded atomic
 batches, and may run on up to four worker-owned PostgreSQL connections. The
 SQLite run journal remains coordinator-owned and is written in bulk only after
 the corresponding PostgreSQL transaction commits. If a batch fails, the whole
 transaction rolls back and is divided until the bad source key is isolated;
-successful documents retain the same create-only and reconciliation guarantees
+successful documents retain the same controlled-write and reconciliation guarantees
 as a single-document run.
 
 The API user must resolve to one unique `m_appuser` for audit columns. Issuer

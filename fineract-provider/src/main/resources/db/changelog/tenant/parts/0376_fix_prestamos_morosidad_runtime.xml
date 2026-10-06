@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more
+     contributor license agreements. See the NOTICE file distributed with
+     this work for additional information regarding copyright ownership.
+     The ASF licenses this file to you under the Apache License, Version 2.0. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0376-1-fix-prestamos-morosidad-runtime" author="credesal" dbms="postgresql">
+        <comment>
+            Make the loan portfolio report safe for Fineract's SQL wrapper and
+            preserve empty and multiple Office selections.
+        </comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+UPDATE stretchy_report
+   SET report_sql = $report$
+WITH selected_offices AS (
+    SELECT office_under.id
+      FROM m_office selected_office
+      JOIN m_office office_under
+        ON office_under.hierarchy LIKE selected_office.hierarchy || '%'
+     WHERE credesal_report_office_is_root(
+         selected_office.id, '${officeId}', '${currentUserHierarchy}'
+     )
+       AND office_under.hierarchy LIKE '${currentUserHierarchy}' || '%'
+),
+resolved_cutoff AS (
+    SELECT MAX(snapshot.snapshot_date) AS snapshot_date
+     FROM credesal_loan_portfolio_snapshot snapshot
+     WHERE snapshot.snapshot_date >= CAST('${startDate}' AS DATE)
+       AND snapshot.snapshot_date <= CAST('${endDate}' AS DATE)
+),
+portfolio AS (
+    SELECT snapshot.snapshot_date,
+           CASE WHEN snapshot.term_days <= 366 THEN 1 ELSE 2 END AS term_order,
+           CASE WHEN snapshot.term_days <= 366 THEN 'CORTO PLAZO' ELSE 'LARGO PLAZO' END AS term_type,
+           office.hierarchy AS office_hierarchy,
+           office.id AS office_id,
+           office.name AS office_name,
+           product.id AS product_id,
+           product.name AS credit_line,
+           snapshot.risk_classification_id,
+           snapshot.risk_classification,
+           snapshot.risk_order,
+           snapshot.disbursed_amount,
+           snapshot.principal_balance,
+           snapshot.overdue_principal,
+           snapshot.overdue_interest,
+           snapshot.portfolio_status
+      FROM credesal_loan_portfolio_snapshot snapshot
+      JOIN resolved_cutoff cutoff ON cutoff.snapshot_date = snapshot.snapshot_date
+      JOIN selected_offices selected ON selected.id = snapshot.office_id
+      JOIN m_office office ON office.id = snapshot.office_id
+      JOIN m_product_loan product ON product.id = snapshot.loan_product_id
+     WHERE snapshot.loan_status = 'ACTIVE'
+       AND snapshot.legal_status IS NULL
+       AND snapshot.currency_code = 'USD'
+),
+classification_rows AS (
+    SELECT term_order,
+           term_type,
+           office_hierarchy,
+           office_id,
+           office_name,
+           product_id,
+           credit_line,
+           risk_order,
+           risk_classification,
+           COUNT(*) AS loan_count,
+           COUNT(*) FILTER (WHERE risk_classification_id <> '1') AS loans_in_arrears_count,
+           SUM(disbursed_amount) AS disbursed_amount,
+           SUM(principal_balance) AS principal_balance,
+           SUM(principal_balance) FILTER (WHERE risk_classification_id <> '1') AS affected_portfolio,
+           SUM(overdue_principal) AS overdue_principal,
+           SUM(overdue_interest) AS overdue_interest,
+           SUM(principal_balance) FILTER (WHERE portfolio_status = '1') AS current_portfolio,
+           SUM(principal_balance) FILTER (WHERE portfolio_status = '2') AS overdue_portfolio
+      FROM portfolio
+     GROUP BY term_order, term_type, office_hierarchy, office_id, office_name,
+              product_id, credit_line, risk_order, risk_classification
+),
+display_rows AS (
+    SELECT term_order,
+           term_type,
+           office_hierarchy,
+           office_id,
+           office_name,
+           product_id,
+           credit_line,
+           1 AS row_order,
+           risk_order,
+           'CLASIFICACION'::VARCHAR AS row_type,
+           risk_classification AS classification,
+           loan_count,
+           loans_in_arrears_count,
+           disbursed_amount,
+           principal_balance,
+           COALESCE(affected_portfolio, 0.00) AS affected_portfolio,
+           overdue_principal,
+           overdue_interest,
+           COALESCE(current_portfolio, 0.00) AS current_portfolio,
+           COALESCE(overdue_portfolio, 0.00) AS overdue_portfolio
+      FROM classification_rows
+
+    UNION ALL
+
+    SELECT term_order, term_type, office_hierarchy, office_id, office_name,
+           product_id, credit_line, 2, 999, 'TOTAL_LINEA', NULL,
+           SUM(loan_count), SUM(loans_in_arrears_count), SUM(disbursed_amount),
+           SUM(principal_balance), SUM(affected_portfolio), SUM(overdue_principal),
+           SUM(overdue_interest), SUM(current_portfolio), SUM(overdue_portfolio)
+      FROM classification_rows
+     GROUP BY term_order, term_type, office_hierarchy, office_id, office_name,
+              product_id, credit_line
+
+    UNION ALL
+
+    SELECT term_order, term_type, office_hierarchy, office_id, office_name,
+           NULL, NULL, 3, 999, 'TOTAL_SUCURSAL', NULL,
+           SUM(loan_count), SUM(loans_in_arrears_count), SUM(disbursed_amount),
+           SUM(principal_balance), SUM(affected_portfolio), SUM(overdue_principal),
+           SUM(overdue_interest), SUM(current_portfolio), SUM(overdue_portfolio)
+      FROM classification_rows
+     GROUP BY term_order, term_type, office_hierarchy, office_id, office_name
+
+    UNION ALL
+
+    SELECT term_order, term_type, '~~~~', NULL, NULL,
+           NULL, NULL, 4, 999, 'TOTAL_PLAZO', NULL,
+           SUM(loan_count), SUM(loans_in_arrears_count), SUM(disbursed_amount),
+           SUM(principal_balance), SUM(affected_portfolio), SUM(overdue_principal),
+           SUM(overdue_interest), SUM(current_portfolio), SUM(overdue_portfolio)
+      FROM classification_rows
+     GROUP BY term_order, term_type
+
+    UNION ALL
+
+    SELECT 3, NULL, '~~~~', NULL, NULL,
+           NULL, NULL, 5, 999, 'TOTAL_GENERAL', NULL,
+           SUM(loan_count), SUM(loans_in_arrears_count), SUM(disbursed_amount),
+           SUM(principal_balance), SUM(affected_portfolio), SUM(overdue_principal),
+           SUM(overdue_interest), SUM(current_portfolio), SUM(overdue_portfolio)
+      FROM classification_rows
+    HAVING COUNT(*) > 0
+),
+grand_total AS (
+    SELECT COALESCE(SUM(principal_balance), 0.00) AS principal_balance
+      FROM classification_rows
+)
+SELECT ROW_NUMBER() OVER (
+           ORDER BY row.term_order, row.office_hierarchy COLLATE "C",
+                    row.product_id NULLS LAST, row.row_order, row.risk_order
+       ) AS "Orden",
+       row.row_type AS "Tipo Fila",
+       row.term_type AS "Tipo Plazo",
+       row.office_id AS "Id Oficina",
+       row.office_name AS "Sucursal",
+       row.product_id AS "Id Línea Crédito",
+       row.credit_line AS "Línea Crédito",
+       row.classification AS "CLSF",
+       row.loan_count AS "Cantidad Préstamos",
+       row.loans_in_arrears_count AS "Cantidad Préstamos en Mora",
+       ROUND(row.disbursed_amount, 2) AS "Monto Desembolsado",
+       ROUND(row.principal_balance, 2) AS "Saldo Capital",
+       ROUND(row.affected_portfolio, 2) AS "Cartera Afectada",
+       ROUND(row.overdue_principal, 2) AS "Capital Vencido",
+       ROUND(row.overdue_interest, 2) AS "Interés Vencido",
+       ROUND(row.current_portfolio, 2) AS "Cartera Vigente",
+       ROUND(row.overdue_portfolio, 2) AS "Cartera Vencida",
+       CASE WHEN total.principal_balance = 0.00 THEN 0.0000
+            ELSE ROUND(row.principal_balance * 100.0 / total.principal_balance, 4)
+        END AS "Porcentaje Cartera %",
+       CASE WHEN total.principal_balance = 0.00 THEN 0.0000
+            ELSE ROUND(row.overdue_principal * 100.0 / total.principal_balance, 4)
+        END AS "Porcentaje Vencido %",
+       cutoff.snapshot_date AS "Fecha Corte",
+       TO_CHAR(CAST('${startDate}' AS DATE), 'YYYY-MM') AS "Período"
+  FROM display_rows row
+ CROSS JOIN grand_total total
+ CROSS JOIN resolved_cutoff cutoff
+ ORDER BY row.term_order, row.office_hierarchy COLLATE "C",
+          row.product_id NULLS LAST, row.row_order, row.risk_order
+$report$
+ WHERE report_name = 'Detalle de Saldos de Préstamos y Morosidad';
+        ]]></sql>
+    </changeSet>
+
+</databaseChangeLog>

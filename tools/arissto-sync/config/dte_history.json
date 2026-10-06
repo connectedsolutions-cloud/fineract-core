@@ -46,10 +46,10 @@
     "requires_no_contingency_signal": true
   },
   "write_policy": {
-    "historical_invoice_tables": "controlled-parameterized-sql-create-only",
+    "historical_invoice_tables": "controlled-parameterized-sql-create-and-mh-timestamps",
     "mh_submission": "forbidden",
     "native_financial_tables": "forbidden",
-    "update": "forbidden",
+    "update": "mh-timestamps-only",
     "delete": "forbidden"
   }
 }

@@ -301,7 +301,7 @@
       },
       "cli_block": "native-share-yield",
       "depends_on": ["native-share-capital", "accounting-journal-entries"],
-      "description": "Imports every retained preferred-share daily accrual into the native share-yield subledger, preserves exact and booked amounts, and enables future scheduled accrual and savings settlement. Controlled local acceptance completed with exact reconciliation, and the service supports checkpointed local full re-sync.",
+      "description": "Imports every retained preferred-share daily accrual into the native share-yield subledger, preserves exact and booked amounts, and enables future scheduled accrual and savings settlement. Controlled local acceptance completed with exact reconciliation, and the service supports checkpointed full re-sync subject to production acceptance gates.",
       "documentation": "migration-services/native-share-yield/README.md",
       "detail_documents": ["migration-services/native-share-yield/contract.md"],
       "configuration": "config/native_share_yield.json",

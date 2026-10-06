@@ -52,6 +52,7 @@ import org.apache.fineract.portfolio.account.service.AccountTransfersReadPlatfor
 import org.apache.fineract.portfolio.charge.domain.ChargeRepositoryWrapper;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanAmortizationAllocationMappingRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepository;
+import org.apache.fineract.portfolio.treasury.service.TreasuryProductLinkService;
 import org.apache.fineract.portfolio.paymentdetail.service.PaymentDetailWritePlatformService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -97,13 +98,14 @@ public class AccountingJournalEntryConfiguration {
             ConfigurationReadPlatformService configurationReadPlatformService, AccountingService accountingService,
             ExternalAssetOwnerRepository externalAssetOwnerRepository,
             LoanAmortizationAllocationMappingRepository loanAmortizationAllocationMappingRepository,
-            LoanTransactionRepository loanTransactionRepository, AccountingCutoffPolicyService cutoffPolicyService) {
+            LoanTransactionRepository loanTransactionRepository, AccountingCutoffPolicyService cutoffPolicyService,
+            TreasuryProductLinkService treasuryProductLinkService) {
         return new JournalEntryWritePlatformServiceJpaRepositoryImpl(glClosureRepository, glAccountRepository, glJournalEntryRepository,
                 officeRepositoryWrapper, accountingProcessorForLoanFactory, accountingProcessorForSavingsFactory,
                 accountingProcessorForSharesFactory, helper, fromApiJsonDeserializer, accountingRuleRepository,
                 glAccountReadPlatformService, organisationCurrencyRepository, context, paymentDetailWritePlatformService,
                 financialActivityAccountRepositoryWrapper, accountingProcessorForClientTransactions, configurationReadPlatformService,
                 accountingService, externalAssetOwnerRepository, loanAmortizationAllocationMappingRepository, loanTransactionRepository,
-                cutoffPolicyService);
+                cutoffPolicyService, treasuryProductLinkService);
     }
 }

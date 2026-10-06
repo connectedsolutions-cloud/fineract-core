@@ -478,6 +478,51 @@ public class LoanChargeWritePlatformServiceImpl implements LoanChargeWritePlatfo
 
     @Transactional
     @Override
+    public CommandProcessingResult rebaseSourceExactInsuranceCharge(final Long loanId, final Long loanChargeId, final JsonCommand command) {
+        final BigDecimal sourceOutstanding = command.bigDecimalValueOfParameterNamed("sourceOutstanding");
+        if (!"ARISSTO".equals(command.stringValueOfParameterNamed("sourceSystem")) || sourceOutstanding == null
+                || sourceOutstanding.signum() < 0) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.insurance.invalid",
+                    "Source-exact insurance rebase requires an Arissto nonnegative outstanding amount");
+        }
+        final Loan loan = this.loanAssembler.assembleFrom(loanId);
+        final LoanCharge loanCharge = retrieveLoanChargeBy(loanId, loanChargeId);
+        final ExternalId chargeExternalId = loanCharge.getExternalId();
+        if (!loan.getStatus().isActive() || chargeExternalId == null || chargeExternalId.isEmpty()
+                || !chargeExternalId.getValue().startsWith("ARISSTO:CRD-INS-CUTOVER:")
+                || !loanCharge.isFeeCharge() || !loanCharge.isSpecifiedDueDate() || !loanCharge.getChargeCalculation().isFlat()) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.insurance.charge.invalid",
+                    "Source-exact insurance rebase requires an active Arissto cutover insurance charge");
+        }
+        final BigDecimal before = loanCharge.amountOutstanding();
+        final Map<String, Object> changes = new LinkedHashMap<>();
+        if (before.compareTo(sourceOutstanding) != 0) {
+            businessEventNotifierService.notifyPreBusinessEvent(new LoanUpdateChargeBusinessEvent(loanCharge));
+            for (int attempt = 0; attempt < 3; attempt++) {
+                loanCharge.rebaseSourceOwnedOutstanding(sourceOutstanding);
+                reprocessLoanTransactionsService.reprocessTransactions(loan);
+                if (loanCharge.amountOutstanding().compareTo(sourceOutstanding) == 0) {
+                    break;
+                }
+            }
+            if (loanCharge.amountOutstanding().compareTo(sourceOutstanding) != 0) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.insurance.rebase.not.representable",
+                        "Source-exact insurance rebase did not preserve the Arissto outstanding amount");
+            }
+            this.loanRepositoryWrapper.save(loan);
+            businessEventNotifierService.notifyPostBusinessEvent(new LoanUpdateChargeBusinessEvent(loanCharge));
+            businessEventNotifierService.notifyPostBusinessEvent(new LoanBalanceChangedBusinessEvent(loan));
+            changes.put("sourceSystem", "ARISSTO");
+            changes.put("previousOutstanding", before);
+            changes.put("sourceOutstanding", sourceOutstanding);
+        }
+        return new CommandProcessingResultBuilder().withCommandId(command.commandId()).withEntityId(loanChargeId)
+                .withEntityExternalId(chargeExternalId).withOfficeId(loan.getOfficeId()).withClientId(loan.getClientId())
+                .withGroupId(loan.getGroupId()).withLoanId(loanId).with(changes).build();
+    }
+
+    @Transactional
+    @Override
     public CommandProcessingResult waiveLoanCharge(final Long loanId, final Long loanChargeId, final JsonCommand command) {
 
         final Loan loan = this.loanAssembler.assembleFrom(loanId);

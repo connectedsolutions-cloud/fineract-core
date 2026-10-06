@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.accounting.accountingOperations.AvailableAtCashierAccountingHelper;
+import org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRuleException;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.organisation.office.domain.Office;
@@ -40,6 +41,7 @@ import org.apache.fineract.portfolio.pendiente.service.builder.PendingFlowBuildC
 import org.apache.fineract.portfolio.pendiente.service.builder.PendingFlowBuildRequest;
 import org.apache.fineract.portfolio.pendiente.service.builder.PendingFlowBuildResult;
 import org.apache.fineract.portfolio.pendiente.service.builder.PendingFlowBuilder;
+import org.apache.fineract.portfolio.treasury.service.TreasuryMovementService;
 import org.apache.fineract.useradministration.domain.AppUser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,17 +68,19 @@ public class TransferenciaEfectivoComiteBuilder implements PendingFlowBuilder {
     private final SesionComiteReadPlatformService sesionComiteReadPlatformService;
     private final LoanAssembler loanAssembler;
     private final OfficeRepositoryWrapper officeRepositoryWrapper;
+    private final TreasuryMovementService treasuryMovementService;
 
     public TransferenciaEfectivoComiteBuilder(SesionComiteRepository sesionComiteRepository, FromJsonHelper fromJsonHelper,
             AvailableAtCashierAccountingHelper availableAtCashierAccountingHelper,
             SesionComiteReadPlatformService sesionComiteReadPlatformService, LoanAssembler loanAssembler,
-            OfficeRepositoryWrapper officeRepositoryWrapper) {
+            OfficeRepositoryWrapper officeRepositoryWrapper, TreasuryMovementService treasuryMovementService) {
         this.sesionComiteRepository = sesionComiteRepository;
         this.fromJsonHelper = fromJsonHelper;
         this.availableAtCashierAccountingHelper = availableAtCashierAccountingHelper;
         this.sesionComiteReadPlatformService = sesionComiteReadPlatformService;
         this.loanAssembler = loanAssembler;
         this.officeRepositoryWrapper = officeRepositoryWrapper;
+        this.treasuryMovementService = treasuryMovementService;
     }
 
     @Override
@@ -172,7 +176,12 @@ public class TransferenciaEfectivoComiteBuilder implements PendingFlowBuilder {
             return;
         }
         if (STEP_NAME_VAULT_RECEPTION.equals(stepName)) {
-            availableAtCashierAccountingHelper.vaultReceptionFromBank(ctx.session(), ctx.processedLoans(), ctx.businessDate());
+            Long bankAccountId = parseTreasuryBankAccountId(completedStep.getReferences());
+            if (bankAccountId == null) {
+                throw new GeneralPlatformDomainRuleException("error.msg.treasury.comite.bank.required",
+                        "Choose the bank account for the comité withdrawal");
+            }
+            treasuryMovementService.postComiteWithdrawal(ctx.session(), ctx.processedLoans(), bankAccountId, ctx.businessDate());
         } else if (STEP_NAME_RECEPCION_CAJA_CIERRE.equals(stepName)) {
             availableAtCashierAccountingHelper.cashierCashReception(ctx.session(), ctx.processedLoans(), ctx.businessDate());
             availableAtCashierAccountingHelper.disbursementPayableClearing(ctx.session(), ctx.processedLoans(), ctx.businessDate());
@@ -233,6 +242,22 @@ public class TransferenciaEfectivoComiteBuilder implements PendingFlowBuilder {
             return fromJsonHelper.extractLongNamed("id", sesion);
         } catch (Exception e) {
             log.debug("TransferenciaEfectivoComiteBuilder.parseSessionIdFromReferences: failed to parse references", e);
+            return null;
+        }
+    }
+
+    private Long parseTreasuryBankAccountId(String references) {
+        if (StringUtils.isBlank(references)) {
+            return null;
+        }
+        try {
+            JsonObject root = fromJsonHelper.parse(references).getAsJsonObject();
+            if (root == null || !root.has("treasuryBankAccountId") || root.get("treasuryBankAccountId").isJsonNull()) {
+                return null;
+            }
+            return root.get("treasuryBankAccountId").getAsLong();
+        } catch (Exception e) {
+            log.debug("TransferenciaEfectivoComiteBuilder.parseTreasuryBankAccountId: failed to parse references", e);
             return null;
         }
     }

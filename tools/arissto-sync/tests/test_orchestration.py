@@ -17,6 +17,7 @@ from arissto_sync.loans import LoanApplyControls
 from arissto_sync.orchestration import (
     FineractResetControls,
     FineractRestartControls,
+    assert_no_pending_access_snapshot,
     _restart_local_fineract,
     _record_child_item_failures,
     assert_zero_pre_cutoff_native_gl,
@@ -25,12 +26,16 @@ from arissto_sync.orchestration import (
     build_workflow_plan,
     ensure_arissto_api_user_offices,
     ensure_financial_activity_mappings,
+    ensure_gl_account_details,
     ensure_arissto_offices,
     ensure_active_accounting_cutoff,
     execute_workflow,
     failure_fingerprint,
     refresh_workflow_run,
+    resume_workflow,
     reset_local_fineract,
+    seed_imported_journal_numbers,
+    source_journal_number_highwater,
     verify_active_accounting_cutoff,
 )
 from arissto_sync.service_runtime import ServiceRuntime
@@ -113,6 +118,48 @@ class FakeRuntime:
         return {"ok": not failed, "counts": {"mismatched": int(failed)}}
 
 
+class JournalNumberSeedTests(unittest.TestCase):
+    def test_source_highwater_includes_unposted_numbers(self):
+        settings = SimpleNamespace(source=object())
+        rows = [
+            {"journal_number": "2026090446"},
+            {"journal_number": "2026090450"},
+            {"journal_number": "2026100001"},
+        ]
+        with (
+            patch("arissto_sync.orchestration.source_connection") as source,
+            patch("arissto_sync.orchestration.select_rows", return_value=rows) as select,
+        ):
+            result = source_journal_number_highwater(settings, {"date": "2026-09-18"})
+        source.assert_called_once_with(settings.source)
+        self.assertEqual(select.call_args.args[2], ("2026-09-18",))
+        self.assertEqual(result["maxima"], {"202609": 450, "202610": 1})
+        self.assertEqual(result["header_count"], 3)
+        self.assertEqual(len(result["snapshot_hash"]), 64)
+
+    def test_seed_uses_frozen_cutoff(self):
+        api = Mock()
+        api.request.return_value = {
+            "cutoffDate": "2026-09-18", "periods": {"202609": 446}, "raised": 1,
+        }
+        with patch("arissto_sync.orchestration.verify_active_accounting_cutoff") as guard:
+            result = seed_imported_journal_numbers(api, {"date": "2026-09-18"}, {"maxima": {"202609": 446}})
+        guard.assert_called_once()
+        api.request.assert_called_once_with(
+            "POST", "treasury/journalnumbers/seed-imported",
+            {"cutoffDate": "2026-09-18", "dateFormat": "yyyy-MM-dd", "locale": "en",
+             "sourceMaxima": {"202609": 446}},
+        )
+        self.assertEqual(result["periods"]["202609"], 446)
+
+    def test_rejects_wrong_cutoff_response(self):
+        api = Mock()
+        api.request.return_value = {"cutoffDate": "2026-09-19", "periods": {"202609": 446}}
+        with patch("arissto_sync.orchestration.verify_active_accounting_cutoff"):
+            with self.assertRaisesRegex(RuntimeError, "frozen cutoff"):
+                seed_imported_journal_numbers(api, {"date": "2026-09-18"}, {"maxima": {"202609": 446}})
+
+
 class WorkflowDefinitionTests(unittest.TestCase):
     def test_local_full_resync_selects_every_available_service(self):
         definition = load_workflow("local-full-resync")
@@ -157,8 +204,8 @@ class WorkflowDefinitionTests(unittest.TestCase):
         self.assertTrue(report["ready"])
         self.assertEqual(report["targets"], ["prod"])
         self.assertEqual(report["run_modes"], ["full-resync"])
-        self.assertEqual(len(report["ordered_services"]), 15)
-        self.assertNotIn("native-share-yield", report["ordered_services"])
+        self.assertEqual(len(report["ordered_services"]), 16)
+        self.assertEqual(report["ordered_services"][-1], "native-share-yield")
 
     def test_production_workflow_cli_requires_explicit_mode_and_confirmation_fields(self):
         planned = parser().parse_args([
@@ -634,6 +681,84 @@ class WorkflowDefinitionTests(unittest.TestCase):
         self.assertEqual(api.request.call_count, 3)
 
     @staticmethod
+    def gl_detail_prerequisites():
+        return {"gl_account_details": [{
+            "required_by_services": ["accounting-journal-entries"],
+            "parent_gl_code": "314002",
+            "gl_code": "3140020000",
+            "name": "RESULTADOS DEL PRESENTE EJERCICIO - CIERRE TRANSITORIO",
+            "description": "Direct historical Arissto postings to reporting parent 314002",
+            "gl_classification": 3,
+            "acc_level": 6,
+        }]}
+
+    @staticmethod
+    def result_parent():
+        return {"id": 31, "glCode": "314002", "disabled": False,
+                "type": {"id": 3}, "usage": {"id": 2}, "accLevel": 5}
+
+    @staticmethod
+    def result_detail():
+        return {"id": 32, "glCode": "3140020000", "parentId": 31,
+                "name": "RESULTADOS DEL PRESENTE EJERCICIO - CIERRE TRANSITORIO",
+                "disabled": False, "manualEntriesAllowed": True,
+                "type": {"id": 3}, "usage": {"id": 1}, "accLevel": 6, "accLastLevel": 1}
+
+    def test_gl_detail_prerequisite_creates_missing_account_and_verifies_it(self):
+        parent = self.result_parent()
+        detail = self.result_detail()
+        api = SimpleNamespace(request=unittest.mock.MagicMock(side_effect=[
+            [parent], {"resourceId": 32}, [parent, detail],
+        ]))
+        report = ensure_gl_account_details(api, self.gl_detail_prerequisites(),
+                                           ["accounting-journal-entries"])
+        self.assertEqual(report["actions"], [{
+            "gl_code": "3140020000", "parent_gl_code": "314002", "action": "created",
+        }])
+        self.assertEqual(api.request.call_args_list[1].args[:2], ("POST", "glaccounts"))
+        self.assertEqual(api.request.call_args_list[1].args[2]["parentId"], 31)
+
+    def test_gl_detail_prerequisite_is_idempotent_and_rejects_conflict(self):
+        parent = self.result_parent()
+        detail = self.result_detail()
+        api = SimpleNamespace(request=unittest.mock.MagicMock(return_value=[parent, detail]))
+        report = ensure_gl_account_details(api, self.gl_detail_prerequisites(),
+                                           ["accounting-journal-entries"])
+        self.assertEqual(report["actions"][0]["action"], "unchanged")
+        api.request.assert_called_once_with("GET", "glaccounts")
+        bad = {**detail, "parentId": 99}
+        api = SimpleNamespace(request=unittest.mock.MagicMock(return_value=[parent, bad]))
+        with self.assertRaisesRegex(RuntimeError, "differs from reviewed COA"):
+            ensure_gl_account_details(api, self.gl_detail_prerequisites(),
+                                      ["accounting-journal-entries"])
+
+    def test_gl_detail_prerequisite_checks_all_accounts_before_creating_any(self):
+        first = self.gl_detail_prerequisites()["gl_account_details"][0]
+        second = {**first, "gl_code": "3140020099", "name": "SECOND DETAIL"}
+        conflicting = {**self.result_detail(), "glCode": "3140020099", "name": "WRONG NAME"}
+        api = SimpleNamespace(request=unittest.mock.MagicMock(return_value=[
+            self.result_parent(), conflicting,
+        ]))
+        with self.assertRaisesRegex(RuntimeError, "differs from reviewed COA"):
+            ensure_gl_account_details(api, {"gl_account_details": [first, second]},
+                                      ["accounting-journal-entries"])
+        api.request.assert_called_once_with("GET", "glaccounts")
+
+    def test_gl_detail_prerequisite_skips_workflows_without_ledger(self):
+        api = SimpleNamespace(request=unittest.mock.MagicMock())
+        self.assertEqual(ensure_gl_account_details(api, self.gl_detail_prerequisites(),
+                                                    ["loans"]), {"performed": False, "actions": []})
+        api.request.assert_not_called()
+
+    def test_ledger_workflows_freeze_same_hybrid_detail_prerequisites(self):
+        expected = {"222005050199", "3140020000"}
+        for workflow_id in ("local-full-sync", "local-full-resync", "prod-full-resync"):
+            details = load_workflow(workflow_id).document["target_prerequisites"]["gl_account_details"]
+            self.assertEqual({item["gl_code"] for item in details}, expected)
+            self.assertTrue(all(item["required_by_services"] == ["accounting-journal-entries"]
+                                for item in details))
+
+    @staticmethod
     def financial_activity_prerequisites():
         return {"financial_activity_mappings": [{
             "required_by_services": ["loans"],
@@ -799,7 +924,19 @@ class WorkflowDefinitionTests(unittest.TestCase):
         self.assertFalse(run.call_args.kwargs.get("shell", False))
         self.assertIs(run.call_args.kwargs["stdout"], subprocess.DEVNULL)
         self.assertIs(run.call_args.kwargs["stderr"], subprocess.DEVNULL)
+        self.assertTrue(run.call_args.kwargs["start_new_session"])
         sleep.assert_called_once_with(1)
+
+    def test_forced_local_restart_runs_even_when_api_is_healthy(self):
+        settings = SimpleNamespace(target=SimpleNamespace(name="local"))
+        controls = FineractRestartControls(1, 10, 1, FineractRestartControls.command)
+        with (
+            patch("arissto_sync.orchestration._fineract_api_ready", return_value=True),
+            patch("arissto_sync.orchestration.subprocess.run") as run,
+        ):
+            _restart_local_fineract(settings, controls, force=True)
+
+        run.assert_called_once()
 
     def test_guarded_local_reset_stops_restores_and_restarts(self):
         settings = SimpleNamespace(target=SimpleNamespace(
@@ -811,6 +948,7 @@ class WorkflowDefinitionTests(unittest.TestCase):
         with (
             patch("arissto_sync.orchestration.subprocess.run") as run,
             patch("arissto_sync.orchestration._restart_local_fineract") as restart,
+            patch("arissto_sync.orchestration._start_local_for_liquibase") as migrate,
         ):
             report = reset_local_fineract(
                 settings, "sandbox", "sandbox:fineract_sandbox",
@@ -818,9 +956,12 @@ class WorkflowDefinitionTests(unittest.TestCase):
             )
 
         self.assertEqual(report, {"performed": True, "tenant": "sandbox", "target": "local"})
-        self.assertEqual(run.call_count, 2)
+        self.assertEqual(run.call_count, 4)
         self.assertEqual(run.call_args_list[0].args[0], ["stop-fineract", "--local"])
         self.assertEqual(run.call_args_list[1].args[0][1:3], ["reset", "sandbox"])
+        self.assertEqual(run.call_args_list[2].args[0], ["stop-fineract", "--local"])
+        self.assertEqual(run.call_args_list[3].args[0][1:3], ["restore-access", "sandbox"])
+        migrate.assert_called_once_with(settings, restart_controls)
         restart.assert_called_once_with(settings, restart_controls)
 
     def test_guarded_local_reset_rejects_default_tenant(self):
@@ -830,6 +971,16 @@ class WorkflowDefinitionTests(unittest.TestCase):
         ))
         with self.assertRaisesRegex(ValueError, "non-default"):
             reset_local_fineract(settings, "default", "default:fineract_default")
+
+    def test_pending_access_snapshot_blocks_cycle_creation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            pending = Path(directory) / "sandbox.access-snapshot"
+            pending.mkdir()
+            with patch.dict(os.environ, {"TENANT_BASELINE_DIR": directory}):
+                with self.assertRaisesRegex(RuntimeError, "pending restore"):
+                    assert_no_pending_access_snapshot("sandbox")
+                pending.rmdir()
+                assert_no_pending_access_snapshot("sandbox")
 
     def test_guarded_local_reset_rejects_api_and_database_target_mismatch(self):
         settings = SimpleNamespace(target=SimpleNamespace(
@@ -953,7 +1104,9 @@ class ProductionCheckpointTests(unittest.TestCase):
             self.assertEqual(checkpoint["accepted_workflow_run_id"], workflow_run_id)
             self.assertFalse(checkpoint["document"].get("bootstrap", False))
 
-    def test_production_full_resync_freezes_all_service_checkpoints_and_cutoff(self):
+    @patch("arissto_sync.orchestration.source_journal_number_highwater",
+           return_value={"maxima": {"202609": 450}, "header_count": 450})
+    def test_production_full_resync_freezes_all_service_checkpoints_and_cutoff(self, _highwater):
         workflow_id = "prod-full-resync"
         services = load_workflow(workflow_id).services
         for service_id in services:
@@ -972,7 +1125,8 @@ class ProductionCheckpointTests(unittest.TestCase):
                 run_mode="full-resync", production_confirmation=self.fingerprint,
             )
 
-        self.assertEqual(len(document["ordered_services"]), 15)
+        self.assertEqual(len(document["ordered_services"]), 16)
+        self.assertEqual(document["ordered_services"][-1], "native-share-yield")
         self.assertEqual(set(document["service_checkpoints"]), set(services))
         self.assertEqual(
             document["accounting_cutoff"],
@@ -1023,7 +1177,9 @@ class ProductionCheckpointTests(unittest.TestCase):
         self.assertEqual(checkpoint["service_id"], "accounting-journal-entries")
         self.assertEqual(checkpoint["accepted_child_run_id"], run_id)
 
-    def test_local_full_resync_plan_uses_cycle_state_and_accepted_checkpoints(self):
+    @patch("arissto_sync.orchestration.source_journal_number_highwater",
+           return_value={"maxima": {"202609": 450}, "header_count": 450})
+    def test_local_full_resync_plan_uses_cycle_state_and_accepted_checkpoints(self, _highwater):
         workflow_id = "local-full-resync"
         cycle_id = "sandbox-cycle"
         self.state.initialize_cycle(
@@ -1176,7 +1332,9 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertEqual(document["readiness"]["blockers"], [])
         self.assertEqual(document["readiness"]["warnings"], [])
 
-    def test_full_sync_defaults_to_full_ledger_and_can_freeze_a_period(self):
+    @patch("arissto_sync.orchestration.source_journal_number_highwater",
+           return_value={"maxima": {"202609": 450}, "header_count": 450})
+    def test_full_sync_defaults_to_full_ledger_and_can_freeze_a_period(self, _highwater):
         with patch("arissto_sync.orchestration.preflight", return_value={"ok": True}):
             _full_plan_id, full_document = build_workflow_plan(
                 self.settings, self.state, "local-full-sync", self.cycle_id
@@ -1188,11 +1346,13 @@ class WorkflowStateTests(unittest.TestCase):
 
         self.assertEqual(
             full_document["runtime_controls"]["accounting-journal-entries"],
-            {"scope": "full-company", "source_periods": []},
+            {"scope": "full-company", "source_periods": [],
+             "journal_number_highwater": {"maxima": {"202609": 450}, "header_count": 450}},
         )
         self.assertEqual(
             document["runtime_controls"]["accounting-journal-entries"],
-            {"scope": "source-periods", "source_periods": ["00028"]},
+            {"scope": "source-periods", "source_periods": ["00028"],
+             "journal_number_highwater": {"maxima": {"202609": 450}, "header_count": 450}},
         )
 
     def test_selected_workflow_plan_executes_its_frozen_dependency_closure(self):
@@ -1205,6 +1365,8 @@ class WorkflowStateTests(unittest.TestCase):
         runtime = FakeRuntime(self.state, self.settings.target.fingerprint)
         with (
             patch("arissto_sync.orchestration.ServiceRuntime", return_value=runtime),
+            patch("arissto_sync.orchestration.ensure_treasury_bank_accounts",
+                  return_value={"performed": True, "actions": []}),
             patch(
                 "arissto_sync.orchestration.ensure_financial_activity_mappings",
                 return_value={"performed": True, "actions": [{
@@ -1530,6 +1692,31 @@ class WorkflowStateTests(unittest.TestCase):
         run = refresh_workflow_run(self.state, run_id)
         self.assertEqual(run["status"], "interrupted")
         self.assertEqual(run["error_code"], "runner-process-exited")
+
+    def test_resume_reloads_frozen_local_fineract_before_queueing(self):
+        controls = {"fineract_restart": {
+            "attempts": 1, "timeout_seconds": 300, "poll_seconds": 5,
+            "command": list(FineractRestartControls.command),
+        }}
+        run_id = self.create_run(controls)
+        self.state.finish_workflow_run(run_id, "failed", {}, "test", "test failure")
+        (self.state_path.parent / "workflow-runs").mkdir()
+        with (
+            patch("arissto_sync.orchestration._restart_local_fineract") as restart,
+            patch("arissto_sync.orchestration.FineractApi") as api_type,
+            patch("arissto_sync.orchestration.subprocess.Popen", return_value=SimpleNamespace(pid=123)) as launch,
+        ):
+            api_type.return_value.request.side_effect = [{"active": True}, {}, {"active": False}]
+            result = resume_workflow(
+                self.settings, self.state, run_id, self.cycle_id,
+                reload_local_fineract=True,
+            )
+
+        restart.assert_called_once()
+        self.assertTrue(restart.call_args.kwargs["force"])
+        api_type.return_value.request.assert_any_call("POST", "scheduler", {}, query={"command": "stop"})
+        launch.assert_called_once()
+        self.assertEqual(result["workflow_run_id"], run_id)
 
 
 class SyncCycleTests(unittest.TestCase):

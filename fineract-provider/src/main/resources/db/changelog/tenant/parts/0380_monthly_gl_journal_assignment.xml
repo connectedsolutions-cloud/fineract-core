@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="0380-monthly-gl-journal-assignment" author="credesal">
+        <createTable tableName="m_gl_journal_number_assignment">
+            <column name="group_key" type="VARCHAR(128)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="period_key" type="VARCHAR(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ref_num" type="VARCHAR(10)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_gl_journal_assignment_ref_num"/>
+            </column>
+            <column name="assignment_type" type="VARCHAR(10)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="m_gl_journal_number_assignment" baseColumnNames="period_key"
+                                 referencedTableName="m_gl_journal_number_sequence" referencedColumnNames="period_key"
+                                 constraintName="fk_gl_journal_assignment_period"/>
+        <createIndex tableName="acc_gl_journal_entry" indexName="idx_gl_journal_ref_num">
+            <column name="ref_num"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

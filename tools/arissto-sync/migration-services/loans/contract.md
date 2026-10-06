@@ -5,8 +5,9 @@
 The loans service is the sole migration owner of native Fineract loans and their
 historical financial lifecycle. It will create originated Arissto loans,
 approve and disburse them, replay supported repayments and reversals, preserve
-charges and restructuring history, and reconcile the resulting native balances
-and accounting.
+charges and restructuring history, and reconcile native loan events and
+balances. Loan sync does not create accounting journal items; the separate
+accounting workflow owns GL posting and reconciliation.
 
 The service includes only originated rows in `CRD_CARTERA`. Under reviewed
 scope decision [`SCOPE-001`](../scope-decisions.md#scope-001--standalone-credit-applications),
@@ -262,6 +263,13 @@ actions always precede loan actions. Every `loan:{ID_CREDITO}` action declares
 its `product:{ID_LINEA_CREDITO}` dependency so a failed or conflicting product
 prevents all dependent loan attempts.
 
+The native display name uses `{ID_LINEA_CREDITO} {NOMBRE_LINEA}` (for example,
+`00001 C-CONSUMO MULTIDESTINOS`). A product with the exact older generated
+`Arissto {ID_LINEA_CREDITO} {NOMBRE_LINEA}` name and the expected external ID
+is eligible for a planned API rename. A different existing name remains a
+contract conflict. Existing target names change only when that reviewed plan
+is applied; previously frozen plans retain their original payload.
+
 Each created product also stores migration `0315` API field `numberingCode`.
 The value is the verified account-number family `3<first letter of
 NOMBRE_LINEA>1`, currently `3C1` for line `00001` and `3M1` for line `00010`.
@@ -300,6 +308,14 @@ basis. It is not added on an exact installment due date, does not apply before
 the first due date, and is not applied to flat-interest or non-daily-interest
 loans. Replay removes previously derived post-due interest before recalculating
 transactions, preventing duplicate materialization after reversal or replay.
+
+The permission-gated source-exact repayment path also covers a historical
+repayment dated before the first due date of the currently imported schedule.
+When its frozen interest component exceeds the schedule's remaining interest,
+the processor adds only the missing amount as derived interest on that
+installment. It does not add interest when the schedule has enough capacity or
+on the first due date. The repayment must still pass exact component and
+reconciliation checks; replay removes and recalculates the derived amount.
 
 The basis is not hard-coded to 365. The calculator honors Fineract's native
 loan-product setting: fixed `360`, `364`, or `365` divides elapsed calendar
@@ -491,7 +507,8 @@ proves that it reproduces the stored schedule, including:
 - grace periods; and
 - restructured schedules.
 
-Acceptance for a regular migrated loan requires the same installment count,
+Acceptance for a regular migrated loan with strictly increasing due dates
+requires the same installment count,
 installment number, exact due date, principal amount, and interest amount for
 every source installment, plus matching aggregate principal and interest at
 currency precision. A native residual or interest-distribution difference is
@@ -500,15 +517,26 @@ principal is unchanged.
 `MONTO_OTROS` and `MONTO_APORTACION` are excluded from this core comparison and
 must pass their separate charge or contribution contracts.
 
-A different date, component-total drift, or another material difference makes
-the plan non-applicable until reviewed. The writer must never silently
-normalize source dates or discard a source component.
+For a regular loan, a different date, component-total drift, or another
+material difference makes the plan non-applicable until reviewed. The writer
+must never silently normalize source dates or discard a source component.
+
+When installment due dates do not strictly increase in source installment
+order, the planner retains every original `CRD_PLAN_PAGO` row as provenance
+and selects policy `unordered-source-schedule-dates`. It does not try to write
+those dates as a Fineract contractual schedule or quarantine the loan solely
+for their order. Fineract generates its native chronological schedule; the
+source/native schedule difference is reported as a non-blocking variance.
+Exact source movement identities and allocations, refinance settlements,
+cutover balances, and terminal status remain subject to their normal checks.
+Other intrinsic quarantine reasons still apply. This policy also covers equal
+dates, except when a more specific reviewed source-exact aggregation applies.
 
 Both the non-posting `prove-loan-schedule` command and lifecycle reconciliation
-enforce this schedule boundary. Lifecycle reconciliation reads the native
-repayment periods and blocks on count, number, date, principal, interest, or
-aggregate-total drift. It does not convert these differences into accepted
-native variances.
+enforce the regular schedule boundary. Lifecycle reconciliation reads the
+native repayment periods and blocks on count, number, date, principal, interest,
+or aggregate-total drift for regular loans. The unordered-date policy above
+records these differences as variances.
 
 Apply also enforces the boundary before mutating the new loan. Migration loan
 products enable native variable installments with a one-day minimum and
@@ -536,6 +564,61 @@ execution and is never rewritten by this pending-application path.
 Plans freeze schedule writer version `fineract-variable-installments-v1`; older
 plans must be rebuilt.
 
+#### Source-exact initial replacement when native calculation differs
+
+A new plan may freeze `source_exact_manual_fallback=initial-zero-servicing-v1` for
+an otherwise regular, strictly ordered source schedule. The writer still tries
+the native preview first. If its installment count, dates, principal, or interest
+cannot match Arissto, the plan permits one initial source-exact replacement
+**after disbursement and before any non-disbursement transaction**. It writes
+the original Arissto installment components through Fineract's guarded
+`sourceExactResyncSchedule` command with the target's observed schedule hash, a
+frozen replacement hash, and an expected non-disbursement count of zero. The
+persisted schedule is compared again before historical movements are replayed.
+A serviced target with schedule drift still fails; the fallback is not a way to
+rewrite historical payments during a fresh or resumed import.
+
+A source plan that distributes less than the original principal can qualify for
+`fineract-source-exact-remaining-schedule-v1`. The planner requires the current
+rows to be sequential and strictly dated, and checks the principal gap against
+source payment history and the source state. Active loans must have paid exactly
+the gap and retain the plan total as their current principal balance. Closed
+loans must have paid the original principal and have zero current principal
+balance. All source movements must be dated no later than the day before the
+first current source due date. An inconsistent adjusted plan is quarantined.
+
+For a qualifying plan, Fineract receives one historical paid installment on
+the day before the first current due date. Its principal is original principal
+minus current-plan principal, and its interest is the source-exact interest
+already paid. The remaining Fineract installments copy every current Arissto
+due date and principal/interest amount without native component generation.
+Fineract installment numbers shift by one to make room for the historical
+period; the original Arissto numbering remains in the frozen plan. The full
+target schedule, each movement identity and component allocation, cutoff
+balances, terminal state, and journals remain blocking reconciliation checks.
+A closed loan's later payoff and any bounded terminal adjustment must still
+close it; copying its last stored plan never creates a new receivable.
+
+The reviewed regenerated-plan cohort `2357`, `2427`, and `2499` includes
+payments after the stored schedule was regenerated. Their planner exception is
+limited to the verified original principal, current schedule total, first due
+date, and adjustment count for each loan. It separates repayments using each
+movement's `DT_CREO` and the latest `CRD_REESTRUCTURACION.DT_CREO`. The net
+principal paid through the adjustment must equal original principal less the
+current schedule total. Historical interest-only payments remain in the bridge;
+later movements retain their source order and must reconcile the remaining
+schedule to the current source principal balance or closed state. The
+historical portion must end before the first current due date, and later
+movements must be dated after its last movement. A missing creation timestamp,
+changed schedule signature, unmatched principal gap, or balance remains
+quarantined. Source evidence, including `2427`'s same-day
+post-adjustment payment, is in the [loan research note](../../../../../../credesal-db-space/docs/learnings/prestamos.md#pagos-posteriores-a-la-regeneración-del-plan).
+
+The initial replacement uses the same atomic Fineract schedule-replacement
+command as reviewed full re-sync, but only with zero non-disbursement
+transactions. This is a separate initial-import authorization; full re-sync
+still requires its own immutable target-schedule and transaction-count guard.
+
 A reviewed `full-resync` plan has one narrower exception for an active loan
 whose authoritative Arissto contractual schedule changed after its original
 migration. The planner freezes the current target schedule hash, the replacement
@@ -546,8 +629,9 @@ transactions. The identity, both hashes, and transaction count are checked
 again immediately before the write. Replacement, transaction reprocessing,
 summary updates, and persistence share one database transaction; any failure
 rolls the replacement back. A replay whose target already has the replacement
-hash is a no-op. This authorization exists only in a newly created full-resync
-plan; historical plans and ordinary recovery paths remain fail-closed.
+hash is a no-op. Replacement of a serviced schedule is authorized only in a
+newly created full-resync plan; historical plans and ordinary recovery paths
+remain fail-closed. The zero-servicing initial import above is a separate case.
 
 Arissto rounds exact half-cent periodic interest toward the lower cent. To
 preserve source-exact migrated schedules, Fineract uses `HALF_DOWN` for
@@ -572,6 +656,35 @@ source-derived signature. Normal loans inherit the product's Actual/Actual
 behavior and receive neither override. The ordinary source-exact variable-
 installment preview and persisted-schedule guards remain mandatory.
 
+For disbursed Arissto loans, Fineract `expectedDisbursementDate` records the
+source contractual `CRD_CARTERA.FECHA_OTORGAMIENTO`, while the actual
+disbursement transaction keeps the effective `4/00002` movement date. The
+application and approval payloads must agree on that expected date. An
+undisbursed source loan without contractual origination retains its planned
+application disbursement date. A date difference alone must not rewrite the
+frozen contractual installments: if the ordinary disbursement path regenerates
+an exact-source variable schedule, the sync restores the source-exact schedule
+before any servicing event, under its zero-servicing and schedule-hash guards.
+The active source-exact schedule writer retains its existing post-disbursement
+reconciliation. This migration rule does not change automatic recalculation
+for loans originated natively in Fineract.
+
+Four reviewed historical refinancing successors (`2357`, `2427`, `2498`, and
+`2499`) have a later contractual origin than their actual disbursement and
+predecessor payoff. Fineract prices the predecessor at the application's
+`expectedDisbursementDate`; using the later contractual date rejects the
+source-exact successor principal before the historical settlement can be
+posted. For only these four frozen source signatures, application and approval
+use the actual financial disbursement/payoff date as the expected date. The
+contractual origin remains in the reviewed override and source evidence; the
+actual disbursement and source-exact settlement remain unchanged. Any change
+to predecessor, either date, principal, or payoff amount quarantines the loan
+instead of expanding this exception. Native Fineract loans are unaffected.
+Recovery of a previously imported loan whose expected date still equals the
+movement date fails closed when the two source dates differ. Do not treat an
+unchanged replay as a date migration; updating an existing target requires a
+separate reviewed repair contract.
+
 Loan `3` is a separate line-`00001` signature, not a member of that line-`00010`
 legacy cohort. Its effective disbursement is exactly one day before source
 origination, its first interest matches fixed-365 accrual from that effective
@@ -588,7 +701,12 @@ between Fineract's post-replay balances and the terminal component balances
 frozen from Arissto, submits all four portions explicitly, and then re-reads the
 loan. Apply and reconciliation fail unless every component and the terminal
 status match Arissto. Fineract must not choose the adjustment allocation from a
-single undifferentiated total.
+single undifferentiated total. A closed source loan that had an outgoing partial
+refinance also receives this adjustment when an unreversed repayment after the
+refinance payoff closed its remaining balance. The bridge is dated to that last
+repayment, after the native settlement, and is bounded by the approved source
+amount. The outgoing refinance alone never triggers a premature close. The
+changed contract hash requires a new reviewed loan plan on workflow resume.
 
 Loan `2068` remains the known diagnostic for Arissto's mixed 360/365 schedule
 formula. The dedicated transaction strategy makes its actual late repayment
@@ -631,9 +749,11 @@ Acceptance remains strict at the financial-lifecycle boundary. Every source
 movement identity and component total must be preserved, and cutover balances
 and terminal status must reconcile at currency precision. The plan records the
 source schedule and native difference as `manual-adjustment` evidence. This
-allowlist must not be generalized to another loan or product merely because a
-native schedule differs. New exceptions require their own reviewed evidence
-and contract change. The source evidence is documented in
+manual-adjustment allowlist must not be generalized to another loan or product
+merely because a native schedule differs. The separate unordered-date policy
+above applies only when the frozen source dates are not strictly increasing.
+New manual exceptions require their own reviewed evidence and contract change.
+The source evidence is documented in
 `docs/learnings/prestamos.md` in the exploration repository.
 
 Line `00010` loans `301`, `1117`, `1182`, `1484`, `1743`, `1748`, `2069`,
@@ -962,15 +1082,24 @@ The writer must therefore keep the two paths disjoint: source-exact historical
 charge facts before cutover, and one dynamic native charge from cutover onward.
 It must quarantine a loan if the same installment would receive both paths.
 
-For full re-sync, a later source repayment may reduce the carried
-`source_insurance_cutover_outstanding` snapshot. The writer must allocate that
-repayment's exact insurance component to the existing cutover charge when, and
-only when, the sum of newly observed post-cutover insurance components exactly
-equals the decrease from the target charge's current outstanding amount to the
-newly frozen `SALDO_SEGURO`. It must preserve the cutover charge's external
-identity and immutable original amount. Creating and immediately settling a new
-historical charge does not reduce the carried balance and is forbidden for this
-case. Ambiguous deltas and conflicting existing payment ownership fail closed.
+For full re-sync, Arissto `SALDO_SEGURO` is the source-owned current balance.
+New source-exact repayments retain their own historical insurance charge and
+payment identity. An already posted repayment keeps its existing charge
+ownership. After those events, the writer creates the cutover charge if needed
+and uses the migration-only `sourceExactRebaseInsurance` command to set its
+outstanding amount to the frozen `SALDO_SEGURO`, whether the previous target
+balance was higher or lower. The command retains paid, waived, and written-off
+amounts, adjusts the charge total, reprocesses the loan, and verifies the exact
+outstanding amount. A zero source balance likewise clears an existing cutover
+charge; an absent charge and zero source balance require no write. Repeating
+the same snapshot is a no-write operation. The command is audited and requires
+`USE_ARISSTO_OPERATIONAL_MIGRATION`.
+
+The migration command uses the Arissto operational posting context. Accounting
+ownership after the frozen cutoff remains governed by the workflow accounting
+contract; an insurance rebase is not permission to post Arissto GL on or after
+Fineract's first owned date. The command audit records the prior and source
+outstanding amounts so accounting differences remain visible for review.
 
 Fineract's general interest-recalculation configuration remains incompatible
 with the dynamic `PERCENT_OF_OUTSTANDING_PRINCIPAL` installment charge and is
@@ -1002,20 +1131,83 @@ settlement as `FULL_CLOSE` or `PARTIAL_PAYDOWN`, submits only the full-close
 predecessors in `loanIdsToClose`, and submits one source-exact settlement row
 for every predecessor. Fineract atomically creates every loan-to-loan transfer
 before disbursing the exact remaining net cash. Full-close predecessors must
-end closed without a material balance; partial-paydown predecessors must remain
-active with a positive residual and retain any later source transactions.
+end closed without a material balance; partial-paydown predecessors must be
+active with a positive residual immediately after settlement and retain any
+later source transactions. They may close after those transactions.
 Because Fineract recalculates each full-close predecessor at the historical
 payoff date, deterministic goodwill-credit bridges separately capture each
 dated prepayment-quote difference and any post-settlement residual; no bridge
 is represented as customer cash. Partial paydowns use their exact source
 allocation and never receive a closure bridge.
 
-The fail-closed partial classifier requires all three facts: the source
-predecessor is currently active, its current balance is material, and it has an
-unreversed posted payment after the consolidation date. Otherwise the
-settlement remains `FULL_CLOSE`. A mixed consolidation must contain at least
-one full-close settlement; an all-partial group is quarantined rather than
+The settlement classifier uses the predecessor's `CRD_MOVIMIENTO_PRE_POS`
+state immediately after the refinancing payment. An active post-payment state
+plus a later unreversed payment identifies a historical `PARTIAL_PAYDOWN` even
+when the predecessor has since closed. An active post-payment state plus a
+material current active balance also identifies a partial paydown. A later
+payment with a missing or closed post-payment state is quarantined for
+chronology review instead of being silently classified as `FULL_CLOSE`.
+Fully refunded later collections with zero applied amount do not count as
+later payments. Loan `2107` has one such `$20.00` collection after its payoff;
+its frozen financial events settle the full `$300.00` principal, so successor
+`2168` must not be classified as a partial-paydown refinance on that basis.
+Current `CRD_CARTERA` status and balance describe the source-through snapshot,
+not the result of an earlier settlement. The frozen plan records classifier
+version `historical-post-payoff-state-v2`; older refinancing plans cannot be
+applied after this change. A mixed consolidation must contain at least one
+full-close settlement; an all-partial group is quarantined rather than
 invented as refinancing.
+
+The loan writer now groups connected refinancing loans for staged replay.
+Before each successor disbursement, it posts each predecessor only through the
+source payoff boundary. The successor creates the native settlement and
+transfer; the writer then posts later predecessor payments and finalizes the
+whole component. This prevents a predecessor that closes later from being
+closed prematurely at the refinancing date. A correctly posted partial
+settlement may have a closed predecessor at a later full re-sync snapshot;
+the target settlement identity, type, amount, and four allocations must still
+match the source. New payments can then be appended in historical order.
+
+### Historical chain changes during full re-sync
+
+A later Arissto payment, reversal, or correction can change the correct
+interpretation of an earlier refinancing. A changed loan hash is therefore a
+signal to inspect its entire connected predecessor/successor chain, including
+the dated settlement and all later source movements. The existing
+`replace-and-reprocess-v1` full re-sync permission covers only a contractual
+schedule replacement on an active loan. It does **not** authorize rewriting a
+previously posted settlement, reopening a closed predecessor, changing a
+loan-to-loan transfer, or replacing transaction history.
+
+The planner reads native `m_loan_refinancing_settlement` rows and compares
+their type, amount, allocation, and payoff transaction identity with the
+current source chain. An exact match permits normal append-only replay,
+including a predecessor that closed after the historical partial paydown.
+When the successor is not yet disbursed and each predecessor remains open,
+the planner may instead freeze all later source-owned native transactions and
+select the permission-gated `sourceExactHistoricalRefinancingDisburse` command.
+Fineract checks that frozen target list under predecessor locks, inserts the
+historical payoff through its native loan-to-loan transfer, reprocesses the
+later native transactions, and verifies that their dates, amounts, and
+allocations remain unchanged. Unrelated later activity or changed target
+state aborts the command. A mismatch on an already posted settlement or a
+closed predecessor without a matching native settlement remains blocking.
+
+The required chain-repair path must freeze the source movement identity,
+date, amount, allocation, reversal state, and immediate PRE/POS evidence for
+every affected loan; compare those against the native Fineract transactions
+and transfer links; and perform a permission-gated, atomic native chain
+revision with exact target-state guards. Later source corrections must reverse
+or supersede the prior native transaction and preserve its audit history;
+unchanged source IDs must not be posted twice. Reprocess all affected schedules
+and balances in historical order, then reconcile both event completeness and
+terminal balances. The loan writer must not approximate a changed historical
+chain with a goodwill bridge or a current-balance adjustment. The broader
+replacement command for an already posted settlement or corrected source
+event is not yet implemented, so those changes remain blocking full re-sync
+conditions rather than automatic repairs.
+The cross-stack requirement and replay gates are in
+[Native loan history and chain repair](../../../../../docs/ARISSTO_LOAN_HISTORY_RESYNC.md).
 
 A fully reversed refinance attempt is omitted only when the predecessor
 payoff has an exact compensating reversal, the abandoned successor contains
@@ -1108,8 +1300,8 @@ services run.
 - The bounded worker pool records dependent loans as `blocked` when the product
   fails. After product resolution, it may run independent loans concurrently,
   but it submits, approves, disburses, and replays each individual lifecycle in
-  source order only after the non-posting native schedule matches the frozen
-  source schedule. Refinance successors wait for their predecessor outcomes.
+  source order after the regular non-posting native schedule check or the
+  explicit unordered-date variance policy. Refinance successors wait for their predecessor outcomes.
   A hard-crash retry includes plan actions with no journal row, not only
   explicit failures.
 - Each worker owns its Fineract HTTP session and never writes SQLite state.
@@ -1156,10 +1348,11 @@ For every selected loan, reconciliation compares:
 - native journal entries against the reviewed accounting roles.
 
 Transaction identity, date, total amount, principal/interest/penalty/fee
-allocation, reversal state, terminal status, schedule count/dates/amounts, and
-journal balance are blocking mismatches. Only explicitly reviewed
-point-in-time balance interpretations and the three line `00001` manual
-schedule exceptions are emitted as non-blocking variances. A correct payment
+allocation, reversal state, terminal status, and journal balance are blocking
+mismatches. Schedule count/dates/amounts are blocking for regular loans and
+reported as variances under the explicit manual-adjustment,
+historical-reference-only, or unordered-date policies. Reviewed point-in-time
+balance interpretations can also be non-blocking variances. A correct payment
 total never excuses a different historical component allocation.
 
 Acceptance requires a controlled local lifecycle run that covers at least:

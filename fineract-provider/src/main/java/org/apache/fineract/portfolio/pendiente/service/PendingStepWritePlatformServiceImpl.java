@@ -142,6 +142,7 @@ public class PendingStepWritePlatformServiceImpl implements PendingStepWritePlat
         String note = parseNoteFromRequest(json);
 
         PendingStep step = stepRepository.findById(id).orElseThrow(() -> new PendingStepNotFoundException(id));
+        attachTreasuryBank(step, json);
         PendingFlow flow = step.getPendingFlow();
         if (flow == null) {
             throw new PendingStepNotFoundException(id);
@@ -224,6 +225,25 @@ public class PendingStepWritePlatformServiceImpl implements PendingStepWritePlat
         }
 
         return readService.retrieveOne(step.getId());
+    }
+
+    private void attachTreasuryBank(PendingStep step, String json) {
+        if (json == null || json.isBlank()) {
+            return;
+        }
+        try {
+            JsonObject object = fromJsonHelper.parse(json).getAsJsonObject();
+            if (!object.has("treasuryBankAccountId") || object.get("treasuryBankAccountId").isJsonNull()) {
+                return;
+            }
+            long bankAccountId = object.get("treasuryBankAccountId").getAsLong();
+            JsonObject references = StringUtils.isBlank(step.getReferences()) ? new JsonObject()
+                    : fromJsonHelper.parse(step.getReferences()).getAsJsonObject();
+            references.addProperty("treasuryBankAccountId", bankAccountId);
+            step.setReferences(references.toString());
+        } catch (RuntimeException ex) {
+            throw new IllegalArgumentException("treasuryBankAccountId is invalid");
+        }
     }
 
     private String parseNoteFromRequest(String json) {

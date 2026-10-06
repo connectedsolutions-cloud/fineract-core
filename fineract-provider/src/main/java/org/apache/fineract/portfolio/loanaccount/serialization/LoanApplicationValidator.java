@@ -116,6 +116,7 @@ import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.LoanSchedul
 import org.apache.fineract.portfolio.loanaccount.mapper.LoanMapper;
 import org.apache.fineract.portfolio.loanaccount.service.LoanReadPlatformService;
 import org.apache.fineract.portfolio.loanaccount.service.LoanUtilService;
+import org.apache.fineract.portfolio.loanaccount.service.SourceExactRefinancingRepairContext;
 import org.apache.fineract.portfolio.loanproduct.LoanProductConstants;
 import org.apache.fineract.portfolio.loanproduct.data.LoanProductData;
 import org.apache.fineract.portfolio.loanproduct.domain.AdvancedPaymentAllocationsValidator;
@@ -2006,7 +2007,8 @@ public final class LoanApplicationValidator {
             }
 
             final LocalDate lastUserTransactionOnLoanToClose = loanToClose.getLastUserTransactionDate();
-            if (lastUserTransactionOnLoanToClose != null && DateUtils.isBefore(disbursementDate, lastUserTransactionOnLoanToClose)) {
+            if (!SourceExactRefinancingRepairContext.isActive() && lastUserTransactionOnLoanToClose != null
+                    && DateUtils.isBefore(disbursementDate, lastUserTransactionOnLoanToClose)) {
                 throw new GeneralPlatformDomainRuleException(
                         "error.msg.loan.disbursal.date.should.be.after.last.transaction.date.of.loan.to.be.closed",
                         "Disbursal date of this refinancing loan " + disbursementDate

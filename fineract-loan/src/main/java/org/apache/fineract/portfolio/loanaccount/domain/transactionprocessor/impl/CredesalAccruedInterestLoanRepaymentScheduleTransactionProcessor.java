@@ -139,7 +139,7 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
 
     private void materializeSourceExactPostDueInterest(final LoanTransaction loanTransaction, final MonetaryCurrency currency,
             final List<LoanRepaymentScheduleInstallment> installments) {
-        if (installments.isEmpty() || !loanTransaction.getTransactionDate().isAfter(installments.getFirst().getDueDate())) {
+        if (installments.isEmpty() || loanTransaction.getTransactionDate().isEqual(installments.getFirst().getDueDate())) {
             return;
         }
         final Money requestedInterest = loanTransaction.getSourceExactInterestPortion(currency);
@@ -148,6 +148,9 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
         if (!requestedInterest.isGreaterThan(representableInterest)) {
             return;
         }
+        // A historical source-exact repayment may precede the first due date in the current source schedule.
+        // Preserve its frozen interest component as derived interest instead of rejecting a valid source movement.
+        // On the first due date, the contractual schedule remains the limit and an excess still fails closed.
         final Money sourcePostDueInterest = requestedInterest.minus(representableInterest);
         installments.stream().filter(LoanRepaymentScheduleInstallment::isNotFullyPaidOff)
                 .min((left, right) -> left.getDueDate().compareTo(right.getDueDate())).orElse(installments.getFirst())
