@@ -170,7 +170,8 @@ public final class LoanApplicationValidator {
             LoanApiConstants.fixedEmiAmountParameterName, LoanApiConstants.maxOutstandingBalanceParameterName,
             LoanProductConstants.GRACE_ON_ARREARS_AGEING_PARAMETER_NAME,
             LoanApiConstants.createStandingInstructionAtDisbursementParameterName, LoanApiConstants.isTopup, LoanApiConstants.loanIdToClose,
-            LoanApiConstants.loanIdsToClose, LoanApiConstants.datatables, LoanApiConstants.isEqualAmortizationParam,
+            LoanApiConstants.loanIdsToClose, LoanApiConstants.sourceExactRefinancingQuoteDate, LoanApiConstants.datatables,
+            LoanApiConstants.isEqualAmortizationParam,
             LoanProductConstants.RATES_PARAM_NAME, LoanApiConstants.applicationId, // glim specific
             LoanApiConstants.lastApplication, // glim specific
             LoanApiConstants.daysInYearTypeParameterName, LoanApiConstants.fixedPrincipalPercentagePerInstallmentParamName,
@@ -245,7 +246,7 @@ public final class LoanApplicationValidator {
         validateRequestBody(json);
         validateForSupportedParameters(json);
         final JsonElement element = this.fromApiJsonHelper.parse(json);
-        validateForCreate(element);
+        validateForCreate(element, false);
     }
 
     public void validateForCreate(JsonQuery query) {
@@ -253,10 +254,10 @@ public final class LoanApplicationValidator {
         validateRequestBody(json);
         final JsonElement element = this.fromApiJsonHelper.parse(json);
         validateForSupportedParameters(json);
-        validateForCreate(element);
+        validateForCreate(element, true);
     }
 
-    private void validateForCreate(final JsonElement element) {
+    private void validateForCreate(final JsonElement element, final boolean schedulePreview) {
         boolean isMeetingMandatoryForJLGLoans = configurationDomainService.isMeetingMandatoryForJLGLoans();
 
         final Long productId = this.fromApiJsonHelper.extractLongNamed(LoanApiConstants.productIdParameterName, element);
@@ -648,6 +649,13 @@ public final class LoanApplicationValidator {
             final BigDecimal principal = this.fromApiJsonHelper.extractBigDecimalWithLocaleNamed(LoanApiConstants.principalParamName,
                     element);
 
+            final Boolean requestedTopup = this.fromApiJsonHelper.extractBooleanNamed(LoanApiConstants.isTopup, element);
+            final LocalDate refinancingQuoteDate = sourceExactRefinancingQuoteDate(
+                    this.fromApiJsonHelper.parameterExists(LoanApiConstants.sourceExactRefinancingQuoteDate, element),
+                    this.fromApiJsonHelper.extractLocalDateNamed(LoanApiConstants.sourceExactRefinancingQuoteDate, element),
+                    expectedDisbursementDate, submittedOnDate,
+                    loanProduct.isCanUseForTopup() && Boolean.TRUE.equals(requestedTopup),
+                    this.fromApiJsonHelper.extractStringNamed(LoanApiConstants.externalIdParameterName, element), schedulePreview);
             if (loanProduct.isCanUseForTopup() && this.fromApiJsonHelper.parameterExists(LoanApiConstants.isTopup, element)) {
                 final Boolean isTopup = this.fromApiJsonHelper.extractBooleanNamed(LoanApiConstants.isTopup, element);
                 baseDataValidator.reset().parameter(LoanApiConstants.isTopup).value(isTopup).validateForBooleanValue();
@@ -661,7 +669,7 @@ public final class LoanApplicationValidator {
                     }
                     if (clientId != null && !loanIdsToClose.isEmpty()) {
                         final BigDecimal outstanding = validateRefinancingApplicationLoans(loanIdsToClose, clientId, loanProduct,
-                                submittedOnDate, expectedDisbursementDate);
+                                submittedOnDate, refinancingQuoteDate);
                         if (outstanding.compareTo(principal) > 0) {
                             throw new GeneralPlatformDomainRuleException("error.msg.loan.amount.less.than.refinancing.settlement.total",
                                     "Refinancing loan amount must be at least the combined outstanding amount of all loans to be closed.");
@@ -848,6 +856,10 @@ public final class LoanApplicationValidator {
         validateRequestBody(json);
 
         validateForSupportedParameters(json);
+        if (this.fromApiJsonHelper.parameterExists(LoanApiConstants.sourceExactRefinancingQuoteDate,
+                this.fromApiJsonHelper.parse(json))) {
+            throw new UnsupportedParameterException(List.of(LoanApiConstants.sourceExactRefinancingQuoteDate));
+        }
 
         if (!loan.isSubmittedAndPendingApproval()) {
             throw new LoanApplicationNotInSubmittedAndPendingApprovalStateCannotBeModified(loan.getId());
@@ -1932,6 +1944,24 @@ public final class LoanApplicationValidator {
         return legacyLoanId == null ? List.of() : List.of(legacyLoanId);
     }
 
+    static LocalDate sourceExactRefinancingQuoteDate(final boolean provided, final LocalDate quoteDate,
+            final LocalDate expectedDisbursementDate, final LocalDate submittedOnDate, final boolean isTopup, final String externalId,
+            final boolean schedulePreview) {
+        if (!provided) {
+            return expectedDisbursementDate;
+        }
+        // The quote date is only a predecessor-payoff calculation input. It
+        // must never replace the successor's contractual expected start date.
+        if (quoteDate == null || expectedDisbursementDate == null || submittedOnDate == null || !isTopup
+                || quoteDate.isBefore(submittedOnDate) || quoteDate.isAfter(expectedDisbursementDate)
+                || (!schedulePreview && (externalId == null || !externalId.matches(
+                        "ARISSTO:CRD:[0-9]+|PROOF:[a-z0-9][a-z0-9-]{0,23}:ARISSTO:CRD:[0-9]+")))) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.refinancing.quote.date.invalid",
+                    "A source-exact refinancing quote date requires an Arissto top-up and must be between submission and contractual disbursement");
+        }
+        return quoteDate;
+    }
+
     private BigDecimal validateRefinancingApplicationLoans(final List<Long> loanIdsToClose, final Long clientId,
             final LoanProduct loanProduct, final LocalDate submittedOnDate, final LocalDate expectedDisbursementDate) {
         BigDecimal totalOutstanding = BigDecimal.ZERO;
@@ -2039,7 +2069,8 @@ public final class LoanApplicationValidator {
                 Arrays.asList(LoanApiConstants.loanIdTobeApproved, LoanApiConstants.approvedLoanAmountParameterName,
                         LoanApiConstants.approvedOnDateParameterName, LoanApiConstants.disbursementNetDisbursalAmountParameterName,
                         LoanApiConstants.noteParameterName, LoanApiConstants.localeParameterName, LoanApiConstants.dateFormatParameterName,
-                        LoanApiConstants.disbursementDataParameterName, LoanApiConstants.expectedDisbursementDateParameterName));
+                        LoanApiConstants.disbursementDataParameterName, LoanApiConstants.expectedDisbursementDateParameterName,
+                        LoanApiConstants.sourceExactRefinancingQuoteDate));
 
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, disbursementParameters);
@@ -2083,6 +2114,11 @@ public final class LoanApplicationValidator {
             if (expectedDisbursementDate == null) {
                 expectedDisbursementDate = loan.getExpectedDisbursedOnLocalDate();
             }
+            final LocalDate refinancingQuoteDate = sourceExactRefinancingQuoteDate(
+                    this.fromApiJsonHelper.parameterExists(LoanApiConstants.sourceExactRefinancingQuoteDate, element),
+                    this.fromApiJsonHelper.extractLocalDateNamed(LoanApiConstants.sourceExactRefinancingQuoteDate, element),
+                    expectedDisbursementDate, loan.getSubmittedOnDate(), loan.isTopup(),
+                    loan.getExternalId().isEmpty() ? null : loan.getExternalId().getValue(), false);
 
             if (approvedOnDate != null && DateUtils.isBefore(approvedOnDate, loan.getSubmittedOnDate())) {
                 final String errorMessage = "Loan approval date " + approvedOnDate + " can not be before its submittal date: "
@@ -2121,7 +2157,7 @@ public final class LoanApplicationValidator {
                     StatusEnum.APPROVE.getValue(), EntityTables.LOAN.getForeignKeyColumnNameOnDatatable(), loan.productId());
 
             if (loan.isTopup() && loan.getClientId() != null) {
-                final BigDecimal settlementTotal = validateTopupLoan(loan, expectedDisbursementDate);
+                final BigDecimal settlementTotal = validateTopupLoan(loan, refinancingQuoteDate);
                 final BigDecimal netDisbursalAmountAdjusted = loan.getApprovedPrincipal().subtract(settlementTotal);
                 loan.adjustNetDisbursalAmount(netDisbursalAmountAdjusted);
             }

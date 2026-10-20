@@ -55,6 +55,7 @@ import org.apache.fineract.portfolio.savings.data.SavingsAccountData;
 import org.apache.fineract.portfolio.savings.service.SavingsAccountReadPlatformService;
 import org.apache.fineract.portfolio.shareaccounts.data.ShareAccountApplicationTimelineData;
 import org.apache.fineract.portfolio.shareaccounts.data.ShareAccountChargeData;
+import org.apache.fineract.portfolio.shareaccounts.data.ApprovedShareCollectionData;
 import org.apache.fineract.portfolio.shareaccounts.data.ShareAccountData;
 import org.apache.fineract.portfolio.shareaccounts.data.ShareAccountDividendData;
 import org.apache.fineract.portfolio.shareaccounts.data.ShareAccountStatusEnumData;
@@ -516,5 +517,16 @@ public class ShareAccountReadPlatformServiceImpl implements ShareAccountReadPlat
         } catch (final EmptyResultDataAccessException e) {
             throw new ShareAccountNotFoundException(accountId, e);
         }
+    }
+
+    @Override
+    public java.util.List<ApprovedShareCollectionData> retrieveApprovedUnpaid(final Long officeId) {
+        final String sql = "select sa.id as id, sa.account_no as accountNo, c.display_name as clientName, "
+                + "coalesce(sum(saps.amount), 0) as amountDue " + "from m_share_account sa " + "join m_client c on c.id = sa.client_id "
+                + "join m_share_account_transactions saps on saps.account_id = sa.id and saps.is_active = true "
+                + "and saps.type_enum = 500 and saps.status_enum = 300 " + "where sa.status_enum = 200 and c.office_id = ? "
+                + "group by sa.id, sa.account_no, c.display_name " + "order by c.display_name, sa.account_no";
+        return this.jdbcTemplate.query(sql, (rs, rowNum) -> new ApprovedShareCollectionData(rs.getLong("id"), rs.getString("accountNo"),
+                rs.getString("clientName"), rs.getBigDecimal("amountDue")), officeId);
     }
 }

@@ -1,7 +1,8 @@
-"""Read-only local sandbox preflight for a future carry-forward seed.
+"""Read-only checks for a populated carry-forward input or a staged seed.
 
-Passing this target-side check is necessary but does not authorize seed capture,
-cutoff reinitialization, tenant restore, or a workflow run.
+The current sandbox is the input, so active loans and financial history are
+expected. The closed-only, zero-ledger rules apply to the staged output seed.
+Neither check authorizes a reset or workflow start.
 """
 from __future__ import annotations
 
@@ -41,7 +42,10 @@ def classify_target(
     target: TargetConfig, cutoff: tuple[Any, ...] | None,
     loan_status_counts: dict[int, int], non_arissto_loans: int,
     late_transactions: int, table_counts: dict[str, int | None],
+    *, phase: str = "input",
 ) -> dict[str, Any]:
+    if phase not in {"input", "seed"}:
+        raise ValueError("Carry-forward phase must be input or seed")
     blockers: list[str] = []
     pg = urlparse(target.pg_url or "")
     api_host = urlparse(target.api_url or "").hostname
@@ -63,22 +67,24 @@ def classify_target(
             str(cutoff[3]) != cutoff_hash(cutoff_date, str(lifecycle_state), revision)
         ):
             blockers.append("cutoff_hash_invalid")
-    for status, count in loan_status_counts.items():
-        if status not in CLOSED_STATUSES and count:
+    if phase == "seed":
+        if any(status not in CLOSED_STATUSES and count for status, count in loan_status_counts.items()):
             blockers.append("nonclosed_loans_present")
-            break
-    if non_arissto_loans:
-        blockers.append("non_arissto_loans_present")
-    if late_transactions:
-        blockers.append("loan_transactions_on_or_after_seed_cutoff")
-    for table, count in table_counts.items():
-        if table in EMPTY_DOMAIN_TABLES and count:
-            blockers.append(f"nonempty_domain:{table}")
+        if non_arissto_loans:
+            blockers.append("non_arissto_loans_present")
+        if late_transactions:
+            blockers.append("loan_transactions_on_or_after_seed_cutoff")
+        for table, count in table_counts.items():
+            if table in EMPTY_DOMAIN_TABLES and count:
+                blockers.append(f"nonempty_domain:{table}")
     return {
-        "report_kind": "read-only-target-preflight",
+        "report_kind": f"read-only-{phase}-target-preflight",
+        "phase": phase,
         "target": target.name,
         "tenant": target.tenant,
-        "seed_cutoff": cutoff[0].isoformat() if cutoff and isinstance(cutoff[0], date) else None,
+        "current_fineract_starts" if phase == "input" else "seed_cutoff": (
+            cutoff[0].isoformat() if cutoff and isinstance(cutoff[0], date) else None
+        ),
         "cutoff_state": str(cutoff[1]) if cutoff else None,
         "loan_status_counts": {str(key): value for key, value in sorted(loan_status_counts.items())},
         "non_arissto_loans": non_arissto_loans,
@@ -91,7 +97,7 @@ def classify_target(
     }
 
 
-def inspect_target(target: TargetConfig) -> dict[str, Any]:
+def inspect_target(target: TargetConfig, *, phase: str = "input") -> dict[str, Any]:
     if target.name != "local" or target.tenant != "sandbox":
         raise ValueError("Carry-forward target inspection is restricted to local sandbox")
     if not target.pg_url:
@@ -123,14 +129,16 @@ def inspect_target(target: TargetConfig) -> dict[str, Any]:
             SELECT COUNT(*) FROM m_loan_transaction
             WHERE transaction_date >= %s
         """, (cutoff[0],)).fetchone()[0]) if cutoff and "m_loan_transaction" in present else 0
-    return classify_target(target, cutoff, loan_status_counts, non_arissto, late_transactions, table_counts)
+    return classify_target(target, cutoff, loan_status_counts, non_arissto, late_transactions, table_counts,
+                           phase=phase)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", choices=("local",), required=True)
+    parser.add_argument("--phase", choices=("input", "seed"), default="input")
     args = parser.parse_args()
-    report = inspect_target(load_settings(args.target).target)
+    report = inspect_target(load_settings(args.target).target, phase=args.phase)
     print(json.dumps(report, indent=2, sort_keys=True))
     return 0 if report["target_preconditions_pass"] else 2
 

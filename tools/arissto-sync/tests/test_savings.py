@@ -171,10 +171,20 @@ class SavingsContractTests(unittest.TestCase):
         }
         vista = SimpleNamespace(line_id="00001")
         dpf = SimpleNamespace(line_id="00010", principal=Decimal("1000.00"))
-        self.assertEqual(_vista_product_payload(vista, gl, Decimal("3.00"))["numberingCode"], "4V1")
+        vista_payload = _vista_product_payload(vista, gl, Decimal("3.00"))
+        self.assertEqual(vista_payload["numberingCode"], "4V1")
+        self.assertEqual(vista_payload["name"], "Credesal Vista 00001")
+        for field in ("minRequiredOpeningBalance", "minRequiredBalance", "minBalanceForInterestCalculation"):
+            self.assertEqual(vista_payload[field], "0")
+        self.assertFalse(vista_payload["enforceMinRequiredBalance"])
+        self.assertFalse(vista_payload["allowOverdraft"])
         self.assertEqual(
             _dpf_product_payload(dpf, gl, 360, 360, Decimal("7.25"), "06")["numberingCode"],
             "5D8",
+        )
+        self.assertEqual(
+            _dpf_product_payload(dpf, gl, 360, 360, Decimal("7.25"), "06")["name"],
+            "Credesal DPF 00010",
         )
 
     def test_canonical_account_identity_is_stable_and_parseable(self):

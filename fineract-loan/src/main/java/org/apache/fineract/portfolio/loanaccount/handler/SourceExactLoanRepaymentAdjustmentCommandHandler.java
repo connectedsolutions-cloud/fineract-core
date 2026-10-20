@@ -40,6 +40,6 @@ public class SourceExactLoanRepaymentAdjustmentCommandHandler implements NewComm
     @Override
     public CommandProcessingResult processCommand(final JsonCommand command) {
         return operationalMigrationService
-                .execute(() -> writePlatformService.adjustLoanTransaction(command.getLoanId(), command.entityId(), command));
+                .execute(() -> writePlatformService.reverseSourceExactLoanTransaction(command.getLoanId(), command.entityId(), command));
     }
 }

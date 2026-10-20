@@ -86,6 +86,16 @@ public class LoanAccountData {
     private Long loanProductId;
     private String loanProductName;
     private String loanProductDescription;
+    private Long portfolioAccountGlId;
+    private String portfolioAccountGlCode;
+    private String portfolioAccountGlName;
+    private Long portfolioInterestReceivableGlId;
+    private String portfolioInterestReceivableGlCode;
+    private String portfolioInterestReceivableGlName;
+    private LocalDate portfolioAccountExpectedDisbursementDate;
+    private LocalDate portfolioAccountExpectedMaturityDate;
+    private Integer portfolioAccountTermDays;
+    private String portfolioAccountSelectionReason;
     // TODO: avoid prefix "is"
     private boolean isLoanProductLinkedToFloatingRate;
     private Long fundId;

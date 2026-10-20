@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0396-1-native-share-certificates" author="credesal" dbms="postgresql">
+        <sql>
+            ALTER TABLE credesal_share_certificate ALTER COLUMN arissto_certificate_id DROP NOT NULL;
+            ALTER TABLE credesal_share_certificate ALTER COLUMN arissto_associate_id DROP NOT NULL;
+            ALTER TABLE credesal_share_certificate ALTER COLUMN arissto_share_type_id DROP NOT NULL;
+            ALTER TABLE credesal_share_certificate ALTER COLUMN arissto_status_id DROP NOT NULL;
+            ALTER TABLE credesal_share_certificate_beneficiary ALTER COLUMN arissto_beneficiary_id DROP NOT NULL;
+
+            ALTER TABLE credesal_share_certificate
+                ADD COLUMN provisional_number VARCHAR(50),
+                ADD COLUMN office_id BIGINT,
+                ADD COLUMN promoter_staff_id BIGINT,
+                ADD COLUMN share_serial_start BIGINT,
+                ADD COLUMN share_serial_end BIGINT,
+                ADD COLUMN share_class_code VARCHAR(8),
+                ADD COLUMN native_status VARCHAR(25);
+
+            ALTER TABLE credesal_share_certificate
+                ADD CONSTRAINT FK_cr_share_cert_office FOREIGN KEY (office_id) REFERENCES m_office (id);
+            ALTER TABLE credesal_share_certificate
+                ADD CONSTRAINT FK_cr_share_cert_promoter FOREIGN KEY (promoter_staff_id) REFERENCES m_staff (id);
+
+            CREATE UNIQUE INDEX uk_cr_share_cert_provisional
+                ON credesal_share_certificate (provisional_number)
+                WHERE provisional_number IS NOT NULL;
+            CREATE UNIQUE INDEX uk_cr_share_cert_native_number
+                ON credesal_share_certificate (certificate_number)
+                WHERE source_system = 'fineract' AND certificate_number IS NOT NULL;
+            CREATE UNIQUE INDEX uk_cr_share_cert_book_line
+                ON credesal_share_certificate (book_id, folio, line_number)
+                WHERE source_system = 'fineract'
+                  AND book_id IS NOT NULL AND folio IS NOT NULL AND line_number IS NOT NULL;
+
+            CREATE EXTENSION IF NOT EXISTS btree_gist;
+            ALTER TABLE credesal_share_certificate
+                ADD CONSTRAINT ex_cr_share_cert_serial
+                EXCLUDE USING gist (
+                    share_class_code WITH =,
+                    int8range(share_serial_start, share_serial_end, '[]') WITH &amp;&amp;
+                )
+                WHERE (source_system = 'fineract'
+                    AND share_serial_start IS NOT NULL
+                    AND share_serial_end IS NOT NULL);
+
+            INSERT INTO credesal_naming_sequence (namespace, prefix, last_ordinal)
+            SELECT 'SHARE_CERTIFICATE_PROVISIONAL', 'CP', 0
+            WHERE NOT EXISTS (
+                SELECT 1 FROM credesal_naming_sequence
+                WHERE namespace = 'SHARE_CERTIFICATE_PROVISIONAL' AND prefix = 'CP'
+            );
+            INSERT INTO credesal_naming_sequence (namespace, prefix, last_ordinal)
+            SELECT 'SHARE_SERIAL', 'COMMON', 0
+            WHERE NOT EXISTS (
+                SELECT 1 FROM credesal_naming_sequence
+                WHERE namespace = 'SHARE_SERIAL' AND prefix = 'COMMON'
+            );
+            INSERT INTO credesal_naming_sequence (namespace, prefix, last_ordinal)
+            SELECT 'SHARE_SERIAL', 'PREFERRED', 0
+            WHERE NOT EXISTS (
+                SELECT 1 FROM credesal_naming_sequence
+                WHERE namespace = 'SHARE_SERIAL' AND prefix = 'PREFERRED'
+            );
+        </sql>
+    </changeSet>
+</databaseChangeLog>

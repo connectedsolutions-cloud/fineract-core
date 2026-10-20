@@ -7,8 +7,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from arissto_sync.cycles import CycleCatalog
-from arissto_sync.retention import APPLY_CONFIRMATION, apply_retention, retention_plan
+from arissto_sync.retention import (
+    APPLY_CONFIRMATION, apply_retention, apply_workflow_log_retention, retention_plan,
+)
 from arissto_sync.state import State
+from arissto_sync.storage_health import storage_health
 
 
 class RetentionTests(unittest.TestCase):
@@ -52,6 +55,28 @@ class RetentionTests(unittest.TestCase):
         self.assertEqual(self.catalog.get(first["id"])["status"], "closed")
         self.assertEqual(self.catalog.get(second["id"])["status"], "open")
 
+    def test_carry_forward_prior_cycle_is_preserved_for_rollback(self):
+        prior = self.catalog.create("prior", "local", "target-a", "baseline-a")
+        current = self.catalog.create("current", "local", "target-a", "seed-hash")
+        state = State(Path(current["state_path"]))
+        state.conn.execute(
+            "INSERT INTO state_metadata(key,value) VALUES(?,?)",
+            ("carry_forward_old_cycle", prior["id"]),
+        )
+        state.conn.commit()
+        state.conn.close()
+
+        plan = retention_plan(self.base_state, scope="local")
+        self.assertFalse(any(
+            action.get("cycle_id") == prior["id"] for action in plan["actions"]
+        ))
+        health = storage_health(self.base_state)
+        self.assertFalse(any(
+            finding.get("cycle_id") == prior["id"] and
+            finding["code"] == "obsolete-cycle-retention-candidate"
+            for finding in health["findings"]
+        ))
+
     def test_plan_preserves_only_newest_cycle(self):
         closed = self.catalog.create("closed", "local", "target-a", "baseline-a")
         active = self.catalog.create("active", "local", "target-a", "baseline-b")
@@ -78,6 +103,68 @@ class RetentionTests(unittest.TestCase):
         self.assertFalse(successful.exists())
         self.assertFalse(Path(closed["state_path"]).parent.exists())
         self.assertTrue(Path(active["state_path"]).is_file())
+
+    def test_retained_cycle_keeps_only_two_compressed_workflow_logs(self):
+        cycle = self.catalog.create("current", "local", "target-a", "baseline-a")
+        oldest = self.add_workflow_run(
+            cycle, "oldest", "completed", "2026-10-01T00:00:00+00:00", "old result\n",
+        )
+        recent = self.add_workflow_run(
+            cycle, "recent", "failed", "2026-10-02T00:00:00+00:00", "failure details\n",
+        )
+        newest = self.add_workflow_run(
+            cycle, "newest", "completed", "2026-10-03T00:00:00+00:00", "new result\n",
+        )
+        active = self.add_workflow_run(
+            cycle, "active", "running", "2026-10-04T00:00:00+00:00", "live output\n",
+        )
+
+        plan = retention_plan(self.base_state, scope="local")
+        self.assertEqual(
+            {action["action"] for action in plan["actions"]},
+            {"delete-extra-workflow-log", "compress-retained-workflow-log"},
+        )
+        apply_retention(self.base_state, confirmation=APPLY_CONFIRMATION, scope="local")
+
+        self.assertFalse(oldest.exists())
+        self.assertTrue(recent.is_file())
+        self.assertTrue(Path(f"{newest}.gz").is_file())
+        self.assertFalse(newest.exists())
+        self.assertTrue(active.exists())
+        state = State(Path(cycle["state_path"]))
+        try:
+            rows = dict(state.conn.execute(
+                "SELECT id,log_path FROM workflow_runs WHERE id IN ('oldest','recent','newest')"
+            ).fetchall())
+            self.assertIsNone(rows["oldest"])
+            self.assertEqual(rows["recent"], str(recent))
+            self.assertEqual(rows["newest"], str(Path(f"{newest}.gz").resolve()))
+        finally:
+            state.conn.close()
+
+    def test_automatic_log_retention_leaves_legacy_state_untouched(self):
+        cycle = self.catalog.create("current", "local", "target-a", "baseline-a")
+        log = self.add_workflow_run(
+            cycle, "finished", "completed", "2026-10-03T00:00:00+00:00", "result\n",
+        )
+        legacy = State(self.base_state)
+        try:
+            legacy.save_inspection("local", "target-a", "clients", "contract", "schema", True)
+        finally:
+            legacy.conn.close()
+
+        actions = apply_workflow_log_retention(self.base_state)
+
+        self.assertEqual([action["action"] for action in actions],
+                         ["compress-retained-workflow-log"])
+        self.assertTrue(Path(f"{log}.gz").is_file())
+        legacy = State(self.base_state)
+        try:
+            self.assertEqual(legacy.conn.execute(
+                "SELECT COUNT(*) FROM inspections WHERE target_name='local'"
+            ).fetchone()[0], 1)
+        finally:
+            legacy.conn.close()
 
     def test_all_obsolete_cycles_are_removed_without_archives(self):
         cycles = []

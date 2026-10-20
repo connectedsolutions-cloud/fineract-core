@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0420-1-native-cash-transaction-listing" author="credesal" dbms="postgresql">
+        <comment>Replace the Arissto-only cash and bank source-fact projection with Fineract journal cash postings.</comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+UPDATE stretchy_report
+   SET report_sql = $report$
+WITH RECURSIVE
+selected_offices AS (
+    SELECT office_under.id
+      FROM m_office selected_office
+      JOIN m_office office_under
+        ON office_under.hierarchy LIKE selected_office.hierarchy || '%'
+     WHERE selected_office.id = CAST('${officeId}' AS BIGINT)
+       AND office_under.hierarchy LIKE '${currentUserHierarchy}' || '%'
+),
+cash_roots AS (
+    SELECT account.id
+      FROM acc_gl_account account
+     WHERE account.gl_code IN ('111001', '111004')
+
+    UNION
+
+    SELECT configured.gl_account_id
+      FROM credesal_cash_flow_cash_account configured
+     WHERE configured.active
+),
+cash_tree AS (
+    SELECT root.id AS account_id, ARRAY[root.id]::BIGINT[] AS account_path
+      FROM cash_roots root
+
+    UNION ALL
+
+    SELECT child.id, tree.account_path || child.id
+      FROM cash_tree tree
+      JOIN acc_gl_account child ON child.parent_id = tree.account_id
+     WHERE NOT child.id = ANY(tree.account_path)
+),
+cash_accounts AS (
+    SELECT DISTINCT account_id FROM cash_tree
+),
+account_ancestry AS (
+    SELECT account.id AS descendant_account_id,
+           account.id AS ancestor_account_id,
+           ARRAY[account.id]::BIGINT[] AS account_path
+      FROM acc_gl_account account
+
+    UNION ALL
+
+    SELECT ancestry.descendant_account_id,
+           parent.id,
+           ancestry.account_path || parent.id
+      FROM account_ancestry ancestry
+      JOIN acc_gl_account child ON child.id = ancestry.ancestor_account_id
+      JOIN acc_gl_account parent ON parent.id = child.parent_id
+     WHERE NOT parent.id = ANY(ancestry.account_path)
+),
+cash_postings AS (
+    SELECT journal.id, journal.transaction_id, journal.ref_num,
+           journal.office_id, journal.account_id, journal.entry_date,
+           COALESCE(journal.transaction_date, journal.entry_date) AS operation_date,
+           journal.type_enum, journal.amount, journal.description,
+           journal.header_concept, journal.header_description, journal.check_number
+      FROM acc_gl_journal_entry journal
+      JOIN cash_accounts cash ON cash.account_id = journal.account_id
+     WHERE journal.office_id IN (SELECT id FROM selected_offices)
+       AND journal.currency_code = 'USD'
+       AND journal.type_enum IN (1, 2)
+       AND COALESCE(journal.transaction_date, journal.entry_date)
+           BETWEEN CAST('${startDate}' AS DATE) AND CAST('${endDate}' AS DATE)
+)
+SELECT CASE WHEN posting.type_enum = 2 THEN 'ingreso' ELSE 'egreso' END AS "Tipo movimiento",
+       COALESCE(NULLIF(BTRIM(posting.header_concept), ''),
+                NULLIF(BTRIM(posting.description), ''), account.name) AS "Concepto",
+       ROUND(posting.amount, 2) AS "Monto",
+       CONCAT_WS(' · ', account.name,
+                 NULLIF(BTRIM(posting.header_description), ''),
+                 NULLIF(BTRIM(posting.check_number), '')) AS "Observaciones",
+       COALESCE(classification.line_label, 'SIN CLASIFICAR') AS "Flujo efectivo",
+       COALESCE(NULLIF(BTRIM(posting.ref_num), ''),
+                NULLIF(BTRIM(posting.transaction_id), ''),
+                'GL-' || posting.id::text) AS "Transacción",
+       posting.operation_date AS "Fecha operación"
+  FROM cash_postings posting
+  JOIN acc_gl_account account ON account.id = posting.account_id
+  LEFT JOIN LATERAL (
+      SELECT CASE WHEN COUNT(DISTINCT mapping.line_label) = 1
+                  THEN MIN(mapping.line_label) END AS line_label
+        FROM acc_gl_journal_entry counterpart
+        JOIN account_ancestry ancestry ON ancestry.descendant_account_id = counterpart.account_id
+        JOIN credesal_cash_flow_mapping mapping
+          ON mapping.gl_account_id = ancestry.ancestor_account_id
+         AND mapping.active
+         AND mapping.cash_direction = CASE WHEN posting.type_enum = 2 THEN 'I' ELSE 'O' END
+       WHERE counterpart.transaction_id = posting.transaction_id
+         AND counterpart.office_id = posting.office_id
+         AND counterpart.entry_date = posting.entry_date
+         AND counterpart.account_id NOT IN (SELECT account_id FROM cash_accounts)
+  ) classification ON TRUE
+ ORDER BY posting.operation_date, posting.office_id,
+          COALESCE(posting.ref_num, posting.transaction_id, posting.id::text), posting.id
+$report$,
+       description = 'Listado de movimientos de caja y banco registrados en el diario de Fineract.'
+ WHERE report_name = 'Transacciones de Flujo de Efectivo'
+   AND report_category = 'Accounting';
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

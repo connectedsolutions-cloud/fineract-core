@@ -192,6 +192,12 @@ public class DefaultLoanLifecycleStateMachine implements LoanLifecycleStateMachi
             case LOAN_INITIATE_TRANSFER:
                 newState = transferInProgress();
             break;
+            case LOAN_ACCEPT_TRANSFER:
+                if (anyOfAllowedWhenComingFrom(from, LoanStatus.TRANSFER_IN_PROGRESS)) {
+                    newState = loan.getTotalOverpaid() != null && loan.getTotalOverpaid().signum() > 0
+                            ? overpaidTransition() : activeTransition();
+                }
+            break;
             case LOAN_REJECT_TRANSFER:
                 if (anyOfAllowedWhenComingFrom(from, LoanStatus.TRANSFER_IN_PROGRESS)) {
                     newState = transferOnHold();

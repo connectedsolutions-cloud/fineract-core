@@ -486,8 +486,7 @@ public class DepositAccountReadPlatformServiceImpl implements DepositAccountRead
                     .append(" join m_account_transfer_details atd on atd.id=att.account_transfer_details_id")
                     .append(" where atd.from_savings_account_id=sa.id and atd.to_savings_account_id=aa.linked_savings_account_id")
                     .append(" and atd.transfer_type=4 and att.transaction_date=st.transaction_date")
-                    .append(" and att.amount=st.amount and att.is_reversed=false)")
-                    .append(" and sa.id = ?");
+                    .append(" and att.amount=st.amount and att.is_reversed=false)").append(" and sa.id = ?");
             return this.jdbcTemplate.query(sqlBuilder.toString(), mapper, SavingsAccountTransactionType.INTEREST_POSTING.getValue(),
                     savingsAccountId);
         }
@@ -1691,9 +1690,8 @@ public class DepositAccountReadPlatformServiceImpl implements DepositAccountRead
             final LocalDate transactionDate = JdbcSupport.getLocalDate(rs, TRANSACTION_DATE);
             return new AccountTransferDTO(transactionDate, transactionAmount, PortfolioAccountType.SAVINGS, PortfolioAccountType.SAVINGS,
                     fromAccountId, toAccountId, TRANSFER_INTEREST_TO_SAVINGS, Locale.US, DateTimeFormatter.ofPattern("yyyy-MM-dd"), null,
-                    null, null, null, null,
-                    AccountTransferType.INTEREST_TRANSFER.getValue(), null, null, ExternalId.empty(), null, null, null,
-                    isRegularTransaction, isExceptionForBalanceCheck);
+                    null, null, null, null, AccountTransferType.INTEREST_TRANSFER.getValue(), null, null, ExternalId.empty(), null, null,
+                    null, isRegularTransaction, isExceptionForBalanceCheck);
         }
 
     }

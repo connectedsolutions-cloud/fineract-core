@@ -20,14 +20,17 @@ from urllib.parse import urlparse
 import requests
 
 from .config import ROOT, Settings
+from .carry_forward_target import inspect_target as inspect_carry_forward_target
 from .arissto import select_rows, source_connection
 from .connections import FineractApi, FineractError, postgres_connection
 from .engine import preflight
 from .dte_history import DteApplyControls
 from .loans import LoanApplyControls
+from .retention import apply_workflow_log_retention
 from .service_registry import load_registry, service_report
 from .service_runtime import ServiceRuntime
 from .treasury_prerequisite import ensure_treasury_bank_accounts
+from .delinquency_prerequisite import ensure_delinquency_buckets
 from .state import State
 from .workflow_definitions import (
     inspect_workflow, load_workflow, require_workflow_ready, select_workflow_services,
@@ -653,6 +656,16 @@ def assert_scheduler_paused(api: FineractApi) -> dict[str, Any]:
     return {"active": False}
 
 
+def pause_local_carry_forward_scheduler(api: FineractApi) -> dict[str, Any]:
+    """Pause the disposable tenant scheduler before activating a new boundary."""
+    current = api.request("GET", "scheduler")
+    if not isinstance(current.get("active"), bool):
+        raise RuntimeError("Fineract scheduler status did not return an active flag")
+    if current["active"]:
+        api.request("POST", "scheduler", {}, query={"command": "stop"})
+    return assert_scheduler_paused(api)
+
+
 def bind_active_accounting_cutoff(
     snapshot: dict[str, Any], configuration: dict[str, Any]
 ) -> dict[str, Any]:
@@ -807,6 +820,26 @@ def build_workflow_plan(
         if not cycle_id:
             raise ValueError("Local workflow planning requires a sync cycle")
         cycle = state.require_cycle(cycle_id, settings.target.fingerprint)
+        if resolved_run_mode == "carry-forward":
+            if selected_services is not None:
+                raise ValueError("Carry-forward rebuild requires the full dependency-complete workflow")
+            metadata = state.cycle_metadata()
+            if (not metadata.get("carry_forward_mapping_hash")
+                    or not metadata.get("carry_forward_retained_proof_hash")
+                    or not metadata.get("carry_forward_plan_hash")
+                    or cycle["baseline_ref"] != metadata.get("carry_forward_stage_dump_sha256")
+                    or state.accounting_cutoff.get("date") != metadata.get("carry_forward_fineract_starts")
+                    or state.accounting_cutoff.get("source_through_date") != metadata.get("carry_forward_source_through")):
+                raise ValueError("Carry-forward cycle, staged seed, or selected source date differs")
+            seed = inspect_carry_forward_target(settings.target, phase="seed")
+            if not seed["target_preconditions_pass"] or seed["seed_cutoff"] != state.accounting_cutoff["date"]:
+                raise ValueError("Carry-forward sandbox seed is not ready")
+            from .carry_forward_replace import _load_plan
+            reviewed_plan = _load_plan(settings, metadata["carry_forward_plan_hash"])
+            if (reviewed_plan["new_cycle"] != cycle_id
+                    or reviewed_plan["stage_dump_sha256"] != cycle["baseline_ref"]
+                    or reviewed_plan["mapping_hash"] != metadata["carry_forward_mapping_hash"]):
+                raise ValueError("Carry-forward cycle differs from the reviewed replacement plan")
     else:
         if resolved_run_mode != "full-resync":
             raise ValueError("Production workflow orchestration accepts only full-resync")
@@ -939,6 +972,24 @@ def build_workflow_plan(
             },
         },
     }
+    if resolved_run_mode == "carry-forward":
+        document["carry_forward_seed"] = {
+            "replacement_plan_hash": metadata["carry_forward_plan_hash"],
+            "capture_manifest_sha256": metadata["carry_forward_capture_manifest_sha256"],
+            "old_cycle": metadata["carry_forward_old_cycle"],
+            "old_fineract_starts": metadata["carry_forward_old_fineract_starts"],
+            "source_through_date": metadata["carry_forward_source_through"],
+            "fineract_starts": metadata["carry_forward_fineract_starts"],
+            "source_read_started_at": metadata["carry_forward_source_read_started_at"],
+            "source_read_finished_at": metadata["carry_forward_source_read_finished_at"],
+            "stage_dump_sha256": metadata["carry_forward_stage_dump_sha256"],
+            "mapping_hash": metadata["carry_forward_mapping_hash"],
+            "classification_hash": metadata["carry_forward_classification_hash"],
+            "retained_proof_hash": metadata["carry_forward_retained_proof_hash"],
+            "retained_loan_count": int(metadata["carry_forward_retained_loan_count"]),
+            "mapping_count": int(metadata["carry_forward_mapping_count"]),
+            "ownership_inventory": reviewed_plan["ownership_inventory"],
+        }
     if cycle is not None:
         document["sync_cycle"] = {**cycle, "state_path": str(settings.state_path)}
     else:
@@ -1161,6 +1212,62 @@ def _execute_workflow(
     require_workflow_ready(
         current_definition, target=settings.target.name, run_mode=run_mode,
     )
+    if run_mode == "carry-forward":
+        frozen_seed = plan["document"].get("carry_forward_seed") or {}
+        metadata = state.cycle_metadata()
+        for frozen_key, metadata_key in (
+            ("replacement_plan_hash", "carry_forward_plan_hash"),
+            ("capture_manifest_sha256", "carry_forward_capture_manifest_sha256"),
+            ("old_cycle", "carry_forward_old_cycle"),
+            ("old_fineract_starts", "carry_forward_old_fineract_starts"),
+            ("source_through_date", "carry_forward_source_through"),
+            ("fineract_starts", "carry_forward_fineract_starts"),
+            ("source_read_started_at", "carry_forward_source_read_started_at"),
+            ("source_read_finished_at", "carry_forward_source_read_finished_at"),
+            ("stage_dump_sha256", "carry_forward_stage_dump_sha256"),
+            ("mapping_hash", "carry_forward_mapping_hash"),
+            ("classification_hash", "carry_forward_classification_hash"),
+            ("retained_proof_hash", "carry_forward_retained_proof_hash"),
+        ):
+            if not frozen_seed.get(frozen_key) or frozen_seed[frozen_key] != metadata.get(metadata_key):
+                raise RuntimeError("Carry-forward seed binding changed after workflow planning")
+        from .carry_forward_replace import _load_plan
+        # This exact already-started sandbox run has a reviewed, hash-pinned
+        # amendment for its loan repair. No other run can supply an amendment.
+        resume_amendment = None
+        if (
+            run_id == "494db0368e3f4b538b898a7ba592b5e8"
+            and state.cycle_metadata().get("cycle_id") == "sandbox-2026-10-08-carry-forward-a"
+            and any(step["status"] != "pending" or step["phase"] != "not-started"
+                    for step in state.workflow_steps(run_id))
+        ):
+            amendment_path = state.path.parent / "reviewed-amendments" / f"{run_id}.json"
+            resume_amendment = json.loads(amendment_path.read_text(encoding="utf-8"))
+        reviewed_plan = _load_plan(
+            settings, frozen_seed["replacement_plan_hash"],
+            resume_amendment=resume_amendment,
+        )
+        if (frozen_seed.get("ownership_inventory") != reviewed_plan["ownership_inventory"]
+                or frozen_seed.get("retained_loan_count") != reviewed_plan["retained_loans"]
+                or frozen_seed.get("mapping_count") != reviewed_plan["mapping_count"]):
+            raise RuntimeError("Carry-forward reviewed plan changed after workflow planning")
+        if plan["document"]["accounting_cutoff"].get("date") != frozen_seed["fineract_starts"]:
+            raise RuntimeError("Carry-forward accounting boundary changed after planning")
+        if any(step["status"] != "pending" or step["phase"] != "not-started"
+               for step in state.workflow_steps(run_id)):
+            # A resumed run may already contain rebuilt savings, shares, GL,
+            # and new loans. Keep the same cycle and boundary without
+            # requiring the original seed to remain otherwise empty.
+            target = inspect_carry_forward_target(settings.target, phase="input")
+            if (not target["target_preconditions_pass"]
+                    or target["current_fineract_starts"] != frozen_seed["fineract_starts"]):
+                raise RuntimeError("Carry-forward target boundary changed before resume")
+        else:
+            seed = inspect_carry_forward_target(settings.target, phase="seed")
+            if (not seed["target_preconditions_pass"]
+                    or seed["seed_cutoff"] != frozen_seed["fineract_starts"]
+                    or sum(seed["loan_status_counts"].values()) != frozen_seed["retained_loan_count"]):
+                raise RuntimeError("Carry-forward sandbox changed after workflow planning")
 
     frozen_controls = plan["document"].get("runtime_controls", {}).get("loans", {})
     loan_controls = LoanApplyControls.configured(
@@ -1188,7 +1295,7 @@ def _execute_workflow(
     )
     if (
         "accounting-journal-entries" in plan["document"]["ordered_services"]
-        and run_mode in {"fresh-clean", "full-resync", "resumed"}
+        and run_mode in {"fresh-clean", "full-resync", "resumed", "carry-forward"}
         and "journal_number_highwater" not in frozen_accounting
     ):
         raise RuntimeError(
@@ -1221,6 +1328,10 @@ def _execute_workflow(
                     status="ready", details=api_user_offices,
                 )
             try:
+                delinquency_bootstrap = ensure_delinquency_buckets(
+                    prerequisite_api,
+                    link_products="loans" in plan["document"]["ordered_services"],
+                )
                 gl_bootstrap = ensure_gl_account_details(
                     prerequisite_api,
                     plan["document"]["definition"].get("target_prerequisites"),
@@ -1243,13 +1354,15 @@ def _execute_workflow(
                     message=_safe_message(exc),
                 )
                 raise
-            if gl_bootstrap["performed"] or prerequisite_bootstrap["performed"] or treasury_bootstrap["performed"]:
+            if (gl_bootstrap["performed"] or prerequisite_bootstrap["performed"]
+                    or treasury_bootstrap["performed"] or delinquency_bootstrap["performed"]):
                 state.record_workflow_event(
                     run_id, "target-prerequisites-ready", "workflow-prerequisite",
                     status="ready", details={
                         "gl_account_details": gl_bootstrap["actions"],
                         "financial_activity_mappings": prerequisite_bootstrap["actions"],
                         "treasury_bank_accounts": treasury_bootstrap["actions"],
+                        "delinquency_buckets": delinquency_bootstrap["actions"],
                     },
                 )
             cutoff_policy = plan["document"]["definition"].get(
@@ -1257,7 +1370,11 @@ def _execute_workflow(
             )
             if cutoff_policy == "activate-frozen-plan":
                 cutoff_api = FineractApi(settings.target)
-                scheduler_status = assert_scheduler_paused(cutoff_api)
+                scheduler_status = (
+                    pause_local_carry_forward_scheduler(cutoff_api)
+                    if run_mode == "carry-forward" and settings.target.name == "local"
+                    else assert_scheduler_paused(cutoff_api)
+                )
                 state.record_workflow_event(
                     run_id, "fineract-scheduler-pause-verified", "workflow-prerequisite",
                     status="verified", details=scheduler_status,
@@ -1491,7 +1608,7 @@ def _execute_workflow(
                         }
                         if not reconciliation.get("ok"):
                             raise RuntimeError("Service reconciliation failed")
-                        if service_id == "accounting-journal-entries" and run_mode in {"fresh-clean", "full-resync", "resumed"}:
+                        if service_id == "accounting-journal-entries" and run_mode in {"fresh-clean", "full-resync", "resumed", "carry-forward"}:
                             phase = "journal-number-seed"
                             state.heartbeat_workflow(run_id, service_id, phase)
                             state.update_workflow_step(step["id"], phase=phase)
@@ -1605,10 +1722,10 @@ def _execute_workflow(
                         )
                         break
 
-            _link_exact_source_lineage(state, run_id, dependencies)
             final_steps = _latest_steps(state, run_id)
             status_counts = Counter(step["status"] for step in final_steps.values())
             complete = bool(final_steps) and all(step["status"] == "completed" for step in final_steps.values())
+            _link_exact_source_lineage(state, run_id, dependencies)
             summary = {
                 "step_statuses": dict(status_counts),
                 "failure_count": len(state.workflow_failures(run_id)),
@@ -1665,6 +1782,8 @@ def start_workflow(
         raise ValueError("Workflow plan belongs to a different target fingerprint")
     if settings.target.name == "prod" and plan["document"].get("run_mode") != "full-resync":
         raise ValueError("Production workflow start requires a full-resync plan")
+    if settings.target.name == "local":
+        apply_workflow_log_retention(settings.state_path)
     run_id = state.create_workflow_run(plan)
     log_dir = settings.state_path.parent / "workflow-runs"
     log_dir.mkdir(parents=True, exist_ok=True)

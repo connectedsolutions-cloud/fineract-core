@@ -152,9 +152,8 @@ public class JournalReferenceNumberService implements JournalNumberAllocationSer
     @Override
     @Transactional
     public String reserveImported(String groupKey, String transactionId, String number) {
-        if (groupKey == null || groupKey.isBlank() || groupKey.length() > 128 || transactionId == null
-                || transactionId.isBlank() || number == null
-                || !number.matches("[0-9]{10}") || Integer.parseInt(number.substring(4, 6)) < 1
+        if (groupKey == null || groupKey.isBlank() || groupKey.length() > 128 || transactionId == null || transactionId.isBlank()
+                || number == null || !number.matches("[0-9]{10}") || Integer.parseInt(number.substring(4, 6)) < 1
                 || Integer.parseInt(number.substring(4, 6)) > 12 || Integer.parseInt(number.substring(6)) < 1) {
             throw new GeneralPlatformDomainRuleException("error.msg.journal.number.import.invalid",
                     "An imported journal must have its exact ten-digit source number");

@@ -32,6 +32,7 @@ public class LoanAdjustmentParameter {
     private BigDecimal transactionAmount;
     private PaymentDetail paymentDetail;
     private LocalDate transactionDate;
+    private LocalDate reversalEffectiveDate;
     private ExternalId txnExternalId;
     private ExternalId reversalTxnExternalId;
     private String noteText;

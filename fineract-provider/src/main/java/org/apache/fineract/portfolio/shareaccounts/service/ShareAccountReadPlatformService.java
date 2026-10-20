@@ -39,4 +39,6 @@ public interface ShareAccountReadPlatformService extends AccountReadPlatformServ
             LocalDate startDate);
 
     String retrieveAccountNumberByAccountId(Long accountId);
+
+    java.util.List<org.apache.fineract.portfolio.shareaccounts.data.ApprovedShareCollectionData> retrieveApprovedUnpaid(Long officeId);
 }

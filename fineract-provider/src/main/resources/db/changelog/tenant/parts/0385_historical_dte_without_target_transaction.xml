@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0385-1-historical-dte-owner" author="credesal" dbms="postgresql">
+        <addColumn tableName="m_invoice">
+            <column name="historical_client_id" type="BIGINT"/>
+            <column name="historical_office_id" type="BIGINT"/>
+            <column name="source_loan_movement_external_id" type="VARCHAR(80)"/>
+        </addColumn>
+        <addForeignKeyConstraint baseTableName="m_invoice" baseColumnNames="historical_client_id"
+                                 referencedTableName="m_client" referencedColumnNames="id"
+                                 constraintName="fk_invoice_historical_client"/>
+        <addForeignKeyConstraint baseTableName="m_invoice" baseColumnNames="historical_office_id"
+                                 referencedTableName="m_office" referencedColumnNames="id"
+                                 constraintName="fk_invoice_historical_office"/>
+        <createIndex tableName="m_invoice" indexName="idx_invoice_historical_client">
+            <column name="historical_client_id"/>
+        </createIndex>
+        <createIndex tableName="m_invoice" indexName="idx_invoice_historical_office">
+            <column name="historical_office_id"/>
+        </createIndex>
+    </changeSet>
+    <changeSet id="0385-2-list-unlinked-historical-dte" author="credesal" dbms="postgresql">
+        <comment>Resolve the client and office from the historical owner when no transaction was migrated.</comment>
+        <sql splitStatements="false"><![CDATA[
+UPDATE stretchy_report
+   SET report_sql = REPLACE(
+       REPLACE(report_sql,
+           'COALESCE(l.client_id, sa.client_id, ct.client_id)',
+           'COALESCE(l.client_id, sa.client_id, ct.client_id, i.historical_client_id)'),
+       'COALESCE(lt.office_id, sat.office_id, ct.office_id)',
+       'COALESCE(lt.office_id, sat.office_id, ct.office_id, i.historical_office_id)')
+ WHERE report_name = 'listado facturas'
+   AND report_sql NOT LIKE '%i.historical_client_id%';
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

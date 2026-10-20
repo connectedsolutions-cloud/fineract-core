@@ -40,10 +40,10 @@ class DepositAccountTransactionDataValidatorTest {
                   "postMaturityInterest": false
                 }
                 """;
-        final JsonCommand command = JsonCommand.from(request, json.parse(request), json, null, 1L, null, null, null, null, null, null,
-                null, null, null, null, null, null);
+        final JsonCommand command = JsonCommand.from(request, json.parse(request), json, null, 1L, null, null, null, null, null, null, null,
+                null, null, null, null, null);
 
-        assertDoesNotThrow(() -> new DepositAccountTransactionDataValidator(json).validateClosing(
-                command, DepositAccountType.FIXED_DEPOSIT, false));
+        assertDoesNotThrow(
+                () -> new DepositAccountTransactionDataValidator(json).validateClosing(command, DepositAccountType.FIXED_DEPOSIT, false));
     }
 }

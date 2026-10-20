@@ -489,8 +489,8 @@ public class LoanChargeWritePlatformServiceImpl implements LoanChargeWritePlatfo
         final LoanCharge loanCharge = retrieveLoanChargeBy(loanId, loanChargeId);
         final ExternalId chargeExternalId = loanCharge.getExternalId();
         if (!loan.getStatus().isActive() || chargeExternalId == null || chargeExternalId.isEmpty()
-                || !chargeExternalId.getValue().startsWith("ARISSTO:CRD-INS-CUTOVER:")
-                || !loanCharge.isFeeCharge() || !loanCharge.isSpecifiedDueDate() || !loanCharge.getChargeCalculation().isFlat()) {
+                || !chargeExternalId.getValue().startsWith("ARISSTO:CRD-INS-CUTOVER:") || !loanCharge.isFeeCharge()
+                || !loanCharge.isSpecifiedDueDate() || !loanCharge.getChargeCalculation().isFlat()) {
             throw new GeneralPlatformDomainRuleException("error.msg.loan.source.insurance.charge.invalid",
                     "Source-exact insurance rebase requires an active Arissto cutover insurance charge");
         }

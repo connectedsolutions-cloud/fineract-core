@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more
+     contributor license agreements. See the NOTICE file distributed with
+     this work for additional information regarding copyright ownership.
+     The ASF licenses this file to you under the Apache License, Version 2.0. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0386-1-add-loan-risk-snapshot-provenance" author="credesal" dbms="postgresql">
+        <comment>Keep every Arissto close row, including loans awaiting guarded native migration, with auditable close coverage.</comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+ALTER TABLE credesal_loan_portfolio_snapshot
+    ADD COLUMN source_system VARCHAR(24),
+    ADD COLUMN source_loan_id VARCHAR(64),
+    ADD COLUMN source_row_hash CHAR(64),
+    ADD COLUMN classification_policy_version VARCHAR(64),
+    ADD COLUMN source_delinquency_date DATE,
+    ADD COLUMN source_observed_at TIMESTAMP WITH TIME ZONE;
+
+UPDATE credesal_loan_portfolio_snapshot
+   SET source_system = 'FINERACT_LEGACY',
+       source_loan_id = loan_id::TEXT,
+       classification_policy_version = 'unversioned'
+ WHERE source_system IS NULL;
+
+ALTER TABLE credesal_loan_portfolio_snapshot
+    ALTER COLUMN source_system SET NOT NULL,
+    ALTER COLUMN source_loan_id SET NOT NULL,
+    ALTER COLUMN classification_policy_version SET NOT NULL,
+    DROP CONSTRAINT credesal_loan_portfolio_snapshot_pkey,
+    ALTER COLUMN loan_id DROP NOT NULL,
+    ADD CONSTRAINT credesal_loan_portfolio_snapshot_pkey
+        PRIMARY KEY (snapshot_date, source_system, source_loan_id),
+    ADD CONSTRAINT credesal_loan_portfolio_snapshot_source_system_check
+        CHECK (source_system IN ('ARISSTO_CLOSE', 'FINERACT_COB', 'FINERACT_LEGACY')),
+    ADD CONSTRAINT credesal_loan_portfolio_snapshot_arissto_provenance_check
+        CHECK (source_system <> 'ARISSTO_CLOSE' OR
+               (source_close_id IS NOT NULL AND source_row_hash IS NOT NULL));
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_credesal_loan_portfolio_snapshot_native
+    ON credesal_loan_portfolio_snapshot (snapshot_date, loan_id)
+    WHERE loan_id IS NOT NULL;
+
+CREATE TABLE credesal_loan_portfolio_close_manifest (
+    snapshot_date DATE NOT NULL,
+    source_system VARCHAR(24) NOT NULL,
+    source_close_id VARCHAR(64) NOT NULL,
+    source_row_count INTEGER NOT NULL CHECK (source_row_count >= 0),
+    imported_row_count INTEGER NOT NULL CHECK (imported_row_count >= 0),
+    mapped_loan_count INTEGER NOT NULL CHECK (mapped_loan_count >= 0),
+    source_hash CHAR(64) NOT NULL,
+    status VARCHAR(16) NOT NULL CHECK (status IN ('INCOMPLETE', 'ACCEPTED')),
+    observed_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    accepted_at TIMESTAMP WITH TIME ZONE,
+    PRIMARY KEY (snapshot_date, source_system),
+    CHECK (imported_row_count <= source_row_count),
+    CHECK (mapped_loan_count <= imported_row_count),
+    CHECK (status <> 'ACCEPTED' OR imported_row_count = source_row_count)
+);
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

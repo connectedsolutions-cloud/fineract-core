@@ -38,8 +38,8 @@ class DepositAccountDataValidatorSourceExactUnfundedTest {
         final PlatformApiDataValidationException exception = assertThrows(PlatformApiDataValidationException.class,
                 () -> validator.validateFixedDepositForSubmit(request("0.00")));
 
-        assertThat(exception.getErrors()).anySatisfy(
-                error -> assertThat(error.getUserMessageGlobalisationCode()).endsWith("depositAmount.not.greater.than.zero"));
+        assertThat(exception.getErrors())
+                .anySatisfy(error -> assertThat(error.getUserMessageGlobalisationCode()).endsWith("depositAmount.not.greater.than.zero"));
     }
 
     private String request(final String depositAmount) {

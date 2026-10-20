@@ -27,6 +27,8 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenant;
+import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
 import org.junit.jupiter.api.Test;
 
 class AccountingCutoffPolicyServiceTest {
@@ -47,6 +49,22 @@ class AccountingCutoffPolicyServiceTest {
                 .isEqualTo(AccountingCutoffDecision.REJECT);
         assertThat(service.decide(AccountingPostingOrigin.NATIVE_OPERATION, CUTOFF)).isEqualTo(AccountingCutoffDecision.POST);
         assertThat(service.decide(AccountingPostingOrigin.ARISSTO_HISTORICAL_GL_IMPORT, CUTOFF)).isEqualTo(AccountingCutoffDecision.REJECT);
+    }
+
+    @Test
+    void sandboxAllowsNativeHistoricalCanaryPostingWithoutChangingMigrationDecisions() {
+        activeConfiguration();
+        ThreadLocalContextUtil.setTenant(new FineractPlatformTenant(1L, "sandbox", "Sandbox", "America/El_Salvador", null));
+        try {
+            assertThat(service.decide(AccountingPostingOrigin.NATIVE_OPERATION, CUTOFF.minusDays(1)))
+                    .isEqualTo(AccountingCutoffDecision.POST);
+            assertThat(service.decide(AccountingPostingOrigin.ARISSTO_OPERATIONAL_MIGRATION, CUTOFF.minusDays(1)))
+                    .isEqualTo(AccountingCutoffDecision.SUPPRESS_NATIVE_GL);
+            assertThat(service.decide(AccountingPostingOrigin.ARISSTO_HISTORICAL_GL_IMPORT, CUTOFF.minusDays(1)))
+                    .isEqualTo(AccountingCutoffDecision.POST);
+        } finally {
+            ThreadLocalContextUtil.clearTenant();
+        }
     }
 
     @Test

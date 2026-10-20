@@ -21,6 +21,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class SavingsAuthorizedPersonRequest {
+
     private Long id;
     private Long linkedClientId;
     private String externalId;

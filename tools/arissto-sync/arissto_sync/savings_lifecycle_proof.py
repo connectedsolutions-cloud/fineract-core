@@ -263,7 +263,8 @@ def build_product_payload(canary: VistaCanary, target: dict[str, Any], tax_group
         "nominalAnnualInterestRate": format(canary.annual_rate, "f"),
         "interestCompoundingPeriodType": 5, "interestPostingPeriodType": 5,
         "interestCalculationType": 1, "interestCalculationDaysInYearType": 1,
-        "minRequiredOpeningBalance": "50.00", "minBalanceForInterestCalculation": "50.00",
+        "minRequiredOpeningBalance": "0", "minBalanceForInterestCalculation": "0",
+        "minRequiredBalance": "0", "enforceMinRequiredBalance": False,
         "lockinPeriodFrequency": 0, "lockinPeriodFrequencyType": 0,
         "withdrawalFeeForTransfers": False, "allowOverdraft": False,
         "withHoldTax": False, "taxGroupId": tax_group_id, "accountingRule": 3,
@@ -491,8 +492,7 @@ def prove_vista_lifecycle(
         "clientId": target["client_id"], "productId": product_id, "externalId": account_external_id,
         "submittedOnDate": canary.opening_date.isoformat(), "dateFormat": "yyyy-MM-dd", "locale": "en",
         "nominalAnnualInterestRate": format(canary.annual_rate, "f"), "withdrawalFeeForTransfers": False,
-        # The product's 50.00 minimum is the rule for new business. Historical
-        # migration accounts must not synthesize an activation deposit: their
+        # Historical migration accounts must not synthesize an activation deposit: their
         # first Arissto deposit is replayed as the sole opening balance event.
         "minRequiredOpeningBalance": "0",
     }), "savingsId")

@@ -23,6 +23,7 @@ from arissto_sync.loans import (
     _classify_voided_refinance_attempts,
     _collateral_runtime_contract,
     _ensure_loan_collaterals,
+    _find_collateral_product,
     _ensure_existing_loan_collateral_attachments,
     _ensure_recurring_insurance_charge,
     _ensure_source_exact_guarantors,
@@ -57,6 +58,8 @@ from arissto_sync.loans import (
     _with_fineract_recovery,
     _selected_loan_actions,
     _successful_full_close_predecessors,
+    _target_reversal_date_matches,
+    _verify_loan_term_account_contract,
     apply_loan_plan,
     build_loan_plan,
     build_loan_product_payload,
@@ -84,6 +87,12 @@ CONFIG = Path(__file__).resolve().parents[1] / "config" / "loans.json"
 
 
 class LoanFullResyncTests(unittest.TestCase):
+    def test_reversal_date_uses_source_movement_date(self):
+        event = {"date": "2026-09-17"}
+        self.assertTrue(_target_reversal_date_matches({"reversedOnDate": [2026, 9, 17]}, event))
+        self.assertFalse(_target_reversal_date_matches({"reversedOnDate": [2026, 10, 8]}, event))
+        self.assertFalse(_target_reversal_date_matches({}, event))
+
     def test_full_resync_freezes_schedule_and_transaction_guards(self):
         document = {"actions": [{
             "entity_type": "loan", "action": "recover-loan", "external_id": "ARISSTO:CRD:42",
@@ -838,6 +847,11 @@ class LoanInspectionTests(unittest.TestCase):
 
     def setUp(self):
         self.contract = LoanContract.load(CONFIG)
+        # Existing lifecycle-writer fixtures omit Fineract's term-selection
+        # response fields. The date and GL proof has dedicated tests below.
+        term_guard = patch("arissto_sync.loans._verify_loan_term_account_contract")
+        self.term_guard = term_guard.start()
+        self.addCleanup(term_guard.stop)
 
     def test_contract_and_source_key_are_strict(self):
         self.assertEqual(canonical_source_key(" 123 "), 123)
@@ -866,6 +880,9 @@ class LoanInspectionTests(unittest.TestCase):
         product = self.contract.raw["product_contract"]
         codes = set(product["accounting_gl_codes"].values())
         codes.update(product["portfolio_account_policy"]["reviewed_primary_gl_by_line"].values())
+        codes.update(product["portfolio_account_policy"]["reviewed_long_gl_by_line"].values())
+        codes.update(product["portfolio_account_policy"]["reviewed_short_interest_receivable_gl_by_line"].values())
+        codes.update(product["portfolio_account_policy"]["reviewed_long_interest_receivable_gl_by_line"].values())
         codes.add(product["target_resources"]["debt_insurance_charge"]["income_or_liability_gl"])
         codes.add(product["target_resources"]["historical_debt_insurance_charge"]["income_or_liability_gl"])
         codes.add(product["target_resources"]["mobile_collection_fund_source_gl"])
@@ -925,6 +942,7 @@ class LoanInspectionTests(unittest.TestCase):
             "MONTO_APROBADO": "350.00", "MONTO_DESEMBOLSADO": "350.00",
             "PORC_INTERES_APROBADO": "84.00", "NO_CUOTAS_APROBADO": 2,
             "ID_FRECUENCIA": 15, "FECHA_OTORGAMIENTO": "2026-06-11",
+            "FECHA_VENCIMIENTO": "2026-07-11",
             "ULTIMO_SALDO": "342.00", "SALDO_INTERES": "1.90",
             "SALDO_INTERES_PENDIENTE": "0", "SALDO_MORA": "0",
             "SALDO_SEGURO": "0.10", "SALDO_RECARGOS": "0", "SALDO_TOTAL": "344.00",
@@ -1006,6 +1024,52 @@ class LoanInspectionTests(unittest.TestCase):
                 for row in schedule
             ],
         }
+
+    def test_lifecycle_plan_freezes_source_maturity_and_366_day_account_boundary(self):
+        loan, lifecycle, target, payload = self.lifecycle_fixture()
+        loan["FECHA_VENCIMIENTO"] = "2027-06-12"
+        short = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        selected = short["lifecycle"]["term_account_contract"]
+        self.assertEqual(selected["term_days"], 366)
+        self.assertEqual(selected["classification"], "short")
+        self.assertEqual(selected["portfolio_account_id"], payload["loanPortfolioAccountId"])
+        self.assertEqual(selected["interest_receivable_account_id"], payload["receivableInterestAccountId"])
+
+        loan["FECHA_VENCIMIENTO"] = "2027-06-13"
+        long = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        selected = long["lifecycle"]["term_account_contract"]
+        self.assertEqual(selected["term_days"], 367)
+        self.assertEqual(selected["classification"], "long")
+        self.assertEqual(selected["portfolio_account_id"], payload["longTermLoanPortfolioAccountId"])
+        self.assertEqual(selected["interest_receivable_account_id"], payload["longTermInterestReceivableAccountId"])
+
+        loan.pop("FECHA_VENCIMIENTO")
+        missing = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        self.assertIn("missing_source_contractual_maturity", missing["quarantine_reasons"])
+
+    def test_undisbursed_approved_loan_defers_maturity_proof_until_it_has_a_contract(self):
+        loan, lifecycle, target, payload = self.lifecycle_fixture()
+        loan["source_state"] = "2"
+        loan.pop("FECHA_VENCIMIENTO")
+        lifecycle["movements"] = []
+        built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        self.assertNotIn("missing_source_contractual_maturity", built["quarantine_reasons"])
+        self.assertTrue(built["lifecycle"]["source_maturity_pending"])
+        self.assertIsNone(built["lifecycle"]["term_account_contract"])
+
+    def test_header_schedule_maturity_variance_must_not_cross_account_boundary(self):
+        loan, lifecycle, target, payload = self.lifecycle_fixture()
+        loan["FECHA_VENCIMIENTO"] = "2027-06-12"
+        lifecycle["schedule"][-1]["FECHA_PAGO"] = "2027-06-10"
+        same_class = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        self.assertEqual(
+            same_class["lifecycle"]["term_account_contract"]["maturity_date_policy"],
+            "class-equivalent-source-schedule-variance",
+        )
+        self.assertNotIn("source_schedule_maturity_crosses_account_boundary", same_class["quarantine_reasons"])
+        lifecycle["schedule"][-1]["FECHA_PAGO"] = "2027-06-13"
+        crosses = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        self.assertIn("source_schedule_maturity_crosses_account_boundary", crosses["quarantine_reasons"])
 
     def test_lifecycle_plan_freezes_ordered_events_and_outstanding_balances(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
@@ -1105,9 +1169,16 @@ class LoanInspectionTests(unittest.TestCase):
             )
 
         self.assertEqual(plan["actions"][0]["source_key"], "collateral-product:arissto")
+        self.assertEqual(plan["actions"][0]["payload"]["name"], "Credesal Garantía de Crédito")
         loan_action = next(row for row in plan["actions"] if row["source_key"] == "loan:2068")
         self.assertIn("collateral-product:arissto", loan_action["depends_on"])
         self.assertNotIn("Sensitive source address", json.dumps(plan))
+
+    def test_legacy_collateral_product_is_detected_before_creating_a_duplicate(self):
+        api = MagicMock()
+        api.request.return_value = [{"id": 12, "name": "ARISSTO-COLLATERAL"}]
+        product = _find_collateral_product(api, self.contract)
+        self.assertEqual(product["id"], 12)
 
     def test_client_collateral_creation_is_recoverable_by_asset_external_id(self):
         loan, lifecycle, _target, _payload = self.lifecycle_fixture()
@@ -1491,6 +1562,8 @@ class LoanInspectionTests(unittest.TestCase):
         frozen = result["lifecycle"]
         self.assertEqual(frozen["application_payload"]["expectedDisbursementDate"], "2023-04-29")
         self.assertEqual(frozen["approval_payload"]["expectedDisbursementDate"], "2023-04-29")
+        self.assertNotIn("sourceExactRefinancingQuoteDate", frozen["application_payload"])
+        self.assertNotIn("sourceExactRefinancingQuoteDate", frozen["approval_payload"])
         self.assertEqual(next(event["date"] for event in frozen["events"] if event["role"] == "disbursement"), "2023-04-28")
         self.assertEqual(frozen["application_payload"]["interestChargedFromDate"], "2023-04-28")
         self.assertEqual(frozen["application_payload"]["daysInYearType"], 365)
@@ -1544,6 +1617,7 @@ class LoanInspectionTests(unittest.TestCase):
             "MONTO_DESEMBOLSADO": "500.00",
             "PORC_INTERES_APROBADO": "60.00",
             "FECHA_OTORGAMIENTO": "2023-03-23",
+            "FECHA_VENCIMIENTO": "2023-05-23",
         })
         lifecycle["application"].update({
             "FECHA_SOLICITUD": "2023-03-21",
@@ -1760,6 +1834,7 @@ class LoanInspectionTests(unittest.TestCase):
             "MONTO_APROBADO": "350.00",
             "MONTO_DESEMBOLSADO": "350.00",
             "FECHA_OTORGAMIENTO": "2026-01-11",
+            "FECHA_VENCIMIENTO": "2027-07-11",
         })
         lifecycle["schedule_adjustment_summary"] = {"adjustment_count": 2}
         lifecycle["schedule"] = [
@@ -2730,11 +2805,13 @@ class LoanInspectionTests(unittest.TestCase):
                 )
                 frozen = result["lifecycle"]
                 self.assertEqual(
-                    frozen["application_payload"]["expectedDisbursementDate"], payoff_date,
+                    frozen["application_payload"]["expectedDisbursementDate"], contractual_date,
                 )
                 self.assertEqual(
-                    frozen["approval_payload"]["expectedDisbursementDate"], payoff_date,
+                    frozen["approval_payload"]["expectedDisbursementDate"], contractual_date,
                 )
+                self.assertEqual(frozen["application_payload"]["sourceExactRefinancingQuoteDate"], payoff_date)
+                self.assertEqual(frozen["approval_payload"]["sourceExactRefinancingQuoteDate"], payoff_date)
                 self.assertEqual(
                     frozen["native_creation_override"]["expected_contractual_origin_date"],
                     contractual_date,
@@ -2747,6 +2824,136 @@ class LoanInspectionTests(unittest.TestCase):
                     "reviewed_refinance_application_date_signature_changed",
                     changed["quarantine_reasons"],
                 )
+
+    def test_source_proven_refinance_quote_date_generalizes_without_loan_id(self):
+        for successor in (2494, 9876):
+            with self.subTest(successor=successor):
+                loan, lifecycle, target, payload = self.lifecycle_fixture()
+                loan.update({
+                    "ID_CREDITO": successor, "MONTO_APROBADO": "272.00",
+                    "MONTO_DESEMBOLSADO": "272.00",
+                    "FECHA_OTORGAMIENTO": "2026-10-08",
+                })
+                lifecycle["application"].update({
+                    "FECHA_SOLICITUD": "2026-08-28",
+                    "FECHA_APROBADO": "2026-08-28",
+                    "FECHA_DESEMBOLSO": "2026-08-28",
+                })
+                lifecycle["movements"][0].update({
+                    "ID_CREDITO": successor, "FECHA_OPERACION": "2026-08-28",
+                    "MONTO": "272.00", "MONTO_CAPITAL": "272.00",
+                })
+                lifecycle["movements"] = lifecycle["movements"][:1]
+                lifecycle["charge_details"] = []
+                lifecycle["refinance_incoming"] = [{
+                    "old_credit_id": 2294, "new_credit_id": successor,
+                    "payoff_movement_id": "99", "payoff_amount": "271.70",
+                    "payoff_principal": "271.70", "payoff_interest": "0.00",
+                    "payoff_fee": "0.00", "payoff_penalty": "0.00",
+                    "payoff_date": "2026-08-28", "disbursement_movement_id": "100",
+                    "later_posted_payment_count": 0,
+                }]
+                result = _build_loan_lifecycle_action(
+                    self.contract, loan, lifecycle, target, payload,
+                )
+                frozen = result["lifecycle"]
+                self.assertEqual(frozen["application_payload"]["expectedDisbursementDate"],
+                                 "2026-10-08")
+                self.assertEqual(frozen["approval_payload"]["expectedDisbursementDate"],
+                                 "2026-10-08")
+                self.assertEqual(frozen["application_payload"]["sourceExactRefinancingQuoteDate"], "2026-08-28")
+                self.assertEqual(frozen["approval_payload"]["sourceExactRefinancingQuoteDate"], "2026-08-28")
+                self.assertEqual(frozen["refinance_quote_date_policy"]["classification"],
+                                 "source-proven-refinance-quote-date")
+                lifecycle["refinance_incoming"][0]["later_posted_payment_count"] = 1
+                changed = _build_loan_lifecycle_action(
+                    self.contract, loan, lifecycle, target, payload,
+                )
+                self.assertIn("refinance_application_quote_date_unproven",
+                              changed["quarantine_reasons"])
+
+    def test_consolidation_quote_date_requires_every_same_day_payoff(self):
+        loan, lifecycle, target, payload = self.lifecycle_fixture()
+        loan["FECHA_OTORGAMIENTO"] = "2026-06-12"
+        lifecycle["application"].update({
+            "FECHA_SOLICITUD": "2026-06-11",
+            "FECHA_APROBADO": "2026-06-11",
+            "FECHA_DESEMBOLSO": "2026-06-11",
+        })
+        lifecycle["movements"] = lifecycle["movements"][:1]
+        lifecycle["charge_details"] = []
+        lifecycle["refinance_incoming"] = [
+            {
+                "old_credit_id": 1, "new_credit_id": 2068,
+                "payoff_movement_id": "91", "payoff_amount": "42.00",
+                "payoff_principal": "40.00", "payoff_interest": "2.00",
+                "payoff_fee": "0.00", "payoff_penalty": "0.00",
+                "payoff_date": "2026-06-11", "disbursement_movement_id": "100",
+                "later_posted_payment_count": 0,
+            },
+            {
+                "old_credit_id": 2, "new_credit_id": 2068,
+                "payoff_movement_id": "92", "payoff_amount": "30.50",
+                "payoff_principal": "30.00", "payoff_interest": "0.50",
+                "payoff_fee": "0.00", "payoff_penalty": "0.00",
+                "payoff_date": "2026-06-11", "disbursement_movement_id": "100",
+                "later_posted_payment_count": 0,
+            },
+        ]
+        accepted = _build_loan_lifecycle_action(
+            self.contract, loan, lifecycle, target, payload,
+        )
+        self.assertNotIn("refinance_application_quote_date_unproven",
+                         accepted["quarantine_reasons"])
+        frozen = accepted["lifecycle"]
+        self.assertEqual(frozen["application_payload"]["expectedDisbursementDate"],
+                         "2026-06-12")
+        self.assertEqual(frozen["approval_payload"]["expectedDisbursementDate"],
+                         "2026-06-12")
+        self.assertEqual(frozen["application_payload"]["sourceExactRefinancingQuoteDate"], "2026-06-11")
+        self.assertEqual(frozen["approval_payload"]["sourceExactRefinancingQuoteDate"], "2026-06-11")
+        self.assertEqual(frozen["refinance_quote_date_policy"]["payoff_movement_ids"],
+                         ["91", "92"])
+        self.assertEqual(frozen["refinance_quote_date_policy"]["payoff_amount_total"],
+                         "72.50")
+
+        second = lifecycle["refinance_incoming"][1]
+        for field, changed_value in (
+            ("later_posted_payment_count", 1),
+            ("payoff_date", "2026-06-12"),
+            ("disbursement_movement_id", "999"),
+            ("payoff_amount", "400.00"),
+        ):
+            with self.subTest(field=field):
+                original = second[field]
+                second[field] = changed_value
+                changed = _build_loan_lifecycle_action(
+                    self.contract, loan, lifecycle, target, payload,
+                )
+                self.assertIn("refinance_application_quote_date_unproven",
+                              changed["quarantine_reasons"])
+                second[field] = original
+
+        # One predecessor can remain active at payoff and close through later
+        # payments; the source pre/post state proves this is a partial paydown.
+        second.update({
+            "later_posted_payment_count": 6,
+            "predecessor_post_payoff_state": 1,
+            "predecessor_current_state": 3,
+        })
+        partial = _build_loan_lifecycle_action(
+            self.contract, loan, lifecycle, target, payload,
+        )
+        self.assertNotIn("refinance_application_quote_date_unproven",
+                         partial["quarantine_reasons"])
+        self.assertEqual(partial["lifecycle"]["refinance"]["settlements"][1]["settlement_type"],
+                         "PARTIAL_PAYDOWN")
+        second["predecessor_post_payoff_state"] = 3
+        unproven = _build_loan_lifecycle_action(
+            self.contract, loan, lifecycle, target, payload,
+        )
+        self.assertIn("refinance_application_quote_date_unproven",
+                      unproven["quarantine_reasons"])
 
     def test_lifecycle_plan_freezes_source_exact_incoming_refinance_payoff(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
@@ -2764,6 +2971,9 @@ class LoanInspectionTests(unittest.TestCase):
 
         result = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
 
+        self.assertEqual(result["lifecycle"]["application_payload"]["expectedDisbursementDate"], "2026-06-11")
+        self.assertNotIn("sourceExactRefinancingQuoteDate", result["lifecycle"]["application_payload"])
+        self.assertNotIn("sourceExactRefinancingQuoteDate", result["lifecycle"]["approval_payload"])
         refinance = result["lifecycle"]["refinance"]
         self.assertEqual(refinance["payoff_allocation"], {
             "principal": "40.00", "interest": "2.00", "fee": "0.50", "penalty": "0.00",
@@ -3114,6 +3324,7 @@ class LoanInspectionTests(unittest.TestCase):
 
     def test_lifecycle_plan_accepts_cross_client_consolidation_with_legacy_evidence(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
+        loan["FECHA_OTORGAMIENTO"] = "2026-06-12"
         lifecycle["refinance_incoming"] = [
             {
                 "old_credit_id": 1, "payoff_date": "2026-06-11",
@@ -3136,6 +3347,8 @@ class LoanInspectionTests(unittest.TestCase):
 
         self.assertNotIn("cross_client_refinance_requires_authorization", result["quarantine_reasons"])
         self.assertNotIn("isTopup", result["lifecycle"]["application_payload"])
+        self.assertNotIn("sourceExactRefinancingQuoteDate", result["lifecycle"]["application_payload"])
+        self.assertNotIn("sourceExactRefinancingQuoteDate", result["lifecycle"]["approval_payload"])
         evidence = result["lifecycle"]["refinance"]["settlements"][1]["legacy_cross_client_evidence"]
         self.assertEqual(evidence["authorization_basis"], "LEGACY_SOURCE_LIQUIDATION")
         self.assertEqual(evidence["source_liquidation_id"], "44")
@@ -3469,6 +3682,10 @@ class LoanInspectionTests(unittest.TestCase):
         ])
         commands = [call.kwargs.get("query", {}).get("command") for call in api.request.call_args_list]
         self.assertEqual(commands, [None, "approve", None, "sourceExactDisburse", None, "sourceExactRepayment", None])
+        self.assertEqual(
+            [check.kwargs["selected"] for check in self.term_guard.call_args_list],
+            [False, False, True],
+        )
         repayment_payload = api.request.call_args_list[5].args[2]
         self.assertEqual(
             {key: repayment_payload[key] for key in (
@@ -3973,7 +4190,7 @@ class LoanInspectionTests(unittest.TestCase):
                         "schema_signature": "source-schema",
                         "target_schema_signature": "target-schema",
                         "migration_cutover_date": "2026-09-24",
-                        "scope": {}, "actions": [action],
+                        "scope": {}, "actions": [action], "client_office_transfers": [],
                     },
                 }
                 with (
@@ -4009,6 +4226,7 @@ class LoanInspectionTests(unittest.TestCase):
                 "product_writer_registered": True,
                 "loan_writer_registered": True,
                 "collateral_writer_registered": True,
+                "client_office_transfers": [],
                 "actions": [{"entity_type": "loan", "lifecycle": {"refinance": {
                     "settlement_classifier": "terminal-status-v1",
                 }}}],
@@ -4536,6 +4754,10 @@ class LoanInspectionTests(unittest.TestCase):
         self.assertEqual(payload["maximumGap"], 366)
         for parameter in ACCOUNTING_RESPONSE_KEYS:
             self.assertIsInstance(payload[parameter], int)
+        self.assertEqual(payload["loanPortfolioAccountId"], resources["gl_ids"]["1141040101"])
+        self.assertEqual(payload["longTermLoanPortfolioAccountId"], resources["gl_ids"]["114204010101"])
+        self.assertEqual(payload["receivableInterestAccountId"], resources["gl_ids"]["1141049901"])
+        self.assertEqual(payload["longTermInterestReceivableAccountId"], resources["gl_ids"]["1142049901"])
 
         microcredit = build_loan_product_payload(
             self.contract,
@@ -4544,6 +4766,8 @@ class LoanInspectionTests(unittest.TestCase):
         )
         self.assertEqual(microcredit["maxInterestRatePerPeriod"], "30.00")
         self.assertEqual(microcredit["numberingCode"], "3M1")
+        self.assertEqual(microcredit["receivableInterestAccountId"], resources["gl_ids"]["1141039901"])
+        self.assertEqual(microcredit["longTermInterestReceivableAccountId"], resources["gl_ids"]["1142039901"])
 
     def test_legacy_migration_product_name_is_a_safe_update(self):
         settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target"), source=SimpleNamespace())
@@ -4675,6 +4899,8 @@ class LoanInspectionTests(unittest.TestCase):
             )),
             patch("arissto_sync.loans.extract_loan_lifecycle_rows", return_value={}),
             patch("arissto_sync.loans.resolve_loan_product_target", return_value=target),
+            patch("arissto_sync.loans.plan_client_office_transfers", return_value=[]),
+            patch("arissto_sync.loans.target_client_office_transfer_blockers", return_value=[]),
             patch("arissto_sync.loans.source_fingerprint", return_value="source"),
         ):
             plan_id, plan = build_loan_plan(
@@ -4722,12 +4948,12 @@ class LoanInspectionTests(unittest.TestCase):
             result = extract_loan_lifecycle_rows(settings, self.contract, loans)
 
         self.assertEqual(len(result), 901)
-        self.assertEqual(select.call_count, 20)
+        self.assertEqual(select.call_count, 22)
         parameter_counts = [len(call.args[2]) for call in select.call_args_list]
         self.assertEqual(
             parameter_counts,
-            [900, 900, 900, 900, 900, 900, 900, 900, 900, 1800,
-             1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
+            [900, 900, 900, 900, 900, 900, 900, 900, 900, 900, 1800,
+             1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
         )
         self.assertLessEqual(max(parameter_counts), 2100)
 
@@ -4819,6 +5045,66 @@ class LoanInspectionTests(unittest.TestCase):
         self.assertEqual(plan["actions"][0]["reason"], "external_id_product_contract_differs")
         self.assertEqual(plan["actions"][1]["depends_on"], ["product:00010"])
 
+    def test_missing_term_account_references_are_added_only_to_an_empty_product(self):
+        settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target"), source=SimpleNamespace())
+        source_product = self.product("00010", "001", "M-MICROCREDITO MULTIDESTINO")
+        payload = build_loan_product_payload(self.contract, source_product, self.target_resources())
+        existing = self.api_product(payload)
+        del existing["accountingMappings"]["longTermLoanPortfolioAccount"]
+        del existing["accountingMappings"]["longTermInterestReceivableAccount"]
+        target = {
+            "resources": self.target_resources(), "products": {"00010": existing}, "crosswalks": {},
+            "product_loan_counts": {payload["externalId"]: 0},
+        }
+        with patch("arissto_sync.loans.source_fingerprint", return_value="source"):
+            plan = compose_loan_plan(settings, self.contract, [self.loan(2068, "00010")], [source_product], target)
+        self.assertTrue(plan["applicable"])
+        action = plan["actions"][0]
+        self.assertEqual(action["action"], "update-product")
+        self.assertEqual(action["term_mapping_backfill"], [
+            "longTermInterestReceivableAccountId", "longTermLoanPortfolioAccountId",
+        ])
+
+        api = MagicMock()
+        updated = self.api_product(payload)
+        with patch("arissto_sync.loans._find_loan_product", side_effect=[existing, updated]), patch(
+            "arissto_sync.loans.ensure_standard_loan_product_bucket"
+        ):
+            product_id, recovered = _resolve_or_create_loan_product(api, action, existing)
+        self.assertEqual((product_id, recovered), (90, False))
+        sent = api.request.call_args.args[2]
+        self.assertEqual(sent["longTermLoanPortfolioAccountId"], payload["longTermLoanPortfolioAccountId"])
+        self.assertEqual(sent["longTermInterestReceivableAccountId"], payload["longTermInterestReceivableAccountId"])
+        self.assertNotIn("receivableInterestAccountId", sent)
+
+        target["product_loan_counts"][payload["externalId"]] = 1
+        with patch("arissto_sync.loans.source_fingerprint", return_value="source"):
+            blocked = compose_loan_plan(settings, self.contract, [self.loan(2068, "00010")], [source_product], target)
+        self.assertFalse(blocked["applicable"])
+        self.assertEqual(blocked["actions"][0]["reason"], "term_account_mapping_requires_existing_loan_repair")
+
+        del target["product_loan_counts"]
+        with patch("arissto_sync.loans.source_fingerprint", return_value="source"):
+            unknown = compose_loan_plan(settings, self.contract, [self.loan(2068, "00010")], [source_product], target)
+        self.assertFalse(unknown["applicable"])
+        self.assertEqual(unknown["actions"][0]["reason"], "term_account_mapping_requires_existing_loan_repair")
+
+    def test_existing_wrong_interest_account_is_not_replaced_by_prerequisite(self):
+        settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target"), source=SimpleNamespace())
+        source_product = self.product("00010", "001", "M-MICROCREDITO MULTIDESTINO")
+        payload = build_loan_product_payload(self.contract, source_product, self.target_resources())
+        existing = self.api_product(payload)
+        existing["accountingMappings"]["receivableInterestAccount"] = {"id": 999}
+        del existing["accountingMappings"]["longTermLoanPortfolioAccount"]
+        target = {
+            "resources": self.target_resources(), "products": {"00010": existing}, "crosswalks": {},
+            "product_loan_counts": {payload["externalId"]: 0},
+        }
+        with patch("arissto_sync.loans.source_fingerprint", return_value="source"):
+            plan = compose_loan_plan(settings, self.contract, [self.loan(2068, "00010")], [source_product], target)
+        self.assertFalse(plan["applicable"])
+        self.assertEqual(plan["actions"][0]["reason"], "external_id_product_contract_differs")
+
     def test_historical_rate_envelope_can_widen_existing_migration_product(self):
         settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target"), source=SimpleNamespace())
         source_product = self.product("00010", "001", "M-MICROCREDITO MULTIDESTINO")
@@ -4864,10 +5150,13 @@ class LoanInspectionTests(unittest.TestCase):
         existing = self.api_product(payload, 90)
         action = {"action": "create-product", "external_id": payload["externalId"], "payload": payload}
         api = MagicMock()
-        with patch("arissto_sync.loans._find_loan_product", return_value=existing):
+        with patch("arissto_sync.loans._find_loan_product", return_value=existing), patch(
+            "arissto_sync.loans.ensure_standard_loan_product_bucket"
+        ) as ensure_bucket:
             product_id, recovered = _resolve_or_create_loan_product(api, action, None)
         self.assertEqual(product_id, 90)
         self.assertTrue(recovered)
+        ensure_bucket.assert_called_once_with(api, 90, payload["externalId"])
         api.request.assert_not_called()
 
     def test_product_apply_creates_with_deterministic_key_then_resolves_exact_identity(self):
@@ -4877,10 +5166,13 @@ class LoanInspectionTests(unittest.TestCase):
         action = {"action": "create-product", "external_id": payload["externalId"], "payload": payload}
         api = MagicMock()
         api.request.return_value = {"resourceId": 91}
-        with patch("arissto_sync.loans._find_loan_product", side_effect=[None, existing]):
+        with patch("arissto_sync.loans._find_loan_product", side_effect=[None, existing]), patch(
+            "arissto_sync.loans.ensure_standard_loan_product_bucket"
+        ) as ensure_bucket:
             product_id, recovered = _resolve_or_create_loan_product(api, action, None)
         self.assertEqual(product_id, 91)
         self.assertFalse(recovered)
+        ensure_bucket.assert_called_once_with(api, 91, payload["externalId"])
         api.request.assert_called_once_with(
             "POST", "loanproducts", payload, idempotency_key="ARISSTO:CRD-LINE:00001"
         )
@@ -5279,6 +5571,29 @@ class LoanInspectionTests(unittest.TestCase):
         ]
         self.assertEqual(loan_retry_keys(actions, items), {"loan:1", "loan:2"})
 
+    def test_retry_includes_entire_failed_office_transfer_cohort(self):
+        actions = [
+            {"source_key": "loan:101", "depends_on": []},
+            {"source_key": "loan:283", "depends_on": ["loan:101"]},
+            {"source_key": "loan:115", "depends_on": []},
+            {"source_key": "loan:987", "depends_on": []},
+            {"source_key": "loan:999", "depends_on": []},
+        ]
+        items = [
+            {"source_key": "loan:101", "status": "failed",
+             "error_code": "client_office_transfer_pretransfer_balance_mismatch"},
+            {"source_key": "loan:283", "status": "blocked",
+             "error_code": "client_office_transfer_cohort_failed"},
+            {"source_key": "loan:115", "status": "blocked",
+             "error_code": "client_office_transfer_cohort_failed"},
+            {"source_key": "loan:987", "status": "blocked",
+             "error_code": "client_office_transfer_cohort_failed"},
+            {"source_key": "loan:999", "status": "blocked",
+             "error_code": "unrelated_dependency_failed"},
+        ]
+        self.assertEqual(loan_retry_keys(actions, items),
+                         {"loan:101", "loan:283", "loan:115", "loan:987"})
+
     def test_plan_retry_journal_preserves_successes_omitted_from_partial_retries(self):
         with tempfile.TemporaryDirectory() as directory:
             state = State(Path(directory) / "state.sqlite3")
@@ -5459,8 +5774,8 @@ class LoanInspectionTests(unittest.TestCase):
               "multi_predecessor_successor_count": 0,
               "ambiguous_successor_predecessor_count": 0}],
             [{"tagged_schedule_rows": 6603, "restructure_snapshot_count": 174,
-              "linked_loan_count": 0, "archival_unlinked_rows": 6603,
-              "linked_schedule_rows": 0}],
+              "linked_loan_count": 1, "archival_unlinked_rows": 6603,
+              "linked_schedule_rows": 0, "unresolved_revision_count": 0}],
             [],
         ]
         connection = MagicMock()
@@ -5477,6 +5792,10 @@ class LoanInspectionTests(unittest.TestCase):
         self.assertTrue(report["ready"])
         self.assertEqual(report["scope"], {"kind": "loan", "source_key": 123})
         self.assertEqual(report["source_blockers"], [])
+        self.assertEqual(
+            report["source"]["restructure_population"]["classification"],
+            "historical_revisions_linked_via_revision_pending_import",
+        )
         self.assertNotIn("implementation_gate:native_schedule_proof", report["blockers"])
         self.assertNotIn("implementation_gate:native_reversal_pairing_proof", report["blockers"])
         self.assertEqual(report["source"]["reversal_pairing"]["movement_order"],
@@ -5581,6 +5900,79 @@ class LoanInspectionTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "sample_limit"):
             compact_loan_reconciliation_report(result, sample_limit=-1)
+
+
+class LoanTermAccountProofTests(unittest.TestCase):
+    @staticmethod
+    def contract():
+        return {
+            "term_account_contract": {
+                "expected_disbursement_date": "2026-06-11",
+                "expected_maturity_date": "2027-06-12",
+                "term_days": 366,
+                "classification": "short",
+                "portfolio_account_id": 829,
+                "interest_receivable_account_id": 885,
+            },
+        }
+
+    @staticmethod
+    def target(selected=False):
+        loan = {"timeline": {
+            "expectedDisbursementDate": [2026, 6, 11],
+            "expectedMaturityDate": [2027, 6, 12],
+        }}
+        if selected:
+            loan.update({
+                "portfolioAccountExpectedDisbursementDate": [2026, 6, 11],
+                "portfolioAccountExpectedMaturityDate": [2027, 6, 12],
+                "portfolioAccountTermDays": 366,
+                "portfolioAccountGlId": 829,
+                "portfolioInterestReceivableGlId": 885,
+                "portfolioAccountSelectionReason": "EXPECTED_DATES_366_DAY_RULE",
+            })
+        return loan
+
+    def test_pending_loan_maturity_must_match_source_before_posting(self):
+        lifecycle = self.contract()
+        _verify_loan_term_account_contract(self.target(), lifecycle, selected=False)
+        shifted = self.target()
+        shifted["timeline"]["expectedMaturityDate"] = [2027, 6, 13]
+        with self.assertRaisesRegex(RuntimeError, "loan_term_target_date_mismatch:expectedMaturityDate"):
+            _verify_loan_term_account_contract(shifted, lifecycle, selected=False)
+        shifted = self.target()
+        shifted["timeline"].pop("expectedMaturityDate")
+        with self.assertRaisesRegex(RuntimeError, "loan_term_target_date_missing:expectedMaturityDate"):
+            _verify_loan_term_account_contract(shifted, lifecycle, selected=False)
+
+    def test_reviewed_schedule_maturity_variance_must_keep_same_account_class(self):
+        lifecycle = self.contract()
+        lifecycle["term_account_contract"]["maturity_date_policy"] = "class-equivalent-source-schedule-variance"
+        lifecycle["term_account_contract"]["source_schedule_maturity_date"] = "2027-06-10"
+        shifted = self.target(selected=True)
+        shifted["timeline"]["expectedMaturityDate"] = [2027, 6, 10]
+        shifted["portfolioAccountExpectedMaturityDate"] = [2027, 6, 10]
+        shifted["portfolioAccountTermDays"] = 364
+        _verify_loan_term_account_contract(shifted, lifecycle, selected=True)
+        shifted["timeline"]["expectedMaturityDate"] = [2027, 6, 13]
+        with self.assertRaisesRegex(RuntimeError, "loan_term_target_account_classification_mismatch"):
+            _verify_loan_term_account_contract(shifted, lifecycle, selected=False)
+
+    def test_selected_account_and_evidence_must_match_frozen_contract(self):
+        lifecycle = self.contract()
+        _verify_loan_term_account_contract(self.target(selected=True), lifecycle, selected=True)
+        wrong = self.target(selected=True)
+        wrong["portfolioAccountGlId"] = 835
+        with self.assertRaisesRegex(RuntimeError, "loan_term_selection_mismatch:portfolioAccountGlId"):
+            _verify_loan_term_account_contract(wrong, lifecycle, selected=True)
+        wrong = self.target(selected=True)
+        wrong["portfolioAccountTermDays"] = 367
+        with self.assertRaisesRegex(RuntimeError, "loan_term_selection_mismatch:portfolioAccountTermDays"):
+            _verify_loan_term_account_contract(wrong, lifecycle, selected=True)
+
+    def test_old_plan_without_frozen_term_contract_is_rejected(self):
+        with self.assertRaisesRegex(RuntimeError, "loan_plan_missing_frozen_term_account_contract"):
+            _verify_loan_term_account_contract(self.target(), {}, selected=False)
 
 
 if __name__ == "__main__":

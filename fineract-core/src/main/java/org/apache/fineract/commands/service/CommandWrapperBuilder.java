@@ -668,6 +668,15 @@ public class CommandWrapperBuilder {
         return this;
     }
 
+    public CommandWrapperBuilder sourceExactProposeAndAcceptClientTransfer(final Long clientId) {
+        this.actionName = "SOURCEEXACTPROPOSEANDACCEPTTRANSFER";
+        this.entityName = "CLIENT";
+        this.entityId = clientId;
+        this.clientId = clientId;
+        this.href = "/clients/" + clientId + "?command=sourceExactProposeAndAcceptTransfer";
+        return this;
+    }
+
     public CommandWrapperBuilder withdrawClientTransferRequest(final Long clientId) {
         this.actionName = "WITHDRAWTRANSFER";
         this.entityName = "CLIENT";

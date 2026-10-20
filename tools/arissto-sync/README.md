@@ -47,7 +47,10 @@ the implementation.
 - Plans store source keys and normalized hashes, not names, documents, addresses, or payloads.
 - Runtime state is local SQLite under `.arissto-sync/` and is separated by target fingerprint.
 - No deletes exist. Only explicitly mapped legacy statuses can request deactivation.
-- API writes are the default. The direct-SQL allowlist is empty for clients.
+- API writes are the default. The ordinary `clients` block has no direct-SQL
+  writes. The separately reviewed `client-current-office` step has a guarded
+  `m_client.office_id`-only exception; see the
+  [client contract](migration-services/clients/contract.md#current-borrower-office-from-the-latest-loan).
 - The engine never creates or alters Fineract schema.
 
 ## Setup
@@ -134,6 +137,34 @@ Use one explicit run mode when discussing or planning a workflow:
 - **Resumed sync** continues an incomplete migration in the same cycle and
   target lifetime. It skips already completed and still-valid service groups
   and continues pending, failed, blocked, or newly selected downstream groups.
+- **Carry-forward rebuild** is a guarded, repeatable local mode under acceptance testing. The operator
+  selects a later `--source-through-date` for each run; the new Fineract start
+  date is the next calendar day. Arissto close-of-business status is reported
+  for context but does not block the mode. Its guarded replacement path
+  completed a 16-service local sandbox run. The workflow now includes native
+  historical risk transitions as a seventeenth step after loans; this expanded
+  workflow has not yet had a controlled local acceptance run. The
+  remaining release gates are tracked in
+  [`carry-forward-implementation-sequence.md`](../../../docs/carry-forward-implementation-sequence.md).
+
+The read-only loan classifier is available while the executable mode is under
+construction:
+
+```bash
+./arissto-sync carry-forward classify --target local \
+  --state-file .arissto-sync/cycles/OLD_CYCLE/state.sqlite3 \
+  --source-through-date YYYY-MM-DD \
+  --output .arissto-sync/carry-forward/classifications/YYYY-MM-DD.json
+```
+
+It reports provisional retention candidates and unresolved seed proofs. A
+candidate has no effect on Fineract until the staged seed and workflow exist.
+The dedicated `carry-forward-rebuild` workflow requires a new cycle whose
+baseline reference is the verified staged-seed SHA-256 and whose retained
+mappings have been imported. The immutable replacement plan must be reviewed
+before invoking `arissto_sync.carry_forward_replace`; the old populated
+database is preserved under a rollback name. See the implementation sequence
+for the completed acceptance run and remaining release gates.
 
 The definitive cross-project contract is
 [`ARISSTO_SYNC_RUN_MODES.md`](../../../docs/ARISSTO_SYNC_RUN_MODES.md). Avoid the
@@ -308,12 +339,19 @@ credentials:
 ./arissto-sync retention apply --scope all --confirm APPLY-RETENTION
 ```
 
-For local workflows, only the newest cycle is retained. Creating a new cycle
+For local workflows, the newest cycle stays complete. A carry-forward cycle also
+protects its immediate input cycle for rollback. Creating a new cycle
 automatically runs local retention after the replacement baseline is established:
-every older cycle database, runner log, summary, failure archive, and catalog entry
-is removed. The newest cycle remains complete, including every plan, run, item,
-mapping, and log. Cycle replacement is refused while any cataloged workflow is
-queued or running. Legacy local rows in the shared pre-cycle state database are
+other older cycle databases and catalog entries are removed. Across retained
+cycles, at most the two newest terminal workflow logs are kept. Completed logs
+are compressed; failed or interrupted logs remain appendable for resume.
+Starting a local detached workflow applies this log-only policy before launch;
+active logs are preserved. Plans, runs, items, mappings, and failure records in
+the retained cycles remain complete. The clean sandbox baseline under
+`.tenant-baselines/`, carry-forward recovery captures, and live or rollback
+PostgreSQL databases are outside this retention policy. Cycle replacement is
+refused while any cataloged workflow is queued or running. Legacy local rows in
+the shared pre-cycle state database are
 also removed once no legacy run is marked active; production rows are isolated by
 their recorded target fingerprint and remain untouched.
 

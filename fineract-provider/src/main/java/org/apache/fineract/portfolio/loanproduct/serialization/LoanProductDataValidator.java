@@ -139,6 +139,8 @@ public final class LoanProductDataValidator {
             LoanProductAccountingParams.FUND_SOURCE.getValue(), LoanProductAccountingParams.INCOME_FROM_FEES.getValue(),
             LoanProductAccountingParams.INCOME_FROM_PENALTIES.getValue(), LoanProductAccountingParams.INTEREST_ON_LOANS.getValue(),
             LoanProductAccountingParams.INTEREST_RECEIVABLE.getValue(), LoanProductAccountingParams.LOAN_PORTFOLIO.getValue(),
+            LoanProductAccountingParams.LONG_TERM_LOAN_PORTFOLIO.getValue(),
+            LoanProductAccountingParams.LONG_TERM_INTEREST_RECEIVABLE.getValue(),
             LoanProductAccountingParams.OVERPAYMENT.getValue(), LoanProductAccountingParams.TRANSFERS_SUSPENSE.getValue(),
             LoanProductAccountingParams.LOSSES_WRITTEN_OFF.getValue(), LoanProductAccountingParams.GOODWILL_CREDIT.getValue(),
             LoanProductAccountingParams.PENALTIES_RECEIVABLE.getValue(),
@@ -163,12 +165,11 @@ public final class LoanProductDataValidator {
             LoanProductConstants.PRINCIPAL_VARIATIONS_FOR_BORROWER_CYCLE_PARAMETER_NAME,
             LoanProductConstants.INTEREST_RATE_VARIATIONS_FOR_BORROWER_CYCLE_PARAMETER_NAME,
             LoanProductConstants.NUMBER_OF_REPAYMENT_VARIATIONS_FOR_BORROWER_CYCLE_PARAMETER_NAME, LoanProductConstants.SHORT_NAME,
-            LoanProductConstants.NUMBERING_CODE,
-            LoanProductConstants.MULTI_DISBURSE_LOAN_PARAMETER_NAME, LoanProductConstants.OUTSTANDING_LOAN_BALANCE_PARAMETER_NAME,
-            LoanProductConstants.MAX_TRANCHE_COUNT_PARAMETER_NAME, LoanProductConstants.GRACE_ON_ARREARS_AGEING_PARAMETER_NAME,
-            LoanProductConstants.OVERDUE_DAYS_FOR_NPA_PARAMETER_NAME, LoanProductConstants.IS_INTEREST_RECALCULATION_ENABLED_PARAMETER_NAME,
-            LoanProductConstants.DAYS_IN_YEAR_TYPE_PARAMETER_NAME, LoanProductConstants.DAYS_IN_MONTH_TYPE_PARAMETER_NAME,
-            LoanProductConstants.rescheduleStrategyMethodParameterName,
+            LoanProductConstants.NUMBERING_CODE, LoanProductConstants.MULTI_DISBURSE_LOAN_PARAMETER_NAME,
+            LoanProductConstants.OUTSTANDING_LOAN_BALANCE_PARAMETER_NAME, LoanProductConstants.MAX_TRANCHE_COUNT_PARAMETER_NAME,
+            LoanProductConstants.GRACE_ON_ARREARS_AGEING_PARAMETER_NAME, LoanProductConstants.OVERDUE_DAYS_FOR_NPA_PARAMETER_NAME,
+            LoanProductConstants.IS_INTEREST_RECALCULATION_ENABLED_PARAMETER_NAME, LoanProductConstants.DAYS_IN_YEAR_TYPE_PARAMETER_NAME,
+            LoanProductConstants.DAYS_IN_MONTH_TYPE_PARAMETER_NAME, LoanProductConstants.rescheduleStrategyMethodParameterName,
             LoanProductConstants.interestRecalculationCompoundingMethodParameterName,
             LoanProductConstants.recalculationRestFrequencyIntervalParameterName,
             LoanProductConstants.recalculationRestFrequencyTypeParameterName,
@@ -705,6 +706,11 @@ public final class LoanProductDataValidator {
             baseDataValidator.reset().parameter(LoanProductAccountingParams.LOAN_PORTFOLIO.getValue()).value(loanPortfolioAccountId)
                     .notNull().integerGreaterThanZero();
 
+            final Long longTermLoanPortfolioAccountId = this.fromApiJsonHelper
+                    .extractLongNamed(LoanProductAccountingParams.LONG_TERM_LOAN_PORTFOLIO.getValue(), element);
+            baseDataValidator.reset().parameter(LoanProductAccountingParams.LONG_TERM_LOAN_PORTFOLIO.getValue())
+                    .value(longTermLoanPortfolioAccountId).ignoreIfNull().integerGreaterThanZero();
+
             final Long transfersInSuspenseAccountId = this.fromApiJsonHelper
                     .extractLongNamed(LoanProductAccountingParams.TRANSFERS_SUSPENSE.getValue(), element);
             baseDataValidator.reset().parameter(LoanProductAccountingParams.TRANSFERS_SUSPENSE.getValue())
@@ -801,6 +807,11 @@ public final class LoanProductDataValidator {
                     .extractLongNamed(LoanProductAccountingParams.INTEREST_RECEIVABLE.getValue(), element);
             baseDataValidator.reset().parameter(LoanProductAccountingParams.INTEREST_RECEIVABLE.getValue())
                     .value(receivableInterestAccountId).notNull().integerGreaterThanZero();
+
+            final Long longTermInterestReceivableAccountId = this.fromApiJsonHelper
+                    .extractLongNamed(LoanProductAccountingParams.LONG_TERM_INTEREST_RECEIVABLE.getValue(), element);
+            baseDataValidator.reset().parameter(LoanProductAccountingParams.LONG_TERM_INTEREST_RECEIVABLE.getValue())
+                    .value(longTermInterestReceivableAccountId).ignoreIfNull().integerGreaterThanZero();
 
             final Long receivableFeeAccountId = this.fromApiJsonHelper
                     .extractLongNamed(LoanProductAccountingParams.FEES_RECEIVABLE.getValue(), element);
@@ -1861,6 +1872,11 @@ public final class LoanProductDataValidator {
         baseDataValidator.reset().parameter(LoanProductAccountingParams.LOAN_PORTFOLIO.getValue()).value(loanPortfolioAccountId)
                 .ignoreIfNull().integerGreaterThanZero();
 
+        final Long longTermLoanPortfolioAccountId = this.fromApiJsonHelper
+                .extractLongNamed(LoanProductAccountingParams.LONG_TERM_LOAN_PORTFOLIO.getValue(), element);
+        baseDataValidator.reset().parameter(LoanProductAccountingParams.LONG_TERM_LOAN_PORTFOLIO.getValue())
+                .value(longTermLoanPortfolioAccountId).ignoreIfNull().integerGreaterThanZero();
+
         final Long transfersInSuspenseAccountId = this.fromApiJsonHelper
                 .extractLongNamed(LoanProductAccountingParams.TRANSFERS_SUSPENSE.getValue(), element);
         baseDataValidator.reset().parameter(LoanProductAccountingParams.TRANSFERS_SUSPENSE.getValue()).value(transfersInSuspenseAccountId)
@@ -1905,6 +1921,11 @@ public final class LoanProductDataValidator {
                 .extractLongNamed(LoanProductAccountingParams.INTEREST_RECEIVABLE.getValue(), element);
         baseDataValidator.reset().parameter(LoanProductAccountingParams.INTEREST_RECEIVABLE.getValue()).value(receivableInterestAccountId)
                 .ignoreIfNull().integerGreaterThanZero();
+
+        final Long longTermInterestReceivableAccountId = this.fromApiJsonHelper
+                .extractLongNamed(LoanProductAccountingParams.LONG_TERM_INTEREST_RECEIVABLE.getValue(), element);
+        baseDataValidator.reset().parameter(LoanProductAccountingParams.LONG_TERM_INTEREST_RECEIVABLE.getValue())
+                .value(longTermInterestReceivableAccountId).ignoreIfNull().integerGreaterThanZero();
 
         final Long receivableFeeAccountId = this.fromApiJsonHelper.extractLongNamed(LoanProductAccountingParams.FEES_RECEIVABLE.getValue(),
                 element);

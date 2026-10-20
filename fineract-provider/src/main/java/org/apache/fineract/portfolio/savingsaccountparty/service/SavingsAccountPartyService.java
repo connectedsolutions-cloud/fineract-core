@@ -19,11 +19,18 @@ import org.apache.fineract.portfolio.savingsaccountparty.data.SavingsBeneficiary
 import org.apache.fineract.portfolio.savingsaccountparty.data.SavingsBeneficiaryRequest;
 
 public interface SavingsAccountPartyService {
+
     List<SavingsBeneficiaryData> retrieveBeneficiaries(Long accountId);
+
     List<SavingsBeneficiaryData> replaceBeneficiaries(Long accountId, List<SavingsBeneficiaryRequest> requests);
+
     List<SavingsAuthorizedPersonData> retrieveAuthorizedPersons(Long accountId);
+
     List<SavingsAuthorizedPersonData> replaceAuthorizedPersons(Long accountId, List<SavingsAuthorizedPersonRequest> requests);
+
     SavingsAuthorizedPersonData createAuthorizedPerson(Long accountId, SavingsAuthorizedPersonRequest request);
+
     SavingsAuthorizedPersonData updateAuthorizedPerson(Long accountId, Long personId, SavingsAuthorizedPersonRequest request);
+
     void deleteAuthorizedPerson(Long accountId, Long personId);
 }

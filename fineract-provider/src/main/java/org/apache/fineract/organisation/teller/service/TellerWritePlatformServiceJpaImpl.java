@@ -31,8 +31,10 @@ import org.apache.fineract.accounting.cutoff.AccountingCutoffPolicyService;
 import org.apache.fineract.accounting.financialactivityaccount.domain.FinancialActivityAccount;
 import org.apache.fineract.accounting.financialactivityaccount.domain.FinancialActivityAccountRepositoryWrapper;
 import org.apache.fineract.accounting.glaccount.domain.GLAccount;
+import org.apache.fineract.accounting.journalentry.domain.GlVoucher;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntry;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntryType;
+import org.apache.fineract.accounting.journalentry.service.GlVoucherWriteService;
 import org.apache.fineract.accounting.journalentry.service.JournalEntryPersistenceService;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
@@ -80,6 +82,7 @@ public class TellerWritePlatformServiceJpaImpl implements TellerWritePlatformSer
     private final FinancialActivityAccountRepositoryWrapper financialActivityAccountRepositoryWrapper;
     private final CashierTransactionDataValidator cashierTransactionDataValidator;
     private final CurrencyReadPlatformService currencyReadPlatformService;
+    private final GlVoucherWriteService glVoucherWriteService;
 
     private String getDefaultCurrencyCode() {
         List<CurrencyData> allowed = currencyReadPlatformService.retrieveAllowedCurrencies();
@@ -378,6 +381,7 @@ public class TellerWritePlatformServiceJpaImpl implements TellerWritePlatformSer
      */
 
     @Override
+    @Transactional
     public CommandProcessingResult allocateCashToCashier(final Long cashierId, JsonCommand command) {
         return doTransactionForCashier(cashierId, CashierTxnType.ALLOCATE, command); // For
                                                                                      // fund
@@ -387,6 +391,7 @@ public class TellerWritePlatformServiceJpaImpl implements TellerWritePlatformSer
     }
 
     @Override
+    @Transactional
     public CommandProcessingResult settleCashFromCashier(final Long cashierId, JsonCommand command) {
 
         this.cashierTransactionDataValidator.validateSettleCashAndCashOutTransactions(cashierId, command);
@@ -486,6 +491,14 @@ public class TellerWritePlatformServiceJpaImpl implements TellerWritePlatformSer
             // and
             // Savings
             // Txn
+
+            final String operationType = txnType.equals(CashierTxnType.ALLOCATE) ? "TELLER_ALLOCATE" : "TELLER_SETTLE";
+            final String headerConcept = txnType.equals(CashierTxnType.ALLOCATE) ? "Asignación de efectivo a caja"
+                    : "Liquidación de efectivo de caja";
+            final GlVoucher voucher = glVoucherWriteService.createNative(operationType, headerConcept, "CASHIER_TRANSACTION",
+                    String.valueOf(cashierTxn.getId()));
+            debitJournalEntry.setVoucher(voucher);
+            creditJournalEntry.setVoucher(voucher);
 
             this.journalEntryPersistenceService.saveAndFlush(debitJournalEntry);
             this.journalEntryPersistenceService.saveAndFlush(creditJournalEntry);

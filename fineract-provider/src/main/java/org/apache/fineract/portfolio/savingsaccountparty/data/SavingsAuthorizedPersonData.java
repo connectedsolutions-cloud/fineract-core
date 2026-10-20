@@ -20,6 +20,7 @@ import org.apache.fineract.portfolio.savingsaccountparty.domain.SavingsAuthorize
 @Getter
 @RequiredArgsConstructor
 public class SavingsAuthorizedPersonData {
+
     private final Long id;
     private final Long savingsAccountId;
     private final Long linkedClientId;
@@ -38,7 +39,7 @@ public class SavingsAuthorizedPersonData {
     public static SavingsAuthorizedPersonData from(final SavingsAuthorizedPerson person) {
         return new SavingsAuthorizedPersonData(person.getId(), person.getSavingsAccount().getId(),
                 person.getLinkedClient() == null ? null : person.getLinkedClient().getId(), person.getExternalId(), person.getGivenName(),
-                person.getSurname(), person.getDateOfBirth(), person.getDui(), person.getRelationship(), person.getAddress(), person.getPhone(),
-                person.getPrintOnContract(), person.getPrintOnPassbook(), person.getSignatureReference());
+                person.getSurname(), person.getDateOfBirth(), person.getDui(), person.getRelationship(), person.getAddress(),
+                person.getPhone(), person.getPrintOnContract(), person.getPrintOnPassbook(), person.getSignatureReference());
     }
 }

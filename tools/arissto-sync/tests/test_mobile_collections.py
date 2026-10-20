@@ -4,7 +4,10 @@ import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from arissto_sync.mobile_collections import BLOCK, COLUMNS, TABLES, MobileCollectionContract, _payload, source_key
+from arissto_sync.mobile_collections import (
+    BLOCK, COLUMNS, SOURCE_QUERIES, TABLES, MobileCollectionContract,
+    _assignment_relink_sequence, _payload, source_key,
+)
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -26,6 +29,30 @@ NS = {"db": "http://www.liquibase.org/xml/ns/dbchangelog"}
 
 
 class MobileCollectionsSchemaTests(unittest.TestCase):
+    def test_route_assignment_uses_associate_identity_not_member_number(self):
+        query = SOURCE_QUERIES["assignment"]
+        self.assertIn("x.ID_ASOCIADO=a.ID_ASOCIADO", query)
+        self.assertNotIn("x.ID_SOCIO)=a.ID_ASOCIADO", query)
+
+    def test_assignment_relink_orders_a_client_swap_atomically(self):
+        actions = [
+            {"source_key": "assignment:1", "target_id": 1,
+             "payload": {"route_id": 7, "client_id": 20}},
+            {"source_key": "assignment:2", "target_id": 2,
+             "payload": {"route_id": 7, "client_id": 10}},
+            {"source_key": "assignment:3", "target_id": None,
+             "payload": {"route_id": 7, "client_id": 40}},
+        ]
+        steps = _assignment_relink_sequence([(1, 7, 10), (2, 7, 20)], actions,
+                                            [10, 20, 30, 40])
+        self.assertEqual([(kind, value if kind == "park" else value["source_key"], spare)
+                          for kind, value, spare in steps], [
+            ("upsert", "assignment:3", None),
+            ("park", 1, 30),
+            ("upsert", "assignment:2", None),
+            ("upsert", "assignment:1", None),
+        ])
+
     def test_migration_is_included_and_creates_only_metadata_tables(self):
         self.assertIn(MIGRATION.name, TENANT_CHANGELOG.read_text(encoding="utf-8"))
         root = ET.parse(MIGRATION).getroot()

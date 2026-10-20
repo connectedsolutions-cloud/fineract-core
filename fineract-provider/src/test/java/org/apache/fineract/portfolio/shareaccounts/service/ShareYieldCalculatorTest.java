@@ -24,7 +24,6 @@ class ShareYieldCalculatorTest {
 
     @Test
     void rejectsUnsupportedDayCountBasis() {
-        assertThatIllegalArgumentException()
-                .isThrownBy(() -> ShareYieldCalculator.dailyAccrual(BigDecimal.ONE, BigDecimal.ONE, 360));
+        assertThatIllegalArgumentException().isThrownBy(() -> ShareYieldCalculator.dailyAccrual(BigDecimal.ONE, BigDecimal.ONE, 360));
     }
 }

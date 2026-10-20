@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sqlite3
 from collections import Counter
 from datetime import date
@@ -29,7 +30,10 @@ def candidate_rejection(
     row: tuple[Any, ...] | None, late_count: int, charge_outstanding: Any,
     old_cutoff: date,
 ) -> str | None:
-    if mapping is None or mapping[1] != action["source_hash"]:
+    expected_mapping_hash = (action.get("seed_source_hash")
+                             if action.get("action") == "retained-loan"
+                             else action["source_hash"])
+    if mapping is None or not expected_mapping_hash or mapping[1] != expected_mapping_hash:
         return "mapping_missing_or_source_hash_changed"
     if row is None or str(row[1]) != str(mapping[0]):
         return "target_loan_missing_or_identity_changed"
@@ -44,12 +48,17 @@ def candidate_rejection(
     return None
 
 
-def verify_local_candidates(
+def verify_local_candidates_with_details(
     state_path: Path, target: TargetConfig, proposed_source_through: str,
-) -> dict[str, Any]:
+    *, expected_isolated_cutoff: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, int], dict[str, str]]:
     if (target.name != "local" or target.tenant != "sandbox" or not target.pg_url
             or urlparse(target.pg_url).hostname not in {"localhost", "127.0.0.1", "::1"}):
         raise ValueError("Carry-forward verification is restricted to local sandbox")
+    if expected_isolated_cutoff is not None and not re.fullmatch(
+        r"/fineract_carry_seed_verify_[0-9]{8}", urlparse(target.pg_url).path,
+    ):
+        raise ValueError("New-cutoff verification requires an isolated restored seed")
     plan, item_status = load_accepted_run(state_path)
     report, keys = evaluate_candidates(plan, item_status, proposed_source_through)
     if plan.get("target_fingerprint") != target.fingerprint:
@@ -68,9 +77,10 @@ def verify_local_candidates(
             SELECT cutoff_date,lifecycle_state,configuration_revision,configuration_hash
             FROM acc_accounting_cutoff_configuration WHERE id=1
         """).fetchone()
-        if not cutoff or cutoff[0] != old_cutoff or cutoff[1] != "ACTIVE":
-            raise ValueError("Current sandbox cutoff does not match the accepted loan plan")
-        expected_binding = plan["accounting_cutoff"]
+        expected_binding = expected_isolated_cutoff or plan["accounting_cutoff"]
+        expected_date = date.fromisoformat(expected_binding["date"])
+        if not cutoff or cutoff[0] != expected_date or cutoff[1] != "ACTIVE":
+            raise ValueError("Target cutoff does not match the expected loan proof binding")
         if (expected_binding.get("configuration_revision") != cutoff[2]
                 or expected_binding.get("configuration_hash") != cutoff[3]):
             raise ValueError("Current sandbox cutoff revision or hash changed")
@@ -93,6 +103,8 @@ def verify_local_candidates(
         """, (ids,)).fetchall()} if ids else {}
     reasons: Counter[str] = Counter()
     verified = 0
+    target_eligible: dict[str, int] = {}
+    rejected: dict[str, str] = {}
     for key in keys:
         action = actions[key]
         row = target_loans.get(str(action["external_id"]))
@@ -104,8 +116,10 @@ def verify_local_candidates(
         )
         if rejection:
             reasons[rejection] += 1
+            rejected[key] = rejection
         else:
             verified += 1
+            target_eligible[key] = int(row[1])
     report.update({
         "report_kind": "read-only-target-loan-verification",
         "missing_proofs": ["fresh_source_hashes", "full_target_dependency_graph", "zero_GL_seed", "seed_checksum"],
@@ -114,7 +128,22 @@ def verify_local_candidates(
         "current_cutoff_revision": cutoff[2],
         "ready_for_reset": False,
     })
-    return report
+    return report, target_eligible, rejected
+
+
+def verify_local_candidates_with_ids(
+    state_path: Path, target: TargetConfig, proposed_source_through: str,
+) -> tuple[dict[str, Any], list[int]]:
+    report, eligible, _ = verify_local_candidates_with_details(
+        state_path, target, proposed_source_through,
+    )
+    return report, sorted(eligible.values())
+
+
+def verify_local_candidates(
+    state_path: Path, target: TargetConfig, proposed_source_through: str,
+) -> dict[str, Any]:
+    return verify_local_candidates_with_ids(state_path, target, proposed_source_through)[0]
 
 
 def main() -> int:

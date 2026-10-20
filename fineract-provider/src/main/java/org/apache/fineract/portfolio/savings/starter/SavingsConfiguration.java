@@ -19,8 +19,8 @@
 package org.apache.fineract.portfolio.savings.starter;
 
 import org.apache.fineract.accounting.cutoff.AccountingCutoffPolicyService;
-import org.apache.fineract.accounting.journalentry.service.JournalNumberAllocationService;
 import org.apache.fineract.accounting.journalentry.service.JournalEntryWritePlatformService;
+import org.apache.fineract.accounting.journalentry.service.JournalNumberAllocationService;
 import org.apache.fineract.accounting.producttoaccountmapping.service.ProductToGLAccountMappingWritePlatformService;
 import org.apache.fineract.commands.service.CommandProcessingService;
 import org.apache.fineract.infrastructure.accountnumberformat.domain.AccountNumberFormatRepositoryWrapper;
@@ -67,6 +67,8 @@ import org.apache.fineract.portfolio.interestratechart.service.InterestRateChart
 import org.apache.fineract.portfolio.interestratechart.service.InterestRateChartDropdownReadPlatformService;
 import org.apache.fineract.portfolio.interestratechart.service.InterestRateChartReadPlatformService;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepository;
+import org.apache.fineract.portfolio.namingsequence.service.CredesalNamingSequenceService;
+import org.apache.fineract.portfolio.namingsequence.service.CredesalProductNumberingSupport;
 import org.apache.fineract.portfolio.note.domain.NoteRepository;
 import org.apache.fineract.portfolio.paymentdetail.service.PaymentDetailWritePlatformService;
 import org.apache.fineract.portfolio.paymenttype.service.PaymentTypeReadPlatformService;
@@ -132,15 +134,12 @@ import org.apache.fineract.portfolio.savings.service.SavingsAccountWritePlatform
 import org.apache.fineract.portfolio.savings.service.SavingsAccountWritePlatformServiceJpaRepositoryImpl;
 import org.apache.fineract.portfolio.savings.service.SavingsApplicationProcessWritePlatformService;
 import org.apache.fineract.portfolio.savings.service.SavingsApplicationProcessWritePlatformServiceJpaRepositoryImpl;
-import org.apache.fineract.portfolio.namingsequence.service.CredesalNamingSequenceService;
 import org.apache.fineract.portfolio.savings.service.SavingsDropdownReadPlatformService;
 import org.apache.fineract.portfolio.savings.service.SavingsDropdownReadPlatformServiceImpl;
 import org.apache.fineract.portfolio.savings.service.SavingsProductReadPlatformService;
 import org.apache.fineract.portfolio.savings.service.SavingsProductReadPlatformServiceImpl;
 import org.apache.fineract.portfolio.savings.service.SavingsProductWritePlatformService;
 import org.apache.fineract.portfolio.savings.service.SavingsProductWritePlatformServiceJpaRepositoryImpl;
-import org.apache.fineract.portfolio.namingsequence.service.CredesalProductNumberingSupport;
-import org.apache.fineract.portfolio.namingsequence.service.CredesalNamingSequenceService;
 import org.apache.fineract.portfolio.savings.service.SavingsSchedularInterestPoster;
 import org.apache.fineract.portfolio.savings.service.SavingsSchedularInterestPosterTask;
 import org.apache.fineract.portfolio.savings.service.search.SavingsAccountTransactionSearchService;
@@ -226,8 +225,7 @@ public class SavingsConfiguration {
             SavingsAccountRepositoryWrapper savingAccountRepositoryWrapper,
             SavingsAccountTransactionRepository savingsAccountTransactionRepository, DepositAccountAssembler depositAccountAssembler,
             DepositAccountTransactionDataValidator depositAccountTransactionDataValidator,
-            DepositAccountDataValidator depositAccountDataValidator,
-            SavingsAccountChargeDataValidator savingsAccountChargeDataValidator,
+            DepositAccountDataValidator depositAccountDataValidator, SavingsAccountChargeDataValidator savingsAccountChargeDataValidator,
             PaymentDetailWritePlatformService paymentDetailWritePlatformService,
             ApplicationCurrencyRepositoryWrapper applicationCurrencyRepositoryWrapper,
             JournalEntryWritePlatformService journalEntryWritePlatformService, DepositAccountDomainService depositAccountDomainService,
@@ -245,12 +243,11 @@ public class SavingsConfiguration {
         return new DepositAccountWritePlatformServiceJpaRepositoryImpl(context, savingAccountRepositoryWrapper,
                 savingsAccountTransactionRepository, depositAccountAssembler, depositAccountTransactionDataValidator,
                 depositAccountDataValidator, savingsAccountChargeDataValidator, paymentDetailWritePlatformService,
-                applicationCurrencyRepositoryWrapper,
-                journalEntryWritePlatformService, depositAccountDomainService, noteRepository, accountTransfersReadPlatformService,
-                chargeRepository, savingsAccountChargeRepository, accountAssociationsReadPlatformService,
-                accountAssociationsRepository,
-                accountTransfersWritePlatformService, depositAccountReadPlatformService, calendarInstanceRepository,
-                configurationDomainService, holidayRepository, workingDaysRepository, depositAccountOnHoldTransactionRepository);
+                applicationCurrencyRepositoryWrapper, journalEntryWritePlatformService, depositAccountDomainService, noteRepository,
+                accountTransfersReadPlatformService, chargeRepository, savingsAccountChargeRepository,
+                accountAssociationsReadPlatformService, accountAssociationsRepository, accountTransfersWritePlatformService,
+                depositAccountReadPlatformService, calendarInstanceRepository, configurationDomainService, holidayRepository,
+                workingDaysRepository, depositAccountOnHoldTransactionRepository);
     }
 
     @Bean

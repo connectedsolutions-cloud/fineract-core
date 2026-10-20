@@ -69,6 +69,8 @@ public class JournalEntryCommandFromApiJsonDeserializer extends AbstractFromApiJ
         final String currencyCode = this.fromApiJsonHelper.extractStringNamed(JournalEntryJsonInputParams.CURRENCY_CODE.getValue(),
                 element);
         final String comments = this.fromApiJsonHelper.extractStringNamed(JournalEntryJsonInputParams.COMMENTS.getValue(), element);
+        final String auxiliarCode = this.fromApiJsonHelper.extractStringNamed(JournalEntryJsonInputParams.AUXILIAR_CODE.getValue(), element);
+        final String headerConcept = this.fromApiJsonHelper.extractStringNamed(JournalEntryJsonInputParams.HEADER_CONCEPT.getValue(), element);
         final LocalDate transactionDate = this.fromApiJsonHelper
                 .extractLocalDateNamed(JournalEntryJsonInputParams.TRANSACTION_DATE.getValue(), element);
         final String referenceNumber = this.fromApiJsonHelper.extractStringNamed(JournalEntryJsonInputParams.REFERENCE_NUMBER.getValue(),
@@ -112,7 +114,7 @@ public class JournalEntryCommandFromApiJsonDeserializer extends AbstractFromApiJ
         String dateFormat = this.fromApiJsonHelper.extractStringNamed(JournalEntryJsonInputParams.DATE_FORMAT.getValue(), element);
         return new JournalEntryCommand(officeId, currencyCode, transactionDate, comments, referenceNumber, accountingRuleId, amount,
                 paymentTypeId, accountNumber, checkNumber, receiptNumber, bankNumber, routingCode, credits, debits, localeStr, dateFormat,
-                externalAssetOwner, transactionDimensions);
+                externalAssetOwner, transactionDimensions, auxiliarCode, headerConcept);
     }
 
     /**

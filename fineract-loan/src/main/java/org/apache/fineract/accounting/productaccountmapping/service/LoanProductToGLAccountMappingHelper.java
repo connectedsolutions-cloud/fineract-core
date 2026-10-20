@@ -22,6 +22,8 @@ import com.google.gson.JsonElement;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Locale;
 import org.apache.fineract.accounting.common.AccountingConstants.AccrualAccountsForLoan;
 import org.apache.fineract.accounting.common.AccountingConstants.CashAccountsForLoan;
 import org.apache.fineract.accounting.common.AccountingConstants.LoanProductAccountingParams;
@@ -37,20 +39,26 @@ import org.apache.fineract.accounting.producttoaccountmapping.service.ProductToG
 import org.apache.fineract.infrastructure.codes.domain.CodeValueRepository;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
+import org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRuleException;
 import org.apache.fineract.portfolio.PortfolioProductType;
 import org.apache.fineract.portfolio.charge.domain.ChargeRepositoryWrapper;
 import org.apache.fineract.portfolio.paymenttype.domain.PaymentTypeRepositoryWrapper;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanRepository;
 import org.springframework.stereotype.Component;
 
 @Component
 public class LoanProductToGLAccountMappingHelper extends ProductToGLAccountMappingHelper {
 
+    private final LoanRepository loanRepository;
+
     public LoanProductToGLAccountMappingHelper(final GLAccountRepository glAccountRepository,
             final ProductToGLAccountMappingRepository glAccountMappingRepository, final FromJsonHelper fromApiJsonHelper,
             final ChargeRepositoryWrapper chargeRepositoryWrapper, final GLAccountRepositoryWrapper accountRepositoryWrapper,
-            final PaymentTypeRepositoryWrapper paymentTypeRepositoryWrapper, final CodeValueRepository codeValueRepository) {
+            final PaymentTypeRepositoryWrapper paymentTypeRepositoryWrapper, final CodeValueRepository codeValueRepository,
+            final LoanRepository loanRepository) {
         super(glAccountRepository, glAccountMappingRepository, fromApiJsonHelper, chargeRepositoryWrapper, accountRepositoryWrapper,
                 paymentTypeRepositoryWrapper, codeValueRepository);
+        this.loanRepository = loanRepository;
     }
 
     /***
@@ -60,6 +68,74 @@ public class LoanProductToGLAccountMappingHelper extends ProductToGLAccountMappi
     public void saveLoanToAssetAccountMapping(final JsonElement element, final String paramName, final Long productId,
             final int placeHolderTypeId) {
         saveProductToAccountMapping(element, paramName, productId, placeHolderTypeId, GLAccountType.ASSET, PortfolioProductType.LOAN);
+    }
+
+    public void validateDistinctPortfolioAccounts(final JsonElement element, final Long productId) {
+        final String shortParameter = LoanProductAccountingParams.LOAN_PORTFOLIO.getValue();
+        final String longParameter = LoanProductAccountingParams.LONG_TERM_LOAN_PORTFOLIO.getValue();
+        Long shortAccountId = this.fromApiJsonHelper.extractLongNamed(shortParameter, element);
+        Long longAccountId = this.fromApiJsonHelper.extractLongNamed(longParameter, element);
+        final String shortInterestParameter = LoanProductAccountingParams.INTEREST_RECEIVABLE.getValue();
+        final String longInterestParameter = LoanProductAccountingParams.LONG_TERM_INTEREST_RECEIVABLE.getValue();
+        Long shortInterestAccountId = this.fromApiJsonHelper.extractLongNamed(shortInterestParameter, element);
+        Long longInterestAccountId = this.fromApiJsonHelper.extractLongNamed(longInterestParameter, element);
+        ProductToGLAccountMapping existingShortInterest = null;
+        ProductToGLAccountMapping existingLongInterest = null;
+        if (productId != null) {
+            final ProductToGLAccountMapping existingShort = this.accountMappingRepository.findCoreProductToFinAccountMapping(productId,
+                    PortfolioProductType.LOAN.getValue(), CashAccountsForLoan.LOAN_PORTFOLIO.getValue());
+            final ProductToGLAccountMapping existingLong = this.accountMappingRepository.findCoreProductToFinAccountMapping(productId,
+                    PortfolioProductType.LOAN.getValue(), CashAccountsForLoan.LONG_TERM_LOAN_PORTFOLIO.getValue());
+            existingShortInterest = this.accountMappingRepository.findCoreProductToFinAccountMapping(productId,
+                    PortfolioProductType.LOAN.getValue(), AccrualAccountsForLoan.INTEREST_RECEIVABLE.getValue());
+            existingLongInterest = this.accountMappingRepository.findCoreProductToFinAccountMapping(productId,
+                    PortfolioProductType.LOAN.getValue(), AccrualAccountsForLoan.LONG_TERM_INTEREST_RECEIVABLE.getValue());
+            if (!this.fromApiJsonHelper.parameterExists(shortParameter, element)) {
+                shortAccountId = existingShort == null ? null : existingShort.getGlAccount().getId();
+            }
+            if (!this.fromApiJsonHelper.parameterExists(longParameter, element)) {
+                longAccountId = existingLong == null ? null : existingLong.getGlAccount().getId();
+            }
+            if (!this.fromApiJsonHelper.parameterExists(shortInterestParameter, element)) {
+                shortInterestAccountId = existingShortInterest == null ? null : existingShortInterest.getGlAccount().getId();
+            }
+            if (!this.fromApiJsonHelper.parameterExists(longInterestParameter, element)) {
+                longInterestAccountId = existingLongInterest == null ? null : existingLongInterest.getGlAccount().getId();
+            }
+            final Long previousShortId = existingShort == null ? null : existingShort.getGlAccount().getId();
+            final Long previousLongId = existingLong == null ? null : existingLong.getGlAccount().getId();
+            final Long previousShortInterestId = existingShortInterest == null ? null : existingShortInterest.getGlAccount().getId();
+            final Long previousLongInterestId = existingLongInterest == null ? null : existingLongInterest.getGlAccount().getId();
+            if ((!Objects.equals(previousShortId, shortAccountId) || !Objects.equals(previousLongId, longAccountId)
+                    || !Objects.equals(previousShortInterestId, shortInterestAccountId)
+                    || !Objects.equals(previousLongInterestId, longInterestAccountId))
+                    && this.loanRepository.countLoansWithSelectedPortfolioAccount(productId) > 0) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loanproduct.portfolio.accounts.have.selected.loans",
+                        "Portfolio GL mappings cannot change while loans have a selected account; use a reviewed accounting correction.");
+            }
+            if (previousLongId == null && longAccountId != null
+                    && this.loanRepository.countDisbursedLoansWithoutSelectedPortfolioAccount(productId) > 0) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loanproduct.portfolio.accounts.require.migration",
+                        "Disbursed loans on this product require a reviewed accounting migration before term-based routing can be enabled.");
+            }
+        }
+        if (longAccountId != null && Objects.equals(shortAccountId, longAccountId)) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loanproduct.portfolio.accounts.must.differ",
+                    "Short-term and long-term loan portfolio accounts must be different.");
+        }
+        if (longAccountId == null && longInterestAccountId != null) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loanproduct.term.interest.receivable.requires.portfolio",
+                    "A long-term interest receivable account requires a long-term loan portfolio account.");
+        }
+        final Integer accountingRule = this.fromApiJsonHelper.extractIntegerNamed("accountingRule", element, Locale.getDefault());
+        final boolean accrualAccounting = accountingRule != null ? accountingRule == 3 || accountingRule == 4
+                : existingShortInterest != null;
+        if (longAccountId != null && accrualAccounting
+                && (shortInterestAccountId == null || longInterestAccountId == null
+                        || Objects.equals(shortInterestAccountId, longInterestAccountId))) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loanproduct.term.interest.receivable.required",
+                    "Term-based accrual products require distinct short-term and long-term interest receivable accounts.");
+        }
     }
 
     public void saveLoanToAssetOrLiabilityAccountMapping(final JsonElement element, final String paramName, final Long productId,
@@ -215,6 +291,16 @@ public class LoanProductToGLAccountMappingHelper extends ProductToGLAccountMappi
         final Long fundAccountId = this.fromApiJsonHelper.extractLongNamed(LoanProductAccountingParams.FUND_SOURCE.getValue(), element);
         final Long loanPortfolioAccountId = this.fromApiJsonHelper.extractLongNamed(LoanProductAccountingParams.LOAN_PORTFOLIO.getValue(),
                 element);
+        final Long longTermLoanPortfolioAccountId = this.fromApiJsonHelper
+                .extractLongNamed(LoanProductAccountingParams.LONG_TERM_LOAN_PORTFOLIO.getValue(), element);
+        if (longTermLoanPortfolioAccountId != null) {
+            changes.put(LoanProductAccountingParams.LONG_TERM_LOAN_PORTFOLIO.getValue(), longTermLoanPortfolioAccountId);
+        }
+        final Long longTermInterestReceivableAccountId = this.fromApiJsonHelper
+                .extractLongNamed(LoanProductAccountingParams.LONG_TERM_INTEREST_RECEIVABLE.getValue(), element);
+        if (longTermInterestReceivableAccountId != null) {
+            changes.put(LoanProductAccountingParams.LONG_TERM_INTEREST_RECEIVABLE.getValue(), longTermInterestReceivableAccountId);
+        }
         final Long incomeFromInterestId = this.fromApiJsonHelper.extractLongNamed(LoanProductAccountingParams.INTEREST_ON_LOANS.getValue(),
                 element);
         final Long incomeFromFeeId = this.fromApiJsonHelper.extractLongNamed(LoanProductAccountingParams.INCOME_FROM_FEES.getValue(),
@@ -309,6 +395,9 @@ public class LoanProductToGLAccountMappingHelper extends ProductToGLAccountMappi
     public void handleChangesToLoanProductToGLAccountMappings(final Long loanProductId, final Map<String, Object> changes,
             final JsonElement element, final AccountingRuleType accountingRuleType, final boolean enableIncomeCapitalization,
             final boolean enableBuyDownFee, final boolean merchantBuyDownFee) {
+        if (accountingRuleType != AccountingRuleType.NONE) {
+            validateDistinctPortfolioAccounts(element, loanProductId);
+        }
         switch (accountingRuleType) {
             case NONE:
             break;
@@ -320,6 +409,7 @@ public class LoanProductToGLAccountMappingHelper extends ProductToGLAccountMappi
                 // asset
                 mergeLoanToAssetAccountMappingChanges(element, LoanProductAccountingParams.LOAN_PORTFOLIO.getValue(), loanProductId,
                         CashAccountsForLoan.LOAN_PORTFOLIO.getValue(), CashAccountsForLoan.LOAN_PORTFOLIO.toString(), changes);
+                mergeLongTermPortfolioMapping(element, loanProductId, changes);
                 mergeLoanToAssetAccountMappingChanges(element, LoanProductAccountingParams.TRANSFERS_SUSPENSE.getValue(), loanProductId,
                         CashAccountsForLoan.TRANSFERS_SUSPENSE.getValue(), CashAccountsForLoan.TRANSFERS_SUSPENSE.toString(), changes);
 
@@ -377,6 +467,10 @@ public class LoanProductToGLAccountMappingHelper extends ProductToGLAccountMappi
                 // assets (including receivables)
                 mergeLoanToAssetAccountMappingChanges(element, LoanProductAccountingParams.LOAN_PORTFOLIO.getValue(), loanProductId,
                         AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), AccrualAccountsForLoan.LOAN_PORTFOLIO.toString(), changes);
+                mergeLongTermPortfolioMapping(element, loanProductId, changes);
+                mergeOptionalTermAssetMapping(element, loanProductId, changes,
+                        LoanProductAccountingParams.LONG_TERM_INTEREST_RECEIVABLE.getValue(),
+                        AccrualAccountsForLoan.LONG_TERM_INTEREST_RECEIVABLE.getValue());
                 mergeLoanToAssetAccountMappingChanges(element, LoanProductAccountingParams.TRANSFERS_SUSPENSE.getValue(), loanProductId,
                         AccrualAccountsForLoan.TRANSFERS_SUSPENSE.getValue(), AccrualAccountsForLoan.TRANSFERS_SUSPENSE.toString(),
                         changes);
@@ -470,6 +564,30 @@ public class LoanProductToGLAccountMappingHelper extends ProductToGLAccountMappi
                             AccrualAccountsForLoan.DEFERRED_INCOME_LIABILITY.toString(), changes);
                 }
             break;
+        }
+    }
+
+    private void mergeLongTermPortfolioMapping(final JsonElement element, final Long loanProductId, final Map<String, Object> changes) {
+        mergeOptionalTermAssetMapping(element, loanProductId, changes,
+                LoanProductAccountingParams.LONG_TERM_LOAN_PORTFOLIO.getValue(), CashAccountsForLoan.LONG_TERM_LOAN_PORTFOLIO.getValue());
+    }
+
+    private void mergeOptionalTermAssetMapping(final JsonElement element, final Long loanProductId, final Map<String, Object> changes,
+            final String parameter, final int accountType) {
+        if (!this.fromApiJsonHelper.parameterExists(parameter, element)) {
+            return;
+        }
+        final Long accountId = this.fromApiJsonHelper.extractLongNamed(parameter, element);
+        if (accountId == null) {
+            final ProductToGLAccountMapping existing = this.accountMappingRepository.findCoreProductToFinAccountMapping(loanProductId,
+                    PortfolioProductType.LOAN.getValue(), accountType);
+            if (existing != null) {
+                deleteProductToGLAccountMapping(loanProductId, PortfolioProductType.LOAN, accountType);
+                changes.put(parameter, null);
+            }
+        } else {
+            createOrmergeProductToAccountMappingChanges(element, parameter, loanProductId, accountType, changes, GLAccountType.ASSET,
+                    PortfolioProductType.LOAN);
         }
     }
 

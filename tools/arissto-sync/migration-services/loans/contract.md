@@ -106,12 +106,14 @@ guarantees, so the frozen lifecycle retains an ordered collection rather than
 a single field.
 
 The first implementation deliberately uses one migration-owned Fineract
-collateral product named `ARISSTO-COLLATERAL`. Its quantity is always `1.00`,
-base price is `1.00`, percentage to base is `100.00`, and the selected source
+collateral product named `Credesal Garantía de Crédito`. Its quantity is always
+`1.00`, base price is `1.00`, percentage to base is `100.00`, and the selected source
 appraisal carries the actual pledged and eligible value. The product is a
 top-level plan action and a prerequisite only for loan actions that contain
 source collateral. It is created once and recovered by its exact name and
 contract on retry; a conflicting product blocks the plan.
+An existing `ARISSTO-COLLATERAL` product is detected as a naming conflict so
+the new template cannot create a second collateral product silently.
 
 Each client collateral is created atomically through
 `POST /clients/{clientId}/collaterals` with its asset detail and initial final
@@ -247,6 +249,17 @@ Products API with the deterministic Arissto external ID, then writes the
 crosswalk row. It never reuses or auto-binds an unowned product by name, short
 name, numeric target ID, or `id_tipo_linea`.
 
+The two reviewed migrated products (`00001` and `00010`) must use the Fineract
+`Mora Estandar` delinquency bucket. A composed workflow creates or verifies the
+reviewed bucket and repairs its link on existing exact-external-ID products
+before the loans service. Product apply also links and reads back the bucket
+after creation or recovery and before writing the crosswalk, so a fresh/clean
+run and an individual loans apply enforce the same prerequisite. It does not
+touch unrelated products or map the separate `mora-diaria` bucket to these
+products. The source evidence for daily and monthly Arissto loans using the
+same A1–E catalog is in
+[`credesal-db-space/docs/learnings/mora-y-cargos-de-creditos.md`](../../../../../../credesal-db-space/docs/learnings/mora-y-cargos-de-creditos.md).
+
 On retry, an existing product is reusable only when it has the exact expected
 `ARISSTO:CRD-LINE:{ID_LINEA_CREDITO}` external ID and its reviewed immutable
 contract matches. This permits recovery if product creation succeeded but the
@@ -345,20 +358,62 @@ the loan-portfolio asset. The final mapping must review, per line:
 - overpayment and transfer suspense; and
 - Cobro Movil's clearing-liability override.
 
-#### Single portfolio account and reporting dimensions
+#### Term-based portfolio accounts and reporting dimensions
 
-Each native loan product uses exactly one `loanPortfolioAccountId`. The
-reviewed primary mappings are:
+Each native loan product configures a short-term `loanPortfolioAccountId` and a
+long-term `longTermLoanPortfolioAccountId`, plus short-term
+`receivableInterestAccountId` and long-term
+`longTermInterestReceivableAccountId`. Fineract selects both asset GL roles
+on each loan from expected disbursement to expected maturity: at most 366
+calendar days uses short term; more than 366 uses long term. The reviewed
+mappings are:
 
-| Source line | Native portfolio GL | Historical alternate retained only as evidence |
-|---|---|---|
-| `00001` consumer | `1141040101` | `1142040101` |
-| `00010` microcredit | `1141030101` | `1142030101` |
+| Source line | Short principal | Long principal | Short interest receivable | Long interest receivable |
+|---|---|---|---|---|
+| `00001` consumer | `1141040101` | `114204010101` (detail under `1142040101`) | `1141049901` | `1142049901` |
+| `00010` microcredit | `1141030101` | `1142030101` | `1141039901` | `1142039901` |
 
-The service does not switch portfolio accounts dynamically and does not split a
-source line into multiple native products merely to reproduce Arissto's
-historical account classification. Alternate source accounts are included in
-reconciliation output, not posted as synthetic adjustments.
+The service retains one native product per source line. A change in expected
+dates on an already posted loan requires the reviewed reclassification flow;
+the service must not infer ownership of preexisting balances or rewrite
+historical journals. Existing imported loans require a separate reconciled
+repair or rebuild before term-based routing is enabled on their products.
+
+The product prerequisite resolves each reviewed GL code to exactly one active
+target account before planning. Product creation sends all four account IDs and
+verifies their API readback. If an existing migration product is missing one
+of those references, the plan may add only the missing references when the
+product has zero loans. An unknown loan count, any existing loans, or an
+incorrect nonempty reference is a product conflict requiring a reviewed repair
+or rebuild. The prerequisite does not create GL accounts or overwrite a
+populated product's accounting mappings.
+
+The loan plan freezes `CRD_CARTERA.FECHA_VENCIMIENTO`, the expected
+disbursement date sent to Fineract, the source day count, the short/long class,
+and both selected GL IDs. Apply aligns a provisional target maturity to the
+frozen source maturity through the guarded source-exact loan API before native
+journals exist. For historical events before the Fineract accounting start,
+source-exact schedule and servicing replay finishes before the guarded API
+persists the selected principal and interest-receivable accounts. A partial
+retry may clear a provisional selection only when the same API proves that no
+unreversed native loan journal used it. Events on or after the Fineract start
+retain early selection before posting. Apply reads the persisted dates and
+account IDs; reconciliation checks them again. A missing target date, a changed
+expected start, an incorrect selected account, or a target term across the
+366-day boundary fails the loan. These guarded repairs do not rewrite native
+journals or transfer ownership of existing balances.
+
+The read-only source audit found 18 loans whose header maturity differs from
+the last repayment-plan due date; all 18 remain in the same account class.
+For those source-proven schedule variances, the plan preserves both dates and
+allows Fineract's expected maturity to differ only while it keeps the source
+short/long class. For other loans the expected maturity must exactly equal the
+source header maturity. Eight approved but undisbursed loans have no source
+maturity or schedule; they may remain pending without an account selection, but
+cannot post a disbursement until a source maturity is available. A schedule
+variance that itself crosses the account boundary is quarantined during
+planning. This is account-class parity, not a claim that all contractual and
+repayment dates are identical.
 
 Reporting segmentation uses Fineract's native classification and dimensions.
 `CRD_LINEA_CREDITO.ID_TIPO_LINEA` populates
@@ -599,20 +654,55 @@ balances, terminal state, and journals remain blocking reconciliation checks.
 A closed loan's later payoff and any bounded terminal adjustment must still
 close it; copying its last stored plan never creates a new receivable.
 
-The reviewed regenerated-plan cohort `2357`, `2427`, and `2499` includes
-payments after the stored schedule was regenerated. Their planner exception is
-limited to the verified original principal, current schedule total, first due
-date, and adjustment count for each loan. It separates repayments using each
-movement's `DT_CREO` and the latest `CRD_REESTRUCTURACION.DT_CREO`. The net
-principal paid through the adjustment must equal original principal less the
-current schedule total. Historical interest-only payments remain in the bridge;
-later movements retain their source order and must reconcile the remaining
-schedule to the current source principal balance or closed state. The
-historical portion must end before the first current due date, and later
-movements must be dated after its last movement. A missing creation timestamp,
-changed schedule signature, unmatched principal gap, or balance remains
-quarantined. Source evidence, including `2427`'s same-day
-post-adjustment payment, is in the [loan research note](../../../../../../credesal-db-space/docs/learnings/prestamos.md#pagos-posteriores-a-la-regeneración-del-plan).
+A regenerated plan with payments after its adjustment can use the same
+source-exact writer without a loan-ID exception. The planner must have every
+adjustment header and movement creation timestamp. An exact archive match
+requires the latest source adjustment to state the current schedule principal.
+For a superseded full-principal archive, the latest dated adjustment may have
+no stated amount; its archived principal must equal the original principal and
+the new schedule must begin on or after the adjustment date. A revised-principal
+archive may instead differ from the current schedule only in the final due date
+and interest, with every principal and earlier installment identical. Both
+archive variants require the same strict repayment split below. The planner
+partitions repayments at
+the adjustment timestamp. Paid principal through that point must equal the
+original principal less the current schedule total; the source balance must
+equal original principal less all payments. Historical interest remains in the
+bridge, while later movements are replayed after it in source order. The
+historical portion must end before the first current due date. A missing
+timestamp, changed adjustment amount, ambiguous anchor, unmatched payment
+split, or balance remains quarantined. The proven examples include `2357`,
+`2427`, `2494`, `2499`, and `2561`; their source evidence is in the
+[loan research note](../../../../../../credesal-db-space/docs/learnings/prestamos.md#pagos-posteriores-a-la-regeneración-del-plan).
+
+An additional source-proven path handles a later adjustment that repeats an
+earlier financial schedule. The planner reads all adjustment headers and their
+unlinked archived installments. It requires the latest archived schedule to
+match the current installments in number, principal, interest, other amounts,
+and every nonzero installment date; only a zero-value installment's date may
+differ. An earlier anchor qualifies only when every intervening archived
+schedule and contractual header matches the latest one, and each header's
+restructured principal equals the current plan total. The frozen loan policy
+records the anchor and latest adjustment IDs plus the archived schedule hash.
+Repayments are partitioned by `DT_CREO` at each qualifying anchor. Exactly one
+anchor must satisfy the original-principal gap, current balance, historical
+interest, movement timing, and status checks above; ambiguous or changed
+evidence remains quarantined. This handles source loan `1728` without adding a
+loan-ID bypass. Its source evidence is in the
+[loan research note](../../../../../../credesal-db-space/docs/learnings/prestamos.md#crédito-1728-plan-regenerado-pagos-posteriores-y-ajuste-repetido).
+
+The repeated-adjustment fix applies to newly built loan actions; it does not
+change a saved plan. A loan plan built after its `source_through_date` still
+reads the live `CRD_CARTERA` balances, so entering an earlier date alone does
+not reconstruct the loan's state on that date. For the 2026-10-06 boundary,
+the frozen plan records loan `1728` with 705.55 principal and 25.98 interest,
+whereas a 2026-10-08 source read reports 705.55 principal and 27.60 interest.
+The four-loan refinance chain has no portfolio movements dated on or after
+2026-10-07. A same-boundary repair must bind its actions to the frozen
+2026-10-06 source state, reprove the corrected schedule classification,
+reject later source events, and let Fineract own accrual from 2026-10-07.
+The current planner and apply guard do not provide that repair path; do not
+apply a fresh plan using the later live interest balance as the opening state.
 
 The initial replacement uses the same atomic Fineract schedule-replacement
 command as reviewed full re-sync, but only with zero non-disbursement
@@ -669,21 +759,28 @@ The active source-exact schedule writer retains its existing post-disbursement
 reconciliation. This migration rule does not change automatic recalculation
 for loans originated natively in Fineract.
 
-Four reviewed historical refinancing successors (`2357`, `2427`, `2498`, and
-`2499`) have a later contractual origin than their actual disbursement and
-predecessor payoff. Fineract prices the predecessor at the application's
-`expectedDisbursementDate`; using the later contractual date rejects the
-source-exact successor principal before the historical settlement can be
-posted. For only these four frozen source signatures, application and approval
-use the actual financial disbursement/payoff date as the expected date. The
-contractual origin remains in the reviewed override and source evidence; the
-actual disbursement and source-exact settlement remain unchanged. Any change
-to predecessor, either date, principal, or payoff amount quarantines the loan
-instead of expanding this exception. Native Fineract loans are unaffected.
-Recovery of a previously imported loan whose expected date still equals the
-movement date fails closed when the two source dates differ. Do not treat an
-unchanged replay as a date migration; updating an existing target requires a
-separate reviewed repair contract.
+Historical refinancing can require an application quote on the actual payoff
+day when the source contractual origin is later. The planner derives this from
+all incoming liquidation links, one matching successor disbursement, a shared
+payoff and disbursement date, positive payoffs whose combined amount does not
+exceed successor principal, and no later posted predecessor payment. The narrow
+exception is a multi-predecessor historical partial paydown: later posted
+payments are allowed only when the predecessor was active at payoff and is now
+closed. The frozen quote-date policy includes every payoff movement and the
+combined amount. It uses the actual date for both application and approval. An
+incomplete or conflicting signature is quarantined rather than given a guessed
+quote date. For a proven same-client native top-up, both payloads keep
+`expectedDisbursementDate` equal to `CRD_CARTERA.FECHA_OTORGAMIENTO` and pass
+the actual payoff day separately as `sourceExactRefinancingQuoteDate`. Fineract
+uses that transient field only to quote and validate the predecessor balance;
+the successor's expected start is not replaced. The actual disbursement
+transaction still uses the source `4/00002` movement date. The quote field is
+accepted only for source-identified top-ups and is bounded by submission and
+the contractual start. Existing reviewed overrides for `2357`, `2427`, `2498`, and `2499`
+remain bounded by their saved signatures. Native Fineract loans are unaffected.
+Recovery requires the existing loan's expected date to equal the frozen
+application date; changing an existing target needs a separate reviewed repair
+because loan accounting may already be posted.
 
 Loan `3` is a separate line-`00001` signature, not a member of that line-`00010`
 legacy cohort. Its effective disbursement is exactly one day before source
@@ -899,6 +996,18 @@ the frozen `9,386.42` source-schedule total rather than approved principal.
 Source cash, component allocations, zero terminal balances, closed status,
 balanced journals, and idempotent replay remain mandatory.
 
+Loan `2482` has the same separately reviewed early-payoff shape at the
+2026-10-16 source-through boundary. Its `3,500.00` approved principal and
+72-row frozen source schedule contain `4,795.84` of contractual interest and
+`147.70` of other amounts, for a total schedule ceiling of `8,443.54`.
+Arissto's exact disbursement and repayments close every source component on
+2026-10-16. After those movements, Fineract has `4,692.44` of future interest
+and zero principal outstanding. The identity-scoped migration-only terminal
+adjustment may therefore use the frozen source-schedule total as its ceiling;
+its actual amount remains the exact component delta to the zero source
+terminal balance. Source cash, allocations, closure, balanced journals, and
+idempotent reconciliation remain mandatory.
+
 Loan `1441` is explicitly not a manual-adjustment exception. Its first source
 installment (`principal + interest`) remains `205.29`. Non-posting Fineract
 calculator proofs established that `205.29` produces 76 native periods and
@@ -1016,6 +1125,17 @@ and exact component signature. Repayment notes may consume `4/00001`,
 `4/00013`, `4/00019`, or `14/00011` rows marked `REVERSION=1`;
 disbursement-reversal notes consume `4/00002` rows, whose originals are not
 consistently marked. Matching by amount alone is prohibited.
+
+For a source-exact repayment reversal, the reversal note's
+`CRD_MOVIMIENTOS_CARTERA.FECHA_OPERACION` is the effective reversal date.
+`sourceExactReversal` sends that date as `transactionDate`, and Fineract must
+persist it in the original payment's `reversed_on_date`, independent of the
+date the import command ran. Reconciliation must compare the stored reversal
+date with the paired source note, as well as checking reversal state. An
+already reversed target payment with a different date is a mismatch requiring
+review, not an unchanged replay. The source case `2519` has payments dated
+2026-09-09, 11, and 12 and reversal notes effective 2026-09-17; its reported
+2026-09-14 principal remains 985.50 before that reversal. [Source trace](../../../../../../credesal-db-space/docs/learnings/prestamos.md#fecha-efectiva-de-una-reversión-frente-a-fecha-de-importación).
 
 The refreshed audit paired ordinary repayment and disbursement reversals without
 reusing an original. Two additional repayment-reversal notes on loan `83`
@@ -1221,11 +1341,44 @@ repayments. See the cross-stack
 [refinancing and consolidation contract](../../../../docs/LOAN_REFINANCING_AND_CONSOLIDATION.md).
 
 `ID_REESTRUCTURACION` describes a same-credit schedule version, not a new loan
-identity. The current source contains 6,603 tagged schedule rows across 174
-snapshots, but every row has null `ID_CREDITO`; zero rows link to a current
-`CRD_CARTERA` loan. Same-loan restructure migration is therefore not applicable
-to this executable portfolio. The planner still quarantines any future linked
-row as `native_restructure_proof_pending` rather than guessing.
+identity. Archived `CRD_PLAN_PAGO` rows normally have null `ID_CREDITO`, but
+they link through `CRD_REESTRUCTURACION.ID_REESTRUCTURACION` to a revision row
+whose `ID_CREDITO` identifies the loan. The read-only source investigation found
+249 revisions on 131 loans, with archived plan rows for 245 revisions. Thus the
+previous null-plan-loan test did not establish that same-loan restructures were
+absent. The current executable writer still imports the final schedule and
+transactions, not the dated version transitions. It must not claim historical
+schedule-event parity until the events have an immutable plan, native command,
+and close-by-close reconciliation. See the source evidence in
+`../../../../../../credesal-db-space/docs/learnings/loan-historical-adjustment-events.md`.
+
+For the first controlled event-import canary, distinguish source loan `1597`
+(revision `240`: ordered 18-row plan, no edit-day payment, overdue principal
+`112.84` to `4.30`) from source loan `2355` (revision `178`: backward final
+due date and negative final interest, overdue principal `71.15` to `18.44`).
+Both have unchanged outstanding principal across their edit-day closes. Loan
+`1597` proves the ordinary schedule-version path; loan `2355` proves the
+exception policy. Neither revision is currently represented by a native
+`m_loan_reschedule_request` or schedule-history row in the local sandbox.
+The first acceptance matrix and existing source/native deltas are recorded in
+[loan-history-canaries.md](loan-history-canaries.md).
+
+Interest-date edits require a separate event-family gate. The read-only
+`loan-interest-event-inspect --source-key ID_CREDITO --revision-id ID`
+command compares nearby `CRD_CARTERA` audits, movement IDs, the adjacent
+closes, and before/after financial-plan signatures. A clean reduction in
+carried interest without payment is classified as
+`interest_balance_recalculation`; an increase in
+`SALDO_INTERES_PENDIENTE` with unchanged carried interest and reduced overdue
+interest is `pending_interest_due_relief`. Same-close payments, multiple
+revisions, or a changed plan remain `mixed_or_unresolved`. Classification
+does not authorize a Fineract write. The isolated `2331` native waiver proved
+the total-interest delta but failed the due-effect and source-GL gates; the
+`2558` pending-interest event has no accepted native command yet. The loans
+writer must never infer waiver or repayment amount from an overdue-interest
+delta or a last-payment-date field alone. See
+[loan-history-canaries.md](loan-history-canaries.md) for the measured effects
+and outstanding native-mechanism gate.
 
 ## Accounting and payment channels
 
@@ -1367,8 +1520,9 @@ Acceptance requires a controlled local lifecycle run that covers at least:
 - one refinanced predecessor/successor chain;
 - one mortgage collateral and one vehicle collateral, including an unchanged
   retry that recovers their deterministic asset and valuation identities;
-- a portfolio proof that either covers a linked restructure or establishes
-  that no linked restructure exists; and
+- a portfolio proof that classifies linked historical same-loan revisions and
+  reports them as unreplayed until the separate native event-import gate is
+  accepted; and
 - an idempotent second run.
 
 ## Residual entity quarantines
@@ -1386,8 +1540,62 @@ for the normal supported refinance lifecycle.
   original;
 - partial or non-zero reversed-refinance signatures that do not satisfy the
   reviewed provenance-only omission contract; and
-- any future schedule linked to both `ID_CREDITO` and
-  `ID_REESTRUCTURACION` until its native same-loan reschedule is proved.
+- any schedule row directly linked to both `ID_CREDITO` and
+  `ID_REESTRUCTURACION` until that distinct source shape is proved. Ordinary
+  archived rows link through the revision header and are not absent events.
 
 These are surfaced in plans and reconciliation. They do not silently broaden
 the supported contract and do not block unrelated reviewed loans.
+
+
+## Historical client office transfer replay
+
+The client office is authoritative for all its loans. The loans planner reads
+`AFI_HISTORICO_DIARIO` through `CIERRE_DIARIO`, freezes each observed branch
+change, and floors an effective day before the destination `m_office.opening_date`
+to that opening day. The raw observation and floor reason remain in the plan.
+See the [source audit](../../../../../../credesal-db-space/docs/learnings/client-office-transfer-history.md)
+and [client contract](../clients/contract.md).
+
+The loan writer pauses refinance-connected loan actions before each client
+transfer day, calls Fineract's permission-gated native `sourceExactProposeAndAcceptTransfer`
+under the operational migration accounting context, then resumes
+same-day and later loan events. This creates `m_client_transfer_details`
+proposal/acceptance rows and native loan transaction types 12 and 13 for loans
+that were disbursed and nonclosed at the move. Fineract acceptance uses the
+proposed effective day for both the client history and loan acceptance
+transaction. The plan freezes positive `CRD_HISTORICO_DIARIO.SALDO_TOTAL`
+and its interest, other, and mora components from the final pre-transfer
+snapshot. The transfer principal is the total less those three components;
+`SALDO_CAPITAL` in this historical row is paid capital and is not used as
+outstanding principal. Before writing, the target active-loan set and principal
+must match Arissto within 0.01. Source-exact transfer initiation and acceptance
+post the frozen Arissto total and components, even when Fineract's scheduled
+future interest makes its native total outstanding larger. Native acceptance restores each transferring loan from
+`TRANSFER_IN_PROGRESS` to `ACTIVE`, or `OVERPAID` when its total overpaid is
+positive, before later repayments are replayed. Other maps to the
+transfer fee portion and mora to the penalty portion. Reconciliation checks
+both history rows and each loan transaction pair's date, offices, total, and
+components. A plan frozen before these components were added must be replaced;
+the writer does not infer them from Fineract's later schedule.
+
+The composed full workflows order loans before savings deposits. The transfer
+planner also rejects a target that already has savings accounts for a client
+whose historical move has not yet been accepted, because native client
+transfer would otherwise try to transfer a fully replayed savings account.
+A loan with a frozen terminal adjustment before a transfer is finalized before
+the native active-loan check only when all its frozen events predate the transfer
+and no deferred insurance charge remains. The normal finalization pass remains
+idempotent; other loans stay phased across the transfer boundary.
+A savings-only workflow does not reconstruct client office history; it must
+be paired with the loan transfer phase when that history is required.
+A full loan plan also fails closed if a newly observed client move belongs to
+a client with no loan action; that case needs a client-only native transfer
+phase before the service can be considered complete for the expanded source.
+
+The plan rejects incomplete scoped cohorts, changed source observations or
+office openings, a target with later loan activity but missing transfer
+history, and mixed retained/replayed cohorts. A completed history can be
+verified without replaying retained loans. A controlled fresh/clean local run
+and full reconciliation are still required before this path is accepted for
+production migration.

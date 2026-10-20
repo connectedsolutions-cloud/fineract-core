@@ -404,4 +404,50 @@
     <include file="parts/0382_zero_empty_prestamos_morosidad_portfolios.xml" relativeToChangelogFile="true" />
     <include file="parts/0383_filter_prestamos_morosidad_by_class_and_product.xml" relativeToChangelogFile="true" />
     <include file="parts/0384_use_contractual_loan_term_date.xml" relativeToChangelogFile="true" />
+    <include file="parts/0385_historical_dte_without_target_transaction.xml" relativeToChangelogFile="true" />
+    <include file="parts/0386_add_loan_risk_snapshot_provenance.xml" relativeToChangelogFile="true" />
+    <include file="parts/0387_use_accepted_loan_risk_snapshots.xml" relativeToChangelogFile="true" />
+    <include file="parts/0388_allow_legacy_null_loan_risk_fields.xml" relativeToChangelogFile="true" />
+    <include file="parts/0389_select_historical_loan_risk_close.xml" relativeToChangelogFile="true" />
+    <include file="parts/0390_restore_exact_loan_risk_close_selection.xml" relativeToChangelogFile="true" />
+    <include file="parts/0391_add_arissto_delinquency_tag_provenance.xml" relativeToChangelogFile="true" />
+    <include file="parts/0392_use_native_loan_delinquency_tag_history.xml" relativeToChangelogFile="true" />
+    <include file="parts/0393_use_only_native_loan_risk_transitions.xml" relativeToChangelogFile="true" />
+    <include file="parts/0394_use_effective_loan_reversal_dates.xml" relativeToChangelogFile="true" />
+    <include file="parts/0395_add_source_exact_client_office_transfer_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0396_add_native_share_certificates.xml" relativeToChangelogFile="true" />
+    <include file="parts/0397_add_historical_cheque_lookup.xml" relativeToChangelogFile="true" />
+    <include file="parts/0398_fix_auxiliar_mayor_cheque_fallback.xml" relativeToChangelogFile="true" />
+    <include file="parts/0399_add_pendiente_cliente_blueprint.xml" relativeToChangelogFile="true" />
+    <include file="parts/0400_register_movimientos_partidas_report.xml" relativeToChangelogFile="true" />
+    <include file="parts/0401_refresh_comprobante_contable_report.xml" relativeToChangelogFile="true" />
+    <include file="parts/0402_add_gl_voucher_metadata.xml" relativeToChangelogFile="true" />
+    <include file="parts/0403_backfill_historical_gl_vouchers.xml" relativeToChangelogFile="true" />
+    <include file="parts/0404_add_share_certificate_book_fields.xml" relativeToChangelogFile="true" />
+    <include file="parts/0405_use_native_movimientos_comments.xml" relativeToChangelogFile="true" />
+    <include file="parts/0406_use_native_comprobante_comments.xml" relativeToChangelogFile="true" />
+    <include file="parts/0407_share_account_payment.xml" relativeToChangelogFile="true" />
+    <include file="parts/0408_native_gl_posting_header_text.xml" relativeToChangelogFile="true" />
+    <include file="parts/0409_read_native_gl_posting_text.xml" relativeToChangelogFile="true" />
+    <include file="parts/0410_restore_native_movimientos_comments.xml" relativeToChangelogFile="true" />
+    <include file="parts/0411_restore_native_comprobante_comments.xml" relativeToChangelogFile="true" />
+    <include file="parts/0412_native_movimientos_partidas.xml" relativeToChangelogFile="true" />
+    <include file="parts/0413_native_comprobante_contable.xml" relativeToChangelogFile="true" />
+    <include file="parts/0414_native_posting_report_metadata.xml" relativeToChangelogFile="true" />
+    <include file="parts/0415_native_accounting_reports.xml" relativeToChangelogFile="true" />
+    <include file="parts/0416_native_trial_balance_office_scope.xml" relativeToChangelogFile="true" />
+    <include file="parts/0417_native_posting_office_display.xml" relativeToChangelogFile="true" />
+    <include file="parts/0418_native_daily_movement_office_scope.xml" relativeToChangelogFile="true" />
+    <include file="parts/0419_native_daily_movement_family_fallback.xml" relativeToChangelogFile="true" />
+    <include file="parts/0420_native_cash_transaction_listing.xml" relativeToChangelogFile="true" />
+    <include file="parts/0421_classify_historical_annual_closing.xml" relativeToChangelogFile="true" />
+    <include file="parts/0422_trial_balance_optional_offices.xml" relativeToChangelogFile="true" />
+    <include file="parts/0423_restore_trial_balance_loan_terms.xml" relativeToChangelogFile="true" />
+    <include file="parts/0424_loan_portfolio_account_selection.xml" relativeToChangelogFile="true" />
+    <include file="parts/0425_fix_wrapped_visual_report_sql.xml" relativeToChangelogFile="true" />
+    <include file="parts/0426_reference_only_arissto_journals_report.xml" relativeToChangelogFile="true" />
+    <include file="parts/0427_balance_saldos_detallado_office_name.xml" relativeToChangelogFile="true" />
+    <include file="parts/0428_require_branch_voucher_office.xml" relativeToChangelogFile="true" />
+    <include file="parts/0429_daily_movement_account_level.xml" relativeToChangelogFile="true" />
+    <include file="parts/0430_align_loan_overdue_principal.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

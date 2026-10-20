@@ -97,6 +97,13 @@ public class JournalEntryData {
     private String externalAssetOwner;
     private transient Long savingTransactionId;
     private String dimensions;
+    private Long voucherId;
+    private String auxiliarCode;
+    private String headerConcept;
+    private String headerDescription;
+    private String voucherOrigin;
+    private String voucherOperationType;
+    private Long reversesVoucherId;
 
     public JournalEntryData() {}
 

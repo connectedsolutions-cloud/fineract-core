@@ -59,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.apache.fineract.accounting.journalentry.service.JournalEntryWritePlatformService;
 import org.apache.fineract.commands.domain.CommandWrapper;
 import org.apache.fineract.commands.service.CommandWrapperBuilder;
 import org.apache.fineract.commands.service.PortfolioCommandSourceWritePlatformService;
@@ -129,9 +130,9 @@ import org.apache.fineract.portfolio.loanaccount.data.GlimRepaymentTemplate;
 import org.apache.fineract.portfolio.loanaccount.data.LoanAccountData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanApprovalData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanApprovedAmountHistoryData;
-import org.apache.fineract.portfolio.loanaccount.data.LoanFreezeHistoryData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanChargeData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanCollateralManagementData;
+import org.apache.fineract.portfolio.loanaccount.data.LoanFreezeHistoryData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanSummaryData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanTermVariationsData;
 import org.apache.fineract.portfolio.loanaccount.data.LoanTransactionBalanceWithLoanId;
@@ -140,14 +141,14 @@ import org.apache.fineract.portfolio.loanaccount.data.PaidInAdvanceData;
 import org.apache.fineract.portfolio.loanaccount.data.RepaymentScheduleRelatedLoanData;
 import org.apache.fineract.portfolio.loanaccount.data.RepaymentScheduledItemData;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanApprovedAmountHistoryRepository;
-import org.apache.fineract.portfolio.loanaccount.domain.LoanFreezeHistoryRepository;
-import org.apache.fineract.portfolio.loanaccount.domain.LoanRepositoryWrapper;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanBuyDownFeeCalculationType;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanBuyDownFeeIncomeType;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanBuyDownFeeStrategy;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanCapitalizedIncomeCalculationType;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanCapitalizedIncomeStrategy;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanCapitalizedIncomeType;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanFreezeHistoryRepository;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanRepositoryWrapper;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanStatus;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanSummaryBalancesRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTermVariationType;
@@ -262,9 +263,9 @@ public class LoansApiResource {
             "loanCounter", "loanProductCounter", "notes", "accountLinkingOptions", "linkedAccount", "interestRateDifferential",
             "isFloatingInterestRate", "interestRatesPeriods", "lastClosedBusinessDate", "isSimulation", "simulatedDate",
             "simulationStartLastClosedBusinessDate", LoanApiConstants.canUseForTopup, LoanApiConstants.isTopup,
-            LoanApiConstants.loanIdToClose, LoanApiConstants.loanIdsToClose, LoanApiConstants.topupAmount,
-            "refinancingOperationType", LoanApiConstants.refinancingSettlements, LoanApiConstants.clientActiveLoanOptions,
-            LoanApiConstants.datatables, LoanProductConstants.RATES_PARAM_NAME, LoanApiConstants.MULTIDISBURSE_DETAILS_PARAMNAME,
+            LoanApiConstants.loanIdToClose, LoanApiConstants.loanIdsToClose, LoanApiConstants.topupAmount, "refinancingOperationType",
+            LoanApiConstants.refinancingSettlements, LoanApiConstants.clientActiveLoanOptions, LoanApiConstants.datatables,
+            LoanProductConstants.RATES_PARAM_NAME, LoanApiConstants.MULTIDISBURSE_DETAILS_PARAMNAME,
             LoanApiConstants.EMI_AMOUNT_VARIATIONS_PARAMNAME, LoanApiConstants.COLLECTION_PARAMNAME,
             LoanApiConstants.INTEREST_RECOGNITION_ON_DISBURSEMENT_DATE, LoanApiConstants.daysInYearCustomStrategyParameterName,
             "readyForComite", "isFrozen", "frozenOn", "freezeReason"));
@@ -322,12 +323,41 @@ public class LoansApiResource {
     private final LoanApprovedAmountHistoryRepository loanApprovedAmountHistoryRepository;
     private final LoanFreezeHistoryRepository loanFreezeHistoryRepository;
     private final LoanRepositoryWrapper loanRepositoryWrapper;
+    private final JournalEntryWritePlatformService journalEntryWritePlatformService;
 
     /*
      * This template API is used for loan approval, ideally this should be invoked on loan that are pending for
      * approval. But system does not validate the status of the loan, it returns the template irrespective of loan
      * status
      */
+
+    @POST
+    @Path("{loanId}/source-exact-term-portfolio-account")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Map<String, Long> prepareSourceExactTermPortfolioAccount(@PathParam("loanId") final Long loanId) {
+        this.context.authenticatedUser().validateHasUpdatePermission(RESOURCE_NAME_FOR_PERMISSIONS);
+        this.journalEntryWritePlatformService.prepareSourceExactLoanPortfolioAccount(loanId);
+        return Map.of("loanId", loanId);
+    }
+
+    @POST
+    @Path("{loanId}/source-exact-term-portfolio-account/reset")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Map<String, Long> clearSourceExactTermPortfolioAccount(@PathParam("loanId") final Long loanId) {
+        this.context.authenticatedUser().validateHasUpdatePermission(RESOURCE_NAME_FOR_PERMISSIONS);
+        this.journalEntryWritePlatformService.clearSourceExactLoanPortfolioAccount(loanId);
+        return Map.of("loanId", loanId);
+    }
+
+    @POST
+    @Path("{loanId}/source-exact-expected-maturity")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Map<String, Long> alignSourceExactExpectedMaturity(@PathParam("loanId") final Long loanId,
+            @QueryParam("date") final String expectedMaturityDate) {
+        this.context.authenticatedUser().validateHasUpdatePermission(RESOURCE_NAME_FOR_PERMISSIONS);
+        this.journalEntryWritePlatformService.alignSourceExactLoanExpectedMaturity(loanId, LocalDate.parse(expectedMaturityDate));
+        return Map.of("loanId", loanId);
+    }
 
     @GET
     @Path("{loanId}/template")

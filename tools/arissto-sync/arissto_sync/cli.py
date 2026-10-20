@@ -26,6 +26,12 @@ from .accounting import (
 from .accounting_report_proof import prove_accounting_reports
 from .accounting_g10_acceptance import prove_g10
 from .clients import ClientContract
+from .client_current_office import (
+    inspect as inspect_client_current_office,
+    build_plan as build_client_current_office_plan,
+    apply_plan as apply_client_current_office_plan,
+    reconcile as reconcile_client_current_office,
+)
 from .client_staff_assignments import (
     BLOCK as CLIENT_STAFF_ASSIGNMENT_BLOCK,
     ClientStaffAssignmentContract,
@@ -34,10 +40,16 @@ from .client_staff_assignments import (
     inspect_client_staff_assignments,
     reconcile_client_staff_assignments,
 )
+from .cheque_history import apply_plan as apply_cheque_history_plan, build_plan as build_cheque_history_plan
+from .cheque_history import inspect as inspect_cheque_history, reconcile as reconcile_cheque_history
 from .arissto import check_source
+from .delinquency_history_import import build_plan as build_delinquency_history_plan, apply_plan as apply_delinquency_history_plan, reconcile as reconcile_delinquency_history
 from .backup import backup_state
 from .config import ROOT, configured_state_path, load_settings, load_source_config
 from .cob_monitor import capture_snapshot as capture_cob_snapshot, cob_snapshots, cob_timeline
+from .carry_forward_classify import inspect_classification, write_private_classification
+from .carry_forward_plan import prepare_carry_forward_plan
+from .carry_forward_replace import replace_from_reviewed_plan, recover_previous_sandbox
 from .connections import FineractApi
 from .cycles import CycleCatalog, settings_for_cycle, workflow_history_across_cycles
 from .engine import apply_plan, build_plan, inspect_clients, preflight, reconcile
@@ -112,6 +124,13 @@ from .loans import (
     reconcile_loans,
 )
 from .loan_schedule_proof import prove_schedule
+from .loan_event_canary import build_plan as build_loan_event_canary_plan, apply_plan as apply_loan_event_canary_plan
+from .loan_interest_canary import (
+    build_plan as build_loan_interest_canary_plan,
+    apply_plan as apply_loan_interest_canary_plan,
+    reconcile as reconcile_loan_interest_canary,
+)
+from .loan_interest_events import inspect_interest_revision
 from .loan_debug import debug_loan_run
 from .loan_reference_canary import (
     verify_adjusted_schedule_cohort,
@@ -160,6 +179,42 @@ def parser() -> argparse.ArgumentParser:
     root.add_argument("--env-file")
     commands = root.add_subparsers(dest="command", required=True)
     commands.add_parser("source-check", help="test only the read-only Arissto connection")
+    client_office = commands.add_parser(
+        "client-current-office", help="review and correct current borrower office from the latest originated loan"
+    )
+    client_office_commands = client_office.add_subparsers(dest="client_office_command", required=True)
+    for name in ("inspect", "plan", "apply", "reconcile"):
+        command = client_office_commands.add_parser(name)
+        command.add_argument("--target", choices=("local", "prod"), required=True)
+        if name == "apply":
+            command.add_argument("--plan", required=True)
+            command.add_argument("--confirm-production")
+        elif name == "reconcile":
+            command.add_argument("--run", required=True)
+    tags = commands.add_parser("delinquency-history", help="plan, import, and reconcile Arissto category transitions in native Fineract tag history")
+    tag_commands = tags.add_subparsers(dest="tag_command", required=True)
+    tag_plan = tag_commands.add_parser("plan")
+    tag_plan.add_argument("--target", choices=("local", "prod"), required=True)
+    tag_plan.add_argument("--source-through-date", required=True)
+    tag_apply = tag_commands.add_parser("apply")
+    tag_apply.add_argument("--target", choices=("local", "prod"), required=True)
+    tag_apply.add_argument("--plan", required=True)
+    tag_apply.add_argument("--confirm-production")
+    tag_reconcile = tag_commands.add_parser("reconcile")
+    tag_reconcile.add_argument("--target", choices=("local", "prod"), required=True)
+    tag_reconcile.add_argument("--run", required=True)
+    cheques = commands.add_parser("cheque-history", help="inspect, plan, import, and reconcile basic historical cheque metadata")
+    cheque_commands = cheques.add_subparsers(dest="cheque_command", required=True)
+    for name in ("inspect", "plan", "apply", "reconcile"):
+        cheque_command = cheque_commands.add_parser(name)
+        cheque_command.add_argument("--target", choices=("local", "prod"), required=True)
+        if name in ("inspect", "plan"):
+            cheque_command.add_argument("--source-through-date", required=True)
+        if name == "apply":
+            cheque_command.add_argument("--plan", required=True)
+            cheque_command.add_argument("--confirm-production")
+        if name == "reconcile":
+            cheque_command.add_argument("--run", required=True)
     cob = commands.add_parser("cob", help="capture and inspect local Arissto COB snapshots")
     cob_commands = cob.add_subparsers(dest="cob_command", required=True)
     cob_snapshot = cob_commands.add_parser("snapshot", help="capture one read-only COB snapshot")
@@ -197,6 +252,37 @@ def parser() -> argparse.ArgumentParser:
     schedule_proof.add_argument("--source-key", type=int, required=True)
     schedule_proof.add_argument("--product-id", type=int, required=True)
     schedule_proof.add_argument("--client-id", type=int, required=True)
+    event_canary = commands.add_parser(
+        "loan-event-canary", help="stage and test one archived schedule revision on an isolated proof loan"
+    )
+    event_commands = event_canary.add_subparsers(dest="loan_event_command", required=True)
+    event_plan = event_commands.add_parser("plan")
+    event_plan.add_argument("--target", choices=("local",), required=True)
+    event_plan.add_argument("--source-key", type=int, required=True)
+    event_plan.add_argument("--revision-id", type=int, required=True)
+    event_plan.add_argument("--proof-namespace", required=True)
+    event_plan.add_argument("--phase", choices=("before", "after"), required=True)
+    event_plan.add_argument("--source-through-date", required=True)
+    event_apply = event_commands.add_parser("apply")
+    event_apply.add_argument("--target", choices=("local",), required=True)
+    event_apply.add_argument("--plan", required=True)
+    interest_canary = commands.add_parser(
+        "loan-interest-canary", help="plan, apply, and reconcile one isolated native interest waiver"
+    )
+    interest_event_inspect = commands.add_parser(
+        "loan-interest-event-inspect", help="read-only audit sequence and event-family classification for one source revision"
+    )
+    interest_event_inspect.add_argument("--source-key", type=int, required=True)
+    interest_event_inspect.add_argument("--revision-id", type=int, required=True)
+    interest_commands = interest_canary.add_subparsers(dest="loan_interest_command", required=True)
+    interest_plan = interest_commands.add_parser("plan")
+    interest_plan.add_argument("--target", choices=("local",), required=True)
+    interest_plan.add_argument("--proof-namespace", required=True)
+    interest_plan.add_argument("--source-through-date", required=True)
+    for action in ("apply", "reconcile"):
+        interest_action = interest_commands.add_parser(action)
+        interest_action.add_argument("--target", choices=("local",), required=True)
+        interest_action.add_argument("--plan", required=True)
     accounting_report_proof = commands.add_parser(
         "prove-accounting-reports",
         help="compare native dimension-aware reports with independent Arissto journal rollups",
@@ -225,6 +311,32 @@ def parser() -> argparse.ArgumentParser:
     dpf_proof.add_argument("--source-key", required=True, help="COMPANY:BRANCH:ACCOUNT")
     dpf_proof.add_argument("--execute", action="store_true")
     services = commands.add_parser("services", help="list registered migration services")
+    carry_forward = commands.add_parser("carry-forward", help="guarded local carry-forward rebuild")
+    carry_forward_commands = carry_forward.add_subparsers(dest="carry_forward_command", required=True)
+    carry_forward_classify = carry_forward_commands.add_parser(
+        "classify", help="classify already-closed unchanged loans for a new source date",
+    )
+    carry_forward_classify.add_argument("--target", choices=("local",), required=True)
+    carry_forward_classify.add_argument("--state-file", required=True, type=Path)
+    carry_forward_classify.add_argument("--source-through-date", required=True)
+    carry_forward_classify.add_argument("--output", type=Path)
+    carry_forward_plan = carry_forward_commands.add_parser(
+        "plan", help="freeze an immutable read-only local replacement plan",
+    )
+    carry_forward_plan.add_argument("--target", choices=("local",), required=True)
+    carry_forward_plan.add_argument("--capture-id", required=True)
+    carry_forward_plan.add_argument("--manifest-sha256", required=True)
+    carry_forward_plan.add_argument("--new-cycle", required=True)
+    for evidence_name in ("classification", "stage", "archive", "cutoff", "mapping", "retained-proof"):
+        carry_forward_plan.add_argument("--" + evidence_name, required=True, type=Path)
+    for action in ("replace", "recover"):
+        carry_action_parser = carry_forward_commands.add_parser(
+            action, help=("swap the reviewed local sandbox seed" if action == "replace"
+                          else "restore the preserved prior sandbox before workflow activity"),
+        )
+        carry_action_parser.add_argument("--target", choices=("local",), required=True)
+        carry_action_parser.add_argument("--plan-hash", required=True)
+        carry_action_parser.add_argument("--confirm", required=True)
     services.add_argument("--service", help="show one migration service by stable ID")
     workflow = commands.add_parser("workflow", help="run dependency-driven local sync workflows")
     workflow_commands = workflow.add_subparsers(dest="workflow_command", required=True)
@@ -252,7 +364,7 @@ def parser() -> argparse.ArgumentParser:
     workflow_inspect = workflow_commands.add_parser("inspect", help="validate a workflow definition and registry graph")
     workflow_inspect.add_argument("--workflow", required=True)
     workflow_inspect.add_argument("--target", choices=("local", "prod"))
-    workflow_inspect.add_argument("--run-mode", choices=("fresh-clean", "full-resync", "resumed"))
+    workflow_inspect.add_argument("--run-mode", choices=("fresh-clean", "full-resync", "resumed", "carry-forward"))
     workflow_checkpoint = workflow_commands.add_parser(
         "checkpoint", help="view or bootstrap accepted full-resync service checkpoints",
     )
@@ -274,7 +386,7 @@ def parser() -> argparse.ArgumentParser:
     )
     workflow_plan.add_argument("--cycle")
     workflow_plan.add_argument("--target", choices=("local", "prod"), required=True)
-    workflow_plan.add_argument("--run-mode", choices=("fresh-clean", "full-resync", "resumed"))
+    workflow_plan.add_argument("--run-mode", choices=("fresh-clean", "full-resync", "resumed", "carry-forward"))
     workflow_plan.add_argument("--confirm-production")
     workflow_plan.add_argument(
         "--source-through-date",
@@ -510,6 +622,28 @@ def main(argv=None) -> int:
         if args.command == "source-check":
             emit(check_source(load_source_config(args.env_file)))
             return 0
+        if args.command == "client-current-office":
+            settings = load_settings(args.target, args.env_file)
+            if args.client_office_command == "inspect":
+                emit(inspect_client_current_office(settings))
+            else:
+                state = State(settings.state_path)
+                try:
+                    if args.client_office_command == "plan":
+                        plan_id, report = build_client_current_office_plan(settings, state)
+                        emit({"plan_id": plan_id, **report})
+                    elif args.client_office_command == "apply":
+                        run_id, summary = apply_client_current_office_plan(
+                            settings, state, args.plan, args.confirm_production
+                        )
+                        emit({"run_id": run_id, **summary})
+                    else:
+                        report = reconcile_client_current_office(settings, state, args.run)
+                        emit(report)
+                        return 0 if report["ok"] else 2
+                finally:
+                    state.conn.close()
+            return 0
         if args.command == "cob":
             state_path = configured_state_path(args.env_file)
             if args.cob_command == "snapshot":
@@ -553,6 +687,26 @@ def main(argv=None) -> int:
         if args.command == "services":
             emit(service_report(args.service))
             return 0
+        if args.command == "carry-forward" and args.carry_forward_command == "classify":
+            report = inspect_classification(args.state_file, args.source_through_date, args.env_file)
+            if args.output:
+                write_private_classification(report, args.output, args.env_file)
+            public = {key: value for key, value in report.items() if key != "loans"}
+            emit(public)
+            return 0 if not public["counts"].get("block", 0) and not public["target_only_loan_count"] else 2
+        if args.command == "carry-forward" and args.carry_forward_command == "plan":
+            emit(prepare_carry_forward_plan(
+                args.capture_id, args.manifest_sha256, args.new_cycle,
+                args.classification, args.stage, args.archive, args.cutoff,
+                args.mapping, args.retained_proof, env_file=args.env_file,
+            ))
+            return 0
+        if args.command == "carry-forward" and args.carry_forward_command == "replace":
+            emit(replace_from_reviewed_plan(args.plan_hash, args.confirm, args.env_file))
+            return 0
+        if args.command == "carry-forward" and args.carry_forward_command == "recover":
+            emit(recover_previous_sandbox(args.plan_hash, args.confirm, args.env_file))
+            return 0
         if args.command == "workflow" and args.workflow_command == "inspect":
             report = inspect_workflow(
                 load_workflow(args.workflow), target=args.target, run_mode=args.run_mode,
@@ -577,6 +731,34 @@ def main(argv=None) -> int:
             )
             emit(report)
             return 0 if report["accepted"] else 2
+        if args.command == "loan-event-canary":
+            settings = load_settings(args.target, args.env_file)
+            if args.loan_event_command == "plan":
+                emit(build_loan_event_canary_plan(
+                    settings, args.source_key, args.revision_id, args.proof_namespace,
+                    args.phase, args.source_through_date,
+                ))
+            else:
+                report = apply_loan_event_canary_plan(settings, args.plan)
+                emit(report)
+                return 0 if report["status"] in {"applied", "already_applied"} else 2
+            return 0
+        if args.command == "loan-interest-canary":
+            settings = load_settings(args.target, args.env_file)
+            if args.loan_interest_command == "plan":
+                emit(build_loan_interest_canary_plan(
+                    settings, args.proof_namespace, args.source_through_date,
+                ))
+            else:
+                report = (apply_loan_interest_canary_plan(settings, args.plan)
+                          if args.loan_interest_command == "apply"
+                          else reconcile_loan_interest_canary(settings, args.plan))
+                emit(report)
+                return 0 if report["status"] == "reconciled" else 2
+            return 0
+        if args.command == "loan-interest-event-inspect":
+            emit(inspect_interest_revision(load_source_config(args.env_file), args.source_key, args.revision_id))
+            return 0
         if args.command == "prove-accounting-reports":
             settings = load_settings(args.target, args.env_file)
             contract = AccountingContract.load(ROOT / "config/accounting.json")
@@ -711,6 +893,8 @@ def main(argv=None) -> int:
             if args.workflow_command in {"plan", "run"}:
                 if args.cutoff_date and args.source_through_date:
                     raise ValueError("Choose either --source-through-date or --cutoff-date, not both")
+                if args.run_mode == "carry-forward" and not args.source_through_date:
+                    raise ValueError("Carry-forward planning requires --source-through-date")
                 if args.source_through_date:
                     state.set_accounting_source_through(args.source_through_date)
                 elif args.cutoff_date:
@@ -818,6 +1002,32 @@ def main(argv=None) -> int:
                 })
             return 0
         state = State(settings.state_path)
+        if args.command == "cheque-history":
+            if args.cheque_command == "inspect":
+                emit(inspect_cheque_history(settings, args.source_through_date))
+            elif args.cheque_command == "plan":
+                plan_id, document = build_cheque_history_plan(settings, state, args.source_through_date)
+                emit({"plan_id": plan_id, **document})
+            elif args.cheque_command == "apply":
+                run_id, counts = apply_cheque_history_plan(settings, state, args.plan, args.confirm_production)
+                emit({"run_id": run_id, "counts": counts})
+            else:
+                result = reconcile_cheque_history(settings, state, args.run)
+                emit(result)
+                return 0 if result["ok"] else 2
+            return 0
+        if args.command == "delinquency-history":
+            if args.tag_command == "plan":
+                plan_id, document = build_delinquency_history_plan(settings, state, args.source_through_date)
+                emit({"plan_id": plan_id, **document})
+            elif args.tag_command == "apply":
+                run_id, counts = apply_delinquency_history_plan(settings, state, args.plan, args.confirm_production)
+                emit({"run_id": run_id, "counts": counts})
+            else:
+                result = reconcile_delinquency_history(settings, state, args.run)
+                emit(result)
+                return 0 if result["ok"] else 2
+            return 0
         if args.command == "plan":
             if args.cutoff_date and args.source_through_date:
                 raise ValueError("Choose either --source-through-date or --cutoff-date, not both")
@@ -992,9 +1202,17 @@ def main(argv=None) -> int:
             emit(report)
         elif args.command == "plan":
             if args.block == LOANS_BLOCK:
+                active_boundary = FineractApi(settings.target).request("GET", "accountingcutoff")
+                if active_boundary.get("lifecycleState") == "ACTIVE" and (
+                    active_boundary.get("cutoffDate") != state.accounting_cutoff["date"]
+                ):
+                    raise ValueError(
+                        "Loan plan Fineract start date must equal the target's active accounting cutoff "
+                        f"({active_boundary.get('cutoffDate')}); selected {state.accounting_cutoff['date']}"
+                    )
                 plan_id, document = build_loan_plan(
                     settings, state, loan_contract, args.source_key, args.proof_namespace,
-                    args.cutoff_date,
+                    state.accounting_cutoff["date"],
                 )
             elif args.block == ACCOUNTING_BLOCK:
                 if args.proof_namespace or args.repair_existing_drift:

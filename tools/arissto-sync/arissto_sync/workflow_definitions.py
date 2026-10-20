@@ -65,7 +65,7 @@ def load_workflow(identifier: str, root: Path = WORKFLOWS_PATH) -> WorkflowDefin
     ):
         raise ValueError("Workflow targets must contain unique local/prod values")
     run_modes = value.get("run_modes", ["fresh-clean", "resumed"])
-    allowed_run_modes = {"fresh-clean", "full-resync", "resumed"}
+    allowed_run_modes = {"fresh-clean", "full-resync", "resumed", "carry-forward"}
     if (
         not isinstance(run_modes, list) or not run_modes
         or not all(mode in allowed_run_modes for mode in run_modes)

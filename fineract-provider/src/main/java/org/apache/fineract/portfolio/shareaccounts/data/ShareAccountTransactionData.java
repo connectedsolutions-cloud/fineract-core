@@ -22,12 +22,10 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import org.apache.fineract.infrastructure.core.data.EnumOptionData;
 import org.apache.fineract.infrastructure.core.jersey.serializer.legacy.JsonLocalDateArrayFormat;
 
 @Getter
-@RequiredArgsConstructor
 @JsonLocalDateArrayFormat
 public class ShareAccountTransactionData implements Serializable {
 
@@ -50,5 +48,46 @@ public class ShareAccountTransactionData implements Serializable {
     private final BigDecimal chargeAmount;
 
     private final BigDecimal amountPaid;
+
+    private final String paymentTypeName;
+
+    private final String checkNumber;
+
+    private final String bankNumber;
+
+    private final String accountNumber;
+
+    private final String receiptNumber;
+
+    private final Long cashierTransactionId;
+
+    public ShareAccountTransactionData(final Long id, final Long accountId, final LocalDate purchasedDate, final Long numberOfShares,
+            final BigDecimal purchasedPrice, final EnumOptionData status, final EnumOptionData type, final BigDecimal amount,
+            final BigDecimal chargeAmount, final BigDecimal amountPaid) {
+        this(id, accountId, purchasedDate, numberOfShares, purchasedPrice, status, type, amount, chargeAmount, amountPaid, null, null,
+                null, null, null, null);
+    }
+
+    public ShareAccountTransactionData(final Long id, final Long accountId, final LocalDate purchasedDate, final Long numberOfShares,
+            final BigDecimal purchasedPrice, final EnumOptionData status, final EnumOptionData type, final BigDecimal amount,
+            final BigDecimal chargeAmount, final BigDecimal amountPaid, final String paymentTypeName, final String checkNumber,
+            final String bankNumber, final String accountNumber, final String receiptNumber, final Long cashierTransactionId) {
+        this.id = id;
+        this.accountId = accountId;
+        this.purchasedDate = purchasedDate;
+        this.numberOfShares = numberOfShares;
+        this.purchasedPrice = purchasedPrice;
+        this.status = status;
+        this.type = type;
+        this.amount = amount;
+        this.chargeAmount = chargeAmount;
+        this.amountPaid = amountPaid;
+        this.paymentTypeName = paymentTypeName;
+        this.checkNumber = checkNumber;
+        this.bankNumber = bankNumber;
+        this.accountNumber = accountNumber;
+        this.receiptNumber = receiptNumber;
+        this.cashierTransactionId = cashierTransactionId;
+    }
 
 }

@@ -64,8 +64,7 @@ public class CredesalProductNumberingSupport {
         if (numberingCode == null) {
             return;
         }
-        final String sql = excludeProductId == null
-                ? "select count(1) from " + tableName + " where numbering_code = ?"
+        final String sql = excludeProductId == null ? "select count(1) from " + tableName + " where numbering_code = ?"
                 : "select count(1) from " + tableName + " where numbering_code = ? and id <> ?";
         final Integer count = excludeProductId == null ? jdbcTemplate.queryForObject(sql, Integer.class, numberingCode)
                 : jdbcTemplate.queryForObject(sql, Integer.class, numberingCode, excludeProductId);

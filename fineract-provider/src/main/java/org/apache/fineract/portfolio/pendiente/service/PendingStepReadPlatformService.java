@@ -33,6 +33,12 @@ public interface PendingStepReadPlatformService {
 
     List<PendingStepData> retrieveByOfficeId(Long officeId);
 
+    /**
+     * Steps related to the client. {@code closed} null returns every status, false returns open and pending, true
+     * returns completed and cancelled.
+     */
+    List<PendingStepData> retrieveByClientId(Long clientId, Boolean closed);
+
     List<PendingStepData> retrieveMyCompletedSteps(Long userId, Long officeId);
 
     List<PendingStepData> retrieveStepsOnMyFlowsAssignedToOthers(Long userId, List<String> statuses, Long officeId);

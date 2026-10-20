@@ -1,9 +1,10 @@
 {
   "version": 1,
   "id": "local-membership-financial",
-  "description": "Synchronize clients, lossless membership records, savings deposits, and native share capital.",
+  "description": "Synchronize clients, employees, lossless membership records, savings deposits, and native share capital.",
   "services": [
     "clients",
+    "employees",
     "membership-share-capital",
     "savings-deposits",
     "native-share-capital"

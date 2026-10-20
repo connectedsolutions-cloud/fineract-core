@@ -33,6 +33,7 @@ import org.apache.fineract.portfolio.savings.domain.SavingsAccount;
 @Setter
 @NoArgsConstructor
 public class SavingsAuthorizedPerson extends AbstractPersistableCustom<Long> {
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "savings_account_id", nullable = false)
     private SavingsAccount savingsAccount;

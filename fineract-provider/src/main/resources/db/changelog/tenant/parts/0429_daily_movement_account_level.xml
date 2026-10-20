@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0429-1-daily-movement-account-level" author="credesal" dbms="postgresql">
+        <comment>Add the Nivel selector and roll daily movements to the selected account level.</comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+INSERT INTO stretchy_parameter (
+    parameter_name, parameter_variable, parameter_label,
+    "parameter_displayType", "parameter_FormatType", parameter_default,
+    "selectOne", parameter_sql
+)
+VALUES (
+    'CredesalDailyMovementLevel', 'level', 'Nivel',
+    'select', 'number', '3', 'Y',
+    $options$SELECT level AS id, label AS name FROM (VALUES
+        (3, '3 MAYOR'),
+        (4, '4 SUBCUENTA'),
+        (5, '5 SUB SUB CUENTA'),
+        (6, '6 SUB SUB SUB CUENTA'),
+        (7, '7 DETALLE')
+    ) AS levels(level, label) ORDER BY level$options$
+)
+ON CONFLICT (parameter_name) DO UPDATE
+SET parameter_variable = EXCLUDED.parameter_variable,
+    parameter_label = EXCLUDED.parameter_label,
+    "parameter_displayType" = EXCLUDED."parameter_displayType",
+    "parameter_FormatType" = EXCLUDED."parameter_FormatType",
+    parameter_default = EXCLUDED.parameter_default,
+    "selectOne" = EXCLUDED."selectOne",
+    parameter_sql = EXCLUDED.parameter_sql;
+
+UPDATE stretchy_report
+   SET report_sql = $report$
+WITH RECURSIVE report_level AS (
+    SELECT CAST('${level}' AS INTEGER) AS account_level
+     WHERE CAST('${level}' AS INTEGER) BETWEEN 3 AND 7
+),
+selected_offices AS (
+    SELECT office_under.id,
+           UPPER(office_under.name) AS name,
+           office_under.external_id,
+           office_under.hierarchy
+      FROM m_office selected_office
+      JOIN m_office office_under
+        ON office_under.hierarchy LIKE selected_office.hierarchy || '%'
+     WHERE credesal_report_office_is_root(
+         selected_office.id, '${officeId}', '${currentUserHierarchy}'
+     )
+       AND office_under.hierarchy LIKE '${currentUserHierarchy}' || '%'
+       AND office_under.external_id IS NOT NULL
+),
+eligible_entries AS (
+    SELECT journal_entry.office_id,
+           journal_entry.account_id,
+           journal_entry.entry_date,
+           journal_entry.type_enum,
+           journal_entry.amount
+      FROM acc_gl_journal_entry journal_entry
+      JOIN selected_offices office
+        ON office.id = journal_entry.office_id
+     WHERE journal_entry.entry_date <= CAST('${endDate}' AS DATE)
+       AND journal_entry.currency_code = 'USD'
+       AND (
+           jsonb_typeof(journal_entry.dimensions -> 'office') IS DISTINCT FROM 'string'
+           OR office.external_id = journal_entry.dimensions ->> 'office'
+       )
+),
+source_accounts AS (
+    SELECT DISTINCT account.id,
+           account.gl_code,
+           account.name,
+           account.parent_id,
+           account.acc_level
+      FROM eligible_entries entry
+      JOIN acc_gl_account account ON account.id = entry.account_id
+),
+account_ancestors AS (
+    SELECT source.id AS source_account_id,
+           source.id AS ancestor_id,
+           source.parent_id,
+           source.gl_code,
+           source.name,
+           source.acc_level,
+           ARRAY[source.id]::BIGINT[] AS visited
+      FROM source_accounts source
+
+    UNION ALL
+
+    SELECT lineage.source_account_id,
+           parent.id,
+           parent.parent_id,
+           parent.gl_code,
+           parent.name,
+           parent.acc_level,
+           lineage.visited || parent.id
+      FROM account_ancestors lineage
+      JOIN acc_gl_account parent ON parent.id = lineage.parent_id
+     WHERE NOT parent.id = ANY(lineage.visited)
+),
+resolved_accounts AS (
+    SELECT DISTINCT ON (lineage.source_account_id)
+           lineage.source_account_id,
+           lineage.gl_code AS account_code,
+           lineage.name AS account_name
+      FROM account_ancestors lineage
+     CROSS JOIN report_level level
+     WHERE lineage.acc_level <= level.account_level
+     ORDER BY lineage.source_account_id, lineage.acc_level DESC,
+              lineage.gl_code COLLATE "C"
+),
+projected_entries AS (
+    SELECT entry.office_id,
+           entry.entry_date,
+           entry.type_enum,
+           entry.amount,
+           CASE WHEN level.account_level = 3
+                THEN LEFT(source.gl_code, 3)
+                ELSE COALESCE(resolved.account_code, source.gl_code)
+           END AS account_code,
+           CASE WHEN level.account_level = 3 THEN NULL
+                ELSE COALESCE(resolved.account_name, source.name)
+           END AS account_name
+      FROM eligible_entries entry
+      JOIN source_accounts source ON source.id = entry.account_id
+     CROSS JOIN report_level level
+ LEFT JOIN resolved_accounts resolved ON resolved.source_account_id = source.id
+),
+visible_accounts AS (
+    SELECT DISTINCT entry.office_id,
+           entry.account_code,
+           entry.account_name
+      FROM projected_entries entry
+),
+daily_movements AS (
+    SELECT entry.office_id,
+           entry.account_code,
+           ROUND(SUM(CASE WHEN entry.type_enum = 2 THEN entry.amount ELSE 0 END), 2) AS debit,
+           ROUND(SUM(CASE WHEN entry.type_enum = 1 THEN entry.amount ELSE 0 END), 2) AS credit
+      FROM projected_entries entry
+     WHERE entry.entry_date = CAST('${endDate}' AS DATE)
+     GROUP BY entry.office_id, entry.account_code
+),
+account_rows AS (
+    SELECT office.hierarchy AS office_hierarchy,
+           office.id AS office_id,
+           office.name AS office_name,
+           office.external_id AS office_external_id,
+           account.account_code,
+           COALESCE(account.account_name, display_account.name, account.account_code) AS account_name,
+           COALESCE(movement.debit, 0.00) AS debit,
+           COALESCE(movement.credit, 0.00) AS credit
+      FROM visible_accounts account
+      JOIN selected_offices office ON office.id = account.office_id
+ LEFT JOIN acc_gl_account display_account
+        ON display_account.gl_code = account.account_code
+ LEFT JOIN daily_movements movement
+        ON movement.office_id = account.office_id
+       AND movement.account_code = account.account_code
+),
+branch_totals AS (
+    SELECT office_hierarchy,
+           office_id,
+           office_name,
+           office_external_id,
+           SUM(debit) AS debit,
+           SUM(credit) AS credit
+      FROM account_rows
+     GROUP BY office_hierarchy, office_id, office_name, office_external_id
+),
+display_rows AS (
+    SELECT account.office_hierarchy,
+           account.office_id,
+           account.office_name,
+           account.office_external_id,
+           1 AS row_order,
+           account.account_code AS account_order,
+           'CUENTA'::VARCHAR AS row_type,
+           account.account_code,
+           account.account_name AS description,
+           account.debit,
+           account.credit
+      FROM account_rows account
+
+    UNION ALL
+
+    SELECT total.office_hierarchy,
+           total.office_id,
+           total.office_name,
+           total.office_external_id,
+           2,
+           '~~~~',
+           'TOTAL_SUCURSAL',
+           NULL,
+           'Total por Sucursal',
+           total.debit,
+           total.credit
+      FROM branch_totals total
+
+    UNION ALL
+
+    SELECT '~~~~',
+           NULL,
+           NULL,
+           NULL,
+           3,
+           '~~~~',
+           'TOTAL_GENERAL',
+           NULL,
+           'Total General',
+           SUM(total.debit),
+           SUM(total.credit)
+      FROM branch_totals total
+)
+SELECT ROW_NUMBER() OVER (
+           ORDER BY office_hierarchy COLLATE "C", row_order, account_order COLLATE "C"
+       ) AS "Orden",
+       row_type AS "Tipo Fila",
+       office_id AS "Id Oficina",
+       office_external_id AS "Código Sucursal",
+       office_name AS "Sucursal",
+       account_code AS "Cuenta",
+       description AS "Concepto",
+       debit AS "Cargos",
+       credit AS "Abonos",
+       CAST('${endDate}' AS DATE) AS "Fecha"
+  FROM display_rows
+ ORDER BY office_hierarchy COLLATE "C", row_order, account_order COLLATE "C"
+$report$,
+       description = 'Movimientos diarios en USD agrupados por nivel contable y sucursal.'
+ WHERE report_name = 'Concentración de Movimientos Diarios'
+   AND report_subtype = 'VisualDailyMovement';
+
+DELETE FROM stretchy_report_parameter usage
+ WHERE usage.report_id = (
+     SELECT id FROM stretchy_report
+      WHERE report_name = 'Concentración de Movimientos Diarios'
+ ) AND usage.report_parameter_name = 'level';
+
+INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+SELECT report.id, parameter.id, parameter.parameter_variable
+  FROM stretchy_report report
+  CROSS JOIN stretchy_parameter parameter
+ WHERE report.report_name = 'Concentración de Movimientos Diarios'
+   AND parameter.parameter_name = 'CredesalDailyMovementLevel';
+
+DO $validation$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+          FROM stretchy_report report
+          JOIN stretchy_report_parameter usage ON usage.report_id = report.id
+          JOIN stretchy_parameter parameter ON parameter.id = usage.parameter_id
+         WHERE report.report_name = 'Concentración de Movimientos Diarios'
+           AND usage.report_parameter_name = 'level'
+           AND parameter.parameter_name = 'CredesalDailyMovementLevel'
+    ) THEN
+        RAISE EXCEPTION 'Concentración de Movimientos Diarios requires level';
+    END IF;
+END
+$validation$;
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

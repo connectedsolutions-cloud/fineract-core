@@ -62,7 +62,7 @@ public final class CredesalNamingCodes {
             case LOAN -> LOAN_CODE;
             case SAVINGS -> SAVINGS_CODE;
             case SHARE_CERTIFICATE -> CERTIFICATE_CODE;
-            case VISTA_PASSBOOK -> null;
+            case SHARE_CERTIFICATE_PROVISIONAL, SHARE_SERIAL, VISTA_PASSBOOK -> null;
         };
         if (pattern != null && !pattern.matcher(normalized).matches()) {
             return "Numbering code '" + normalized + "' is not valid for " + namespace + ".";

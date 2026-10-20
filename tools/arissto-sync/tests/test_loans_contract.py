@@ -150,7 +150,8 @@ class LoansContractTests(unittest.TestCase):
 
         self.assertEqual(
             set(config["native_creation_overrides"]),
-            {"24", "301", "805", "1117", "1182", "1441", "1638"},
+            {"24", "301", "805", "1117", "1182", "1441", "1638",
+             "2357", "2427", "2498", "2499"},
         )
         self.assertEqual(
             config["native_creation_overrides"]["24"],
@@ -285,30 +286,39 @@ class LoansContractTests(unittest.TestCase):
         self.assertIn("Source loan `2120`", contract)
         self.assertIn("replacement loan `2121`", contract)
 
-    def test_product_uses_one_portfolio_account_and_native_dimensions(self):
+    def test_product_uses_term_based_portfolio_accounts_and_native_dimensions(self):
         config = json.loads((ROOT / "tools/arissto-sync/config/loans.json").read_text(encoding="utf-8"))
         contract = CONTRACT.read_text(encoding="utf-8")
         product = config["product_contract"]
         portfolio = product["portfolio_account_policy"]
         dimensions = product["dimension_contract"]
 
-        self.assertEqual(portfolio["mode"], "single-native-account-per-product")
-        self.assertFalse(portfolio["dynamic_gl_switching"])
+        self.assertEqual(portfolio["mode"], "term-based-dual-native-accounts")
+        self.assertTrue(portfolio["dynamic_gl_switching"])
         self.assertFalse(portfolio["split_products_by_historical_account"])
         self.assertEqual(
             portfolio["reviewed_primary_gl_by_line"],
             {"00001": "1141040101", "00010": "1141030101"},
         )
         self.assertEqual(
-            portfolio["historical_alternate_gl_for_reconciliation"],
-            {"00001": ["1142040101"], "00010": ["1142030101"]},
+            portfolio["reviewed_long_gl_by_line"],
+            {"00001": "114204010101", "00010": "1142030101"},
+        )
+        self.assertEqual(
+            portfolio["reviewed_short_interest_receivable_gl_by_line"],
+            {"00001": "1141049901", "00010": "1141039901"},
+        )
+        self.assertEqual(
+            portfolio["reviewed_long_interest_receivable_gl_by_line"],
+            {"00001": "1142049901", "00010": "1142039901"},
         )
         self.assertEqual(dimensions["report_filter"], "json-containment")
         self.assertEqual(
             dimensions["product_native_type_field"]["target"],
             "m_product_loan.id_tipo_linea",
         )
-        self.assertIn("exactly one `loanPortfolioAccountId`", contract)
+        self.assertIn("longTermLoanPortfolioAccountId", contract)
+        self.assertIn("longTermInterestReceivableAccountId", contract)
         self.assertIn("acc_gl_journal_entry.dimensions", contract)
 
     def test_implementation_sequence_preserves_gate_order(self):

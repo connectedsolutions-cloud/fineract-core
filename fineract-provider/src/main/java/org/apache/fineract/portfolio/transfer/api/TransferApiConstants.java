@@ -38,6 +38,7 @@ public final class TransferApiConstants {
     public static final String destinationOfficeIdParamName = "destinationOfficeId";
     public static final String note = "note";
     public static final String transferDate = "transferDate";
+    public static final String loanTransferBalances = "loanTransferBalances";
     public static final String transferClientLoanException = "error.msg.cannot.transfer.client.as.loan.transaction.present.on.or.after.transfer.date";
     public static final String transferClientLoanExceptionMessage = "error msg cannot transfer client as loan transaction present on or after transfer date";
     public static final String transferClientSavingsException = "error.msg.cannot.transfer.client.as.savings.transaction.present.on.or.after.transfer.date";

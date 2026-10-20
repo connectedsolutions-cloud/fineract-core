@@ -35,6 +35,14 @@ mode pair.
 
 ## Target mapping
 
+The historical DTE writer already creates the native `m_invoice` aggregate,
+including its issuer, receiver, lines, summary, legal status, and MH state.
+`source_lifecycle_json` preserves the raw Arissto workflow codes for audit;
+the mapped terminal state is also written to native `status`,
+`authority_status`, `mh_transmission_status`, and `mh_validation_status`.
+Migration `0414` concerns GL journal and voucher fields and requires no DTE
+writer change.
+
 | Arissto | Fineract |
 |---|---|
 | `CODIGO_GENERACION` | `m_invoice.codigo_generacion` |
@@ -47,8 +55,9 @@ mode pair.
 | normalized detail | `m_invoice_line` |
 | normalized totals and line-classified discounts | `m_invoice_summary` |
 | `monto_iva` | `m_invoice_summary.total_iva` |
-| `ARISSTO:CRD-MOV:{ID_MOVIMIENTO_CARTERA}` | exact `m_loan_transaction.external_id` |
+| `ARISSTO:CRD-MOV:{ID_MOVIMIENTO_CARTERA}` | exact `m_loan_transaction.external_id` when the movement was migrated; otherwise `m_invoice.source_loan_movement_external_id` |
 | `NUMERO_AFILIACION` | exact `m_client.external_id` and loan-client validation |
+| source branch | `m_office.external_id` for documents without a target loan transaction |
 | constant `ARISSTO_HISTORY` | `m_invoice.source_origin` |
 | canonical contract + durable source content hash | `m_invoice.source_hash` |
 | raw `DTE_ESTADO`, `ANULADO`, `INVALIDADO` | `m_invoice.source_lifecycle_json` |
@@ -60,9 +69,12 @@ ambiguous allocations or a header/detail discount variance are quarantined.
 
 No source-local fiscal IDs, duplicate client ID, duplicate loan movement ID,
 receiver-type copy, or obsolete document path are retained. The generation
-code identifies the invoice; `loan_transaction_id` identifies the migrated
-movement; and the loan transaction's loan identifies the client. Those native
-relationships are authoritative and are what reconciliation follows.
+code identifies the invoice. When the source movement has a target transaction,
+`loan_transaction_id` identifies it and its loan identifies the client. When
+there is no target transaction, the invoice retains the mapped client and
+office in `historical_client_id` and `historical_office_id`, plus the source
+movement external ID. This preserves legal DTE history without creating a
+financial transaction or posting. Reconciliation follows either ownership path.
 Source-local fiscal IDs and the obsolete path are also excluded from the hash,
 so changes to non-durable extraction metadata cannot create false conflicts.
 
@@ -70,6 +82,11 @@ so changes to non-durable extraction metadata cannot create false conflicts.
 to `ACCEPTED`. A seal-less state `3` row with an error maps to `REJECTED`.
 Other lifecycle combinations are quarantined rather than guessed. A reversed
 loan movement does not void a legally sealed DTE.
+
+The target transaction is optional for this reviewed source cohort. The
+source DTE must still have exactly one Arissto loan movement and a valid mapped
+client; an unlinked document also requires a mapped source branch. Documents
+with no exact source movement are a separate, unreviewed cohort.
 
 ## Write boundary
 
@@ -98,11 +115,34 @@ for imported records.
 Mifos also renders every terminal `ACCEPTED`, `REJECTED`, or `VOIDED` invoice
 read-only.
 
-DTEs whose exact source loan movement has no imported transaction remain
-quarantined. A parent loan/refinance quarantine must be resolved in the Loans
-contract first. A reversed payoff movement on a migrated loan also needs a
-reviewed transaction or historical-document ownership rule; the DTE importer
-must not substitute a nearby payment, amount, date, or client match.
+DTEs whose exact source loan movement has no imported transaction use the
+historical owner columns in migration 0385. The importer never substitutes a
+nearby payment, amount, date, or client match. Existing source hashes retain
+the version-1 basis so already imported DTEs remain unchanged.
+
+The 2026-10-07 carry-forward audit confirmed that all 82 DTEs quarantined for
+`missing_target_loan_transaction` have exactly one source loan-movement link:
+79 belong to a quarantined refinance chain and three have `REVERSION=1` on
+migrated loans while retaining a legal reception seal. They motivated a
+historical-document owner path with no invented financial transaction. A separate 84
+normalized type-`01` DTEs lack an exact source loan-movement link and are
+outside this version-2 cohort. Those records need a distinct, reviewed
+standalone-document contract. Native invoice creation still requires a loan,
+savings, or client transaction. The historical SQL importer instead sets a
+mapped client, office, and source movement reference on the existing invoice
+aggregate. Fineract GET by invoice ID and Mifos DTE preview support this
+path; the invoice listing resolves the owner directly when the transaction is
+absent. Source evidence is in
+[`fiscal-dte.md`](../../../../../../credesal-db-space/docs/learnings/fiscal-dte.md#carry-forward-dte-link-audit-on-2026-10-07).
+
+On 2026-10-07, local sandbox plan `87a86abad7d8462f94c336c5506fd8ef`
+created all 82 previously quarantined DTEs in run
+`8cf9c28c1b63475196facf41f2f06685`; reconciliation matched 82 of 82.
+The sandbox has 24,638 imported historical DTEs, of which exactly 82 have no
+loan transaction and all 82 have a mapped client, office, and distinct source
+movement. `m_client_transaction` remains empty. The invoice API returned one
+of these documents by ID with three lines, and `listado facturas` found it
+under its client and office filters.
 
 Create and timestamp-correction actions are sorted by generation code, grouped into bounded atomic
 batches, and may run on up to four worker-owned PostgreSQL connections. The

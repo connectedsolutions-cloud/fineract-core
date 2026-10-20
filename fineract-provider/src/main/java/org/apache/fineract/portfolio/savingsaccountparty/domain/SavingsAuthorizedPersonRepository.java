@@ -17,6 +17,8 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface SavingsAuthorizedPersonRepository extends JpaRepository<SavingsAuthorizedPerson, Long> {
+
     List<SavingsAuthorizedPerson> findBySavingsAccountIdAndActiveTrueOrderById(Long savingsAccountId);
+
     Optional<SavingsAuthorizedPerson> findByExternalId(String externalId);
 }

@@ -50,6 +50,7 @@ import org.apache.fineract.accounting.journalentry.data.ClientTransactionDTO;
 import org.apache.fineract.accounting.journalentry.data.LoanDTO;
 import org.apache.fineract.accounting.journalentry.data.SavingsDTO;
 import org.apache.fineract.accounting.journalentry.data.SharesDTO;
+import org.apache.fineract.accounting.journalentry.domain.GlVoucher;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntry;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntryRepository;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntryType;
@@ -60,7 +61,6 @@ import org.apache.fineract.accounting.journalentry.exception.JournalEntryRuntime
 import org.apache.fineract.accounting.journalentry.serialization.JournalEntryCommandFromApiJsonDeserializer;
 import org.apache.fineract.accounting.provisioning.domain.LoanProductProvisioningEntry;
 import org.apache.fineract.accounting.provisioning.domain.ProvisioningEntry;
-import org.apache.fineract.portfolio.treasury.service.TreasuryProductLinkService;
 import org.apache.fineract.accounting.rule.domain.AccountingRule;
 import org.apache.fineract.accounting.rule.domain.AccountingRuleRepository;
 import org.apache.fineract.accounting.rule.exception.AccountingRuleNotFoundException;
@@ -106,6 +106,7 @@ import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepositor
 import org.apache.fineract.portfolio.loanproduct.service.LoanEnumerations;
 import org.apache.fineract.portfolio.paymentdetail.domain.PaymentDetail;
 import org.apache.fineract.portfolio.paymentdetail.service.PaymentDetailWritePlatformService;
+import org.apache.fineract.portfolio.treasury.service.TreasuryProductLinkService;
 import org.apache.fineract.useradministration.domain.AppUser;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.NonTransientDataAccessException;
@@ -140,6 +141,7 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
     private final LoanTransactionRepository loanTransactionRepository;
     private final AccountingCutoffPolicyService cutoffPolicyService;
     private final TreasuryProductLinkService treasuryProductLinkService;
+    private final GlVoucherWriteService glVoucherWriteService;
 
     @Transactional
     @Override
@@ -190,6 +192,9 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
                 externalAssetOwner = optExternalAssetOwner.get();
             }
 
+            final GlVoucher voucher = glVoucherWriteService.createManual(journalEntryCommand.getAuxiliarCode(),
+                    journalEntryCommand.getHeaderConcept());
+
             if (accountRuleId != null) {
 
                 final AccountingRule accountingRule = this.accountingRuleRepository.findById(accountRuleId)
@@ -206,13 +211,13 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
                     }
 
                     saveAllDebitOrCreditEntries(journalEntryCommand, office, paymentDetail, currencyCode, transactionDate,
-                            journalEntryCommand.getCredits(), transactionId, JournalEntryType.CREDIT, referenceNumber, externalAssetOwner);
+                            journalEntryCommand.getCredits(), transactionId, JournalEntryType.CREDIT, referenceNumber, externalAssetOwner, voucher);
                 } else {
                     final GLAccount creditAccountHead = accountingRule.getAccountToCredit();
                     validateGLAccountForTransaction(creditAccountHead);
                     validateDebitOrCreditArrayForExistingGLAccount(creditAccountHead, journalEntryCommand.getCredits());
                     saveAllDebitOrCreditEntries(journalEntryCommand, office, paymentDetail, currencyCode, transactionDate,
-                            journalEntryCommand.getCredits(), transactionId, JournalEntryType.CREDIT, referenceNumber, externalAssetOwner);
+                            journalEntryCommand.getCredits(), transactionId, JournalEntryType.CREDIT, referenceNumber, externalAssetOwner, voucher);
                 }
 
                 if (accountingRule.getAccountToDebit() == null) {
@@ -226,21 +231,21 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
                     }
 
                     saveAllDebitOrCreditEntries(journalEntryCommand, office, paymentDetail, currencyCode, transactionDate,
-                            journalEntryCommand.getDebits(), transactionId, JournalEntryType.DEBIT, referenceNumber, externalAssetOwner);
+                            journalEntryCommand.getDebits(), transactionId, JournalEntryType.DEBIT, referenceNumber, externalAssetOwner, voucher);
                 } else {
                     final GLAccount debitAccountHead = accountingRule.getAccountToDebit();
                     validateGLAccountForTransaction(debitAccountHead);
                     validateDebitOrCreditArrayForExistingGLAccount(debitAccountHead, journalEntryCommand.getDebits());
                     saveAllDebitOrCreditEntries(journalEntryCommand, office, paymentDetail, currencyCode, transactionDate,
-                            journalEntryCommand.getDebits(), transactionId, JournalEntryType.DEBIT, referenceNumber, externalAssetOwner);
+                            journalEntryCommand.getDebits(), transactionId, JournalEntryType.DEBIT, referenceNumber, externalAssetOwner, voucher);
                 }
             } else {
 
                 saveAllDebitOrCreditEntries(journalEntryCommand, office, paymentDetail, currencyCode, transactionDate,
-                        journalEntryCommand.getDebits(), transactionId, JournalEntryType.DEBIT, referenceNumber, externalAssetOwner);
+                        journalEntryCommand.getDebits(), transactionId, JournalEntryType.DEBIT, referenceNumber, externalAssetOwner, voucher);
 
                 saveAllDebitOrCreditEntries(journalEntryCommand, office, paymentDetail, currencyCode, transactionDate,
-                        journalEntryCommand.getCredits(), transactionId, JournalEntryType.CREDIT, referenceNumber, externalAssetOwner);
+                        journalEntryCommand.getCredits(), transactionId, JournalEntryType.CREDIT, referenceNumber, externalAssetOwner, voucher);
 
             }
 
@@ -554,6 +559,24 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
 
     @Transactional
     @Override
+    public void prepareSourceExactLoanPortfolioAccount(final Long loanId) {
+        this.helper.prepareSourceExactLoanPortfolioAccount(loanId);
+    }
+
+    @Transactional
+    @Override
+    public void clearSourceExactLoanPortfolioAccount(final Long loanId) {
+        this.helper.clearSourceExactLoanPortfolioAccount(loanId);
+    }
+
+    @Transactional
+    @Override
+    public void alignSourceExactLoanExpectedMaturity(final Long loanId, final LocalDate expectedMaturityDate) {
+        this.helper.alignSourceExactLoanExpectedMaturity(loanId, expectedMaturityDate);
+    }
+
+    @Transactional
+    @Override
     public void createJournalEntriesForLoan(final AccountingBridgeDataDTO accountingBridgeData) {
         final boolean cashBasedAccountingEnabled = accountingBridgeData.isCashBasedAccountingEnabled();
         final boolean upfrontAccrualBasedAccountingEnabled = accountingBridgeData.isUpfrontAccrualBasedAccountingEnabled();
@@ -564,6 +587,7 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
                     accountingBridgeData.getNewLoanTransactions().stream().map(transaction -> transaction.getDate()).toList())) {
                 return;
             }
+            this.helper.prepareLoanPortfolioAccount(accountingBridgeData.getLoanId(), accountingBridgeData.getLoanProductId());
             final LoanDTO loanDTO = this.helper.populateLoanDtoFromDTO(accountingBridgeData);
             final AccountingProcessorForLoan accountingProcessorForLoan = this.accountingProcessorForLoanFactory
                     .determineProcessor(loanDTO);
@@ -688,7 +712,7 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
     private void saveAllDebitOrCreditEntries(final JournalEntryCommand command, final Office office, final PaymentDetail paymentDetail,
             final String currencyCode, final LocalDate transactionDate,
             final SingleDebitOrCreditEntryCommand[] singleDebitOrCreditEntryCommands, final String transactionId,
-            final JournalEntryType type, final String referenceNumber, final ExternalAssetOwner externalAssetOwner) {
+            final JournalEntryType type, final String referenceNumber, final ExternalAssetOwner externalAssetOwner, final GlVoucher voucher) {
         final boolean manualEntry = true;
         for (final SingleDebitOrCreditEntryCommand singleDebitOrCreditEntryCommand : singleDebitOrCreditEntryCommands) {
             final GLAccount glAccount = this.glAccountRepository.findById(singleDebitOrCreditEntryCommand.getGlAccountId())
@@ -713,6 +737,7 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
             final JournalEntry glJournalEntry = JournalEntry.createNew(office, paymentDetail, glAccount, currencyCode, transactionId,
                     manualEntry, transactionDate, type, singleDebitOrCreditEntryCommand.getAmount(), comments, null, null, referenceNumber,
                     null, null, null, null, dimensions);
+            glJournalEntry.setVoucher(voucher);
             helper.persistJournalEntry(glJournalEntry);
 
             accountingService.createMappingToOwner(externalAssetOwner, glJournalEntry);
@@ -742,7 +767,7 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
     public CommandProcessingResult defineOpeningBalance(final JsonCommand command) {
         try {
             final JournalEntryCommand journalEntryCommand = this.fromApiJsonDeserializer.commandFromApiJson(command.json());
-            journalEntryCommand.validateForCreate();
+            journalEntryCommand.validateForCreate(false);
 
             final LocalDate transactionDate = command
                     .localDateValueOfParameterNamed(JournalEntryJsonInputParams.TRANSACTION_DATE.getValue());

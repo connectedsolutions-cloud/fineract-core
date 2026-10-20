@@ -72,10 +72,9 @@ public class MobileCollectionRouteServiceImpl implements MobileCollectionRouteSe
     @Transactional(readOnly = true)
     public MobileCollectionRouteTemplateData retrieveTemplate() {
         final MobileCollectionRouteTemplateData template = new MobileCollectionRouteTemplateData();
-        final List<MobileCollectionStaffOptionData> options = staffRepository.findAll().stream().filter(staff -> staff.getId() != null)
-                .map(MobileCollectionStaffOptionData::from)
-                .sorted(Comparator.comparing(MobileCollectionStaffOptionData::getDisplayName,
-                        Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+        final List<MobileCollectionStaffOptionData> options = staffRepository
+                .findAll().stream().filter(staff -> staff.getId() != null).map(MobileCollectionStaffOptionData::from).sorted(Comparator
+                        .comparing(MobileCollectionStaffOptionData::getDisplayName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();
         template.setStaffOptions(options);
         return template;

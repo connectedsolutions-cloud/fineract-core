@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more
+     contributor license agreements. See the NOTICE file distributed with
+     this work for additional information regarding copyright ownership.
+     The ASF licenses this file to you under the Apache License, Version 2.0. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0391-1-arissto-delinquency-tag-provenance" author="credesal" dbms="postgresql">
+        <comment>Link compressed Arissto close classifications to native loan tag history and freeze one accepted source timeline.</comment>
+        <createTable tableName="credesal_loan_delinquency_tag_source">
+            <column name="tag_history_id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="source_system" type="VARCHAR(24)" defaultValue="ARISSTO_CLOSE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_loan_id" type="VARCHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="added_on_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="lifted_on_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="classification" type="VARCHAR(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="interval_hash" type="CHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="observed_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_loan_delinquency_tag_source" baseColumnNames="tag_history_id"
+                                 referencedTableName="m_loan_delinquency_tag_history" referencedColumnNames="id"
+                                 constraintName="fk_credesal_delinquency_tag_source_history"/>
+        <addUniqueConstraint tableName="credesal_loan_delinquency_tag_source"
+                             columnNames="source_system,source_loan_id,added_on_date"
+                             constraintName="uq_credesal_delinquency_tag_source_start"/>
+        <createTable tableName="credesal_loan_delinquency_history_manifest">
+            <column name="source_system" type="VARCHAR(24)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="source_through_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_row_count" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_hash" type="CHAR(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="source_interval_count" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="imported_interval_count" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="unmapped_source_loan_count" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="accepted_at" type="TIMESTAMP WITH TIME ZONE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>

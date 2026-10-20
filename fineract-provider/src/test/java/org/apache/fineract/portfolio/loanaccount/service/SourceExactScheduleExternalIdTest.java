@@ -28,11 +28,9 @@ class SourceExactScheduleExternalIdTest {
     @Test
     void acceptsProductionAndBoundedProofIds() {
         assertTrue(LoanWritePlatformServiceJpaRepositoryImpl.isSourceExactScheduleExternalId("ARISSTO:CRD:280"));
-        assertTrue(LoanWritePlatformServiceJpaRepositoryImpl
-                .isSourceExactScheduleExternalId("PROOF:g5sch014-0903-v2:ARISSTO:CRD:280"));
+        assertTrue(LoanWritePlatformServiceJpaRepositoryImpl.isSourceExactScheduleExternalId("PROOF:g5sch014-0903-v2:ARISSTO:CRD:280"));
         assertFalse(LoanWritePlatformServiceJpaRepositoryImpl.isSourceExactScheduleExternalId("PROOF::ARISSTO:CRD:280"));
-        assertFalse(LoanWritePlatformServiceJpaRepositoryImpl
-                .isSourceExactScheduleExternalId("PROOF:UPPER:ARISSTO:CRD:280"));
+        assertFalse(LoanWritePlatformServiceJpaRepositoryImpl.isSourceExactScheduleExternalId("PROOF:UPPER:ARISSTO:CRD:280"));
         assertFalse(LoanWritePlatformServiceJpaRepositoryImpl.isSourceExactScheduleExternalId("ARISSTO:CRD:not-a-number"));
     }
 }

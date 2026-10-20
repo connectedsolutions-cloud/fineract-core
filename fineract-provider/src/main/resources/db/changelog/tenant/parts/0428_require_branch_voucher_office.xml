@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0428-1-require-branch-voucher-office" author="credesal" dbms="postgresql">
+        <comment>Require one agency on Comprobante Contable por Sucursal without changing the shared optional office parameter.</comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+INSERT INTO stretchy_parameter (
+    parameter_name,
+    parameter_variable,
+    parameter_label,
+    "parameter_displayType",
+    "parameter_FormatType",
+    parameter_default,
+    "selectOne",
+    "selectAll",
+    parameter_sql
+)
+SELECT 'OfficeIdSelectOneRequired',
+       'officeId',
+       'Office',
+       'select',
+       'number',
+       'required',
+       'Y',
+       NULL,
+       source.parameter_sql
+  FROM stretchy_parameter source
+ WHERE source.parameter_name = 'OfficeIdSelectOne'
+ON CONFLICT (parameter_name) DO UPDATE
+SET parameter_variable = EXCLUDED.parameter_variable,
+    parameter_label = EXCLUDED.parameter_label,
+    "parameter_displayType" = EXCLUDED."parameter_displayType",
+    "parameter_FormatType" = EXCLUDED."parameter_FormatType",
+    parameter_default = EXCLUDED.parameter_default,
+    "selectOne" = EXCLUDED."selectOne",
+    "selectAll" = EXCLUDED."selectAll",
+    parameter_sql = EXCLUDED.parameter_sql;
+
+UPDATE stretchy_report_parameter usage
+   SET parameter_id = required_office.id
+  FROM stretchy_report report,
+       stretchy_parameter required_office
+ WHERE usage.report_id = report.id
+   AND report.report_name = 'Comprobante Contable por Sucursal'
+   AND usage.report_parameter_name = 'officeId'
+   AND required_office.parameter_name = 'OfficeIdSelectOneRequired';
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+          FROM stretchy_report
+         WHERE report_name = 'Comprobante Contable por Sucursal'
+    ) AND NOT EXISTS (
+        SELECT 1
+          FROM stretchy_report report
+          JOIN stretchy_report_parameter usage ON usage.report_id = report.id
+          JOIN stretchy_parameter parameter ON parameter.id = usage.parameter_id
+         WHERE report.report_name = 'Comprobante Contable por Sucursal'
+           AND usage.report_parameter_name = 'officeId'
+           AND parameter.parameter_name = 'OfficeIdSelectOneRequired'
+           AND parameter."parameter_displayType" = 'select'
+           AND parameter.parameter_default = 'required'
+    ) THEN
+        RAISE EXCEPTION 'Comprobante Contable por Sucursal requires a mandatory single office parameter';
+    END IF;
+END $$;
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

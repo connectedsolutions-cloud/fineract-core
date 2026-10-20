@@ -10,8 +10,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ShareAccountYieldAccrualRepository extends JpaRepository<ShareAccountYieldAccrual, Long> {
+
     Optional<ShareAccountYieldAccrual> findBySourceReference(String sourceReference);
+
     boolean existsByShareAccountIdAndAccrualDate(Long shareAccountId, LocalDate accrualDate);
+
     List<ShareAccountYieldAccrual> findByShareAccountIdOrderByAccrualDateAscIdAsc(Long shareAccountId);
 
     @Query("select max(a.accrualDate) from ShareAccountYieldAccrual a where a.shareAccount.id = :accountId")

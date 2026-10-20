@@ -1,5 +1,5 @@
 {
-  "contract_version": 16,
+  "contract_version": 18,
   "category": "accounting",
   "cutoff": {
     "date": null,
@@ -21,7 +21,7 @@
     "first_period_id": "00028",
     "first_eligible_journal_date": "2022-11-18",
     "opening_balance_basis": "demonstrated_zero_at_first_journal_bearing_period",
-    "import_scope": "all_eligible_status_3_journals_on_or_after_origin_and_before_cutoff",
+    "import_scope": "all_structurally_valid_journals_on_or_after_origin_and_before_cutoff_regardless_of_status",
     "synthetic_opening_journal_allowed": false,
     "residual_balance_journal_allowed": false,
     "cnt_mayor_role": "secondary_reconciliation_control_not_transaction_source"
@@ -38,7 +38,7 @@
     "line_key": "ID_DETALLE_PARTIDA"
   },
   "account_mapping": {
-    "version": "arissto-to-fineract-coa-v4-hybrid-parent-postings",
+    "version": "arissto-to-fineract-coa-v5-long-term-loan-postings",
     "default": "exact_code",
     "overrides": {
       "1110010101": "1110010199",
@@ -46,8 +46,7 @@
       "111001020201": "111001030200",
       "111001030201": "111001030200",
       "111001030202": "111001030200",
-      "1142030101": "1141030101",
-      "1142040101": "1141040101",
+      "1142040101": "114204010101",
       "2220050501": "222005050199",
       "314002": "3140020000",
       "222099940101": "222099910101",
@@ -55,6 +54,7 @@
       "222099940103": "222099910201"
     },
     "reviewed_exact_codes": [
+      "1142030101",
       "2220070302",
       "222099940104",
       "222099940105"
@@ -62,26 +62,11 @@
     "plan_binding": "freeze_version_hash_and_resolved_target_code_per_line"
   },
   "source_eligibility": {
-    "importable_journal_statuses": [
-      "3"
-    ],
-    "journal_status_dispositions": {
-      "1": {
-        "disposition": "QUARANTINED",
-        "reason_code": "SOURCE_JOURNAL_NOT_MAYORIZED"
-      },
-      "2": {
-        "disposition": "QUARANTINED",
-        "reason_code": "SOURCE_JOURNAL_EXCLUDED_FROM_LEDGER"
-      }
-    },
-    "unexpected_status": {
-      "disposition": "QUARANTINED",
-      "reason_code": "SOURCE_JOURNAL_STATUS_UNSUPPORTED"
-    },
+    "journal_status_policy": "observe_without_import_gate",
     "empty_journal": {
-      "disposition": "QUARANTINED",
-      "reason_code": "SOURCE_JOURNAL_EMPTY"
+      "disposition": "REFERENCE_ONLY",
+      "reason_code": "SOURCE_JOURNAL_EMPTY",
+      "requires_header_concept": true
     },
     "unbalanced_journal": {
       "disposition": "QUARANTINED",
@@ -100,7 +85,7 @@
     ]
   },
   "reversal_policy": {
-    "reporting_requirement": "preserve_posted_gl_effects",
+    "reporting_requirement": "preserve_all_valid_source_journal_effects",
     "historical_representation": "import_each_eligible_source_journal_as_ordinary_journal",
     "pairing_required": false,
     "classification_required": false,
@@ -154,6 +139,8 @@
   },
   "legacy_text_policy": {
     "preservation": "verbatim_decoded_unicode_in_separate_provenance_columns",
+    "native_header_concept_column": "acc_gl_journal_entry.header_concept",
+    "native_header_description_column": "acc_gl_journal_entry.header_description",
     "core_journal_description_role": "display_projection_only",
     "core_journal_description_limit": 500,
     "header_provenance_columns": {

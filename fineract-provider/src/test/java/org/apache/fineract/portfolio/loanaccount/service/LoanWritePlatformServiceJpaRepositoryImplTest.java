@@ -19,11 +19,14 @@
 package org.apache.fineract.portfolio.loanaccount.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -60,6 +63,7 @@ import org.apache.fineract.portfolio.loanaccount.domain.LoanStatus;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanSummary;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepository;
+import org.apache.fineract.portfolio.loanaccount.data.ScheduleGeneratorDTO;
 import org.apache.fineract.portfolio.loanaccount.serialization.LoanTransactionValidator;
 import org.apache.fineract.portfolio.loanproduct.domain.LoanProduct;
 import org.apache.fineract.portfolio.loanproduct.domain.LoanProductRelatedDetail;
@@ -121,6 +125,12 @@ public class LoanWritePlatformServiceJpaRepositoryImplTest {
     @Mock
     private LoanAccrualTransactionBusinessEventService loanAccrualTransactionBusinessEventService;
 
+    @Mock
+    private LoanScheduleService loanScheduleService;
+
+    @Mock
+    private LoanAccrualsProcessingService loanAccrualsProcessingService;
+
     @InjectMocks
     private LoanWritePlatformServiceJpaRepositoryImpl loanWritePlatformService;
 
@@ -149,14 +159,53 @@ public class LoanWritePlatformServiceJpaRepositoryImplTest {
     }
 
     @Test
+    public void earlyDisbursementKeepsContractualScheduleStartUntilExpectedDateIsRevised() {
+        reset(context);
+        final LoanProduct product = mock(LoanProduct.class);
+        when(product.getLoanProductRelatedDetail()).thenReturn(mock(LoanProductRelatedDetail.class));
+        final Loan target = new LoanBuilder(product).build();
+        final LocalDate actualDate = LocalDate.parse("2026-01-08");
+        target.setExpectedDisbursementDate(LocalDate.parse("2026-01-10"));
+        target.setActualDisbursementDate(actualDate);
+
+        assertTrue(target.isEarlyDisbursementBeforeExpected(actualDate));
+        assertEquals(actualDate, target.getDisbursementDate());
+        assertEquals(LocalDate.parse("2026-01-10"), target.getRepaymentScheduleStartDate());
+
+        target.setExpectedDisbursementDate(actualDate);
+        assertFalse(target.isEarlyDisbursementBeforeExpected(actualDate));
+        assertEquals(actualDate, target.getRepaymentScheduleStartDate());
+    }
+
+    @Test
+    public void earlyDateDoesNotRequestRegenerationButPrincipalChangeDoes() {
+        reset(context);
+        final LocalDate actualDate = LocalDate.parse("2026-01-08");
+        final Loan target = mock(Loan.class);
+        final LoanProduct product = mock(LoanProduct.class);
+        final JsonCommand disbursement = mock(JsonCommand.class);
+        final ScheduleGeneratorDTO generator = mock(ScheduleGeneratorDTO.class);
+        when(target.getLoanProduct()).thenReturn(product);
+        when(target.isEarlyDisbursementBeforeExpected(actualDate)).thenReturn(true);
+        when(target.isProgressiveSchedule()).thenReturn(true);
+        when(disbursement.localDateValueOfParameterNamed("actualDisbursementDate")).thenReturn(actualDate);
+
+        assertFalse(loanWritePlatformService.regenerateScheduleOnDisbursement(disbursement, target, false, generator, null, null));
+        verifyNoInteractions(loanScheduleService);
+
+        assertTrue(loanWritePlatformService.regenerateScheduleOnDisbursement(disbursement, target, true, generator, null, null));
+        verify(loanScheduleService).regenerateRepaymentSchedule(target, generator);
+    }
+
+    @Test
     public void sourceExactScheduleHash_isCanonicalAndCardinalitySensitive() {
         reset(context);
-        final var first = new LoanWritePlatformServiceJpaRepositoryImpl.SourceExactActiveScheduleRow(1,
-                LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-08"), new BigDecimal("10.00"), new BigDecimal("1.0"));
-        final var same = new LoanWritePlatformServiceJpaRepositoryImpl.SourceExactActiveScheduleRow(1,
-                LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-08"), new BigDecimal("10"), new BigDecimal("1.00"));
-        final var second = new LoanWritePlatformServiceJpaRepositoryImpl.SourceExactActiveScheduleRow(2,
-                LocalDate.parse("2026-01-08"), LocalDate.parse("2026-01-15"), BigDecimal.ZERO, BigDecimal.ZERO);
+        final var first = new LoanWritePlatformServiceJpaRepositoryImpl.SourceExactActiveScheduleRow(1, LocalDate.parse("2026-01-01"),
+                LocalDate.parse("2026-01-08"), new BigDecimal("10.00"), new BigDecimal("1.0"));
+        final var same = new LoanWritePlatformServiceJpaRepositoryImpl.SourceExactActiveScheduleRow(1, LocalDate.parse("2026-01-01"),
+                LocalDate.parse("2026-01-08"), new BigDecimal("10"), new BigDecimal("1.00"));
+        final var second = new LoanWritePlatformServiceJpaRepositoryImpl.SourceExactActiveScheduleRow(2, LocalDate.parse("2026-01-08"),
+                LocalDate.parse("2026-01-15"), BigDecimal.ZERO, BigDecimal.ZERO);
 
         assertEquals(LoanWritePlatformServiceJpaRepositoryImpl.sourceExactScheduleHash(List.of(first)),
                 LoanWritePlatformServiceJpaRepositoryImpl.sourceExactScheduleHash(List.of(same)));
@@ -168,8 +217,8 @@ public class LoanWritePlatformServiceJpaRepositoryImplTest {
     public void replaceSourceExactSchedule_rejectsNonContiguousRows() {
         reset(context);
         final Loan target = mock(Loan.class);
-        final var row = new LoanWritePlatformServiceJpaRepositoryImpl.SourceExactActiveScheduleRow(2,
-                LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-08"), BigDecimal.TEN, BigDecimal.ZERO);
+        final var row = new LoanWritePlatformServiceJpaRepositoryImpl.SourceExactActiveScheduleRow(2, LocalDate.parse("2026-01-01"),
+                LocalDate.parse("2026-01-08"), BigDecimal.TEN, BigDecimal.ZERO);
 
         assertThrows(GeneralPlatformDomainRuleException.class,
                 () -> LoanWritePlatformServiceJpaRepositoryImpl.replaceSourceExactSchedule(target, List.of(row)));
@@ -181,10 +230,10 @@ public class LoanWritePlatformServiceJpaRepositoryImplTest {
         setupMoneyHelper();
         final Loan target = mock(Loan.class);
         when(target.getApprovedPrincipal()).thenReturn(BigDecimal.TEN);
-        final var first = new LoanWritePlatformServiceJpaRepositoryImpl.SourceExactActiveScheduleRow(1,
-                LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-08"), new BigDecimal("4"), new BigDecimal("1"));
-        final var second = new LoanWritePlatformServiceJpaRepositoryImpl.SourceExactActiveScheduleRow(2,
-                LocalDate.parse("2026-01-08"), LocalDate.parse("2026-01-15"), new BigDecimal("6"), new BigDecimal("0.5"));
+        final var first = new LoanWritePlatformServiceJpaRepositoryImpl.SourceExactActiveScheduleRow(1, LocalDate.parse("2026-01-01"),
+                LocalDate.parse("2026-01-08"), new BigDecimal("4"), new BigDecimal("1"));
+        final var second = new LoanWritePlatformServiceJpaRepositoryImpl.SourceExactActiveScheduleRow(2, LocalDate.parse("2026-01-08"),
+                LocalDate.parse("2026-01-15"), new BigDecimal("6"), new BigDecimal("0.5"));
 
         LoanWritePlatformServiceJpaRepositoryImpl.replaceSourceExactSchedule(target, List.of(first, second));
 

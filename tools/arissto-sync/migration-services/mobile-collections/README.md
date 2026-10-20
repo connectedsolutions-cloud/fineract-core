@@ -67,13 +67,23 @@ after all four dependencies reconcile on the same target.
 - Target schema: versioned
 - Writer and reconciliation: executable and locally verified
 
-The accepted local full-block run preserved 7 routes, 988 resolvable client
-assignments, 568 resolvable routed accounts, 1,147 batches, and 9,242 items.
-Four assignments and two routed accounts are quarantined because their source
-clients do not exist in the migrated target population. A second full plan was
-idempotent and proposed no writes. Unavailable downstream loan or repayment
+The earlier local full-block run preserved 7 routes, 988 routed client
+assignments, 568 routed accounts, 1,147 batches, and 9,242 items. It recorded
+four assignment and two account `missing_target_client` quarantines, but those
+older results predate the corrected route-assignment join and must not be
+treated as proof that the source clients were absent. A second full plan was
+idempotent against that older extraction. Unavailable downstream loan or repayment
 identities remain null with an explicit `link_status`; rerunning after the
 loans service is fully populated fills those deterministic links.
+
+The 2026-10-07 carry-forward audit found that route assignments had joined
+`MCD_ASIGNACION_RUTA.ID_ASOCIADO` to `AFI_SOCIO.ID_SOCIO` instead of
+`AFI_SOCIO.ID_ASOCIADO`. Of 1,010 source assignments, 961 selected a different
+client under the wrong join, 47 agreed, and two appeared to lack a client.
+Both apparent missing clients existed in Arissto and Fineract. A scoped local
+repair corrected the 961 links and created the two missing assignments;
+all 1,010 now reconcile. The repair writer orders assignments atomically around
+the route/client uniqueness rule and creates no financial rows.
 
 Reconciliation also reports two batch/header differences: master `840` differs
 from its 15 preserved items by USD 11.00 and master `884` differs from its 21

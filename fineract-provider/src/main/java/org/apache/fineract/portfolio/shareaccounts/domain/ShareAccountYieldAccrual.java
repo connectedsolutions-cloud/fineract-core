@@ -55,9 +55,8 @@ public class ShareAccountYieldAccrual extends AbstractPersistableCustom<Long> {
     protected ShareAccountYieldAccrual() {}
 
     public ShareAccountYieldAccrual(ShareAccount shareAccount, ShareAccountTransaction shareTransaction, LocalDate accrualDate,
-            String entryType,
-            BigDecimal baseAmount, BigDecimal annualRate, int dayCountBasis, BigDecimal accruedAmount, BigDecimal bookedAmount,
-            String sourceReference, boolean imported) {
+            String entryType, BigDecimal baseAmount, BigDecimal annualRate, int dayCountBasis, BigDecimal accruedAmount,
+            BigDecimal bookedAmount, String sourceReference, boolean imported) {
         this.shareAccount = shareAccount;
         this.shareTransaction = shareTransaction;
         this.accrualDate = accrualDate;

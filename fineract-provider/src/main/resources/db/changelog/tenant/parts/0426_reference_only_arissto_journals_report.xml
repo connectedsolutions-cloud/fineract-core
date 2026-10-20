@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0426-1-reference-only-arissto-journals-report" author="credesal" dbms="postgresql">
+        <comment>Expose historical Arissto header references without representing them as GL postings.</comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+INSERT INTO stretchy_report (
+    report_name, report_type, report_subtype, report_category, report_sql,
+    description, core_report, use_report, self_service_user_report
+)
+VALUES (
+    'Referencias de Partidas sin Movimiento', 'Table', NULL, 'Accounting',
+    $report$
+SELECT journal.source_journal_number AS "Partida",
+       journal.source_journal_date AS "Fecha",
+       office.name AS "Sucursal",
+       journal.source_journal_type AS "Tipo origen",
+       journal.source_module_code AS "Módulo origen",
+       journal.source_status AS "Estado origen",
+       journal.source_header_concept AS "Concepto",
+       journal.source_header_description AS "Descripción",
+       'SIN MOVIMIENTO CONTABLE' AS "Tratamiento"
+  FROM credesal_arissto_gl_journal journal
+  JOIN m_office office
+    ON office.external_id = NULLIF(LTRIM(journal.source_branch_id, '0'), '')
+  JOIN m_office selected_office ON selected_office.id = CAST('${officeId}' AS BIGINT)
+ WHERE journal.result = 'REFERENCE_ONLY'
+   AND journal.target_transaction_id IS NULL
+   AND NOT EXISTS (
+       SELECT 1 FROM credesal_arissto_gl_journal_line line
+        WHERE line.journal_provenance_id = journal.id
+   )
+   AND office.hierarchy LIKE selected_office.hierarchy || '%'
+   AND office.hierarchy LIKE '${currentUserHierarchy}' || '%'
+   AND journal.source_journal_date BETWEEN CAST('${startDate}' AS DATE) AND CAST('${endDate}' AS DATE)
+   AND (NULLIF(BTRIM('${partidaNumber}'), '') IS NULL
+        OR journal.source_journal_number = BTRIM('${partidaNumber}'))
+ ORDER BY journal.source_journal_date, journal.source_journal_number,
+          journal.source_company_id, journal.source_branch_id,
+          journal.source_period_id, journal.source_journal_id
+$report$,
+    'Encabezados históricos de Arissto conservados como referencia; no son asientos ni afectan saldos.',
+    FALSE, TRUE, FALSE
+)
+ON CONFLICT (report_name) DO UPDATE
+SET report_type = EXCLUDED.report_type,
+    report_subtype = EXCLUDED.report_subtype,
+    report_category = EXCLUDED.report_category,
+    report_sql = EXCLUDED.report_sql,
+    description = EXCLUDED.description,
+    core_report = EXCLUDED.core_report,
+    use_report = EXCLUDED.use_report,
+    self_service_user_report = EXCLUDED.self_service_user_report;
+
+DELETE FROM stretchy_report_parameter
+ WHERE report_id = (SELECT id FROM stretchy_report WHERE report_name = 'Referencias de Partidas sin Movimiento');
+
+INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+SELECT report.id, parameter.id, parameter.parameter_variable
+  FROM stretchy_report report
+  JOIN stretchy_parameter parameter ON parameter.parameter_name IN (
+      'OfficeIdSelectOne', 'startDateSelect', 'endDateSelect', 'partidaNumberOptional'
+  )
+ WHERE report.report_name = 'Referencias de Partidas sin Movimiento';
+
+DO $validation$
+BEGIN
+    IF (
+        SELECT COUNT(*) FROM stretchy_report_parameter usage
+        JOIN stretchy_report report ON report.id = usage.report_id
+        WHERE report.report_name = 'Referencias de Partidas sin Movimiento'
+          AND usage.report_parameter_name IN ('officeId', 'startDate', 'endDate', 'partidaNumber')
+    ) <> 4 THEN
+        RAISE EXCEPTION 'Reference-only journal report requires officeId, startDate, endDate and partidaNumber parameters';
+    END IF;
+END
+$validation$;
+
+INSERT INTO m_permission (grouping, code, entity_name, action_name, can_maker_checker)
+SELECT 'report', 'READ_Referencias de Partidas sin Movimiento', 'Referencias de Partidas sin Movimiento', 'READ', FALSE
+ WHERE NOT EXISTS (SELECT 1 FROM m_permission WHERE code = 'READ_Referencias de Partidas sin Movimiento');
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

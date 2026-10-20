@@ -92,6 +92,17 @@ public class AccountsApiResource {
     }
 
     @GET
+    @Path("approved-unpaid")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "List approved share accounts waiting for payment")
+    public java.util.List<org.apache.fineract.portfolio.shareaccounts.data.ApprovedShareCollectionData> retrieveApprovedUnpaid(
+            @PathParam("type") final String accountType, @QueryParam("officeId") final Long officeId) {
+        this.platformSecurityContext.authenticatedUser().validateHasReadPermission("SHAREACCOUNT");
+        return shareAccountReadPlatformService.retrieveApprovedUnpaid(officeId);
+    }
+
+    @GET
     @Path("{accountId}")
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })

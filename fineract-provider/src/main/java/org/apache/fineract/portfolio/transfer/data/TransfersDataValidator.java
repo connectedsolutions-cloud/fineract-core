@@ -60,7 +60,14 @@ public final class TransfersDataValidator {
     private static final Set<String> PROPOSE_AND_ACCEPT_CLIENT_TRANSFER_DATA_PARAMETERS = new HashSet<>(
             Arrays.asList(TransferApiConstants.localeParamName, TransferApiConstants.dateFormatParamName,
                     TransferApiConstants.destinationOfficeIdParamName, TransferApiConstants.transferActiveLoans,
-                    TransferApiConstants.newStaffIdParamName, TransferApiConstants.destinationGroupIdParamName, TransferApiConstants.note));
+                    TransferApiConstants.newStaffIdParamName, TransferApiConstants.destinationGroupIdParamName, TransferApiConstants.note,
+                    TransferApiConstants.transferDate));
+
+    private static final Set<String> SOURCE_EXACT_CLIENT_TRANSFER_DATA_PARAMETERS = new HashSet<>(
+            PROPOSE_AND_ACCEPT_CLIENT_TRANSFER_DATA_PARAMETERS);
+    static {
+        SOURCE_EXACT_CLIENT_TRANSFER_DATA_PARAMETERS.add(TransferApiConstants.loanTransferBalances);
+    }
 
     private static final Set<String> REJECT_CLIENT_TRANSFER_DATA_PARAMETERS = new HashSet<>(Arrays.asList(TransferApiConstants.note));
 
@@ -168,13 +175,21 @@ public final class TransfersDataValidator {
         throwExceptionIfValidationWarningsExist(dataValidationErrors);
     }
 
+    public void validateForSourceExactClientTransfer(final String json) {
+        validateForProposeAndAcceptClientTransfer(json, SOURCE_EXACT_CLIENT_TRANSFER_DATA_PARAMETERS);
+    }
+
     public void validateForProposeAndAcceptClientTransfer(final String json) {
+        validateForProposeAndAcceptClientTransfer(json, PROPOSE_AND_ACCEPT_CLIENT_TRANSFER_DATA_PARAMETERS);
+    }
+
+    private void validateForProposeAndAcceptClientTransfer(final String json, final Set<String> supportedParameters) {
         if (StringUtils.isBlank(json)) {
             throw new InvalidJsonException();
         }
 
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
-        this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, PROPOSE_AND_ACCEPT_CLIENT_TRANSFER_DATA_PARAMETERS);
+        this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, supportedParameters);
         final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
 
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)

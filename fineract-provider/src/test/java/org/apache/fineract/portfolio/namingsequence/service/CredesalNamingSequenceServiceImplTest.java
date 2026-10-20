@@ -142,8 +142,7 @@ class CredesalNamingSequenceServiceImplTest {
         heldSequence = CredesalNamingSequence.create("LOAN", "006583M1", 99);
         when(jdbcTemplate.queryForObject(contains("account_no ="), eq(Integer.class), anyString())).thenReturn(1);
 
-        assertThrows(GeneralPlatformDomainRuleException.class,
-                () -> service.allocateLoanAccountNo(affiliatedClient(), "3M1", null));
+        assertThrows(GeneralPlatformDomainRuleException.class, () -> service.allocateLoanAccountNo(affiliatedClient(), "3M1", null));
     }
 
     @Test
@@ -187,6 +186,24 @@ class CredesalNamingSequenceServiceImplTest {
 
         heldSequence = CredesalNamingSequence.create("VISTA_PASSBOOK", "", 999);
         assertThrows(GeneralPlatformDomainRuleException.class, () -> service.allocateVistaPassbookNumber(null));
+    }
+
+    @Test
+    void provisionalAndShareSerialsReadTheSeededCounter() {
+        heldSequence = CredesalNamingSequence.create("SHARE_CERTIFICATE_PROVISIONAL", "CP", 143);
+        assertEquals("CP00000144", service.allocateProvisionalShareCertificateNumber(null));
+
+        heldSequence = CredesalNamingSequence.create("SHARE_SERIAL", "COMMON", 100);
+        final ShareSerialAllocation common = service.allocateShareSerialRange("1AC", 10, null);
+        assertEquals(101, common.startInclusive());
+        assertEquals(110, common.endInclusive());
+        assertEquals(110, heldSequence.getLastOrdinal());
+    }
+
+    @Test
+    void missingProvisionalOrShareSerialSeedIsRejected() {
+        assertThrows(GeneralPlatformDomainRuleException.class, () -> service.allocateProvisionalShareCertificateNumber(null));
+        assertThrows(GeneralPlatformDomainRuleException.class, () -> service.allocateShareSerialRange("1AP", 5, null));
     }
 
     @Test

@@ -851,10 +851,9 @@ public class FixedDepositAccount extends SavingsAccount {
         final ExternalId reinvestedExternalId = ExternalId.generate();
         final FixedDepositAccount reInvestedAccount = FixedDepositAccount.createNewApplicationForSubmittal(client, group, product,
                 savingsOfficer, accountNumber, reinvestedExternalId, accountType, getClosedOnDate(), closedBy, interestRate,
-                compoundingPeriodType,
-                postingPeriodType, interestCalculationType, daysInYearType, minRequiredOpeningBalance, lockinPeriodFrequency,
-                lockinPeriodFrequencyType, withdrawalFeeApplicableForTransfer, savingsAccountCharges, newAccountTermAndPreClosure, newChart,
-                withHoldTax);
+                compoundingPeriodType, postingPeriodType, interestCalculationType, daysInYearType, minRequiredOpeningBalance,
+                lockinPeriodFrequency, lockinPeriodFrequencyType, withdrawalFeeApplicableForTransfer, savingsAccountCharges,
+                newAccountTermAndPreClosure, newChart, withHoldTax);
 
         newAccountTermAndPreClosure.updateAccountReference(reInvestedAccount);
         newChart.updateDepositAccountReference(reInvestedAccount);

@@ -35,6 +35,7 @@ import org.apache.fineract.accounting.journalentry.service.JournalEntryReadPlatf
 import org.apache.fineract.accounting.journalentry.service.JournalEntryReadPlatformServiceImpl;
 import org.apache.fineract.accounting.journalentry.service.JournalEntryWritePlatformService;
 import org.apache.fineract.accounting.journalentry.service.JournalEntryWritePlatformServiceJpaRepositoryImpl;
+import org.apache.fineract.accounting.journalentry.service.GlVoucherWriteService;
 import org.apache.fineract.accounting.producttoaccountmapping.domain.ProductToGLAccountMappingRepository;
 import org.apache.fineract.accounting.rule.domain.AccountingRuleRepository;
 import org.apache.fineract.infrastructure.configuration.service.ConfigurationReadPlatformService;
@@ -52,8 +53,9 @@ import org.apache.fineract.portfolio.account.service.AccountTransfersReadPlatfor
 import org.apache.fineract.portfolio.charge.domain.ChargeRepositoryWrapper;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanAmortizationAllocationMappingRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepository;
-import org.apache.fineract.portfolio.treasury.service.TreasuryProductLinkService;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanRepositoryWrapper;
 import org.apache.fineract.portfolio.paymentdetail.service.PaymentDetailWritePlatformService;
+import org.apache.fineract.portfolio.treasury.service.TreasuryProductLinkService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -68,9 +70,11 @@ public class AccountingJournalEntryConfiguration {
             ProductToGLAccountMappingRepository accountMappingRepository,
             FinancialActivityAccountRepositoryWrapper financialActivityAccountRepository, GLClosureRepository closureRepository,
             GLAccountRepository glAccountRepository, OfficeRepository officeRepository,
-            AccountTransfersReadPlatformService accountTransfersReadPlatformService, ChargeRepositoryWrapper chargeRepositoryWrapper) {
+            AccountTransfersReadPlatformService accountTransfersReadPlatformService, ChargeRepositoryWrapper chargeRepositoryWrapper,
+            LoanRepositoryWrapper loanRepositoryWrapper, JournalEntryRepository journalEntryRepository) {
         return new AccountingProcessorHelper(journalEntryPersistenceService, accountMappingRepository, financialActivityAccountRepository,
-                closureRepository, glAccountRepository, officeRepository, accountTransfersReadPlatformService, chargeRepositoryWrapper);
+                closureRepository, glAccountRepository, officeRepository, accountTransfersReadPlatformService, chargeRepositoryWrapper,
+                loanRepositoryWrapper, journalEntryRepository);
     }
 
     @Bean
@@ -99,13 +103,13 @@ public class AccountingJournalEntryConfiguration {
             ExternalAssetOwnerRepository externalAssetOwnerRepository,
             LoanAmortizationAllocationMappingRepository loanAmortizationAllocationMappingRepository,
             LoanTransactionRepository loanTransactionRepository, AccountingCutoffPolicyService cutoffPolicyService,
-            TreasuryProductLinkService treasuryProductLinkService) {
+            TreasuryProductLinkService treasuryProductLinkService, GlVoucherWriteService glVoucherWriteService) {
         return new JournalEntryWritePlatformServiceJpaRepositoryImpl(glClosureRepository, glAccountRepository, glJournalEntryRepository,
                 officeRepositoryWrapper, accountingProcessorForLoanFactory, accountingProcessorForSavingsFactory,
                 accountingProcessorForSharesFactory, helper, fromApiJsonDeserializer, accountingRuleRepository,
                 glAccountReadPlatformService, organisationCurrencyRepository, context, paymentDetailWritePlatformService,
                 financialActivityAccountRepositoryWrapper, accountingProcessorForClientTransactions, configurationReadPlatformService,
                 accountingService, externalAssetOwnerRepository, loanAmortizationAllocationMappingRepository, loanTransactionRepository,
-                cutoffPolicyService, treasuryProductLinkService);
+                cutoffPolicyService, treasuryProductLinkService, glVoucherWriteService);
     }
 }

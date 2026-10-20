@@ -20,6 +20,7 @@ package org.apache.fineract.organisation.teller.starter;
 
 import org.apache.fineract.accounting.cutoff.AccountingCutoffPolicyService;
 import org.apache.fineract.accounting.financialactivityaccount.domain.FinancialActivityAccountRepositoryWrapper;
+import org.apache.fineract.accounting.journalentry.service.GlVoucherWriteService;
 import org.apache.fineract.accounting.journalentry.service.JournalEntryPersistenceService;
 import org.apache.fineract.infrastructure.core.service.PaginationHelper;
 import org.apache.fineract.infrastructure.core.service.database.DatabaseSpecificSQLGenerator;
@@ -65,9 +66,11 @@ public class OrganisationTellerConfiguration {
             CashierTransactionRepository cashierTxnRepository, JournalEntryPersistenceService journalEntryPersistenceService,
             AccountingCutoffPolicyService cutoffPolicyService,
             FinancialActivityAccountRepositoryWrapper financialActivityAccountRepositoryWrapper,
-            CashierTransactionDataValidator cashierTransactionDataValidator, CurrencyReadPlatformService currencyReadPlatformService) {
+            CashierTransactionDataValidator cashierTransactionDataValidator, CurrencyReadPlatformService currencyReadPlatformService,
+            GlVoucherWriteService glVoucherWriteService) {
         return new TellerWritePlatformServiceJpaImpl(context, fromApiJsonDeserializer, tellerRepositoryWrapper, officeRepositoryWrapper,
                 staffRepository, cashierRepository, cashierTxnRepository, journalEntryPersistenceService, cutoffPolicyService,
-                financialActivityAccountRepositoryWrapper, cashierTransactionDataValidator, currencyReadPlatformService);
+                financialActivityAccountRepositoryWrapper, cashierTransactionDataValidator, currencyReadPlatformService,
+                glVoucherWriteService);
     }
 }

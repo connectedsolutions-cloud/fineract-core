@@ -54,7 +54,7 @@ public class PendingStepApiResource {
     @Produces({ MediaType.APPLICATION_JSON })
     public String retrieveAll(@Context UriInfo uriInfo, @QueryParam("flowId") Long flowId, @QueryParam("mySteps") Boolean mySteps,
             @QueryParam("closed") Boolean closed, @QueryParam("officeId") Long officeId,
-            @QueryParam("myFlowsOthersSteps") Boolean myFlowsOthersSteps) {
+            @QueryParam("myFlowsOthersSteps") Boolean myFlowsOthersSteps, @QueryParam("clientId") Long clientId) {
         context.authenticatedUser().validateHasPermissionTo("view_pendientes");
         Long userId = context.authenticatedUser().getId();
         if (Boolean.TRUE.equals(mySteps)) {
@@ -76,6 +76,10 @@ public class PendingStepApiResource {
         }
         if (flowId != null) {
             List<PendingStepData> data = readService.retrieveByFlowId(flowId, officeId);
+            return toApiJsonSerializer.serialize(data);
+        }
+        if (clientId != null) {
+            List<PendingStepData> data = readService.retrieveByClientId(clientId, closed);
             return toApiJsonSerializer.serialize(data);
         }
         if (officeId != null) {

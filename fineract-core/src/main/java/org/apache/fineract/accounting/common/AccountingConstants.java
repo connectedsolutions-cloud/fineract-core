@@ -55,6 +55,7 @@ public final class AccountingConstants {
         INCOME_FROM_GOODWILL_CREDIT_FEES(20), //
         INCOME_FROM_GOODWILL_CREDIT_PENALTY(21), //
         CLASSIFICATION_INCOME(22), //
+        LONG_TERM_LOAN_PORTFOLIO(26), //
         ;
 
         private final Integer value;
@@ -116,6 +117,8 @@ public final class AccountingConstants {
         DEFERRED_INCOME_LIABILITY(23), //
         BUY_DOWN_EXPENSE(24), //
         INCOME_FROM_BUY_DOWN(25), //
+        LONG_TERM_LOAN_PORTFOLIO(26), //
+        LONG_TERM_INTEREST_RECEIVABLE(27), //
         ;
 
         private final Integer value;
@@ -155,6 +158,8 @@ public final class AccountingConstants {
 
         FUND_SOURCE("fundSourceAccountId"), //
         LOAN_PORTFOLIO("loanPortfolioAccountId"), //
+        LONG_TERM_LOAN_PORTFOLIO("longTermLoanPortfolioAccountId"), //
+        LONG_TERM_INTEREST_RECEIVABLE("longTermInterestReceivableAccountId"), //
         INTEREST_ON_LOANS("interestOnLoanAccountId"), //
         INCOME_FROM_FEES("incomeFromFeeAccountId"), //
         INCOME_FROM_PENALTIES("incomeFromPenaltyAccountId"), //
@@ -214,6 +219,8 @@ public final class AccountingConstants {
 
         FUND_SOURCE("fundSourceAccount"), //
         LOAN_PORTFOLIO("loanPortfolioAccount"), //
+        LONG_TERM_LOAN_PORTFOLIO("longTermLoanPortfolioAccount"), //
+        LONG_TERM_INTEREST_RECEIVABLE("longTermInterestReceivableAccount"), //
         INTEREST_ON_LOANS("interestOnLoanAccount"), //
         INCOME_FROM_FEES("incomeFromFeeAccount"), //
         INCOME_FROM_PENALTIES("incomeFromPenaltyAccount"), //

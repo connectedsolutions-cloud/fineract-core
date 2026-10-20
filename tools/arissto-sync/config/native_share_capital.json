@@ -3,6 +3,7 @@
   "source": {
     "position_table": "AFI_ACCION",
     "certificate_table": "AFI_CERTIFICADO",
+    "book_table": "AFI_LIBRO_ACCIONES",
     "movement_table": "MOV_APORTACIONES",
     "party_table": "AFI_SOCIO",
     "type_table": "AFI_TIPO_ACCION",
@@ -31,6 +32,9 @@
     "1": {
       "code": "COMMON",
       "numbering_code": "1AC",
+      "certificate_book_id": 1,
+      "certificate_book_number": "No. 1",
+      "arissto_book_config_id": 1,
       "product_external_id": "arissto-share-common",
       "expected_accounts": 17,
       "expected_paid_shares": 6375,
@@ -46,6 +50,9 @@
     "2": {
       "code": "PREFERRED",
       "numbering_code": "1AP",
+      "certificate_book_id": 2,
+      "certificate_book_number": "No. 2",
+      "arissto_book_config_id": 3,
       "product_external_id": "arissto-share-preferred",
       "expected_accounts": 40,
       "expected_paid_shares": 848,

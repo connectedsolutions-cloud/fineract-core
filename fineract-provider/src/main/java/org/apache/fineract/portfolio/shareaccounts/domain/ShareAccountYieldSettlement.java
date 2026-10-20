@@ -17,6 +17,7 @@ import org.apache.fineract.portfolio.savings.domain.SavingsAccountTransaction;
 @Table(name = "m_share_account_yield_settlement")
 @Getter
 public class ShareAccountYieldSettlement extends AbstractPersistableCustom<Long> {
+
     @ManyToOne(optional = false)
     @JoinColumn(name = "share_account_id")
     private ShareAccount shareAccount;

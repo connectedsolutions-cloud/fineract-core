@@ -235,7 +235,8 @@ class LoanAdjustmentServiceImplTest {
         when(newTransactionDetail.isRepaymentLikeType()).thenReturn(true);
 
         // Act
-        underTest.adjustExistingTransaction(loan, newTransactionDetail, transactionForAdjustment, scheduleGeneratorDTO, reversalExternalId);
+        underTest.adjustExistingTransaction(loan, newTransactionDetail, transactionForAdjustment, scheduleGeneratorDTO, reversalExternalId,
+                null);
 
         // Assert
         // Verify that related transaction is reversed and event is triggered
@@ -274,13 +275,33 @@ class LoanAdjustmentServiceImplTest {
         when(newTransactionDetail.isRepaymentLikeType()).thenReturn(true);
 
         // Act
-        underTest.adjustExistingTransaction(loan, newTransactionDetail, transactionForAdjustment, scheduleGeneratorDTO, reversalExternalId);
+        underTest.adjustExistingTransaction(loan, newTransactionDetail, transactionForAdjustment, scheduleGeneratorDTO, reversalExternalId,
+                null);
 
         // Assert
         // Verify that no related transactions are reversed
+        verify(transactionForAdjustment).reverse(reversalExternalId);
         verify(unrelatedTransaction, never()).reverse();
         verify(unrelatedTransaction, never()).manuallyAdjustedOrReversed();
         verify(businessEventNotifierService, never()).notifyPostBusinessEvent(any(LoanAdjustTransactionBusinessEvent.class));
+    }
+
+    @Test
+    void sourceExactReversalUsesSourceEffectiveDate() {
+        Loan loan = mock(Loan.class);
+        LoanTransaction original = mock(LoanTransaction.class);
+        LoanTransaction replacement = mock(LoanTransaction.class);
+        ScheduleGeneratorDTO schedule = mock(ScheduleGeneratorDTO.class);
+        ExternalId reversalExternalId = ExternalId.generate();
+        LocalDate sourceDate = LocalDate.of(2026, 9, 17);
+        when(original.getTypeOf()).thenReturn(LoanTransactionType.REPAYMENT);
+        when(original.isNotRepaymentLikeType()).thenReturn(false);
+        when(original.getTransactionDate()).thenReturn(LocalDate.of(2026, 9, 9));
+
+        underTest.adjustExistingTransaction(loan, replacement, original, schedule, reversalExternalId, sourceDate);
+
+        verify(original).reverse(reversalExternalId, sourceDate);
+        verify(original, never()).reverse(reversalExternalId);
     }
 
 }

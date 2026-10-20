@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0398-auxiliar-mayor-cheque-text-only" author="credesal" dbms="postgresql">
+        <comment>Show the source cheque text only; a bank-book row ID is not a cheque number.</comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+DO $change$
+DECLARE
+    previous_sql TEXT;
+    corrected_sql TEXT;
+BEGIN
+    SELECT report_sql INTO previous_sql
+      FROM stretchy_report
+     WHERE report_name='Informe Auxiliar de Mayor';
+    IF previous_sql IS NULL THEN
+        RAISE EXCEPTION 'Informe Auxiliar de Mayor report is not registered';
+    END IF;
+    corrected_sql := replace(previous_sql,
+        $fallback$NULLIF(BTRIM(source_line.source_movement_reference), ''),$fallback$,
+        '');
+    IF corrected_sql = previous_sql THEN
+        RAISE EXCEPTION 'Expected bank-book ID fallback was not found in Informe Auxiliar de Mayor';
+    END IF;
+    UPDATE stretchy_report SET report_sql=corrected_sql
+     WHERE report_name='Informe Auxiliar de Mayor';
+END
+$change$;
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

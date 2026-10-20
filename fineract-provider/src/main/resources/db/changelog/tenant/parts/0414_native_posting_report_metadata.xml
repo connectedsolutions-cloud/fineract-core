@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0414-1-native-posting-report-metadata" author="credesal" dbms="postgresql">
+        <comment>Keep historical cheque text and opening classification on native Fineract posting records so runtime reports no longer read import provenance.</comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+ALTER TABLE acc_gl_journal_entry ADD COLUMN IF NOT EXISTS check_number VARCHAR(128);
+ALTER TABLE credesal_gl_voucher ADD COLUMN IF NOT EXISTS posting_category VARCHAR(32) NOT NULL DEFAULT 'REGULAR';
+
+UPDATE acc_gl_journal_entry journal
+   SET check_number = BTRIM(source_line.source_document_reference)
+  FROM credesal_arissto_gl_journal_line source_line
+ WHERE source_line.target_journal_entry_id = journal.id
+   AND journal.check_number IS NULL
+   AND NULLIF(BTRIM(source_line.source_document_reference), '') IS NOT NULL;
+
+UPDATE credesal_gl_voucher voucher
+   SET posting_category = 'OPENING'
+ WHERE voucher.posting_category = 'REGULAR'
+   AND EXISTS (
+       SELECT 1
+         FROM acc_gl_journal_entry journal
+         JOIN credesal_arissto_gl_journal_line source_line
+           ON source_line.target_journal_entry_id = journal.id
+         JOIN credesal_arissto_gl_journal provenance
+           ON provenance.id = source_line.journal_provenance_id
+        WHERE journal.voucher_id = voucher.id
+          AND provenance.source_journal_type = '003'
+   );
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

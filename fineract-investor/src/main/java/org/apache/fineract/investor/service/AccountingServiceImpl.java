@@ -206,8 +206,7 @@ public class AccountingServiceImpl implements AccountingService {
                     account = helper.getLinkedGLAccountForLoanProduct(loanProductId, accrualAccount.getValue());
                 }
             } else {
-                account = helper.getLinkedGLAccountForLoanProduct(loanProductId,
-                        AccountingConstants.AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue());
+                account = helper.getLoanPortfolioAccount(loan);
             }
             accountMap.put(account, principalAmount);
         }
@@ -218,7 +217,9 @@ public class AccountingServiceImpl implements AccountingService {
                 accrualAccount = AccountingConstants.AccrualAccountsForLoan.INCOME_FROM_CHARGE_OFF_INTEREST;
             }
             totalDebitAmount = totalDebitAmount.add(interestAmount);
-            final GLAccount account = this.helper.getLinkedGLAccountForLoanProduct(loanProductId, accrualAccount.getValue());
+            final GLAccount account = accrualAccount == AccountingConstants.AccrualAccountsForLoan.INTEREST_RECEIVABLE
+                    ? this.helper.getLoanInterestReceivableAccount(loan)
+                    : this.helper.getLinkedGLAccountForLoanProduct(loanProductId, accrualAccount.getValue());
             if (accountMap.containsKey(account)) {
                 final BigDecimal amount = accountMap.get(account).add(interestAmount);
                 accountMap.put(account, amount);

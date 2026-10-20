@@ -90,8 +90,8 @@ class SavingsAccountExplicitInterestPostingTest {
     void shouldReplaceCalculatedPostingOnTheSameHistoricalDate() {
         final SavingsAccount account = savingsAccount(DepositAccountType.SAVINGS_DEPOSIT);
         final SavingsAccountTransaction calculated = SavingsAccountTransaction.interestPosting(account, null, POSTING_DATE,
-                org.apache.fineract.organisation.monetary.domain.Money.of(
-                        new MonetaryCurrency("USD", 2, 1), new BigDecimal("4.16")), false);
+                org.apache.fineract.organisation.monetary.domain.Money.of(new MonetaryCurrency("USD", 2, 1), new BigDecimal("4.16")),
+                false);
         account.addTransaction(calculated);
 
         final SavingsAccountTransaction explicit = account.createExplicitInterestPostingTransaction(new BigDecimal("4.17"), POSTING_DATE,

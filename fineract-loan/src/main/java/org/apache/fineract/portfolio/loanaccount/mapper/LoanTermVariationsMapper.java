@@ -104,11 +104,11 @@ public class LoanTermVariationsMapper {
         annualNominalInterestRate = constructLoanTermVariations(floatingRateDTO, annualNominalInterestRate, loanTermVariations, loan);
         LocalDate interestChargedFromDate = loan.getInterestChargedFromDate();
         if (interestChargedFromDate == null && scheduleGeneratorDTO.isInterestChargedFromDateAsDisbursementDateEnabled()) {
-            interestChargedFromDate = loan.getDisbursementDate();
+            interestChargedFromDate = loan.getRepaymentScheduleStartDate();
         }
 
         final LoanApplicationTerms loanApplicationTerms = LoanApplicationTerms.assembleFrom(scheduleGeneratorDTO.getCurrency(),
-                loanTermFrequency, loan.getTermPeriodFrequencyType(), nthDayType, dayOfWeekType, loan.getDisbursementDate(),
+                loanTermFrequency, loan.getTermPeriodFrequencyType(), nthDayType, dayOfWeekType, loan.getRepaymentScheduleStartDate(),
                 loan.getExpectedFirstRepaymentOnDate(), scheduleGeneratorDTO.getCalculatedRepaymentsStartingFromDate(),
                 loan.getInArrearsTolerance(), loan.getLoanRepaymentScheduleDetail(), loan.getLoanProduct().isMultiDisburseLoan(),
                 loan.getFixedEmiAmount(), disbursementData, loan.getMaxOutstandingLoanBalance(), interestChargedFromDate,

@@ -1,7 +1,8 @@
+import json
 import unittest
 import tempfile
 from contextlib import nullcontext
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,6 +15,7 @@ from arissto_sync.accounting import (
     SOURCE_LEDGER_CONTROL_QUERY, SOURCE_LEDGER_CONTROL_SUMMARY_QUERY, SOURCE_LEDGER_MAYOR_QUERY,
     SOURCE_SCHEMA_QUERY,
     _classify_apply_error, _hash, _load_accounting_plan_inputs, _missing_api_user_office_ids,
+    _reconcile_accounting_action,
     _source_control_period_readiness,
     _source_ledger_control,
     _verify_scheduler_paused, accounting_retry_keys,
@@ -220,7 +222,7 @@ class AccountingInspectorTests(unittest.TestCase):
             report["findings"][0]["reason_codes"],
         )
 
-    def test_stable_reason_codes_cover_status_shape_period_account_agency_and_closure(self):
+    def test_stable_reason_codes_cover_shape_period_account_agency_and_closure(self):
         target = {
             "accounts": {"1110010199": [{"id": 7, "disabled": False, "manual_allowed": True, "account_usage": 1}]},
             "closure_by_office": {1: date(2026, 1, 31)},
@@ -236,7 +238,7 @@ class AccountingInspectorTests(unittest.TestCase):
         report = classify_accounting([bad_header], bad_lines, self.contract, date(2026, 1, 15), target)
         reasons = set(report["findings"][0]["reason_codes"])
         self.assertTrue({
-            "SOURCE_JOURNAL_EXCLUDED_FROM_LEDGER", "SOURCE_JOURNAL_UNBALANCED",
+            "SOURCE_JOURNAL_UNBALANCED",
             "SOURCE_JOURNAL_REFERENCE_INVALID",
             "SOURCE_OPENING_JOURNAL_REQUIRES_REVIEW", "SOURCE_JOURNAL_LINE_KEY_DUPLICATE",
             "SOURCE_JOURNAL_LINE_ZERO", "SOURCE_AMOUNT_SCALE_UNSUPPORTED",
@@ -283,9 +285,94 @@ class AccountingInspectorTests(unittest.TestCase):
         self.assertEqual(planned_line["office_id"], 1)
         self.assertEqual(planned_line["dimensions"], {"office": "1"})
         self.assertEqual(planned_line["debit"], "3.00")
-        self.assertEqual(first["bindings"]["policy"]["planner_version"], "accounting-explicit-key-plan-v2")
+        self.assertEqual(first["bindings"]["policy"]["planner_version"], "accounting-explicit-key-plan-v5")
         self.assertEqual(len(first["plan_hash"]), 64)
         self.assertEqual(len(action["planned_hash"]), 64)
+
+    def test_empty_header_plans_as_reference_only_without_monetary_lines(self):
+        document = self.plan(lines=[])
+        action = document["actions"][0]
+        self.assertEqual(action["disposition"], "REFERENCE_ONLY")
+        self.assertEqual(action["reason_codes"], [])
+        self.assertTrue(action["payload"]["reference_only"])
+        self.assertEqual(action["payload"]["lines"], [])
+        self.assertEqual(action["payload"]["debit_total"], "0.00")
+        self.assertEqual(action["payload"]["credit_total"], "0.00")
+        document["accounting_cutoff"].update({"configuration_revision": 2, "configuration_hash": "a" * 64})
+        request = build_historical_journal_request(
+            "plan-1", "run-1", document, action, header(), [], self.contract,
+        )
+        self.assertTrue(request["referenceOnly"])
+        self.assertEqual(request["sourceHeaderConcept"], "private header text")
+        self.assertEqual(request["lines"], [])
+
+    def test_empty_header_without_concept_remains_quarantined(self):
+        action = self.plan(headers=[header(header_concept=None)], lines=[])["actions"][0]
+        self.assertEqual(action["disposition"], "QUARANTINED")
+        self.assertIn("SOURCE_JOURNAL_EMPTY", action["reason_codes"])
+
+    def test_reference_only_reconciliation_rejects_postings_and_text_drift(self):
+        document = self.plan(lines=[])
+        action = document["actions"][0]
+        provenance = action["payload"]["provenance"]
+        row = {
+            "source_hash": action["source_hash"], "planned_hash": action["planned_hash"],
+            "source_journal_number": action["payload"]["ref_num"],
+            "source_journal_date": date.fromisoformat(provenance["source_journal_date"]),
+            "source_status": "3", "source_header_concept": "private header text",
+            "source_header_description": "private description",
+            "target_ref_num": action["payload"]["ref_num"], "provenance_result": "REFERENCE_ONLY",
+            "reason_code": "SOURCE_JOURNAL_EMPTY", "target_transaction_id": None,
+            "source_line_id": None, "journal_entry_id": None,
+            "cutoff_date": date(2026, 1, 1),
+        }
+        self.assertEqual(_reconcile_accounting_action(action, [row], document), [])
+        self.assertIn("TARGET_REFERENCE_PROVENANCE_DRIFT", _reconcile_accounting_action(
+            action, [{**row, "source_header_concept": "changed"}], document,
+        ))
+        self.assertIn("TARGET_REFERENCE_PROVENANCE_DRIFT", _reconcile_accounting_action(
+            action, [{**row, "target_transaction_id": "unexpected"}], document,
+        ))
+
+    def test_report_cheque_reference_uses_first_bank_book_row_for_whole_journal(self):
+        source_lines = [
+            line("01", debit="3.00", source_bank_book_id="1235",
+                 source_bank_book_document="CH-008"),
+            line("02", credit="3.00", source_bank_book_id="1234",
+                 source_bank_book_document="CH-007"),
+        ]
+        document = self.plan(lines=source_lines)
+        document["accounting_cutoff"].update({
+            "configuration_revision": 1, "configuration_hash": "a" * 64,
+        })
+        action = document["actions"][0]
+        self.assertEqual(action["payload"]["lines"][0]["source_document_reference"], "CH-007")
+        request = build_historical_journal_request(
+            "plan-1", "run-1", document, action, header(), source_lines, self.contract,
+        )
+        self.assertEqual(request["lines"][0]["sourceMovementReference"], "1234")
+        self.assertEqual(request["lines"][0]["sourceDocumentReference"], "CH-007")
+        self.assertEqual(request["lines"][1]["sourceMovementReference"], "1234")
+        self.assertEqual(request["lines"][1]["sourceDocumentReference"], "CH-007")
+
+    def test_report_cheque_reference_repeats_on_unlinked_counterpart_line(self):
+        document = self.plan(lines=[
+            line("01", debit="3.00"),
+            line("02", credit="3.00", source_bank_book_id="4162",
+                 source_bank_book_document="389"),
+        ])
+        self.assertEqual(
+            [item["source_document_reference"] for item in document["actions"][0]["payload"]["lines"]],
+            ["389", "389"],
+        )
+
+    def test_journal_status_does_not_gate_a_balanced_plan(self):
+        for status in ("1", "2", "3", "unknown"):
+            with self.subTest(status=status):
+                document = self.plan(headers=[header(journal_status=status)])
+                action = document["actions"][0]
+                self.assertEqual(action["disposition"], "APPLICABLE")
+                self.assertEqual(action["payload"]["provenance"]["source_journal_status"], status)
 
     def test_vault_office_accounts_converge_on_one_detail_with_distinct_offices(self):
         shared_code = "111001030200"
@@ -306,22 +393,67 @@ class AccountingInspectorTests(unittest.TestCase):
         self.assertEqual([item["office_id"] for item in lines], [1, 2])
         self.assertEqual([item["dimensions"] for item in lines], [{"office": "1"}, {"office": "2"}])
 
-    def test_historical_alternate_loan_portfolio_resolves_to_product_primary(self):
-        self.assertEqual(self.contract.target_code("1142030101"), "1141030101")
+    def test_historical_long_term_loan_portfolio_stays_in_long_term_group(self):
+        self.assertEqual(self.contract.target_code("1142030101"), "1142030101")
+        self.assertEqual(self.contract.target_code("1142040101"), "114204010101")
         document = self.plan(
             lines=[
                 line("01", debit="3.00", account_code="1142040101"),
-                line("02", credit="3.00", account_code="1110010101"),
+                line("02", credit="3.00", account_code="1142030101"),
             ],
             target_snapshot=target(accounts={
-                "1141040101": [{"id": 92, "disabled": False, "manual_allowed": True, "account_usage": 1}],
-                "1110010199": [{"id": 7, "disabled": False, "manual_allowed": True, "account_usage": 1}],
+                "114204010101": [{"id": 92, "disabled": False, "manual_allowed": True, "account_usage": 1}],
+                "1142030101": [{"id": 93, "disabled": False, "manual_allowed": True, "account_usage": 1}],
             }),
         )
         action = document["actions"][0]
         self.assertEqual(action["disposition"], "APPLICABLE")
-        self.assertEqual(action["payload"]["lines"][0]["source_account_code"], "1142040101")
-        self.assertEqual(action["payload"]["lines"][0]["target_account_code"], "1141040101")
+        self.assertEqual(
+            [(item["source_account_code"], item["target_account_code"], item["target_gl_account_id"])
+             for item in action["payload"]["lines"]],
+            [("1142040101", "114204010101", 92), ("1142030101", "1142030101", 93)],
+        )
+
+    def test_contract_rejects_short_term_fallback_for_long_term_source(self):
+        for source_code, short_code in (("1142030101", "1141030101"),
+                                        ("1142040101", "1141040101")):
+            with self.subTest(source_code=source_code), tempfile.TemporaryDirectory() as directory:
+                unsafe = json.loads(CONFIG.read_text(encoding="utf-8"))
+                unsafe["account_mapping"]["overrides"][source_code] = short_code
+                path = Path(directory) / "accounting.json"
+                path.write_text(json.dumps(unsafe), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "Historical long-term loan accounts"):
+                    AccountingContract.load(path)
+
+    def test_historical_long_term_consumer_header_is_not_a_posting_target(self):
+        document = self.plan(
+            lines=[line("01", debit="3.00", account_code="1142040101"),
+                   line("02", credit="3.00", account_code="1110010101")],
+            target_snapshot=target(accounts={
+                "1142040101": [{"id": 92, "disabled": False, "manual_allowed": True, "account_usage": 2}],
+                "1110010199": [{"id": 7, "disabled": False, "manual_allowed": True, "account_usage": 1}],
+            }),
+        )
+        self.assertEqual(document["actions"][0]["disposition"], "QUARANTINED")
+        self.assertIn("TARGET_ACCOUNT_UNRESOLVED_OR_AMBIGUOUS", document["actions"][0]["reason_codes"])
+
+    def test_old_short_term_destination_blocks_checkpointed_loan_journal(self):
+        document = self.plan(
+            lines=[line("01", debit="3.00", account_code="1142040101"),
+                   line("02", credit="3.00", account_code="1142030101")],
+            target_snapshot=target(
+                accounts={
+                    "114204010101": [{"id": 92, "disabled": False, "manual_allowed": True, "account_usage": 1}],
+                    "1142030101": [{"id": 93, "disabled": False, "manual_allowed": True, "account_usage": 1}],
+                },
+                imported_line_accounts={"001:001:00065:10": {
+                    "01": {"source_account_code": "1142040101", "target_account_code": "1141040101"},
+                    "02": {"source_account_code": "1142030101", "target_account_code": "1141030101"},
+                }},
+            ),
+        )
+        self.assertEqual(document["actions"][0]["disposition"], "QUARANTINED")
+        self.assertIn("TARGET_ACCOUNT_MAPPING_DRIFT", document["actions"][0]["reason_codes"])
 
     def test_historical_journal_cannot_post_to_gl_header(self):
         document = self.plan(target_snapshot=target(accounts={
@@ -570,6 +702,10 @@ class AccountingInspectorTests(unittest.TestCase):
         self.assertEqual(request["provenanceSchemaVersion"], "arissto-gl-v1")
         self.assertEqual(request["sourceJournalNumber"], request["refNum"])
         self.assertEqual(request["sourceJournalDate"], request["entryDate"])
+        self.assertEqual(request["sourceModuleCode"], "1")
+        self.assertEqual(request["sourceHeaderConcept"], "private header text")
+        self.assertEqual(request["sourceHeaderDescription"], "private description")
+        self.assertNotEqual(request["sourceHeaderConcept"], request["lines"][0]["sourceLineConcept"])
         self.assertEqual(request["cutoffConfigurationRevision"], 2)
         self.assertEqual(request["lines"][0]["officeExternalId"], "1")
         self.assertEqual(request["lines"][0]["sourceLineConcept"], "private line text")
@@ -598,8 +734,8 @@ class AccountingInspectorTests(unittest.TestCase):
             self.assertTrue(attempt["retryable"])
             self.assertEqual(attempt["request_run_id"], run_id)
 
-    def reconciliation_fixture(self):
-        document = self.plan()
+    def reconciliation_fixture(self, status="3"):
+        document = self.plan(headers=[header(journal_status=status)])
         document["accounting_cutoff"].update({
             "configuration_revision": 2,
             "configuration_hash": "a" * 64,
@@ -666,6 +802,8 @@ class AccountingInspectorTests(unittest.TestCase):
                 "journal_type_enum": type_enum,
                 "journal_amount": amount,
                 "journal_description": expected["description"],
+                "journal_header_concept": "private header text",
+                "journal_header_description": "private description",
                 "journal_dimensions": expected["dimensions"],
                 "loan_transaction_id": None,
                 "savings_transaction_id": None,
@@ -675,6 +813,27 @@ class AccountingInspectorTests(unittest.TestCase):
                 "entity_id": None,
             })
         return document, action, transaction_id, rows
+
+    def test_legacy_import_reconciles_without_cheque_fields(self):
+        document, action, _, rows = self.reconciliation_fixture()
+        action["disposition"] = "UNCHANGED"
+        legacy_payload = {**action["payload"], "lines": [
+            {key: value for key, value in item.items()
+             if key not in {"source_movement_reference", "source_document_reference"}}
+            for item in action["payload"]["lines"]
+        ]}
+        legacy_hash = _hash({
+            "source_key": action["source_key"], "source_hash": action["source_hash"],
+            "disposition": "APPLICABLE", "reason_codes": [], "payload": legacy_payload,
+        })
+        for row in rows:
+            row["planned_hash"] = legacy_hash
+        self.assertEqual(_reconcile_accounting_action(action, rows, document), [])
+
+    def test_native_header_description_drift_fails_reconciliation(self):
+        document, action, _, rows = self.reconciliation_fixture()
+        rows[0]["journal_header_description"] = "changed in target"
+        self.assertIn("TARGET_JOURNAL_LINE_DRIFT", _reconcile_accounting_action(action, rows, document))
 
     def test_gate8_direct_journal_reconciliation_marks_exact_run_reconciled(self):
         document, action, transaction_id, rows = self.reconciliation_fixture()
@@ -785,6 +944,7 @@ class AccountingInspectorTests(unittest.TestCase):
 
     def test_gate8_fails_when_final_source_ledger_control_is_incomplete_or_drifted(self):
         document, action, transaction_id, rows = self.reconciliation_fixture()
+        document["scope"] = {"type": "full-company", "source_keys": [action["source_key"]]}
         settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target-fingerprint", pg_url=None))
         with tempfile.TemporaryDirectory() as directory:
             state = State(Path(directory) / "state.sqlite3")
@@ -815,6 +975,101 @@ class AccountingInspectorTests(unittest.TestCase):
                 "SOURCE_LEDGER_CONTROL_SCOPE_INCOMPLETE",
                 "SOURCE_JOURNAL_TO_CNT_MAYOR_CLOSING_DRIFT",
             ])
+
+    def test_gate8_closed_period_exact_key_uses_direct_and_global_drift_controls(self):
+        document, action, transaction_id, rows = self.reconciliation_fixture()
+        settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target-fingerprint", pg_url=None))
+        with tempfile.TemporaryDirectory() as directory:
+            state = State(Path(directory) / "state.sqlite3")
+            state.adopt_accounting_cutoff(document["accounting_cutoff"])
+            plan_id = state.save_plan(
+                settings.target.fingerprint, BLOCK, "source-fingerprint", self.contract.hash, document,
+            )
+            run_id = state.start_run(state.plan(plan_id))
+            state.record_accounting_item(
+                run_id, action["source_key"], "import", action["source_hash"], "succeeded",
+                document["plan_hash"], action["planned_hash"], "acct:key", run_id,
+                target_transaction_id=transaction_id, target_line_ids=[101, 102], disposition="IMPORTED",
+            )
+            result = reconcile_accounting(
+                settings, state, self.contract, run_id,
+                {"rows": rows, "boundary": {
+                    "native_non_manual_pre_cutoff": 0, "imported_on_or_after_cutoff": 0,
+                }},
+                {
+                    "control_period_id": "00065", "control_period_end": "2025-12-31",
+                    "closed_before_cutoff": 1, "eligible_journal_count": 2,
+                    "compared_account_branch_count": 2, "closing_mismatch_count": 0,
+                    "absolute_closing_variance": "0.00",
+                },
+            )
+            self.assertTrue(result["ok"])
+            self.assertFalse(result["closed_period_scope_checked"])
+
+    def test_gate8_reconciles_status_two_directly_without_counting_it_in_mayor(self):
+        document, action, transaction_id, rows = self.reconciliation_fixture(status="2")
+        document["scope"] = {"type": "full-company", "source_keys": [action["source_key"]]}
+        settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target-fingerprint", pg_url=None))
+        with tempfile.TemporaryDirectory() as directory:
+            state = State(Path(directory) / "state.sqlite3")
+            state.adopt_accounting_cutoff(document["accounting_cutoff"])
+            plan_id = state.save_plan(
+                settings.target.fingerprint, BLOCK, "source-fingerprint", self.contract.hash, document,
+            )
+            run_id = state.start_run(state.plan(plan_id))
+            state.record_accounting_item(
+                run_id, action["source_key"], "import", action["source_hash"], "succeeded",
+                document["plan_hash"], action["planned_hash"], "acct:key", run_id,
+                target_transaction_id=transaction_id, target_line_ids=[101, 102], disposition="IMPORTED",
+            )
+            result = reconcile_accounting(
+                settings, state, self.contract, run_id,
+                {"rows": rows, "boundary": {
+                    "native_non_manual_pre_cutoff": 0, "imported_on_or_after_cutoff": 0,
+                }},
+                {
+                    "control_period_id": "00065", "control_period_end": "2025-12-31",
+                    "closed_before_cutoff": 1, "eligible_journal_count": 0,
+                    "compared_account_branch_count": 0, "closing_mismatch_count": 0,
+                    "absolute_closing_variance": "0.00",
+                },
+            )
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["counts"]["reconciled"], 1)
+            self.assertEqual(result["source_ledger_findings"], [])
+
+    def test_gate8_open_period_exact_key_catch_up_does_not_claim_closed_period_scope(self):
+        document, action, transaction_id, rows = self.reconciliation_fixture()
+        settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target-fingerprint", pg_url=None))
+        entry_date = date.fromisoformat(action["payload"]["entry_date"])
+        control_end = (entry_date - timedelta(days=1)).isoformat()
+        with tempfile.TemporaryDirectory() as directory:
+            state = State(Path(directory) / "state.sqlite3")
+            state.adopt_accounting_cutoff(document["accounting_cutoff"])
+            plan_id = state.save_plan(
+                settings.target.fingerprint, BLOCK, "source-fingerprint", self.contract.hash, document,
+            )
+            run_id = state.start_run(state.plan(plan_id))
+            state.record_accounting_item(
+                run_id, action["source_key"], "import", action["source_hash"], "succeeded",
+                document["plan_hash"], action["planned_hash"], "acct:key", run_id,
+                target_transaction_id=transaction_id, target_line_ids=[101, 102], disposition="IMPORTED",
+            )
+            result = reconcile_accounting(
+                settings, state, self.contract, run_id,
+                {"rows": rows, "boundary": {
+                    "native_non_manual_pre_cutoff": 0, "imported_on_or_after_cutoff": 0,
+                }},
+                {
+                    "control_period_id": "00064", "control_period_end": control_end,
+                    "closed_before_cutoff": 1, "eligible_journal_count": 50,
+                    "closing_mismatch_count": 0, "unsafe_hybrid_account_count": 0,
+                },
+            )
+            self.assertTrue(result["ok"])
+            self.assertFalse(result["closed_period_scope_checked"])
+            self.assertEqual(result["source_ledger_findings"], [])
+
 
     def test_gate8_accepts_proven_safe_hybrid_parent_rollups(self):
         document, action, transaction_id, rows = self.reconciliation_fixture()
@@ -885,6 +1140,55 @@ class AccountingInspectorTests(unittest.TestCase):
                 "SOURCE_HYBRID_ACCOUNT_ROLLUP_UNSAFE",
                 "SOURCE_JOURNAL_TO_CNT_MAYOR_CLOSING_DRIFT",
             ])
+
+    def test_apply_reference_only_records_no_target_transaction(self):
+        source = SourceConfig("source", 1433, "arissto", "reader", "secret", "driver", "", 1, 1)
+        target_config = TargetConfig("local", "https://local.test", "user", "secret", "default", None,
+                                     "local.test", True)
+        settings = SimpleNamespace(source=source, target=target_config)
+        cutoff = {
+            "date": "2026-01-01", "timezone": "America/El_Salvador", "source": "explicit",
+            "configuration_revision": 2, "configuration_hash": "a" * 64, "lifecycle_state": "ACTIVE",
+        }
+        source_rows = (
+            [header()], [], [],
+            [{"currency_type": "1", "iso_code": "USD", "active_flag": "1", "multicurrency_flag": "0"}],
+        )
+        target_snapshot = target(tables=[])
+        document = plan_accounting_rows(
+            source_rows[0], source_rows[1], self.contract, cutoff, source_fingerprint(source),
+            target_config.fingerprint, target_snapshot, ["001:001:00065:10"], _hash([]),
+        )
+
+        class Api:
+            posts = []
+
+            def request(self, method, path, payload=None, query=None, idempotency_key=None):
+                if method == "GET":
+                    if path == "scheduler":
+                        return {"active": False}
+                    return {"cutoffDate": "2026-01-01", "timezoneId": "America/El_Salvador",
+                            "configurationRevision": 2, "configurationHash": "a" * 64,
+                            "lifecycleState": "ACTIVE"}
+                self.posts.append(payload)
+                return {"transactionId": None, "journalEntryIds": [], "unchanged": False}
+
+        with tempfile.TemporaryDirectory() as directory:
+            state = State(Path(directory) / "state.sqlite3")
+            state.adopt_accounting_cutoff(cutoff)
+            plan_id = state.save_plan(target_config.fingerprint, BLOCK, source_fingerprint(source),
+                                      self.contract.hash, document)
+            api = Api()
+            run_id, counts = apply_accounting_plan(
+                settings, state, self.contract, plan_id, api=api,
+                source_rows=source_rows, target_snapshot=target_snapshot,
+            )
+            self.assertEqual(counts["reference_only"], 1)
+            self.assertTrue(api.posts[0]["referenceOnly"])
+            self.assertEqual(api.posts[0]["lines"], [])
+            item = state.accounting_attempt(run_id, "001:001:00065:10")
+            self.assertIsNone(item["target_transaction_id"])
+            self.assertEqual(item["disposition"], "REFERENCE_ONLY")
 
     def test_gate7_lost_response_retry_reuses_request_identity_and_converges(self):
         source = SourceConfig("source", 1433, "arissto", "reader", "secret", "driver", "", 1, 1)

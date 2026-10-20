@@ -68,6 +68,7 @@ import org.apache.fineract.portfolio.group.domain.GroupRepositoryWrapper;
 import org.apache.fineract.portfolio.group.exception.CenterNotActiveException;
 import org.apache.fineract.portfolio.group.exception.GroupNotActiveException;
 import org.apache.fineract.portfolio.group.exception.GroupNotFoundException;
+import org.apache.fineract.portfolio.namingsequence.service.CredesalNamingSequenceService;
 import org.apache.fineract.portfolio.note.domain.Note;
 import org.apache.fineract.portfolio.note.domain.NoteRepository;
 import org.apache.fineract.portfolio.savings.SavingsApiConstants;
@@ -84,7 +85,6 @@ import org.apache.fineract.portfolio.savings.domain.SavingsAccountStatusType;
 import org.apache.fineract.portfolio.savings.domain.SavingsProduct;
 import org.apache.fineract.portfolio.savings.domain.SavingsProductRepository;
 import org.apache.fineract.portfolio.savings.exception.SavingsProductNotFoundException;
-import org.apache.fineract.portfolio.namingsequence.service.CredesalNamingSequenceService;
 import org.apache.fineract.useradministration.domain.AppUser;
 import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.annotation.Transactional;
@@ -264,8 +264,8 @@ public class SavingsApplicationProcessWritePlatformServiceJpaRepositoryImpl impl
     private void generateAccountNumber(final SavingsAccount account) {
         if (account.isAccountNumberRequiresAutoGeneration()) {
             final String numberingCode = account.savingsProduct() == null ? null : account.savingsProduct().getNumberingCode();
-            this.credesalNamingSequenceService.allocateSavingsAccountNo(account.getClient(), numberingCode, null).ifPresentOrElse(
-                    account::updateAccountNo, () -> {
+            this.credesalNamingSequenceService.allocateSavingsAccountNo(account.getClient(), numberingCode, null)
+                    .ifPresentOrElse(account::updateAccountNo, () -> {
                         final AccountNumberFormat accountNumberFormat = this.accountNumberFormatRepository
                                 .findByAccountType(EntityAccountType.SAVINGS);
                         account.updateAccountNo(this.accountNumberGenerator.generate(account, accountNumberFormat));

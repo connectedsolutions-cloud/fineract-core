@@ -31,6 +31,7 @@ import org.apache.fineract.portfolio.collectionsheet.command.CollectionSheetBulk
 import org.apache.fineract.portfolio.collectionsheet.command.CollectionSheetBulkRepaymentCommand;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanTransferAmounts;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -73,6 +74,8 @@ public interface LoanWritePlatformService {
 
     CommandProcessingResult adjustLoanTransaction(Long loanId, Long transactionId, JsonCommand command);
 
+    CommandProcessingResult reverseSourceExactLoanTransaction(Long loanId, Long transactionId, JsonCommand command);
+
     CommandProcessingResult chargebackLoanTransaction(Long loanId, Long transactionId, JsonCommand command);
 
     CommandProcessingResult waiveInterestOnLoan(Long loanId, JsonCommand command);
@@ -94,11 +97,16 @@ public interface LoanWritePlatformService {
 
     LoanTransaction initiateLoanTransfer(Loan loan, LocalDate transferDate);
 
+    LoanTransaction initiateLoanTransfer(Loan loan, LocalDate transferDate, LoanTransferAmounts amounts);
+
     LoanTransaction withdrawLoanTransfer(Loan loan, LocalDate transferDate);
 
     void rejectLoanTransfer(Loan loan);
 
     LoanTransaction acceptLoanTransfer(Loan loan, LocalDate transferDate, Office acceptedInOffice, Staff loanOfficer);
+
+    LoanTransaction acceptLoanTransfer(Loan loan, LocalDate transferDate, Office acceptedInOffice, Staff loanOfficer,
+            LoanTransferAmounts amounts);
 
     CommandProcessingResult undoWriteOff(Long loanId);
 

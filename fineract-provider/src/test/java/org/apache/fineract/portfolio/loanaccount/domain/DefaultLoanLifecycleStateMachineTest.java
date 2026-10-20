@@ -345,6 +345,37 @@ class DefaultLoanLifecycleStateMachineTest {
     }
 
     @Test
+    public void testAcceptTransferRestoresActiveLoan() {
+        Loan loan = createLoanWithStatus(LoanStatus.TRANSFER_IN_PROGRESS);
+
+        underTest.transition(LoanEvent.LOAN_ACCEPT_TRANSFER, loan);
+
+        assertThat(loan.getStatus()).isEqualTo(LoanStatus.ACTIVE);
+        verify(businessEventNotifierService).notifyPostBusinessEvent(any(LoanStatusChangedBusinessEvent.class));
+    }
+
+    @Test
+    public void testAcceptTransferRestoresOverpaidLoan() {
+        Loan loan = createLoanWithStatus(LoanStatus.TRANSFER_IN_PROGRESS);
+        org.springframework.test.util.ReflectionTestUtils.setField(loan, "totalOverpaid", BigDecimal.ONE);
+
+        underTest.transition(LoanEvent.LOAN_ACCEPT_TRANSFER, loan);
+
+        assertThat(loan.getStatus()).isEqualTo(LoanStatus.OVERPAID);
+        verify(businessEventNotifierService).notifyPostBusinessEvent(any(LoanStatusChangedBusinessEvent.class));
+    }
+
+    @Test
+    public void testAcceptTransferDoesNotChangeNonTransferringLoan() {
+        Loan loan = createLoanWithStatus(LoanStatus.ACTIVE);
+
+        underTest.transition(LoanEvent.LOAN_ACCEPT_TRANSFER, loan);
+
+        assertThat(loan.getStatus()).isEqualTo(LoanStatus.ACTIVE);
+        verifyNoInteractions(businessEventNotifierService);
+    }
+
+    @Test
     public void testTransitionShouldWorkProperlyForLoanRejectTransfer() {
         // given
         Loan loan = createLoanWithStatus(LoanStatus.TRANSFER_IN_PROGRESS);

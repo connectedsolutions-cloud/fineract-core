@@ -271,6 +271,7 @@ public class LoanApplicationWritePlatformServiceJpaRepositoryImpl implements Loa
             Map<String, Object> changes = this.loanAssembler.updateFrom(command, loan);
             // Validations (further validations which requires the assembling first)
             this.loanApplicationValidator.validateForModify(loan);
+            loan.validateTermPortfolioAccountSelection();
             // TODO: check whether this is needed!
             loan = loanRepository.saveAndFlush(loan);
             // Save note

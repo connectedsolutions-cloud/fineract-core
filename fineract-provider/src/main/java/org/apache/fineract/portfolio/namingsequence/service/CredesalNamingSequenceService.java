@@ -29,5 +29,9 @@ public interface CredesalNamingSequenceService {
 
     String allocateShareCertificateNumber(Client client, String numberingCode, String reservationKey);
 
+    String allocateProvisionalShareCertificateNumber(String reservationKey);
+
+    ShareSerialAllocation allocateShareSerialRange(String shareClass, int quantity, String reservationKey);
+
     String allocateVistaPassbookNumber(String reservationKey);
 }

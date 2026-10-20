@@ -10,6 +10,8 @@ runs of the service.
 
 Current full-run reconciliation gaps and the next-agent work order are tracked
 in [loan-reconciliation.md](loan-reconciliation.md).
+Historical adjustment canaries and the October 17 source/native baseline are
+tracked in [loan-history-canaries.md](loan-history-canaries.md).
 
 ## Stable identity
 
@@ -53,8 +55,8 @@ transaction, but must never create the same repayment again.
   multiplicity without deleting target rows.
 - Application collateral is an internal loan subphase, not a separate registry
   service. For affected loans the plan creates or verifies one deterministic
-  `ARISSTO-COLLATERAL` product, atomically creates each client asset with its
-  selected final appraisal, and submits the resulting client-collateral and
+  `Credesal Garantía de Crédito` product, atomically creates each client asset
+  with its selected final appraisal, and submits the resulting client-collateral and
   valuation IDs with the native loan. Asset and valuation external IDs make
   retries recoverable without duplication.
 - Collateral plans retain safe identities, amounts, dates, and full-payload
@@ -72,7 +74,7 @@ transaction, but must never create the same repayment again.
   constituent source movement identities.
 - Product policy: create required reviewed products from an empty business-data
   baseline; never bind unrelated native products by name or numeric ID
-- Accounting segmentation: one portfolio GL per native product; preserve
+- Accounting segmentation: short- and long-term portfolio GL mappings per native product, selected per loan from expected dates; preserve
   Arissto line type, credit type, and SLU through native fields/dimensions that
   propagate to journal entries
 - Normal repayment allocation, periodic interest and insurance recognition,
@@ -94,10 +96,12 @@ transaction, but must never create the same repayment again.
   permission-gated source-exact path with liquidation/payoff audit evidence;
   successor `2472` proves this path through strict reconciliation and unchanged
   replay
-- The 6,603 schedule rows tagged with `ID_REESTRUCTURACION` are 174 archival
-  snapshots with null `ID_CREDITO`; none belongs to a current portfolio loan.
-  A future linked row is quarantined until a native same-loan reschedule proof
-  is added.
+- Archived schedule rows tagged with `ID_REESTRUCTURACION` normally have null
+  `ID_CREDITO`, but the revision header links them to a loan. The source
+  investigation found 249 revisions on 131 loans, including 245 archived
+  plan versions. Historical same-loan revisions are not yet replayed as native
+  Fineract events; the current writer imports the final schedule and movements.
+  See the canary and event-import gate in the loan contract.
 - Line `00001` loans `24`, `435`, and `945` are reviewed non-blocking historical
   manual adjustments: native schedule differences are reported while source
   movements, component totals, cutover balances, and terminal status remain

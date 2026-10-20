@@ -55,12 +55,9 @@ public class DelinquencyWritePlatformServiceHelper {
 
     public Map<String, Object> applyDelinquencyForLoan(final Loan loan, final DelinquencyBucket delinquencyBucket, long overdueDays) {
         Map<String, Object> changes = new HashMap<>();
+        boolean matchedRange = false;
 
-        if (overdueDays <= 0) { // No Delinquency
-            log.debug("Loan {} without delinquency range with {} days", loan.getId(), overdueDays);
-            changes = setLoanDelinquencyTag(loan, null);
-
-        } else {
+        if (overdueDays > 0 || (overdueDays == 0 && loan.isOpen())) {
             // Sort the ranges based on the minAgeDays
             final List<DelinquencyRange> ranges = sortDelinquencyRangesByMinAge(delinquencyBucket.getRanges());
 
@@ -70,6 +67,7 @@ public class DelinquencyWritePlatformServiceHelper {
                         log.debug("Loan {} with delinquency range {} with {} days", loan.getId(), delinquencyRange.getClassification(),
                                 overdueDays);
                         changes = setLoanDelinquencyTag(loan, delinquencyRange.getId());
+                        matchedRange = true;
                         break;
                     }
                 } else {
@@ -77,10 +75,15 @@ public class DelinquencyWritePlatformServiceHelper {
                         log.debug("Loan {} with delinquency range {} with {} days", loan.getId(), delinquencyRange.getClassification(),
                                 overdueDays);
                         changes = setLoanDelinquencyTag(loan, delinquencyRange.getId());
+                        matchedRange = true;
                         break;
                     }
                 }
             }
+        }
+        if (!matchedRange && overdueDays <= 0) {
+            log.debug("Loan {} without delinquency range with {} days", loan.getId(), overdueDays);
+            changes = setLoanDelinquencyTag(loan, null);
         }
         changes.put("overdueDays", overdueDays);
         return changes;

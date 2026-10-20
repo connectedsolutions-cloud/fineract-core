@@ -18,9 +18,12 @@
  */
 package org.apache.fineract.accounting.journalentry.service;
 
+import java.util.List;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntry;
 
 public interface JournalEntryPersistenceService {
 
     JournalEntry saveAndFlush(JournalEntry journalEntry);
+
+    List<JournalEntry> saveImportedJournal(List<JournalEntry> journalEntries);
 }

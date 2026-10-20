@@ -164,7 +164,7 @@ SOURCE_QUERIES = {
         FROM dbo.MCD_ASIGNACION_RUTA a
         OUTER APPLY (
           SELECT TOP 1 x.NUMERO_AFILIACION FROM dbo.AFI_SOCIO x
-          WHERE TRY_CONVERT(INT,x.ID_SOCIO)=a.ID_ASOCIADO
+          WHERE x.ID_ASOCIADO=a.ID_ASOCIADO
           ORDER BY CASE WHEN x.ID_EMPRESA='001' THEN 0 ELSE 1 END,x.ID_SUCURSAL
         ) s
         ORDER BY a.ID_ASIGNACION_RUTA
@@ -583,6 +583,97 @@ def _chunks(values: list[dict[str, Any]], size: int = 250) -> Iterator[list[dict
         yield values[index:index + size]
 
 
+def _assignment_relink_sequence(
+    current_rows: list[tuple[int, int, int]], actions: list[dict[str, Any]],
+    client_ids: list[int],
+) -> list[tuple[str, dict[str, Any] | int, int | None]]:
+    """Order assignment upserts without violating the immediate route/client unique key."""
+    current = {int(row_id): (int(route_id), int(client_id))
+               for row_id, route_id, client_id in current_rows}
+    occupied = {pair: row_id for row_id, pair in current.items()}
+    if len(occupied) != len(current):
+        raise RuntimeError("Target route/client assignments are not unique")
+    desired = {(int(action["payload"]["route_id"]), int(action["payload"]["client_id"]))
+               for action in actions}
+    if len(desired) != len(actions):
+        raise RuntimeError("Planned route/client assignments are not unique")
+    pending = {action["source_key"]: action for action in actions}
+    moving_ids = {int(action["target_id"]) for action in actions if action.get("target_id") is not None}
+    if len(moving_ids) != sum(action.get("target_id") is not None for action in actions):
+        raise RuntimeError("Planned route assignments contain duplicate target IDs")
+    for action in actions:
+        target_id = action.get("target_id")
+        if target_id is not None and int(target_id) not in current:
+            raise RuntimeError("Planned route assignment no longer exists")
+        pair = (int(action["payload"]["route_id"]), int(action["payload"]["client_id"]))
+        owner = occupied.get(pair)
+        if owner is not None and owner != target_id and owner not in moving_ids:
+            raise RuntimeError("Planned route/client pair belongs to an unselected assignment")
+
+    steps: list[tuple[str, dict[str, Any] | int, int | None]] = []
+    next_created_id = -1
+    while pending:
+        progressed = False
+        for key in sorted(pending):
+            action = pending[key]
+            target_id = int(action["target_id"]) if action.get("target_id") is not None else None
+            pair = (int(action["payload"]["route_id"]), int(action["payload"]["client_id"]))
+            if occupied.get(pair) not in {None, target_id}:
+                continue
+            if target_id is not None:
+                occupied.pop(current[target_id])
+            else:
+                target_id = next_created_id
+                next_created_id -= 1
+            occupied[pair] = target_id
+            current[target_id] = pair
+            steps.append(("upsert", action, None))
+            del pending[key]
+            progressed = True
+        if progressed:
+            continue
+        action = next((item for item in pending.values() if item.get("target_id") is not None), None)
+        if action is None:
+            raise RuntimeError("No assignment can free a planned route/client pair")
+        target_id = int(action["target_id"])
+        route_id, old_client_id = current[target_id]
+        spare = next((client_id for client_id in client_ids
+                      if (route_id, client_id) not in occupied
+                      and (route_id, client_id) not in desired), None)
+        if spare is None:
+            raise RuntimeError("No temporary client slot exists for atomic assignment relink")
+        occupied.pop((route_id, old_client_id))
+        occupied[(route_id, spare)] = target_id
+        current[target_id] = (route_id, spare)
+        steps.append(("park", target_id, spare))
+    return steps
+
+
+def _upsert_assignment_relinks(
+    conn: Any, writer: ControlledSqlWriter, actions: list[dict[str, Any]],
+) -> list[tuple[dict[str, Any], int]]:
+    written: list[tuple[dict[str, Any], int]] = []
+    with writer.entity_transaction(OPERATION):
+        current_rows = conn.execute(
+            "SELECT id,route_id,client_id FROM credesal_mobile_collection_assignment FOR UPDATE"
+        ).fetchall()
+        client_ids = [int(row[0]) for row in conn.execute("SELECT id FROM m_client ORDER BY id").fetchall()]
+        steps = _assignment_relink_sequence(current_rows, actions, client_ids)
+        for kind, value, spare in steps:
+            if kind == "park":
+                changed = conn.execute(
+                    "UPDATE credesal_mobile_collection_assignment "
+                    "SET client_id=%s,updated_at=CURRENT_TIMESTAMP WHERE id=%s",
+                    (spare, value),
+                )
+                if changed.rowcount != 1:
+                    raise RuntimeError("Route assignment changed during atomic relink")
+            else:
+                action = value
+                written.append((action, _upsert(conn, "assignment", action["payload"])))
+    return written
+
+
 def apply_mobile_collection_plan(settings: Settings, state: State, contract: MobileCollectionContract,
                                  plan_id: str, production_confirmation: str | None = None,
                                  only_keys: set[str] | None = None) -> tuple[str, dict[str, int]]:
@@ -636,6 +727,23 @@ def apply_mobile_collection_plan(settings: Settings, state: State, contract: Mob
                     counts["failed"] += 1
                     continue
                 writable.append({**action, "payload": payload})
+            if entity == "assignment" and writable:
+                try:
+                    written = _upsert_assignment_relinks(conn, writer, writable)
+                except Exception as exc:
+                    for action in writable:
+                        state.record_item(run_id, action["source_key"], action["action"], action["source_hash"],
+                                          "failed", action.get("target_id"),
+                                          f"{type(exc).__name__}:atomic_assignment_relink_failed")
+                        counts["failed"] += 1
+                    continue
+                for action, target_id in written:
+                    key = action["source_key"]
+                    state.save_mapping(settings.target.fingerprint, BLOCK, key, str(target_id), action["source_hash"])
+                    state.record_item(run_id, key, action["action"], action["source_hash"], "succeeded", str(target_id))
+                    counts[action["action"]] += 1
+                    catalog["existing"][entity][key] = {"id": target_id, **action["payload"]}
+                continue
             for chunk in _chunks(writable):
                 written: list[tuple[dict[str, Any], int]] = []
                 try:

@@ -100,7 +100,12 @@ public class JournalEntryReadPlatformServiceImpl implements JournalEntryReadPlat
                     .append(" journalEntry.submitted_on_date as submittedOnDate, journalEntry.reversed as reversed, ")
                     .append(" journalEntry.currency_code as currencyCode, curr.name as currencyName, curr.internationalized_name_code as currencyNameCode, ")
                     .append(" curr.display_symbol as currencyDisplaySymbol, curr.decimal_places as currencyDigits, curr.currency_multiplesof as inMultiplesOf, ")
-                    .append(" eao.external_id as externalAssetOwner, journalEntry.dimensions as dimensions ");
+                    .append(" eao.external_id as externalAssetOwner, journalEntry.dimensions as dimensions, ")
+                    .append(" voucher.id as voucherId, voucher.auxiliar_code as auxiliarCode, ")
+                    .append(" COALESCE(journalEntry.header_concept, voucher.header_concept) as headerConcept, ")
+                    .append(" journalEntry.header_description as headerDescription, ")
+                    .append(" voucher.origin as voucherOrigin, voucher.operation_type as voucherOperationType, ")
+                    .append(" voucher.reverses_voucher_id as reversesVoucherId ");
             if (associationParametersData.isRunningBalanceRequired()) {
                 sb.append(" ,journalEntry.is_running_balance_calculated as runningBalanceComputed, ")
                         .append(" journalEntry.office_running_balance as officeRunningBalance, ")
@@ -117,6 +122,7 @@ public class JournalEntryReadPlatformServiceImpl implements JournalEntryReadPlat
             sb.append(" from acc_gl_journal_entry as journalEntry ")
                     .append(" left join acc_gl_account as glAccount on glAccount.id = journalEntry.account_id")
                     .append(" left join m_office as office on office.id = journalEntry.office_id")
+                    .append(" left join credesal_gl_voucher as voucher on voucher.id = journalEntry.voucher_id")
                     .append(" left join m_appuser as creatingUser on creatingUser.id = journalEntry.created_by ")
                     .append(" join m_currency curr on curr.code = journalEntry.currency_code ")
                     .append(" left join m_external_asset_owner_journal_entry_mapping eajem on eajem.journal_entry_id = journalEntry.id ")
@@ -229,10 +235,18 @@ public class JournalEntryReadPlatformServiceImpl implements JournalEntryReadPlat
             final String externalAssetOwner = rs.getString("externalAssetOwner");
             final String dimensions = rs.getString("dimensions");
 
-            return new JournalEntryData(id, officeId, officeName, glAccountName, glAccountId, glCode, accountType, transactionDate,
+            JournalEntryData entry = new JournalEntryData(id, officeId, officeName, glAccountName, glAccountId, glCode, accountType, transactionDate,
                     entryType, amount, transactionId, manualEntry, entityType, entityId, createdByUserId, submittedOnDate,
                     createdByUserName, comments, reversed, referenceNumber, officeRunningBalance, organizationRunningBalance,
                     runningBalanceComputed, transactionDetailData, currency, externalAssetOwner, dimensions);
+            entry.setVoucherId(JdbcSupport.getLong(rs, "voucherId"));
+            entry.setAuxiliarCode(rs.getString("auxiliarCode"));
+            entry.setHeaderConcept(rs.getString("headerConcept"));
+            entry.setHeaderDescription(rs.getString("headerDescription"));
+            entry.setVoucherOrigin(rs.getString("voucherOrigin"));
+            entry.setVoucherOperationType(rs.getString("voucherOperationType"));
+            entry.setReversesVoucherId(JdbcSupport.getLong(rs, "reversesVoucherId"));
+            return entry;
         }
     }
 
@@ -240,13 +254,14 @@ public class JournalEntryReadPlatformServiceImpl implements JournalEntryReadPlat
     public Page<JournalEntryData> retrieveAll(final SearchParameters searchParameters, final Long glAccountId,
             final Boolean onlyManualEntries, final LocalDate fromDate, final LocalDate toDate, final LocalDate submittedOnDateFrom,
             final LocalDate submittedOnDateTo, final String transactionId, final Integer entityType, final String referenceNumber,
-            final String dimensionFilter, final JournalEntryAssociationParametersData associationParametersData) {
+            final String auxiliarCode, final String headerConcept, final String headerDescription, final String dimensionFilter,
+            final JournalEntryAssociationParametersData associationParametersData) {
         GLJournalEntryMapper rm = getGlJournalEntryMapper(associationParametersData);
         final StringBuilder sqlBuilder = new StringBuilder(200);
         sqlBuilder.append("select ").append(sqlGenerator.calcFoundRows()).append(" ");
         sqlBuilder.append(rm.schema());
 
-        final Object[] objectArray = new Object[16];
+        final Object[] objectArray = new Object[19];
         int arrayPos = 0;
         String whereClose = " where ";
 
@@ -263,6 +278,24 @@ public class JournalEntryReadPlatformServiceImpl implements JournalEntryReadPlat
             objectArray[arrayPos] = referenceNumber;
             arrayPos = arrayPos + 1;
 
+            whereClose = " and ";
+        }
+
+        if (StringUtils.isNotBlank(auxiliarCode)) {
+            sqlBuilder.append(whereClose).append(" voucher.auxiliar_code = ?");
+            objectArray[arrayPos++] = auxiliarCode.trim();
+            whereClose = " and ";
+        }
+
+        if (StringUtils.isNotBlank(headerConcept)) {
+            sqlBuilder.append(whereClose).append(" POSITION(LOWER(?) IN LOWER(COALESCE(journalEntry.header_concept, voucher.header_concept))) > 0");
+            objectArray[arrayPos++] = headerConcept.trim();
+            whereClose = " and ";
+        }
+
+        if (StringUtils.isNotBlank(headerDescription)) {
+            sqlBuilder.append(whereClose).append(" POSITION(LOWER(?) IN LOWER(journalEntry.header_description)) > 0");
+            objectArray[arrayPos++] = headerDescription.trim();
             whereClose = " and ";
         }
 
@@ -540,7 +573,7 @@ public class JournalEntryReadPlatformServiceImpl implements JournalEntryReadPlat
                 .orderBy("journalEntry.id").sortOrder("ASC").currencyCode(currencyCode).build();
 
         return retrieveAll(searchParameters, contraId, onlyManualEntries, fromDate, toDate, submittedOnDateFrom, submittedOnDateTo,
-                transactionId, entityType, null, null, associationParametersData);
+                transactionId, entityType, null, null, null, null, null, associationParametersData);
 
     }
 

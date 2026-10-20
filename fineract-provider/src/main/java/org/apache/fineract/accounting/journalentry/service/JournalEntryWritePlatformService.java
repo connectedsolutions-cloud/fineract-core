@@ -38,6 +38,12 @@ public interface JournalEntryWritePlatformService {
 
     void createJournalEntriesForLoan(AccountingBridgeDataDTO accountingBridgeData);
 
+    void prepareSourceExactLoanPortfolioAccount(Long loanId);
+
+    void clearSourceExactLoanPortfolioAccount(Long loanId);
+
+    void alignSourceExactLoanExpectedMaturity(Long loanId, LocalDate expectedMaturityDate);
+
     void createJournalEntriesForSavings(Map<String, Object> accountingBridgeData);
 
     void createJournalEntriesForClientTransactions(Map<String, Object> accountingBridgeData);

@@ -260,10 +260,10 @@ public class ShareProductReadPlatformServiceImpl implements ShareProductReadPlat
             final Integer accountingRuleId = JdbcSupport.getInteger(rs, "accountingType");
             final EnumOptionData accountingRuleType = AccountingEnumerations.accountingRuleType(accountingRuleId);
 
-            final ShareProductData productData = ShareProductData.data(id, name, shortName, description, externalId, currency, totalShares, issuedShares, unitPrice,
-                    capitalAmount, minimumClientShares, nominalClientShares, maximumClientShares, shareMarketCollection, charges,
-                    allowDividendsForInactiveClients, lockinPeriodFrequency, lockinPeriodFrequencyType, minimumActivePeriod,
-                    minimumActivePeriodType, accountingRuleType);
+            final ShareProductData productData = ShareProductData.data(id, name, shortName, description, externalId, currency, totalShares,
+                    issuedShares, unitPrice, capitalAmount, minimumClientShares, nominalClientShares, maximumClientShares,
+                    shareMarketCollection, charges, allowDividendsForInactiveClients, lockinPeriodFrequency, lockinPeriodFrequencyType,
+                    minimumActivePeriod, minimumActivePeriodType, accountingRuleType);
             productData.setNumberingCode(rs.getString("numbering_code"));
             return productData;
         }

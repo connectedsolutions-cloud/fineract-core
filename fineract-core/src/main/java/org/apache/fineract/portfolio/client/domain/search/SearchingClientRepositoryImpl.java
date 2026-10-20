@@ -103,12 +103,12 @@ public class SearchingClientRepositoryImpl implements SearchingClientRepository 
                 predicates.add(existsStaffAssignment(q, builder, r, "promoterStaffId", searchCriteria.getPromoterStaffId()));
             }
             if (searchCriteria.getAccountExecutiveStaffId() != null && q != null) {
-                predicates.add(existsStaffAssignment(q, builder, r, "accountExecutiveStaffId",
-                        searchCriteria.getAccountExecutiveStaffId()));
+                predicates
+                        .add(existsStaffAssignment(q, builder, r, "accountExecutiveStaffId", searchCriteria.getAccountExecutiveStaffId()));
             }
             if (searchCriteria.getCollectionsManagerStaffId() != null && q != null) {
-                predicates.add(existsStaffAssignment(q, builder, r, "collectionsManagerStaffId",
-                        searchCriteria.getCollectionsManagerStaffId()));
+                predicates.add(
+                        existsStaffAssignment(q, builder, r, "collectionsManagerStaffId", searchCriteria.getCollectionsManagerStaffId()));
             }
 
             return builder.and(predicates.toArray(new Predicate[0]));

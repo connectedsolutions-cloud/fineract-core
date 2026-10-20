@@ -22,6 +22,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class SavingsBeneficiaryRequest {
+
     private Long id;
     private Long linkedClientId;
     private String externalId;

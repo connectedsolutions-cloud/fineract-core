@@ -67,7 +67,7 @@ public class DelinquencyRangeParseAndValidator extends ParseAndValidator {
         final Integer maximumAge = jsonHelper.extractIntegerNamed(DelinquencyApiConstants.MAXIMUMAGEDAYS_PARAM_NAME, element, locale);
         dataValidator.reset().parameter(DelinquencyApiConstants.CLASSIFICATION_PARAM_NAME).value(classification).notBlank();
         dataValidator.reset().parameter(DelinquencyApiConstants.MINIMUMAGEDAYS_PARAM_NAME).value(minimumAge).notBlank()
-                .integerGreaterThanNumber(0);
+                .integerEqualToOrGreaterThanNumber(0);
         dataValidator.reset().parameter(DelinquencyApiConstants.MAXIMUMAGEDAYS_PARAM_NAME).value(maximumAge).ignoreIfNull()
                 .integerGreaterThanNumber(0);
 

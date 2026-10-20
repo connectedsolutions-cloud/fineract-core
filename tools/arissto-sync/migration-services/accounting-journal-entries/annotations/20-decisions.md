@@ -19,14 +19,15 @@
 - `config/accounting.json` intentionally keeps `cutoff.date` unset so the
   plan-level explicit value or `sync_run_date` default owns resolution. The
   permanent production cutoff is approved during G12 release approval.
-- Journal status eligibility is fail-closed: only populated, balanced
-  `ESTADO_PARTIDA='3'` journals are import candidates. Status `1` uses
-  `SOURCE_JOURNAL_NOT_MAYORIZED`, status `2` uses
-  `SOURCE_JOURNAL_EXCLUDED_FROM_LEDGER`, and unexpected, empty, or unbalanced
-  journals retain distinct stable quarantine reasons.
-- The status-`2` decision is based on ledger effect rather than balance: both
-  current status-`2` journals balance, but all 22 affected account/branch daily
-  ledger groups equal status-`3` totals and exclude status `2` exactly.
+- The current journal import policy accepts every populated, balanced, mapped
+  pre-cutoff journal regardless of `ESTADO_PARTIDA`. Source status remains in
+  provenance. Empty, unbalanced, and otherwise invalid journals retain stable
+  quarantine reasons. The earlier status-`3`-only decision was superseded by
+  the status-independent carry-forward contract.
+- Source-ledger parity remains a separate status-`3` control: the historical
+  status-`2` investigation found that all 22 affected account/branch daily
+  ledger groups excluded those journals exactly. Direct source-to-target
+  reconciliation covers imported non-`3` entries.
 - The reporting requirement is ledger reproduction, not reconstruction of
   loan/savings reversal lifecycles. Those migrations create no historical GL;
   the accounting service owns all eligible pre-cutoff journal effects.
@@ -86,6 +87,10 @@
   provenance stores `CNT_DETALLE_PARTIDAS.CONCEPTO` as `source_line_concept`
   and `CONCEPTO_AUX` as `source_line_aux_concept`. All use `TEXT` and retain
   decoded Unicode verbatim rather than being concatenated or truncated.
+- Native `acc_gl_journal_entry.header_concept` and `header_description` also
+  carry the full header values on every posting. UI and report narration read
+  these native fields; provenance is still retained for sync identity and
+  reconciliation.
 - Each raw legacy text column has its own SHA-256 and preserves null, empty and
   whitespace as distinct values. The native journal `description` is a display
   projection only, with deterministic line/header fallback, NFC and whitespace

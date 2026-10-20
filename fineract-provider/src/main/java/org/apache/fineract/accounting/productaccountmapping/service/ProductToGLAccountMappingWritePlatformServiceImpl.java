@@ -62,6 +62,9 @@ public class ProductToGLAccountMappingWritePlatformServiceImpl implements Produc
         final JsonElement element = this.fromApiJsonHelper.parse(command.json());
         final Integer accountingRuleTypeId = this.fromApiJsonHelper.extractIntegerNamed("accountingRule", element, Locale.getDefault());
         final AccountingRuleType accountingRuleType = AccountingRuleType.fromInt(accountingRuleTypeId);
+        if (accountingRuleType != AccountingRuleType.NONE) {
+            this.loanProductToGLAccountMappingHelper.validateDistinctPortfolioAccounts(element, null);
+        }
         boolean merchantBuyDownFee = true;
         if (fromApiJsonHelper.parameterExists(LoanProductConstants.MERCHANT_BUY_DOWN_FEE_PARAM_NAME, element)) {
             final Boolean merchantBuyDownFeeParamValue = fromApiJsonHelper
@@ -82,6 +85,9 @@ public class ProductToGLAccountMappingWritePlatformServiceImpl implements Produc
                 this.loanProductToGLAccountMappingHelper.saveLoanToAssetAccountMapping(element,
                         LoanProductAccountingParams.LOAN_PORTFOLIO.getValue(), loanProductId,
                         CashAccountsForLoan.LOAN_PORTFOLIO.getValue());
+                this.loanProductToGLAccountMappingHelper.saveLoanToAssetAccountMapping(element,
+                        LoanProductAccountingParams.LONG_TERM_LOAN_PORTFOLIO.getValue(), loanProductId,
+                        CashAccountsForLoan.LONG_TERM_LOAN_PORTFOLIO.getValue());
                 this.loanProductToGLAccountMappingHelper.saveLoanToAssetAccountMapping(element,
                         LoanProductAccountingParams.TRANSFERS_SUSPENSE.getValue(), loanProductId,
                         CashAccountsForLoan.TRANSFERS_SUSPENSE.getValue());
@@ -157,6 +163,12 @@ public class ProductToGLAccountMappingWritePlatformServiceImpl implements Produc
                 this.loanProductToGLAccountMappingHelper.saveLoanToAssetAccountMapping(element,
                         LoanProductAccountingParams.LOAN_PORTFOLIO.getValue(), loanProductId,
                         AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue());
+                this.loanProductToGLAccountMappingHelper.saveLoanToAssetAccountMapping(element,
+                        LoanProductAccountingParams.LONG_TERM_LOAN_PORTFOLIO.getValue(), loanProductId,
+                        AccrualAccountsForLoan.LONG_TERM_LOAN_PORTFOLIO.getValue());
+                this.loanProductToGLAccountMappingHelper.saveLoanToAssetAccountMapping(element,
+                        LoanProductAccountingParams.LONG_TERM_INTEREST_RECEIVABLE.getValue(), loanProductId,
+                        AccrualAccountsForLoan.LONG_TERM_INTEREST_RECEIVABLE.getValue());
                 this.loanProductToGLAccountMappingHelper.saveLoanToAssetAccountMapping(element,
                         LoanProductAccountingParams.TRANSFERS_SUSPENSE.getValue(), loanProductId,
                         AccrualAccountsForLoan.TRANSFERS_SUSPENSE.getValue());

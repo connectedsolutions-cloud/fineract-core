@@ -217,7 +217,8 @@ public class LoanAdjustmentServiceImpl implements LoanAdjustmentService {
         loanTransactionValidator.validateRepaymentDateIsOnNonWorkingDay(newTransactionDetail.getTransactionDate(),
                 holidayDetailDTO.getWorkingDays(), holidayDetailDTO.isAllowTransactionsOnNonWorkingDay());
 
-        adjustExistingTransaction(loan, newTransactionDetail, transactionToAdjust, scheduleGeneratorDTO, reversalTxnExternalId);
+        adjustExistingTransaction(loan, newTransactionDetail, transactionToAdjust, scheduleGeneratorDTO, reversalTxnExternalId,
+                parameter.getReversalEffectiveDate());
 
         loanAccrualsProcessingService.reprocessExistingAccruals(loan, true);
         if (loan.isInterestBearingAndInterestRecalculationEnabled()) {
@@ -297,7 +298,7 @@ public class LoanAdjustmentServiceImpl implements LoanAdjustmentService {
 
     public void adjustExistingTransaction(final Loan loan, final LoanTransaction newTransactionDetail,
             final LoanTransaction transactionForAdjustment, final ScheduleGeneratorDTO scheduleGeneratorDTO,
-            final ExternalId reversalExternalId) {
+            final ExternalId reversalExternalId, final LocalDate reversalEffectiveDate) {
         loanTransactionValidator.validateActivityNotBeforeClientOrGroupTransferDate(loan, LoanEvent.LOAN_REPAYMENT_OR_WAIVER,
                 transactionForAdjustment.getTransactionDate());
 
@@ -313,7 +314,11 @@ public class LoanAdjustmentServiceImpl implements LoanAdjustmentService {
 
         loanChargeValidator.validateRepaymentTypeTransactionNotBeforeAChargeRefund(transactionForAdjustment.getLoan(),
                 transactionForAdjustment, "reversed");
-        transactionForAdjustment.reverse(reversalExternalId);
+        if (reversalEffectiveDate == null) {
+            transactionForAdjustment.reverse(reversalExternalId);
+        } else {
+            transactionForAdjustment.reverse(reversalExternalId, reversalEffectiveDate);
+        }
         transactionForAdjustment.manuallyAdjustedOrReversed();
 
         if (transactionForAdjustment.getTypeOf().equals(LoanTransactionType.MERCHANT_ISSUED_REFUND)

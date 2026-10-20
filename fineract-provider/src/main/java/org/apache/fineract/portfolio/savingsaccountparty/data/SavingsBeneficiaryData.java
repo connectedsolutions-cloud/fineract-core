@@ -21,6 +21,7 @@ import org.apache.fineract.portfolio.savingsaccountparty.domain.SavingsBeneficia
 @Getter
 @RequiredArgsConstructor
 public class SavingsBeneficiaryData {
+
     private final Long id;
     private final Long savingsAccountId;
     private final Long linkedClientId;
@@ -40,7 +41,7 @@ public class SavingsBeneficiaryData {
         return new SavingsBeneficiaryData(beneficiary.getId(), beneficiary.getSavingsAccount().getId(),
                 beneficiary.getLinkedClient() == null ? null : beneficiary.getLinkedClient().getId(), beneficiary.getExternalId(),
                 beneficiary.getGivenName(), beneficiary.getSurname(), beneficiary.getAllocationPercentage(), beneficiary.getDateOfBirth(),
-                beneficiary.getSourceAge(), beneficiary.getDui(), beneficiary.getRelationship(), beneficiary.getAddress(), beneficiary.getPhone(),
-                beneficiary.getCommunicateDesignation());
+                beneficiary.getSourceAge(), beneficiary.getDui(), beneficiary.getRelationship(), beneficiary.getAddress(),
+                beneficiary.getPhone(), beneficiary.getCommunicateDesignation());
     }
 }

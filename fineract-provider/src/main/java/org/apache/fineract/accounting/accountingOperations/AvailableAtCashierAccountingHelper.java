@@ -28,9 +28,11 @@ import org.apache.fineract.accounting.common.AccountingConstants.FinancialActivi
 import org.apache.fineract.accounting.cutoff.AccountingCutoffPolicyService;
 import org.apache.fineract.accounting.financialactivityaccount.domain.FinancialActivityAccountRepositoryWrapper;
 import org.apache.fineract.accounting.glaccount.domain.GLAccount;
+import org.apache.fineract.accounting.journalentry.domain.GlVoucher;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntry;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntryType;
 import org.apache.fineract.accounting.journalentry.service.AccountingProcessorHelper;
+import org.apache.fineract.accounting.journalentry.service.GlVoucherWriteService;
 import org.apache.fineract.organisation.office.domain.Office;
 import org.apache.fineract.portfolio.PortfolioProductType;
 import org.apache.fineract.portfolio.comite.domain.SesionComite;
@@ -55,6 +57,7 @@ public class AvailableAtCashierAccountingHelper {
     private final AccountingProcessorHelper accountingProcessorHelper;
     private final FinancialActivityAccountRepositoryWrapper financialActivityAccountRepository;
     private final AccountingCutoffPolicyService cutoffPolicyService;
+    private final GlVoucherWriteService glVoucherWriteService;
 
     /**
      * Returns the sum of {@link Loan#getNetDisbursalAmount()} for all loans in the list (nulls treated as zero).
@@ -90,11 +93,13 @@ public class AvailableAtCashierAccountingHelper {
             return;
         }
         String txnId = COMTE_TXN_PREFIX + session.getId() + "-vaultReceptionFromBank";
+        GlVoucher voucher = glVoucherWriteService.createNative("COMITE_VAULT_RECEPTION", "Recepción de fondos en bóveda para comité",
+                "COMITE_SESSION", String.valueOf(session.getId()));
 
         persistSessionLevelEntry(ctx.office(), ctx.currencyCode(), ctx.fundSourceAccount(), txnId, businessDate, JournalEntryType.CREDIT,
-                ctx.total(), ctx.firstLoanId());
+                ctx.total(), ctx.firstLoanId(), voucher);
         persistSessionLevelEntry(ctx.office(), ctx.currencyCode(), ctx.vaultAccount(), txnId, businessDate, JournalEntryType.DEBIT,
-                ctx.total(), ctx.firstLoanId());
+                ctx.total(), ctx.firstLoanId(), voucher);
 
         log.debug("AvailableAtCashier vaultReceptionFromBank: created entries for session {} total={}", session.getId(), ctx.total());
     }
@@ -112,11 +117,13 @@ public class AvailableAtCashierAccountingHelper {
             return;
         }
         String txnId = COMTE_TXN_PREFIX + session.getId() + "-cashierCashReception";
+        GlVoucher voucher = glVoucherWriteService.createNative("COMITE_CASHIER_RECEPTION", "Recepción de efectivo en caja para comité",
+                "COMITE_SESSION", String.valueOf(session.getId()));
 
         persistSessionLevelEntry(ctx.office(), ctx.currencyCode(), ctx.vaultAccount(), txnId, businessDate, JournalEntryType.CREDIT,
-                ctx.total(), ctx.firstLoanId());
+                ctx.total(), ctx.firstLoanId(), voucher);
         persistSessionLevelEntry(ctx.office(), ctx.currencyCode(), ctx.cashAtTellerAccount(), txnId, businessDate, JournalEntryType.DEBIT,
-                ctx.total(), ctx.firstLoanId());
+                ctx.total(), ctx.firstLoanId(), voucher);
 
         log.debug("AvailableAtCashier cashierCashReception: created entries for session {} total={}", session.getId(), ctx.total());
     }
@@ -134,14 +141,16 @@ public class AvailableAtCashierAccountingHelper {
             return;
         }
         String txnId = COMTE_TXN_PREFIX + session.getId() + "-disbursementPayableClearing";
+        GlVoucher voucher = glVoucherWriteService.createNative("COMITE_DISBURSEMENT_CLEARING", "Liquidación de desembolsos de comité",
+                "COMITE_SESSION", String.valueOf(session.getId()));
 
         persistSessionLevelEntry(ctx.office(), ctx.currencyCode(), ctx.cashAtTellerAccount(), txnId, businessDate, JournalEntryType.CREDIT,
-                ctx.total(), ctx.firstLoanId());
+                ctx.total(), ctx.firstLoanId(), voucher);
         for (Loan loan : processedLoans) {
             BigDecimal amount = loan.getNetDisbursalAmount();
             if (amount != null && amount.compareTo(BigDecimal.ZERO) > 0) {
                 persistLoanLevelDebitEntry(ctx.office(), ctx.currencyCode(), ctx.disbursementsPayableAccount(), txnId, businessDate, amount,
-                        loan.getId(), loan.getDimensions());
+                        loan.getId(), loan.getDimensions(), voucher);
             }
         }
 
@@ -190,17 +199,19 @@ public class AvailableAtCashierAccountingHelper {
     }
 
     private void persistSessionLevelEntry(Office office, String currencyCode, GLAccount account, String transactionId,
-            LocalDate transactionDate, JournalEntryType type, BigDecimal amount, Long entityLoanId) {
+            LocalDate transactionDate, JournalEntryType type, BigDecimal amount, Long entityLoanId, GlVoucher voucher) {
         JournalEntry entry = JournalEntry.createNew(office, null, account, currencyCode, transactionId, false, transactionDate, type,
                 amount, null, PortfolioProductType.LOAN.getValue(), entityLoanId, null, null, null, null, null, null);
+        entry.setVoucher(voucher);
         accountingProcessorHelper.persistJournalEntry(entry);
     }
 
     private void persistLoanLevelDebitEntry(Office office, String currencyCode, GLAccount account, String transactionId,
-            LocalDate transactionDate, BigDecimal amount, Long loanId, String dimensions) {
+            LocalDate transactionDate, BigDecimal amount, Long loanId, String dimensions, GlVoucher voucher) {
         JournalEntry entry = JournalEntry.createNew(office, null, account, currencyCode, transactionId, false, transactionDate,
                 JournalEntryType.DEBIT, amount, null, PortfolioProductType.LOAN.getValue(), loanId, null, null, null, null, null,
                 dimensions);
+        entry.setVoucher(voucher);
         accountingProcessorHelper.persistJournalEntry(entry);
     }
 }

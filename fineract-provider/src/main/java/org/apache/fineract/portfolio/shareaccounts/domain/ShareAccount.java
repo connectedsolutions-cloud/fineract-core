@@ -413,6 +413,12 @@ public class ShareAccount extends AbstractPersistableCustom<Long> {
         this.status = ShareAccountStatusType.ACTIVE.getValue();
     }
 
+    public void undoActivation() {
+        this.status = ShareAccountStatusType.APPROVED.getValue();
+        this.activatedDate = null;
+        this.activatedBy = null;
+    }
+
     public void undoApprove() {
         this.status = ShareAccountStatusType.SUBMITTED_AND_PENDING_APPROVAL.getValue();
         this.approvedDate = null;

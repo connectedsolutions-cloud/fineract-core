@@ -10,15 +10,17 @@
     "client-family-references",
     "client-personal-family-references",
     "membership-share-capital",
+    "loans",
+    "delinquency-history",
     "savings-deposits",
     "savings-account-parties",
     "native-share-capital",
     "aml-alerts",
-    "loans",
     "dte-history",
     "mobile-collections",
     "accounting-journal-entries",
-    "native-share-yield"
+    "native-share-yield",
+    "cheque-history"
   ],
   "ordering": "registry-topological",
   "scope": {

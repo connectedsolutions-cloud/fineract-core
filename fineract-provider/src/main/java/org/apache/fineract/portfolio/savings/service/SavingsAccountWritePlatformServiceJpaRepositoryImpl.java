@@ -245,8 +245,7 @@ public class SavingsAccountWritePlatformServiceJpaRepositoryImpl implements Savi
         if (startDate != null) {
             validator.reset().parameter(parameter).value(startDate).validateDateAfterOrEqual(account.getActivationDate());
             validator.reset().parameter(parameter).value(startDate).validateDateBeforeOrEqual(DateUtils.getBusinessLocalDate());
-            validator.reset().parameter(parameter).value(startDate)
-                    .validateDateAfterOrEqual(account.getStartInterestCalculationDate());
+            validator.reset().parameter(parameter).value(startDate).validateDateAfterOrEqual(account.getStartInterestCalculationDate());
         }
         if (!dataValidationErrors.isEmpty()) {
             throw new PlatformApiDataValidationException(dataValidationErrors);
@@ -254,8 +253,8 @@ public class SavingsAccountWritePlatformServiceJpaRepositoryImpl implements Savi
 
         account.setStartInterestCalculationDate(startDate);
         this.savingAccountRepositoryWrapper.saveAndFlush(account);
-        return new CommandProcessingResultBuilder().withEntityId(savingsId).withSavingsId(savingsId)
-                .with(Map.of(parameter, startDate)).build();
+        return new CommandProcessingResultBuilder().withEntityId(savingsId).withSavingsId(savingsId).with(Map.of(parameter, startDate))
+                .build();
     }
 
     @Override
@@ -888,8 +887,8 @@ public class SavingsAccountWritePlatformServiceJpaRepositoryImpl implements Savi
         if (!sourceAuthoritativeCleanup) {
             if (savingsAccountTransaction.isPostInterestCalculationRequired()
                     && account.isBeforeLastPostingPeriod(savingsAccountTransaction.getTransactionDate(), false)) {
-                account.postInterest(mc, today, isInterestTransfer, isSavingsInterestPostingAtCurrentPeriodEnd,
-                        financialYearBeginningMonth, postInterestOnDate, false, postReversals);
+                account.postInterest(mc, today, isInterestTransfer, isSavingsInterestPostingAtCurrentPeriodEnd, financialYearBeginningMonth,
+                        postInterestOnDate, false, postReversals);
             } else {
                 account.calculateInterestUsing(mc, today, isInterestTransfer, isSavingsInterestPostingAtCurrentPeriodEnd,
                         financialYearBeginningMonth, postInterestOnDate, false, postReversals);

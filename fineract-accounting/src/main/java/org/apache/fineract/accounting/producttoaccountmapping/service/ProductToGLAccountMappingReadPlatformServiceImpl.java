@@ -84,6 +84,8 @@ public class ProductToGLAccountMappingReadPlatformServiceImpl implements Product
                     accountMappingDetails.put(LoanProductAccountingDataParams.INTEREST_ON_LOANS.getValue(), gLAccountData);
                 } else if (glAccountForLoan.equals(CashAccountsForLoan.LOAN_PORTFOLIO)) {
                     accountMappingDetails.put(LoanProductAccountingDataParams.LOAN_PORTFOLIO.getValue(), gLAccountData);
+                } else if (glAccountForLoan.equals(CashAccountsForLoan.LONG_TERM_LOAN_PORTFOLIO)) {
+                    accountMappingDetails.put(LoanProductAccountingDataParams.LONG_TERM_LOAN_PORTFOLIO.getValue(), gLAccountData);
                 } else if (glAccountForLoan.equals(CashAccountsForLoan.TRANSFERS_SUSPENSE)) {
                     accountMappingDetails.put(LoanProductAccountingDataParams.TRANSFERS_SUSPENSE.getValue(), gLAccountData);
                 } else if (glAccountForLoan.equals(CashAccountsForLoan.LOSSES_WRITTEN_OFF)) {
@@ -134,6 +136,10 @@ public class ProductToGLAccountMappingReadPlatformServiceImpl implements Product
                     accountMappingDetails.put(LoanProductAccountingDataParams.INTEREST_ON_LOANS.getValue(), gLAccountData);
                 } else if (glAccountForLoan.equals(AccrualAccountsForLoan.LOAN_PORTFOLIO)) {
                     accountMappingDetails.put(LoanProductAccountingDataParams.LOAN_PORTFOLIO.getValue(), gLAccountData);
+                } else if (glAccountForLoan.equals(AccrualAccountsForLoan.LONG_TERM_LOAN_PORTFOLIO)) {
+                    accountMappingDetails.put(LoanProductAccountingDataParams.LONG_TERM_LOAN_PORTFOLIO.getValue(), gLAccountData);
+                } else if (glAccountForLoan.equals(AccrualAccountsForLoan.LONG_TERM_INTEREST_RECEIVABLE)) {
+                    accountMappingDetails.put(LoanProductAccountingDataParams.LONG_TERM_INTEREST_RECEIVABLE.getValue(), gLAccountData);
                 } else if (glAccountForLoan.equals(AccrualAccountsForLoan.OVERPAYMENT)) {
                     accountMappingDetails.put(LoanProductAccountingDataParams.OVERPAYMENT.getValue(), gLAccountData);
                 } else if (glAccountForLoan.equals(AccrualAccountsForLoan.TRANSFERS_SUSPENSE)) {

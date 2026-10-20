@@ -29,6 +29,7 @@ import org.apache.fineract.accounting.glaccount.domain.GLAccount;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntry;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntryType;
 import org.apache.fineract.accounting.journalentry.service.AccountingProcessorHelper;
+import org.apache.fineract.accounting.journalentry.service.GlVoucherWriteService;
 import org.apache.fineract.organisation.office.domain.Office;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +49,7 @@ public class TellerVaultTransferAccountingHelper {
     private final FinancialActivityAccountRepositoryWrapper financialActivityAccountRepository;
     private final AccountingProcessorHelper accountingProcessorHelper;
     private final AccountingCutoffPolicyService cutoffPolicyService;
+    private final GlVoucherWriteService glVoucherWriteService;
 
     /**
      * Posts the vault transfer: Debit main vault, Credit cash-at-teller. Uses the same account logic as SETTLE in
@@ -91,6 +93,11 @@ public class TellerVaultTransferAccountingHelper {
         JournalEntry creditEntry = JournalEntry.createNew(office, null, cashAtTellerAccount, currencyCode, transactionId, false,
                 transactionDate, JournalEntryType.CREDIT, amount, description, null, null, null, null, null, null, null, null);
 
+        var voucher = glVoucherWriteService.createNative("TELLER_TO_VAULT", "Transferencia de caja a bóveda", "TELLER_VAULT_TRANSFER",
+                transactionId);
+        debitEntry.setVoucher(voucher);
+        creditEntry.setVoucher(voucher);
+
         accountingProcessorHelper.persistJournalEntry(debitEntry);
         accountingProcessorHelper.persistJournalEntry(creditEntry);
 
@@ -125,6 +132,11 @@ public class TellerVaultTransferAccountingHelper {
                 transactionDate, JournalEntryType.DEBIT, amount, description, null, null, null, null, null, null, null, null);
         JournalEntry creditEntry = JournalEntry.createNew(office, null, mainVaultAccount, currencyCode, transactionId, false,
                 transactionDate, JournalEntryType.CREDIT, amount, description, null, null, null, null, null, null, null, null);
+
+        var voucher = glVoucherWriteService.createNative("VAULT_TO_TELLER", "Transferencia de bóveda a caja", "TELLER_VAULT_TRANSFER",
+                transactionId);
+        debitEntry.setVoucher(voucher);
+        creditEntry.setVoucher(voucher);
 
         accountingProcessorHelper.persistJournalEntry(debitEntry);
         accountingProcessorHelper.persistJournalEntry(creditEntry);

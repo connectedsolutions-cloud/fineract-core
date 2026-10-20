@@ -9,6 +9,12 @@
 - Source table: `dbo.AFI_SOCIO`
 - Target writer: Fineract API only
 
+Current borrower office is corrected separately through the guarded
+`client-current-office` CLI step after client and loan import. It selects the
+latest dated originated loan and updates only the current `m_client.office_id`.
+This step has the single-column SQL exception documented in
+[`contract.md`](contract.md#current-borrower-office-from-the-latest-loan).
+
 The service supports the reviewed natural-person identity and KYC/profile
 contract: core client fields, typed identifiers, and seven non-PEP Credesal
 client datatables. Home and work addresses remain plain text in those datatables.

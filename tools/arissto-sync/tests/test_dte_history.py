@@ -21,6 +21,7 @@ from arissto_sync.sql_writer import SqlWritePolicy
 ROOT = Path(__file__).resolve().parents[3]
 CONFIG = ROOT / "tools/arissto-sync/config/dte_history.json"
 MIGRATION = ROOT / "fineract-provider/src/main/resources/db/changelog/tenant/parts/0335_add_arissto_dte_history_metadata.xml"
+UNLINKED_MIGRATION = MIGRATION.parent / "0385_historical_dte_without_target_transaction.xml"
 CHANGELOG = MIGRATION.parent.parent / "changelog-tenant.xml"
 NS = {"db": "http://www.liquibase.org/xml/ns/dbchangelog"}
 
@@ -341,7 +342,10 @@ class DteHistoryTests(unittest.TestCase):
 
     def test_source_hash_keeps_create_only_contract_compatibility(self):
         contract = DteHistoryContract.load(CONFIG)
-        old_raw = {**contract.raw, "write_policy": {
+        old_raw = {**contract.raw, "version": 1,
+                   "scope": {key: value for key, value in contract.raw["scope"].items()
+                             if key != "allow_missing_target_loan_transaction"},
+                   "write_policy": {
             "historical_invoice_tables": "controlled-parameterized-sql-create-only",
             "mh_submission": "forbidden", "native_financial_tables": "forbidden",
             "update": "forbidden", "delete": "forbidden",
@@ -358,7 +362,7 @@ class DteHistoryTests(unittest.TestCase):
         self.assertEqual(lifecycle_status({"dte_state": 3, "authority_error": "rejected"}), "REJECTED")
         self.assertIsNone(lifecycle_status({"dte_state": 2, "authority_error": "warning"}))
 
-    def test_payload_requires_exact_client_and_loan_transaction(self):
+    def test_payload_preserves_dte_when_target_loan_transaction_is_absent(self):
         contract = DteHistoryContract.load(CONFIG)
         row = {
             "generation_code": "550e8400-e29b-31d4-a716-446655440000",
@@ -371,10 +375,17 @@ class DteHistoryTests(unittest.TestCase):
             "lines": [{"item_number": 1, "item_type": 2, "quantity": 1,
                        "description": "Interest", "unit_price": 10}],
         }
-        catalog = {"clients": {"123": 5}, "transactions": {}, "issuer": {"nombre": "Issuer"}}
+        catalog = {"clients": {"123": 5}, "offices": {"1": 3},
+                   "transactions": {}, "issuer": {"nombre": "Issuer"}}
         payload, issue = _payload(row, contract, catalog)
-        self.assertIsNone(payload)
-        self.assertEqual(issue, "missing_target_loan_transaction")
+        self.assertIsNone(issue)
+        self.assertIsNone(payload["invoice"]["loan_transaction_id"])
+        self.assertEqual(payload["invoice"]["historical_client_id"], 5)
+        self.assertEqual(payload["invoice"]["historical_office_id"], 3)
+        self.assertEqual(payload["invoice"]["source_loan_movement_external_id"], "ARISSTO:CRD-MOV:9")
+        catalog["offices"].clear()
+        self.assertEqual(_payload(row, contract, catalog)[1], "missing_target_office")
+        catalog["offices"]["1"] = 3
         catalog["transactions"]["ARISSTO:CRD-MOV:9"] = {"id": 7, "client_id": 6}
         self.assertEqual(_payload(row, contract, catalog)[1], "client_loan_mismatch")
         catalog["transactions"]["ARISSTO:CRD-MOV:9"]["client_id"] = 5
@@ -414,6 +425,18 @@ class DteHistoryTests(unittest.TestCase):
         self.assertEqual(root.findall(".//db:addForeignKeyConstraint", NS), [])
         self.assertEqual(root.findall(".//db:insert", NS), [])
         self.assertEqual(root.findall(".//db:sql", NS), [])
+
+    def test_unlinked_history_migration_adds_owner_and_report_fallback(self):
+        self.assertIn(UNLINKED_MIGRATION.name, CHANGELOG.read_text())
+        root = ET.parse(UNLINKED_MIGRATION).getroot()
+        added = root.find(".//db:addColumn", NS)
+        self.assertEqual(added.attrib["tableName"], "m_invoice")
+        self.assertEqual({column.attrib["name"] for column in added.findall("db:column", NS)}, {
+            "historical_client_id", "historical_office_id", "source_loan_movement_external_id",
+        })
+        sql = " ".join(node.text or "" for node in root.findall(".//db:sql", NS))
+        self.assertIn("i.historical_client_id", sql)
+        self.assertIn("i.historical_office_id", sql)
 
 
 if __name__ == "__main__":

@@ -503,6 +503,8 @@ public class ClientsApiResource {
             commandRequest = builder.proposeClientTransfer(clientId).build();
         } else if (CommandParameterUtil.is(commandParam, "proposeAndAcceptTransfer")) {
             commandRequest = builder.proposeAndAcceptClientTransfer(clientId).build();
+        } else if (CommandParameterUtil.is(commandParam, "sourceExactProposeAndAcceptTransfer")) {
+            commandRequest = builder.sourceExactProposeAndAcceptClientTransfer(clientId).build();
         } else if (CommandParameterUtil.is(commandParam, "withdrawTransfer")) {
             commandRequest = builder.withdrawClientTransferRequest(clientId).build();
         } else if (CommandParameterUtil.is(commandParam, "acceptTransfer")) {

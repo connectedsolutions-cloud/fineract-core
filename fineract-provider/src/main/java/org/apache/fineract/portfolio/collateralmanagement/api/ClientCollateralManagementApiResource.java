@@ -64,6 +64,7 @@ public class ClientCollateralManagementApiResource {
     private final PortfolioCommandSourceWritePlatformService commandsSourceWritePlatformService;
     private final PlatformSecurityContext context;
     private final ClientCollateralManagementReadPlatformService clientCollateralManagementReadPlatformService;
+    private final CollateralDetailApiResource collateralDetailApiResource;
 
     @GET
     @Produces({ MediaType.APPLICATION_JSON })
@@ -102,6 +103,12 @@ public class ClientCollateralManagementApiResource {
     public List<LoanCollateralTemplateData> getClientCollateralTemplate(
             @PathParam("clientId") @Parameter(description = "clientId") final Long clientId) {
         return this.clientCollateralManagementReadPlatformService.getLoanCollateralTemplate(clientId);
+    }
+
+    @Path("{clientCollateralId}")
+    @Operation(summary = "Client collateral asset, appraisal, and registration details")
+    public CollateralDetailApiResource collateralDetails() {
+        return this.collateralDetailApiResource;
     }
 
     @POST

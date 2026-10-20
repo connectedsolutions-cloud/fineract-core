@@ -22,6 +22,8 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenant;
+import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -48,6 +50,15 @@ public class AccountingCutoffPolicyServiceImpl implements AccountingCutoffPolicy
         }
         if (configuration.getLifecycleState() == AccountingCutoffLifecycleState.SEALED) {
             return AccountingCutoffDecision.REJECT;
+        }
+        // The disposable local sandbox is used to test historical native loan
+        // events. Keep Arissto migration and historical-GL decisions intact,
+        // but let native operations post there so a canary can expose its real
+        // loan and journal effects. Other tenants retain the cutoff guard.
+        FineractPlatformTenant tenant = ThreadLocalContextUtil.getTenant();
+        if (origin == AccountingPostingOrigin.NATIVE_OPERATION && tenant != null
+                && "sandbox".equals(tenant.getTenantIdentifier())) {
+            return AccountingCutoffDecision.POST;
         }
         return switch (origin) {
             case ARISSTO_OPERATIONAL_MIGRATION -> AccountingCutoffDecision.SUPPRESS_NATIVE_GL;

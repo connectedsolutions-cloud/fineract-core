@@ -35,7 +35,7 @@ Repeat `--source-key` to plan a reviewed list, or use a reviewed `--period`.
 Plans freeze independent hashes
 for source content, the COA and agency crosswalks, policy, source schema, target
 baseline, target fingerprint, and cutoff configuration. Every requested key is
-emitted as `APPLICABLE`, `QUARANTINED`, or `UNCHANGED`; none is silently
+emitted as `APPLICABLE`, `REFERENCE_ONLY`, `QUARANTINED`, or `UNCHANGED`; none is silently
 omitted.
 
 Re-run the accepted local Gate 10 matrix against its isolated sandbox state:
@@ -76,6 +76,13 @@ separate columns in each provenance line. The native description is only a
 deterministic display projection. Tenant migration `0336` implements the
 versioned provenance tables. G6 implements their atomic writer and a separately
 permissioned lossless provenance read endpoint.
+
+The sync request already sends source module code, header concept, and header
+description as distinct fields. Fineract migration `0402` adds its native
+voucher header and line link; migration `0403` attaches those headers to
+previously imported journals through exact provenance-to-target-line IDs.
+Neither path replays accounting amounts. The cross-stack delivery status is in
+[`journal_voucher_implementation.md`](../../../../../docs/journal_voucher_implementation.md).
 
 Historical agency attribution is also line-specific. For source company `001`,
 destination branch `001` maps to JSON string `dimensions.office="1"` and `002`
@@ -247,6 +254,17 @@ explicit-key or bounded-period runs, plus a posting-key closing comparison to
 the bounded full-company loader for sandbox acceptance; standalone operator
 runs continue to require explicit keys or periods.
 
+For an exact-key catch-up plan containing only journals in an open period,
+reconciliation checks each direct target journal, its balance, the accounting
+boundary, and ledger drift. It does not claim that the plan includes every
+journal in the latest fully closed period. Only a full-company plan requires
+the closed-period scope completeness check for the status-`3` subset represented
+in `CNT_MAYOR`; exact-key plans still require zero global ledger drift. The planner now
+imports valid journals without filtering `ESTADO_PARTIDA`; status remains in
+provenance. Status-`1` and status-`2` journals are checked directly against
+their source and Fineract lines, but are not counted as `CNT_MAYOR` entries.
+A header with no detail lines remains non-postable.
+
 The closing comparison detects accounts that are both parents and direct
 annual-liquidation posting targets. It accepts their `CNT_MAYOR` difference
 only when direct annual activity nets to zero and the parent balance is exactly
@@ -343,8 +361,9 @@ account indexes for the complete phase.
 4. Resolve any future unresolved-account journals. Back-period dates are now a
    non-blocking observation: the engine posts them on the final calendar day of
    `CNT_PERIODO.ANIO/MES` and retains the original `FECHA_PARTIDA` in provenance.
-   Empty and unbalanced journals still quarantine under the frozen
-   status/integrity policy.
+   Empty headers with a concept are preserved as `REFERENCE_ONLY` provenance,
+   with no GL effect. Unbalanced journals and empty headers without a concept
+   still quarantine under the frozen integrity policy.
 5. Prove that `ref_num` is queryable enough for operator lookup while the
    durable migration mapping remains the idempotency authority.
 6. Complete cutoff-guard coverage for loan accrual, loan-loss provisioning,

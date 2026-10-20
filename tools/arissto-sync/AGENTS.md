@@ -26,6 +26,9 @@ derived as `T = S + 1 calendar day` in `America/El_Salvador`.
   not be imported over Fineract-owned accounting.
 - A source read cannot include records committed afterward. To promise a whole
   calendar day, run after Arissto day close or use an approved source watermark.
+- Carry-forward rebuild is a repeatable local mode with a new operator-selected
+  `--source-through-date` on each run. Arissto COB closure is informational and
+  must not block its inspect, plan, or execution phases.
 
 Do not modify Arissto. Select exactly one explicit Fineract target, distinguish
 fresh/clean, resumed, and full re-sync modes, and surface the immutable plan for

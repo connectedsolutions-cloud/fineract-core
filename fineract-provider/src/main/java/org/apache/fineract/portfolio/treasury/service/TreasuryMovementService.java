@@ -297,8 +297,8 @@ public class TreasuryMovementService {
     private TreasuryMovement postVaultToBank(TreasuryMovementCommand command, Office office, LocalDate businessDate, LocalDate valueDate) {
         TreasuryBankAccount bank = prepareBank(command.bankAccountId());
         GLAccount vault = vaultAccount();
-        return postSingleBank(TYPE_VAULT_TO_BANK, bank, office, businessDate, valueDate, command.amount(), DIRECTION_DEBIT, vault,
-                command, null);
+        return postSingleBank(TYPE_VAULT_TO_BANK, bank, office, businessDate, valueDate, command.amount(), DIRECTION_DEBIT, vault, command,
+                null);
     }
 
     private TreasuryMovement postSingleBank(String type, TreasuryBankAccount bank, Office office, LocalDate businessDate,
@@ -462,8 +462,8 @@ public class TreasuryMovementService {
     }
 
     private void restoreLines(TreasuryMovement movement) {
-        List<TreasuryMovementLine> lines = movement.getLines().stream()
-                .sorted(Comparator.comparing(line -> line.getBankAccount().getId())).toList();
+        List<TreasuryMovementLine> lines = movement.getLines().stream().sorted(Comparator.comparing(line -> line.getBankAccount().getId()))
+                .toList();
         List<Long> bankIds = lines.stream().map(line -> line.getBankAccount().getId()).distinct().sorted().toList();
         for (Long bankId : bankIds) {
             lock(bankId);

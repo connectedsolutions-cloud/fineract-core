@@ -27,6 +27,18 @@ from .dte_history import (
     build_dte_history_plan, inspect_dte_history, prepare_dte_history_target,
     reconcile_dte_history,
 )
+from .cheque_history import (
+    BLOCK as CHEQUE_HISTORY_BLOCK, POLICY as CHEQUE_HISTORY_POLICY,
+    apply_plan as apply_cheque_history_plan, build_plan as build_cheque_history_plan,
+    inspect as inspect_cheque_history, reconcile as reconcile_cheque_history,
+)
+from .delinquency_history_import import (
+    BLOCK as DELINQUENCY_HISTORY_BLOCK, POLICY as DELINQUENCY_HISTORY_POLICY,
+    apply_plan as apply_delinquency_history_plan,
+    build_plan as build_delinquency_history_plan,
+    inspect as inspect_delinquency_history,
+    reconcile as reconcile_delinquency_history,
+)
 from .engine import apply_plan, build_plan, inspect_clients, reconcile
 from .family_references import (
     BLOCK as FAMILY_REFERENCES_BLOCK, FamilyReferenceContract,
@@ -107,7 +119,24 @@ class ServiceRuntime:
             ACCOUNTING_SERVICE: AccountingContract.load(ROOT / "config/accounting.json"),
         }
 
+    def _source_through_date(self) -> str:
+        through = self.state.accounting_cutoff.get("source_through_date")
+        if not through:
+            raise RuntimeError("Historical service workflow requires a frozen Arissto through date")
+        return str(through)
+
     def inspect(self, block: str) -> dict[str, Any]:
+        if block == CHEQUE_HISTORY_BLOCK:
+            report = inspect_cheque_history(self.settings, self._source_through_date())
+            report["ready"] = report["conflict_count"] == 0
+            report["contract_hash"] = CHEQUE_HISTORY_POLICY
+            report["schema_signature"] = "historical-cheque-0397"
+            return report
+        if block == DELINQUENCY_HISTORY_BLOCK:
+            report = inspect_delinquency_history(self.settings, self._source_through_date())
+            report["contract_hash"] = DELINQUENCY_HISTORY_POLICY
+            report["schema_signature"] = "native-delinquency-tags-0391"
+            return report
         contract = self.contracts[block]
         if block == ACCOUNTING_SERVICE:
             return inspect_accounting(
@@ -162,6 +191,14 @@ class ServiceRuntime:
         return {"performed": False}
 
     def plan(self, block: str) -> tuple[str, dict[str, Any]]:
+        if block == CHEQUE_HISTORY_BLOCK:
+            return build_cheque_history_plan(
+                self.settings, self.state, self._source_through_date()
+            )
+        if block == DELINQUENCY_HISTORY_BLOCK:
+            return build_delinquency_history_plan(
+                self.settings, self.state, self._source_through_date()
+            )
         contract = self.contracts[block]
         if block == ACCOUNTING_SERVICE:
             return build_accounting_plan(
@@ -178,6 +215,7 @@ class ServiceRuntime:
                 None,
                 self.state.accounting_cutoff["date"],
                 skip_unchanged=self.run_mode == "full-resync",
+                retain_seeded=self.run_mode == "carry-forward",
             )
         if block == MOBILE_COLLECTION_BLOCK:
             return build_mobile_collection_plan(self.settings, self.state, contract, None)
@@ -213,6 +251,14 @@ class ServiceRuntime:
     def apply(
         self, block: str, plan_id: str, production_confirmation: str | None = None
     ) -> tuple[str, dict[str, Any]]:
+        if block == CHEQUE_HISTORY_BLOCK:
+            return apply_cheque_history_plan(
+                self.settings, self.state, plan_id, production_confirmation
+            )
+        if block == DELINQUENCY_HISTORY_BLOCK:
+            return apply_delinquency_history_plan(
+                self.settings, self.state, plan_id, production_confirmation
+            )
         contract = self.contracts[block]
         if block == ACCOUNTING_SERVICE:
             return apply_accounting_plan(
@@ -259,6 +305,10 @@ class ServiceRuntime:
         raise ValueError(f"No runtime adapter for service: {block}")
 
     def reconcile(self, block: str, run_id: str) -> dict[str, Any]:
+        if block == CHEQUE_HISTORY_BLOCK:
+            return reconcile_cheque_history(self.settings, self.state, run_id)
+        if block == DELINQUENCY_HISTORY_BLOCK:
+            return reconcile_delinquency_history(self.settings, self.state, run_id)
         contract = self.contracts[block]
         if block == ACCOUNTING_SERVICE:
             return reconcile_accounting(self.settings, self.state, contract, run_id)
@@ -304,6 +354,16 @@ class ServiceRuntime:
                 f"Child run {previous_run_id} belongs to {previous['block']}, not {block}"
             )
         plan_id = previous["plan_id"]
+        if block == CHEQUE_HISTORY_BLOCK:
+            return apply_cheque_history_plan(
+                self.settings, self.state, plan_id, production_confirmation
+            )
+        if block == DELINQUENCY_HISTORY_BLOCK:
+            # The native interval writer is atomic and reapplying its frozen
+            # timeline verifies or completes an interrupted child run.
+            return apply_delinquency_history_plan(
+                self.settings, self.state, plan_id, production_confirmation
+            )
         contract = self.contracts[block]
         if block == ACCOUNTING_SERVICE:
             keys = accounting_retry_keys(self.state, previous_run_id)

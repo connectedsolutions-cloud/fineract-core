@@ -23,6 +23,9 @@ workflow plan. The source highwater includes numbers consumed by unposted
 headers. The plan also freezes a hash of all assigned numbers; the runner
 re-reads it before seeding and fails on drift. To include the complete source
 calendar day, plan after Arissto day close or use an approved source watermark.
+This timing guidance is not a carry-forward eligibility gate; the planned
+carry-forward mode permits an operator-selected source date regardless of
+Arissto close-of-business status and records the source observation time.
 Fineract
 raises each counter to the highest of that source value, its current value,
 and valid numbers already posted in Fineract; it never lowers a counter.
@@ -31,6 +34,23 @@ exceptions. Full re-sync inherits the original accounting cutoff and does not
 post newer Arissto GL over Fineract-owned accounting.
 
 Workflow definitions may also declare reviewed target prerequisites. Workflows
+first verify the two reviewed Credesal delinquency buckets and their mapped
+ranges on the selected tenant. The definitions in
+`arissto_sync/delinquency_prerequisite.py` were captured from the local
+`default` tenant on 2026-10-07: `Mora Estandar` (A1 through E) and
+`mora-diaria` (diaria-1 through diaria-7). The unused `diaria-8` range in
+`default` is not part of either bucket. The runner creates missing definitions
+through Fineract's API, verifies them, leaves matching ones unchanged, and
+stops on conflicting classifications or bucket memberships. This prerequisite
+runs before any child service on every composed workflow and target.
+When a workflow selects `loans`, the prerequisite also checks the reviewed
+Arissto loan-product external IDs `ARISSTO:CRD-LINE:00001` and
+`ARISSTO:CRD-LINE:00010`. Existing products without `Mora Estandar` are linked
+through the Loan Products API and read back. Fresh products are linked and
+verified after creation or recovery, before their crosswalk and dependent loans
+proceed. Unrelated products are untouched. This does not recalculate historical
+Arissto risk classifications.
+Workflows
 that select loans require Fineract financial activity `100` (`ASSET_TRANSFER`)
 to map to active detail asset account `1510`. Workflows that select
 `savings-deposits` require activity `200` (`LIABILITY_TRANSFER`) to map to active
@@ -58,7 +78,8 @@ its number is a placeholder. This prerequisite runs only for the local
 `sandbox` tenant and does not migrate bank-book movements or balances.
 
 Version 1 is sequential, full-block, and fail-closed. Local definitions may
-support fresh/clean, resumed migration, or checkpointed `full-resync`. A
+support fresh/clean, resumed migration, checkpointed `full-resync`, or the
+guarded `carry-forward` rebuild of a verified local seed. A
 production definition may support only `full-resync`. Every service selected
 by either local or production full re-sync must explicitly declare a reviewed
 full re-sync contract.
@@ -123,9 +144,14 @@ credentials:
 
 The health report measures total, SQLite, and workflow-log bytes; highlights
 large logs and inactive cycles left open; and reports repeated local TLS warning
-output. It is read-only and never deletes rows or files. The reported local
-sandbox retention baseline keeps the newest cycle complete and removes every
-older cycle database, runner log, summary, failure archive, and catalog entry.
+output. It is read-only and never deletes rows or files. Local retention keeps
+the newest cycle complete and protects its immediate input cycle when needed
+for carry-forward rollback. It removes other older cycle databases and retains
+at most the two newest terminal workflow logs across those cycles. Completed
+logs are compressed; failed or interrupted logs remain appendable for resume.
+Starting a local detached workflow applies this log-only policy before launch.
+The clean tenant baseline, recovery captures, and PostgreSQL staging or rollback
+databases are outside this policy.
 
 Apply that policy only after reviewing its exact actions:
 
@@ -135,9 +161,9 @@ Apply that policy only after reviewing its exact actions:
 ```
 
 The creation of a new cycle applies local retention automatically after the new
-baseline cycle is established. Retention never prunes rows inside the newest
-cycle, and replacement is refused while any cataloged workflow is queued or
-running.
+baseline cycle is established. Retention leaves plan, run, item, mapping, and
+failure rows in retained cycles intact. Active workflow logs are kept while a
+run is queued or running; replacement is refused during that period.
 
 The durable `.arissto-sync/change-tracker.sqlite3` database is outside this
 cycle-retention boundary. Commit/change records, impacted loan IDs, and decisions
@@ -159,8 +185,10 @@ remain available across fresh/clean runs; only operational cycle state is remove
   existence does not enable the production timer; deployment promotion remains
   a separate reviewed operation.
 
-- `local-full-sync`: all 16 available registry services in one dependency-complete
-  local workflow. Accounting journal entries run immediately before native share yield.
+- `local-full-sync`: 18 registry services in one dependency-complete local
+  fresh/clean workflow, including historical delinquency transitions after loans
+  and testing-stage cheque history after accounting and product transactions.
+  Accounting journal entries run immediately before native share yield.
   Dashboard runs default to the complete ledger through the inclusive
   source-through date; the engine derives the first Fineract-owned date as the
   following day. Operators may supply a source period to narrow a test. This is
@@ -169,6 +197,20 @@ remain available across fresh/clean runs; only operational cycle state is remove
   local delta workflow. It requires the current open cycle and one accepted
   reconciliation checkpoint per selected service, preserves the sandbox target,
   skips unchanged source hashes, and does not infer deletions.
+- `carry-forward-rebuild`: 18 services in a new sandbox cycle, including
+  historical delinquency transitions after reconciled loans and testing-stage
+  cheque history after accounting and product transactions;
+  the historical risk service retains its separate CLI and is not part of
+  checkpointed full re-sync
+  created from a verified staged seed. It uses the newly selected Arissto
+  through date and preserves only proven closed loan lifecycles and their
+  mapped client/product dependencies. Its guarded replacement and end-to-end
+  reconciliation remain under local acceptance testing. Its accounting step
+  includes every structurally valid pre-cutoff journal regardless of Arissto
+  status; the source status is retained as provenance. The proposed extension
+  for proven unchanged DTE and journal history is specified in
+  [carry-forward retained history](../migration-services/carry-forward-retained-history.md);
+  the current seed still rebuilds both domains.
 - `local-party-profile`: clients, employees, current client-level promoter,
   account-executive and collections-manager assignments, PEP, and family
   references.

@@ -38,6 +38,12 @@ import org.springframework.data.repository.query.Param;
 
 public interface LoanRepository extends JpaRepository<Loan, Long>, JpaSpecificationExecutor<Loan> {
 
+    @Query("select count(loan) from Loan loan where loan.loanProduct.id = :productId and loan.portfolioAccountGlId is not null")
+    long countLoansWithSelectedPortfolioAccount(@Param("productId") Long productId);
+
+    @Query("select count(loan) from Loan loan where loan.loanProduct.id = :productId and loan.actualDisbursementDate is not null and loan.portfolioAccountGlId is null")
+    long countDisbursedLoansWithoutSelectedPortfolioAccount(@Param("productId") Long productId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select loan from Loan loan where loan.id in :loanIds order by loan.id")
     List<Loan> findAllByIdForRefinancingUpdate(@Param("loanIds") Collection<Long> loanIds);

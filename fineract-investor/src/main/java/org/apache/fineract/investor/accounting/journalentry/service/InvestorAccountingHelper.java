@@ -51,6 +51,35 @@ public class InvestorAccountingHelper {
     private final ProductToGLAccountMappingRepository accountMappingRepository;
     private final FinancialActivityAccountRepositoryWrapper financialActivityAccountRepository;
     private final GLClosureRepository closureRepository;
+    private final org.apache.fineract.accounting.glaccount.domain.GLAccountRepository glAccountRepository;
+
+    public GLAccount getLoanPortfolioAccount(final org.apache.fineract.portfolio.loanaccount.domain.Loan loan) {
+        if (loan.getPortfolioAccountGlId() != null) {
+            return this.glAccountRepository.findById(loan.getPortfolioAccountGlId())
+                    .orElseThrow(() -> new IllegalStateException("Selected loan portfolio GL account no longer exists"));
+        }
+        final Long productId = loan.getLoanProduct().getId();
+        final ProductToGLAccountMapping longMapping = this.accountMappingRepository.findCoreProductToFinAccountMapping(productId,
+                PortfolioProductType.LOAN.getValue(), AccountingConstants.AccrualAccountsForLoan.LONG_TERM_LOAN_PORTFOLIO.getValue());
+        if (longMapping != null) {
+            throw new IllegalStateException("Term-based loan portfolio account was not selected before investor posting");
+        }
+        return getLinkedGLAccountForLoanProduct(productId, AccountingConstants.AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue());
+    }
+
+    public GLAccount getLoanInterestReceivableAccount(final org.apache.fineract.portfolio.loanaccount.domain.Loan loan) {
+        if (loan.getPortfolioInterestReceivableGlId() != null) {
+            return this.glAccountRepository.findById(loan.getPortfolioInterestReceivableGlId())
+                    .orElseThrow(() -> new IllegalStateException("Selected loan interest receivable GL account no longer exists"));
+        }
+        final Long productId = loan.getLoanProduct().getId();
+        final ProductToGLAccountMapping longMapping = this.accountMappingRepository.findCoreProductToFinAccountMapping(productId,
+                PortfolioProductType.LOAN.getValue(), AccountingConstants.AccrualAccountsForLoan.LONG_TERM_INTEREST_RECEIVABLE.getValue());
+        if (longMapping != null) {
+            throw new IllegalStateException("Term-based interest receivable account was not selected before investor posting");
+        }
+        return getLinkedGLAccountForLoanProduct(productId, AccountingConstants.AccrualAccountsForLoan.INTEREST_RECEIVABLE.getValue());
+    }
 
     /**
      * @param officeId

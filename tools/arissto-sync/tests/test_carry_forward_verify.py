@@ -28,6 +28,15 @@ class CarryForwardCandidateVerificationTests(unittest.TestCase):
         self.assertEqual(self.check(mapping=("12", "hash-b")),
                          "mapping_missing_or_source_hash_changed")
 
+    def test_previously_retained_loan_uses_verified_seed_mapping_hash(self):
+        self.action.update({"action": "retained-loan", "source_hash": "new-hash",
+                            "seed_source_hash": "hash-a"})
+        self.assertIsNone(self.check())
+        self.assertEqual(self.check(mapping=("12", "unproved-hash")),
+                         "mapping_missing_or_source_hash_changed")
+        del self.action["seed_source_hash"]
+        self.assertEqual(self.check(), "mapping_missing_or_source_hash_changed")
+
     def test_cutoff_day_close_or_late_transaction_fails(self):
         row = self.row[:3] + (date(2026, 10, 6),) + self.row[4:]
         self.assertEqual(self.check(row=row), "target_not_closed_before_seed_cutoff")

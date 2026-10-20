@@ -248,9 +248,9 @@ public class LoanRepaymentScheduleService {
 
             periodData = LoanSchedulePeriodData.periodWithPayments(period, fromDate, dueDate, obligationsMetOnDate, complete, principalDue,
                     principalPaid, principalWrittenOff, principalOutstanding, outstandingPrincipalBalanceOfLoan, interestExpectedDue,
-                    interestOriginalDue, interestPaid, interestWaived, interestWrittenOff, interestOutstanding, feeChargesExpectedDue, feeChargesPaid,
-                    feeChargesWaived, feeChargesWrittenOff, feeChargesOutstanding, penaltyChargesExpectedDue, penaltyChargesPaid,
-                    penaltyChargesWaived, penaltyChargesWrittenOff, penaltyChargesOutstanding, totalPaidForPeriod,
+                    interestOriginalDue, interestPaid, interestWaived, interestWrittenOff, interestOutstanding, feeChargesExpectedDue,
+                    feeChargesPaid, feeChargesWaived, feeChargesWrittenOff, feeChargesOutstanding, penaltyChargesExpectedDue,
+                    penaltyChargesPaid, penaltyChargesWaived, penaltyChargesWrittenOff, penaltyChargesOutstanding, totalPaidForPeriod,
                     totalPaidInAdvanceForPeriod, totalPaidLateForPeriod, totalWaivedForPeriod, totalWrittenOffForPeriod, credits,
                     isDownPayment, accrualInterest);
 

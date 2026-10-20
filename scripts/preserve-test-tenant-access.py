@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 from pathlib import Path
 
@@ -241,10 +242,11 @@ def upsert_staff(cur: psycopg.Cursor, names: list[str]) -> None:
     )
 
 
-def restore(database: str, directory: Path) -> None:
+def restore(database: str, directory: Path, *, source_database: str | None = None,
+            remove_snapshot: bool = True) -> None:
     manifest_path = directory / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if manifest["database"] != database or set(manifest["tables"]) != set(TABLES):
+    if manifest["database"] != (source_database or database) or set(manifest["tables"]) != set(TABLES):
         raise RuntimeError("Access snapshot does not match this database or table set")
     for table in TABLES:
         if digest(directory / f"{table}.copy") != manifest["tables"][table]["sha256"]:
@@ -348,19 +350,32 @@ def restore(database: str, directory: Path) -> None:
                         (sequence,),
                     )
             # Commit only after every protected relationship and count is valid.
-    shutil.rmtree(directory)
+    if remove_snapshot:
+        shutil.rmtree(directory)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("capture", "restore"))
+    parser.add_argument("action", choices=("capture", "restore", "restore-isolated-copy"))
     parser.add_argument("database")
     parser.add_argument("snapshot_dir", type=Path)
+    parser.add_argument("--source-database")
     args = parser.parse_args()
     if args.action == "capture":
         capture(args.database, args.snapshot_dir)
         print("Protected access and reviewed financial activity mappings captured")
+    elif args.action == "restore-isolated-copy":
+        if (not args.source_database
+                or not re.fullmatch(r"fineract_carry_input_[0-9]{8}", args.source_database)
+                or not re.fullmatch(r"fineract_carry_seed_(?:stage|verify)_[0-9]{8}", args.database)
+                or os.getenv("PGHOST") not in {"localhost", "127.0.0.1", "::1"}):
+            raise RuntimeError("Isolated access copy requires local carry-forward input and stage databases")
+        restore(args.database, args.snapshot_dir,
+                source_database=args.source_database, remove_snapshot=False)
+        print("Protected access copied between isolated local carry-forward databases")
     else:
+        if args.source_database:
+            raise RuntimeError("The ordinary restore action cannot use a different source database")
         restore(args.database, args.snapshot_dir)
         print("Protected access and reviewed financial activity mappings restored")
 

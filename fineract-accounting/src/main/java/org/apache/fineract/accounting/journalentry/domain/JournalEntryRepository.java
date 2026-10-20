@@ -43,6 +43,9 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, Long
 
     List<JournalEntry> findByLoanTransactionIdAndReversedFalseOrderByIdAsc(Long loanTransactionId);
 
+    @Query("select count(journalEntry) from JournalEntry journalEntry where journalEntry.entityId = :loanId and journalEntry.entityType = :entityType and journalEntry.reversed = false")
+    long countUnreversedEntriesForEntity(@Param("loanId") Long loanId, @Param("entityType") Integer entityType);
+
     @Query("select journalEntry.referenceNumber from JournalEntry journalEntry where journalEntry.transactionId = :transactionId and journalEntry.referenceNumber is not null")
     List<String> findReferenceNumbersByTransactionId(@Param("transactionId") String transactionId);
 

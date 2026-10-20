@@ -41,10 +41,13 @@ import java.io.InputStream;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.accounting.journalentry.command.JournalEntryCommand;
+import org.apache.fineract.accounting.journalentry.domain.GlAuxiliarRepository;
 import org.apache.fineract.accounting.journalentry.data.JournalEntryAssociationParametersData;
 import org.apache.fineract.accounting.journalentry.data.JournalEntryData;
 import org.apache.fineract.accounting.journalentry.data.OfficeOpeningBalancesData;
@@ -82,7 +85,9 @@ public class JournalEntriesApiResource {
     private static final Set<String> RESPONSE_DATA_PARAMETERS = new HashSet<>(Arrays.asList("id", "officeId", "officeName", "glAccountName",
             "glAccountId", "glAccountCode", "glAccountType", "transactionDate", "entryType", "amount", "transactionId", "manualEntry",
             "entityType", "entityId", "createdByUserId", "createdDate", "submittedOnDate", "createdByUserName", "comments", "reversed",
-            "referenceNumber", "currency", "transactionDetails", "dimensions"));
+            "referenceNumber", "currency", "transactionDetails", "dimensions", "voucherId", "auxiliarCode", "headerConcept",
+            "headerDescription",
+            "voucherOrigin", "voucherOperationType", "reversesVoucherId"));
 
     private static final String RESOURCE_NAME_FOR_PERMISSION = "JOURNALENTRY";
 
@@ -94,6 +99,22 @@ public class JournalEntriesApiResource {
     private final BulkImportWorkbookService bulkImportWorkbookService;
     private final BulkImportWorkbookPopulatorService bulkImportWorkbookPopulatorService;
     private final SqlValidator sqlValidator;
+    private final GlAuxiliarRepository glAuxiliarRepository;
+
+    @GET
+    @Path("auxiliaries")
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "List approved Auxiliaries for manual journal entries")
+    public String retrieveManualAuxiliaries(@Context final UriInfo uriInfo,
+            @QueryParam("manualOnly") final Boolean manualOnly) {
+        this.context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME_FOR_PERMISSION);
+        final List<Map<String, String>> options = (Boolean.FALSE.equals(manualOnly)
+                ? this.glAuxiliarRepository.findAllByOrderByNameAsc()
+                : this.glAuxiliarRepository.findByActiveTrueAndManualAllowedTrueOrderByNameAsc())
+                .stream().map(auxiliar -> Map.of("code", auxiliar.getCode(), "name", auxiliar.getName())).toList();
+        final ApiRequestJsonSerializationSettings settings = this.apiRequestParameterHelper.process(uriInfo.getQueryParameters());
+        return this.apiJsonSerializerService.serialize(settings, options, Set.of("code", "name"));
+    }
 
     @GET
     @Consumes({ MediaType.APPLICATION_JSON })
@@ -116,6 +137,9 @@ public class JournalEntriesApiResource {
             @QueryParam("submittedOnDateTo") @Parameter(description = "submittedOnDateTo") final DateParam submittedOnDateToParam,
             @QueryParam("transactionId") @Parameter(description = "transactionId") final String transactionId,
             @QueryParam("referenceNumber") @Parameter(description = "Posted journal reference number (ref_num)") final String referenceNumber,
+            @QueryParam("auxiliarCode") @Parameter(description = "Exact voucher Auxiliar code") final String auxiliarCode,
+            @QueryParam("headerConcept") @Parameter(description = "Voucher header concept contains this text") final String headerConcept,
+            @QueryParam("headerDescription") @Parameter(description = "Voucher header description contains this text") final String headerDescription,
             @QueryParam("entityType") @Parameter(description = "entityType") final Integer entityType,
             @QueryParam("offset") @Parameter(description = "offset") final Integer offset,
             @QueryParam("limit") @Parameter(description = "limit") final Integer limit,
@@ -160,7 +184,7 @@ public class JournalEntriesApiResource {
 
         final Page<JournalEntryData> glJournalEntries = this.journalEntryReadPlatformService.retrieveAll(searchParameters, glAccountId,
                 onlyManualEntries, fromDate, toDate, submittedOnDateFrom, submittedOnDateTo, transactionId, entityType, referenceNumber,
-                dimensionFilter, associationParametersData);
+                auxiliarCode, headerConcept, headerDescription, dimensionFilter, associationParametersData);
         final ApiRequestJsonSerializationSettings settings = this.apiRequestParameterHelper.process(uriInfo.getQueryParameters());
         return this.apiJsonSerializerService.serialize(settings, glJournalEntries, RESPONSE_DATA_PARAMETERS);
     }
@@ -254,7 +278,7 @@ public class JournalEntriesApiResource {
         String transactionId = "P" + entryId;
         SearchParameters params = SearchParameters.builder().limit(limit).offset(offset).build();
         Page<JournalEntryData> entries = this.journalEntryReadPlatformService.retrieveAll(params, null, null, null, null, null, null,
-                transactionId, PortfolioProductType.PROVISIONING.getValue(), null, null, null);
+                transactionId, PortfolioProductType.PROVISIONING.getValue(), null, null, null, null, null, null);
         final ApiRequestJsonSerializationSettings settings = this.apiRequestParameterHelper.process(uriInfo.getQueryParameters());
         return this.apiJsonSerializerService.serialize(settings, entries, RESPONSE_DATA_PARAMETERS);
     }

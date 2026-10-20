@@ -30,8 +30,8 @@ import java.util.List;
 import java.util.Set;
 import org.apache.fineract.infrastructure.core.domain.ExternalId;
 import org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRuleException;
-import org.apache.fineract.organisation.monetary.domain.Money;
 import org.apache.fineract.organisation.monetary.domain.MonetaryCurrency;
+import org.apache.fineract.organisation.monetary.domain.Money;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
 import org.junit.jupiter.api.Test;
@@ -44,8 +44,8 @@ class SourceExactHistoricalRefinancingTargetGuardTest {
     void acceptsOnlyTheFrozenNativeLaterTransaction() {
         Loan loan = loanWithLaterTransaction("ARISSTO:CRD-MOV:later", "5.00");
 
-        assertThatCode(() -> LoanWritePlatformServiceJpaRepositoryImpl.assertHistoricalRefinancingTarget(expected("5.00"),
-                List.of(loan), PAYOFF_DATE, Set.of())).doesNotThrowAnyException();
+        assertThatCode(() -> LoanWritePlatformServiceJpaRepositoryImpl.assertHistoricalRefinancingTarget(expected("5.00"), List.of(loan),
+                PAYOFF_DATE, Set.of())).doesNotThrowAnyException();
     }
 
     @Test
@@ -96,8 +96,7 @@ class SourceExactHistoricalRefinancingTargetGuardTest {
     }
 
     private static JsonArray expected(final String amount) {
-        return JsonParser.parseString("[{\"loanId\":22,\"externalId\":\"ARISSTO:CRD-MOV:later\","
-                + "\"date\":\"2026-09-21\",\"amount\":\"" + amount + "\",\"principal\":\"" + amount
-                + "\",\"interest\":\"0\",\"fee\":\"0\",\"penalty\":\"0\"}]").getAsJsonArray();
+        return JsonParser.parseString("[{\"loanId\":22,\"externalId\":\"ARISSTO:CRD-MOV:later\"," + "\"date\":\"2026-09-21\",\"amount\":\""
+                + amount + "\",\"principal\":\"" + amount + "\",\"interest\":\"0\",\"fee\":\"0\",\"penalty\":\"0\"}]").getAsJsonArray();
     }
 }

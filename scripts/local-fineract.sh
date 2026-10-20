@@ -52,9 +52,12 @@ describe_status() {
 }
 
 require_owned_fineract_process() {
-  local pid="$1" command_line
+  local pid="$1" command_line main_class
   command_line="$(ps -p "$pid" -o command= 2>/dev/null || true)"
-  [[ "$command_line" == *"org.apache.fineract.ServerApplication"* ]] || \
+  # macOS ps truncates long Gradle classpaths before the main class name.
+  # Ask the JVM for its actual entry point before stopping a port listener.
+  main_class="$(jcmd "$pid" VM.command_line 2>/dev/null | sed -n 's/^java_command: //p' | head -n 1 || true)"
+  [[ "$main_class" == "org.apache.fineract.ServerApplication" ]] || \
     die "Refusing to stop PID $pid: the listener is not Fineract ServerApplication"
   [[ "$command_line" == *"$ROOT"* ]] || \
     die "Refusing to stop PID $pid: Fineract is not running from $ROOT"

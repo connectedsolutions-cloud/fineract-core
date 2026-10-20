@@ -29,7 +29,11 @@ REQUIRED_TARGET_SCHEMA = {
                                         "share_account_id", "share_transaction_id", "event_kind", "event_date", "total_shares",
                                         "unit_price", "amount", "event_status"},
     "credesal_share_certificate": {"source_key", "client_id", "share_account_id", "paid_shares", "subscribed_shares",
-                                   "source_hash"},
+                                   "source_hash", "certificate_number", "certificate_date", "represented_shares",
+                                   "unit_price", "initial_share_number", "final_share_number", "share_serial_start",
+                                   "share_serial_end", "current_balance", "pledged_balance", "promoter_staff_id",
+                                   "book_id", "series", "book_number", "book_date", "folio", "line_number"},
+    "m_staff": {"id", "external_id"},
     "credesal_savings_migration_account": {"id", "client_id", "savings_account_id", "deposit_type", "migration_status"},
     "credesal_savings_migration_owner": {"migration_account_id", "client_id", "is_native_owner"},
 }
@@ -57,6 +61,10 @@ class NativeShareContract:
             raise ValueError("Native share product external IDs must be unique")
         if {key: item.get("numbering_code") for key, item in classes.items()} != {"1": "1AC", "2": "1AP"}:
             raise ValueError("Native share numbering codes must preserve common 1AC and preferred 1AP")
+        if {key: (item.get("certificate_book_id"), item.get("certificate_book_number"),
+                  item.get("arissto_book_config_id")) for key, item in classes.items()} != {
+                      "1": (1, "No. 1", 1), "2": (2, "No. 2", 3)}:
+            raise ValueError("Native share certificate books must remain class-specific")
         expected = value.get("expected", {})
         if any(int(expected.get(key, 0)) <= 0 for key in ("accounts", "purchase_events", "paid_shares", "certificates")):
             raise ValueError("Native share expected counts must be positive")
@@ -200,10 +208,14 @@ def inspect_native_shares(settings: Settings, contract: NativeShareContract, sou
     required_source = {
         source["position_table"]: {"ID_ACCION", "ID_ASOCIADO", "ID_TIPO_ACCION", "SALDO_ACCIONES"},
         source["certificate_table"]: {"ID_CERTIFICADO", "ID_ASOCIADO", "ID_TIPO_ACCION", "ACCIONES_PAGADAS",
-                                      "ACCIONES_SUSCRITAS", "SALDO_PAGADO", "VALOR_ACCION"},
+                                      "ACCIONES_SUSCRITAS", "SALDO_PAGADO", "VALOR_ACCION", "NUMERO_CERTIFICADO",
+                                      "FECHA_CERTIFICADO", "NUMERO_ACCIONES", "ACCION_INI", "ACCION_FIN",
+                                      "SALDO_ACCIONES", "SALDO_PIGNORADO", "ID_PROMOTOR", "ID_LIBRO_ACCIONES",
+                                      "SERIE", "FOLIO", "LINEA"},
+        source["book_table"]: {"ID_LIBRO_ACCIONES", "NUMERO_LIBRO", "FECHA"},
         source["movement_table"]: {"ID_EMPRESA", "ID_SUCURSAL", "ID_MOV_APORTACION", "ID_ASOCIADO", "ID_TIPO_ACCION",
                                    "ID_CERTIFICADO", "FECHA", "MONTO", "SALDO_ANTERIOR", "SALDO_FINAL", "REVERSION"},
-        source["party_table"]: {"ID_ASOCIADO", "NUMERO_AFILIACION"},
+        source["party_table"]: {"ID_ASOCIADO", "ID_EMPRESA", "NUMERO_AFILIACION"},
         source["type_table"]: {"ID_TIPO_ACCION", "TIPO_ACCION", "CODIGO", "ID_CUENTA"},
         source["emission_table"]: {"ID_TIPO_ACCION", "NUMERO_ACCIONES", "VALOR_ACCION", "FECHA_EMISION"},
     }

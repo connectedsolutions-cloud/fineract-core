@@ -76,7 +76,7 @@ to the same account, so native vault and teller flows use the same GL identity.
 
 Migration `0310` remains an immutable source-derived bootstrap: it seeds all
 three historical vault detail accounts. The revised accounting crosswalk
-`arissto-to-fineract-coa-v4-hybrid-parent-postings` maps those source codes to
+`arissto-to-fineract-coa-v5-long-term-loan-postings` maps those source codes to
 `111001030200`. The targeted `fineract_sandbox` configuration added this detail
 account under `1110010302`, disabled the three source-only detail accounts for
 new posting, and mapped financial activity `101` to the shared account. The
@@ -128,10 +128,12 @@ decisions.
 
 ## Posting-account review across financial sync services
 
-The historical GL crosswalk now sends alternate loan portfolio source codes
-`1142030101` and `1142040101` to the same target detail accounts used by their
-native loan products, `1141030101` and `1141040101`. The ledger planner rejects
-target headers with `TARGET_ACCOUNT_NOT_DETAIL`. The source hybrid/control
+The historical GL crosswalk retains the long-term loan group: `1142030101`
+posts to the same detail code; source `1142040101` posts to detail
+`114204010101` beneath reporting header `1142040101`. The native consumer
+loan product uses that same long-term posting detail. The ledger planner
+rejects absent or non-detail targets instead of falling back to a short-term
+account. The source hybrid/control
 codes `2220050501` and `314002` now have reviewed detail destinations;
 their historical journals remain quarantined until those details exist in the
 target.

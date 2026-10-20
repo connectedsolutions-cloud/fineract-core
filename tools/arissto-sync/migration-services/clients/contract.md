@@ -8,8 +8,10 @@ KYC/profile expansion verified on 2026-08-12.
 
 The engine is a local, manually triggered CLI under
 `fineract-core/tools/arissto-sync`. Arissto is strictly read-only. All client,
-identifier and datatable writes use Fineract APIs; direct SQL writes
-are denied for this block.
+identifier and datatable writes use Fineract APIs. The separate guarded
+`client-current-office` correction below has one narrow SQL exception for
+`m_client.office_id` because the standard client update API does not accept
+office changes.
 
 The relational source identity spine is `dbo.AFI_SOCIO`, keyed by:
 
@@ -64,6 +66,99 @@ classes `001` (`SOCIO`) and `003` (`CLIENTE`) are both included in this
 approved all-active import policy.
 
 `ID_SOCIO` is not copied to `accountNo`; Fineract owns its account number.
+
+### Current borrower office from the latest loan
+
+For current office classification, a borrower with at least one originated
+loan takes the office from their latest `CRD_CARTERA` row, ordered by
+`FECHA_OTORGAMIENTO DESC, ID_CREDITO DESC`. Undated loans awaiting
+disbursement do not supersede dated loans. The office is
+`CRD_CARTERA.ID_SUCURSAL_ACTIVA`, resolved through the frozen client office
+crosswalk. Clients without a dated loan keep the existing client office rule.
+This changes the client's current `m_client.office_id` only; it does not
+reinterpret loan transactions, transfer history, event offices, or accounting.
+
+The manually triggered `client-current-office` CLI step runs after clients
+and loans are present in the selected target. `inspect` reads all borrowers
+and reports only drift. `plan` saves the source hash, office crosswalk hash,
+target fingerprint, target database, and exact rows for review. `apply`
+rechecks that evidence, verifies each row under a lock, then changes only
+`m_client.office_id` in one PostgreSQL transaction. `reconcile` verifies the
+planned clients' current office. The local target must be tenant `sandbox` in
+database `fineract_sandbox`; production additionally requires its exact
+fingerprint. This controlled single-column SQL exception is not part of the
+ordinary client writer.
+
+```bash
+./arissto-sync client-current-office inspect --target local
+./arissto-sync client-current-office plan --target local
+./arissto-sync client-current-office apply --target local --plan PLAN_ID
+./arissto-sync client-current-office reconcile --target local --run RUN_ID
+```
+
+See the [read-only source audit](../../../../../../credesal-db-space/docs/learnings/client-office-transfer-history.md)
+for the borrower/loan comparison that motivated this rule.
+
+### Historical office transfers — required extension
+
+The current client writer assigns `m_client.office_id` from the original
+`AFI_SOCIO.ID_SUCURSAL` at creation. It does not yet replay office transfers.
+The source transfer candidates come from consecutive daily
+`AFI_HISTORICO_DIARIO.ID_SUCURSAL_ACTIVA` values, dated by
+`CIERRE_DIARIO.FECHA_OPERACION` and joined to `AFI_SOCIO` through
+`ID_ASOCIADO`. The raw first-observed destination day is source evidence, not
+an independently recorded approval timestamp. See the
+[source audit](../../../../../../credesal-db-space/docs/learnings/client-office-transfer-history.md).
+
+For each observed office change, resolve the destination through the frozen
+branch-to-office crosswalk and read that target `m_office.opening_date`. The
+Fineract effective transfer date is
+`max(first_observed_destination_day, destination_office.opening_date)`.
+Preserve the raw observed day, the opening date, the resulting effective day,
+and an `office-opening-floor` reason when the floor applies. On the reviewed
+source snapshot, the 2024-11-23 observation for `ID_ASOCIADO=157` therefore
+becomes a 2024-11-27 Fineract transfer; the three 2025-04-01 observations
+remain 2025-04-01. A target office with no opening date or a current source
+branch that disagrees with the final observed branch must quarantine the
+candidate.
+
+The target representation is Fineract's native client office and accepted
+transfer history: `m_client.office_id`, `m_client.office_joining_date`, and
+`m_client_transfer_details` proposal/acceptance rows. Reconciliation must
+compare each accepted row's effective date and from/to offices with the
+reviewed plan, and compare the final client office and joining date with its
+last event. `submitted_on` records when Fineract processed the event; it must
+not be presented as Arissto's historical effective date. The standard
+proposal/acceptance path also changes active loans, so historical replay must
+interleave client transfers with loan lifecycles at the effective date. A
+post-hoc transfer of fully imported loans is not an approved substitute.
+The client office timeline is authoritative for Fineract. At each accepted client
+move, native Fineract transfer logic must generate loan transfer initiation and
+acceptance transactions for every disbursed, nonclosed loan of that client, on
+the same effective transfer date. The accepted destination becomes the office
+for the client and all its loans. Arissto loan branch values that disagree with
+the client timeline are source data-quality evidence, not separate transfer
+instructions. In particular, do not replay the isolated loan-838 branch change
+without a client move. Reconciliation must compare the native loan transfer
+transaction type, date, and office against each planned client event and loan
+that was active on that date.
+
+
+The `clients` block creates the client in its original office. The `loans`
+block now freezes observed client moves and replays native transfers at the
+loan chronology boundary through the permission-gated
+`sourceExactProposeAndAcceptTransfer` command. Its operational migration
+posting context suppresses duplicate historical native GL; the separately
+imported Arissto journals remain the historical accounting source. For each move, it compares the complete active loan
+set and the native pre-transfer outstanding amount with the last Arissto daily
+loan snapshot before the effective day. A same-day or later loan transaction
+already present without native transfer history blocks the plan and requires a
+reviewed fresh/clean target. Scoped loan plans cannot transfer a partial client
+cohort. The writer verifies proposal/acceptance history and loan transaction
+pairs immediately and in reconciliation. This path still needs a controlled
+fresh/clean local run before it is treated as accepted migration behavior.
+
+
 
 ### Client relationship tag
 

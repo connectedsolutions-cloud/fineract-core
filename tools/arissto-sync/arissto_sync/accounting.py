@@ -28,8 +28,8 @@ from .state import State
 
 
 BLOCK = "accounting"
-PLAN_VERSION = "accounting-explicit-key-plan-v2"
-RECONCILIATION_VERSION = "accounting-direct-journal-reconciliation-v4"
+PLAN_VERSION = "accounting-explicit-key-plan-v5"
+RECONCILIATION_VERSION = "accounting-direct-journal-reconciliation-v6"
 PROVENANCE_SCHEMA_VERSION = "arissto-gl-v1"
 DESCRIPTION_POLICY_VERSION = "arissto-description-projection-v1"
 IMPORT_ENDPOINT = "arisstohistoricaljournals"
@@ -40,8 +40,7 @@ COUNT_KEYS = (
     "SOURCE_JOURNAL_HEADER_KEY_DUPLICATE", "SOURCE_JOURNAL_LINE_KEY_DUPLICATE",
     "SOURCE_JOURNAL_HEADER_MISSING", "SOURCE_JOURNAL_EMPTY", "SOURCE_JOURNAL_UNBALANCED",
     "SOURCE_JOURNAL_LINE_ZERO", "SOURCE_JOURNAL_LINE_BOTH_SIDES",
-    "SOURCE_JOURNAL_NOT_MAYORIZED", "SOURCE_JOURNAL_EXCLUDED_FROM_LEDGER",
-    "SOURCE_JOURNAL_STATUS_UNSUPPORTED", "SOURCE_ANNUAL_LIQUIDATION_SHAPE_UNSUPPORTED",
+    "SOURCE_ANNUAL_LIQUIDATION_SHAPE_UNSUPPORTED",
     "SOURCE_OPENING_JOURNAL_REQUIRES_REVIEW", "SOURCE_ACCOUNTING_PERIOD_UNRESOLVED",
     "SOURCE_JOURNAL_BACK_PERIOD", "SOURCE_JOURNAL_REFERENCE_BLANK",
     "SOURCE_JOURNAL_REFERENCE_INVALID", "SOURCE_JOURNAL_REFERENCE_DATE_MISMATCH",
@@ -126,8 +125,12 @@ class AccountingContract:
                 if not IDENTIFIER.fullmatch(component):
                     raise ValueError(f"Unsafe accounting SQL identifier: {identifier}")
         eligibility = value.get("source_eligibility", {})
-        if eligibility.get("importable_journal_statuses") != ["3"]:
-            raise ValueError("Accounting contract must freeze status 3 as the only importable status")
+        if eligibility.get("journal_status_policy") != "observe_without_import_gate":
+            raise ValueError("Accounting contract must observe journal status without gating imports")
+        empty = eligibility.get("empty_journal", {})
+        if empty.get("disposition") != "REFERENCE_ONLY" or empty.get("reason_code") != "SOURCE_JOURNAL_EMPTY" \
+                or empty.get("requires_header_concept") is not True:
+            raise ValueError("Accounting contract must preserve empty headers only as references with concepts")
         origin = value.get("historical_origin", {})
         try:
             origin_date = date.fromisoformat(str(origin.get("first_eligible_journal_date")))
@@ -151,6 +154,9 @@ class AccountingContract:
         if any(not re.fullmatch(r"[0-9A-Za-z_-]+", str(key)) or not re.fullmatch(r"[0-9A-Za-z_-]+", str(target))
                for key, target in overrides.items()):
             raise ValueError("Accounting account mapping contains an unsafe code")
+        if (overrides.get("1142030101", "1142030101") != "1142030101"
+                or overrides.get("1142040101") != "114204010101"):
+            raise ValueError("Historical long-term loan accounts must retain their reviewed posting details")
         date_policy = value.get("journal_date_policy", {})
         if (
             date_policy.get("accounting_period_authority") != "CNT_PERIODO.ANIO_and_MES"
@@ -216,8 +222,11 @@ SELECT
        d.DEBE AS debit,
        d.HABER AS credit,
        d.CONCEPTO AS line_concept,
-       d.CONCEPTO_AUX AS line_aux_concept
+       d.CONCEPTO_AUX AS line_aux_concept,
+       CONVERT(varchar(40), b.ID_LIBRO_BANCO) AS source_bank_book_id,
+       NULLIF(LTRIM(RTRIM(b.COMPROBANTE)), '') AS source_bank_book_document
 FROM dbo.CNT_DETALLE_PARTIDAS d
+LEFT JOIN dbo.BNC_LIBRO_BANCO b ON b.ID_LIBRO_BANCO=d.ID_LIBRO_BANCO
 LEFT JOIN dbo.CNT_CATALOGO_CUENTAS c
   ON c.ID_EMPRESA=d.ID_EMPRESA AND c.ID_CUENTA=d.ID_CUENTA
 LEFT JOIN (
@@ -512,8 +521,6 @@ def classify_accounting(headers: list[dict[str, Any]], lines: list[dict[str, Any
         values.sort(key=lambda row: _trim(row.get("line_id")) or "")
 
     agency_mapping = contract.raw["agency_dimension"]["mapping"]
-    importable = set(contract.raw["source_eligibility"]["importable_journal_statuses"])
-    status_dispositions = contract.raw["source_eligibility"]["journal_status_dispositions"]
     annual = contract.raw["annual_liquidation_policy"]
     historical_origin = date.fromisoformat(contract.raw["historical_origin"]["first_eligible_journal_date"])
     target_accounts = (target or {}).get("accounts", {})
@@ -573,10 +580,6 @@ def classify_accounting(headers: list[dict[str, Any]], lines: list[dict[str, Any
             classification_counts["unbalanced"] += 1
             reasons.add("SOURCE_JOURNAL_UNBALANCED")
 
-        status = _trim(header.get("journal_status"))
-        if status not in importable:
-            disposition = status_dispositions.get(status or "", contract.raw["source_eligibility"]["unexpected_status"])
-            reasons.add(str(disposition["reason_code"]))
         journal_type = _trim(header.get("journal_type"))
         liquidation = _trim(header.get("liquidation_flag"))
         opening = _trim(header.get("opening_flag"))
@@ -933,6 +936,10 @@ def _canonical_payload(header: dict[str, Any], lines: list[dict[str, Any]],
     key_text = source_key_text(key)
     agency = contract.raw["agency_dimension"]
     currency = contract.raw["currency_precision"]
+    linked_bank_rows = [row for row in lines if row.get("source_bank_book_id") is not None]
+    first_bank_row = min(linked_bank_rows, key=lambda row: int(str(row["source_bank_book_id"]))) if linked_bank_rows else None
+    journal_bank_book_id = _trim(first_bank_row.get("source_bank_book_id")) if first_bank_row else None
+    journal_document = _trim(first_bank_row.get("source_bank_book_document")) if first_bank_row else None
     canonical_lines: list[dict[str, Any]] = []
     for row in sorted(lines, key=lambda value: _trim(value.get("line_id")) or ""):
         source_code = _trim(row.get("account_code")) or ""
@@ -959,6 +966,8 @@ def _canonical_payload(header: dict[str, Any], lines: list[dict[str, Any]],
             "description": description,
             "description_sha256": _text_hash("acc_gl_journal_entry.description", description),
             "description_truncated": truncated,
+            "source_movement_reference": journal_bank_book_id,
+            "source_document_reference": journal_document,
             "provenance": {
                 "line_concept_sha256": _text_hash("CNT_DETALLE_PARTIDAS.CONCEPTO", row.get("line_concept")),
                 "line_aux_concept_sha256": _text_hash("CNT_DETALLE_PARTIDAS.CONCEPTO_AUX", row.get("line_aux_concept")),
@@ -1049,15 +1058,22 @@ def plan_accounting_rows(headers: list[dict[str, Any]], lines: list[dict[str, An
                         _journal_hash(value, journal_lines, contract) for value in matching_headers
                     )
                 })
+            reference_only = reasons == {"SOURCE_JOURNAL_EMPTY"} and bool(_trim(header.get("header_concept")))
+            if reference_only:
+                reasons.remove("SOURCE_JOURNAL_EMPTY")
             existing_hash = imported.get(key)
             if existing_hash is not None and existing_hash != source_hash:
                 reasons.add("TARGET_PROVENANCE_HASH_DRIFT")
             payload = None if reasons else _canonical_payload(header, journal_lines, contract, target)
+            if payload is not None and reference_only:
+                payload["reference_only"] = True
 
         if reasons:
             disposition = "QUARANTINED"
         elif imported.get(key) == source_hash:
             disposition = "UNCHANGED"
+        elif payload is not None and payload.get("reference_only"):
+            disposition = "REFERENCE_ONLY"
         else:
             disposition = "APPLICABLE"
         action_material = {
@@ -1326,7 +1342,8 @@ def build_historical_journal_request(
             "targetAccountCode": planned["target_account_code"],
             "targetGlAccountId": planned["target_gl_account_id"],
             "debit": planned["debit"], "credit": planned["credit"],
-            "sourceMovementReference": None, "sourceDocumentReference": None,
+            "sourceMovementReference": planned["source_movement_reference"],
+            "sourceDocumentReference": planned["source_document_reference"],
             "sourceDestinationBranchId": planned["source_destination_branch_id"],
             "officeId": planned["office_id"],
             "officeExternalId": str(planned["dimensions"]["office"]),
@@ -1372,7 +1389,8 @@ def build_historical_journal_request(
         "cutoffConfigurationHash": cutoff["configuration_hash"], "planId": plan_id, "runId": request_run_id,
         "refNum": payload["ref_num"], "currency": payload["currency"],
         "debitTotal": payload["debit_total"], "creditTotal": payload["credit_total"],
-        "knownTransferredLoanOfficeMismatch": False, "lines": request_lines,
+        "knownTransferredLoanOfficeMismatch": False, "referenceOnly": bool(payload.get("reference_only")),
+        "lines": request_lines,
     }
 
 
@@ -1476,15 +1494,23 @@ def apply_accounting_plan(
                                      document["plan_hash"], action["planned_hash"], request_key, request_run_id)
         try:
             result = api.request("POST", IMPORT_ENDPOINT, request, idempotency_key=request_key)
-            transaction_id = str(result["transactionId"])
+            reference_only = bool((action.get("payload") or {}).get("reference_only"))
+            transaction_id = result.get("transactionId")
             line_ids = [int(value) for value in result.get("journalEntryIds", [])]
+            if reference_only:
+                if transaction_id is not None or line_ids:
+                    raise RuntimeError("REFERENCE_ONLY_TARGET_POSTING_UNEXPECTED")
+            elif not transaction_id or len(line_ids) != len(request["lines"]):
+                raise RuntimeError("ACCOUNTING_IMPORT_RESPONSE_INCOMPLETE")
             status = "recovered" if bool(result.get("unchanged")) else "succeeded"
             state.record_accounting_item(run_id, key, "import", action["source_hash"], status,
                                          document["plan_hash"], action["planned_hash"], request_key, request_run_id,
                                          target_transaction_id=transaction_id, target_line_ids=line_ids,
-                                         disposition="UNCHANGED" if status == "recovered" else "IMPORTED")
-            state.save_mapping(settings.target.fingerprint, BLOCK, key, transaction_id, action["source_hash"])
-            counts["imported" if status == "succeeded" else "recovered"] += 1
+                                         disposition="UNCHANGED" if status == "recovered" else
+                                         ("REFERENCE_ONLY" if reference_only else "IMPORTED"))
+            if transaction_id:
+                state.save_mapping(settings.target.fingerprint, BLOCK, key, transaction_id, action["source_hash"])
+            counts[("reference_only" if reference_only else "imported") if status == "succeeded" else "recovered"] += 1
         except Exception as exc:
             code, error_class, retryable = _classify_apply_error(exc)
             state.record_accounting_item(run_id, key, "import", action["source_hash"], "failed",
@@ -1537,17 +1563,20 @@ def _target_reconciliation_snapshot(
                    p.target_transaction_id,p.target_ref_num,p.source_journal_date,p.source_hash,p.planned_hash,
                    p.contract_hash,p.source_schema_signature,p.coa_mapping_hash,p.office_mapping_hash,p.policy_hash,
                    p.cutoff_date,p.cutoff_timezone_id,p.cutoff_configuration_revision,p.cutoff_configuration_hash,
-                   p.result provenance_result,
+                   p.result provenance_result,p.reason_code,p.source_header_concept,p.source_header_description,
+                   p.source_journal_number,p.source_status,
                    l.source_line_id,l.source_line_sequence,l.source_line_hash,l.source_account_id,l.source_account_code,
                    l.target_gl_account_id,l.source_debit_amount,l.source_credit_amount,l.source_side,l.source_amount,
                    l.target_side,l.target_type_enum,l.target_amount,l.target_entry_date,l.source_destination_branch_id,
                    l.target_office_id,l.target_office_external_id,l.target_dimensions,l.target_description_sha256,
+                   l.source_movement_reference,l.source_document_reference,
                    l.target_journal_entry_id,l.result line_result,
                    j.id journal_entry_id,j.account_id journal_account_id,a.gl_code journal_account_code,
                    j.office_id journal_office_id,o.external_id journal_office_external_id,j.currency_code,
                    j.transaction_id journal_transaction_id,j.reversed,j.reversal_id,j.ref_num journal_ref_num,
                    j.manual_entry,j.entry_date journal_entry_date,j.type_enum journal_type_enum,j.amount journal_amount,
-                   j.description journal_description,j.dimensions::text journal_dimensions,
+                   j.description journal_description,j.header_concept journal_header_concept,
+                   j.header_description journal_header_description,j.dimensions::text journal_dimensions,
                    j.loan_transaction_id,j.savings_transaction_id,j.client_transaction_id,j.share_transaction_id,
                    j.entity_type_enum,j.entity_id
             FROM "{parent}" p
@@ -1583,6 +1612,34 @@ def _reconcile_accounting_action(action: dict[str, Any], rows: list[dict[str, An
                                  document: dict[str, Any]) -> list[str]:
     reasons: set[str] = set()
     payload = action.get("payload") or {}
+    if payload.get("reference_only"):
+        if len(rows) != 1:
+            return ["TARGET_REFERENCE_HEADER_COUNT_DRIFT"]
+        row = rows[0]
+        expected_planned_hash = action["planned_hash"]
+        if action["disposition"] == "UNCHANGED":
+            expected_planned_hash = _hash({
+                "source_key": action["source_key"], "source_hash": action["source_hash"],
+                "disposition": "REFERENCE_ONLY", "reason_codes": [], "payload": payload,
+            })
+        expected = {
+            "source_hash": action["source_hash"], "planned_hash": expected_planned_hash,
+            "source_journal_number": payload["ref_num"],
+            "source_journal_date": payload["provenance"]["source_journal_date"],
+            "source_status": payload["provenance"]["source_journal_status"],
+            "source_header_concept_sha256": payload["provenance"]["header_concept_sha256"],
+            "source_header_description_sha256": payload["provenance"]["header_description_sha256"],
+            "target_ref_num": payload["ref_num"], "provenance_result": "REFERENCE_ONLY",
+            "reason_code": "SOURCE_JOURNAL_EMPTY", "target_transaction_id": None,
+            "source_line_id": None, "journal_entry_id": None,
+        }
+        actual = {field: row.get(field) for field in expected}
+        actual["source_journal_date"] = str(actual["source_journal_date"])
+        actual["source_header_concept_sha256"] = _text_hash("CNT_PARTIDAS.CONCEPTO", row.get("source_header_concept"))
+        actual["source_header_description_sha256"] = _text_hash("CNT_PARTIDAS.DESCRIPCION", row.get("source_header_description"))
+        if actual != expected or row.get("cutoff_date") != date.fromisoformat(document["accounting_cutoff"]["date"]):
+            return ["TARGET_REFERENCE_PROVENANCE_DRIFT"]
+        return []
     if not rows:
         return ["TARGET_JOURNAL_MISSING"]
     transaction_ids = {str(row.get("target_transaction_id") or "") for row in rows}
@@ -1591,12 +1648,26 @@ def _reconcile_accounting_action(action: dict[str, Any], rows: list[dict[str, An
     bindings = document["bindings"]
     cutoff = document["accounting_cutoff"]
     imported_planned_hash = action["planned_hash"]
+    legacy_planned_hash = None
     if action["disposition"] == "UNCHANGED":
         imported_planned_hash = _hash({
             "source_key": action["source_key"], "source_hash": action["source_hash"],
             "disposition": "APPLICABLE", "reason_codes": [], "payload": payload,
         })
+        legacy_payload = {**payload, "lines": [
+            {key: value for key, value in line.items()
+             if key not in {"source_movement_reference", "source_document_reference"}}
+            for line in payload.get("lines", [])
+        ]}
+        legacy_planned_hash = _hash({
+            "source_key": action["source_key"], "source_hash": action["source_hash"],
+            "disposition": "APPLICABLE", "reason_codes": [], "payload": legacy_payload,
+        })
     for row in rows:
+        accepted_planned_hash = (
+            legacy_planned_hash if legacy_planned_hash is not None
+            and row.get("planned_hash") == legacy_planned_hash else imported_planned_hash
+        )
         header_actual = {
             "source_hash": row.get("source_hash"),
             "planned_hash": row.get("planned_hash"),
@@ -1613,7 +1684,7 @@ def _reconcile_accounting_action(action: dict[str, Any], rows: list[dict[str, An
         }
         header_expected = {
             "source_hash": action["source_hash"],
-            "planned_hash": imported_planned_hash,
+            "planned_hash": accepted_planned_hash,
             "source_schema_signature": bindings["source_schema_signature"],
             "coa_mapping_hash": bindings["coa_mapping"]["hash"],
             "office_mapping_hash": bindings["agency_mapping"]["hash"],
@@ -1653,6 +1724,7 @@ def _reconcile_accounting_action(action: dict[str, Any], rows: list[dict[str, An
             reasons.add("TARGET_JOURNAL_LINE_MISSING")
             continue
         row = candidates[0]
+        legacy_cheque_provenance = legacy_planned_hash is not None and row.get("planned_hash") == legacy_planned_hash
         side = "DEBIT" if Decimal(expected["debit"]) > 0 else "CREDIT"
         type_enum = 2 if side == "DEBIT" else 1
         amount = expected["debit"] if side == "DEBIT" else expected["credit"]
@@ -1694,6 +1766,8 @@ def _reconcile_accounting_action(action: dict[str, Any], rows: list[dict[str, An
             "journal_type_enum": row.get("journal_type_enum"),
             "journal_amount": _amount_text(row.get("journal_amount"), 6),
             "journal_description": row.get("journal_description"),
+            "journal_header_concept_sha256": _text_hash("CNT_PARTIDAS.CONCEPTO", row.get("journal_header_concept")),
+            "journal_header_description_sha256": _text_hash("CNT_PARTIDAS.DESCRIPCION", row.get("journal_header_description")),
             "journal_dimensions": _dimensions(row.get("journal_dimensions")),
             "product_links_absent": all(row.get(field) is None for field in (
                 "loan_transaction_id", "savings_transaction_id", "client_transaction_id",
@@ -1734,9 +1808,16 @@ def _reconcile_accounting_action(action: dict[str, Any], rows: list[dict[str, An
             "journal_type_enum": type_enum,
             "journal_amount": _amount_text(amount, 6),
             "journal_description": expected["description"],
+            "journal_header_concept_sha256": payload["provenance"]["header_concept_sha256"],
+            "journal_header_description_sha256": payload["provenance"]["header_description_sha256"],
             "journal_dimensions": expected["dimensions"],
             "product_links_absent": True,
         }
+        if not legacy_cheque_provenance:
+            actual["source_movement_reference"] = row.get("source_movement_reference")
+            actual["source_document_reference"] = row.get("source_document_reference")
+            expected_values["source_movement_reference"] = expected.get("source_movement_reference")
+            expected_values["source_document_reference"] = expected.get("source_document_reference")
         if actual != expected_values:
             reasons.add("TARGET_JOURNAL_LINE_DRIFT")
     if _amount_text(debit_total, 6) != _amount_text(payload.get("debit_total"), 6) or \
@@ -1755,6 +1836,8 @@ def _direct_balance_control(actions: list[dict[str, Any]], rows: list[dict[str, 
             amount = Decimal(line["debit"] if side == "DEBIT" else line["credit"])
             expected_agency[(line["target_account_code"], int(line["office_id"]), side)] += amount
     for row in rows:
+        if row.get("journal_entry_id") is None:
+            continue
         side = "DEBIT" if int(row.get("journal_type_enum") or 0) == 2 else "CREDIT"
         actual_agency[(str(row.get("journal_account_code") or ""), int(row.get("journal_office_id") or 0), side)] += Decimal(
             str(row.get("journal_amount") or 0)
@@ -1786,9 +1869,6 @@ def _direct_balance_control(actions: list[dict[str, Any]], rows: list[dict[str, 
 def _source_ledger_control(
     settings: Settings, contract: AccountingContract, document: dict[str, Any],
 ) -> dict[str, Any]:
-    eligible = [action for action in document["actions"] if action["disposition"] != "QUARANTINED"]
-    if not eligible:
-        raise RuntimeError("Accounting ledger control requires at least one eligible journal")
     company = str(contract.raw["currency_precision"]["source_company"])
     origin = str(contract.raw["historical_origin"]["first_eligible_journal_date"])
     cutoff = str(document["accounting_cutoff"]["date"])
@@ -1947,6 +2027,8 @@ def reconcile_accounting(
         elif action["disposition"] != "QUARANTINED":
             state.record_accounting_reconciliation(item["run_id"], key, True)
             counts["reconciled"] += 1
+            if (action.get("payload") or {}).get("reference_only"):
+                counts["reference_only"] += 1
     boundary = snapshot.get("boundary", {})
     boundary_findings = []
     if int(boundary.get("native_non_manual_pre_cutoff", 0)):
@@ -1972,16 +2054,26 @@ def reconcile_accounting(
             if action["disposition"] != "QUARANTINED"
         ]
         control_period_end = max((value for value in controlled_dates if value is not None), default=None)
+    # CNT_MAYOR is built from status-3 journals only. Other source statuses
+    # are now imported when structurally valid, but are verified directly
+    # against their lines and target postings rather than this source ledger.
     controlled_action_count = sum(
         1 for action in actions
         if action["disposition"] != "QUARANTINED"
+        and not (action.get("payload") or {}).get("reference_only")
+        and str((action.get("payload") or {}).get("provenance", {}).get("source_journal_status") or "") == "3"
         and control_period_end is not None
         and _date(action["payload"].get("entry_date")) is not None
         and _date(action["payload"].get("entry_date")) <= control_period_end
     )
     if control_period_end is None or not int(source_ledger_control.get("closed_before_cutoff", 0)):
         source_ledger_findings.append("SOURCE_LEDGER_CONTROL_PERIOD_UNRESOLVED")
-    if int(source_ledger_control.get("eligible_journal_count", -1)) != controlled_action_count:
+    # Only a full-company plan claims completeness through the latest closed
+    # period. Exact-key and selected-period plans prove their own direct lines;
+    # they cannot equal the source-wide status-3 journal count.
+    controls_closed_period = document.get("scope", {}).get("type") == "full-company"
+    if (controls_closed_period and
+            int(source_ledger_control.get("eligible_journal_count", -1)) != controlled_action_count):
         source_ledger_findings.append("SOURCE_LEDGER_CONTROL_SCOPE_INCOMPLETE")
     if int(source_ledger_control.get("unsafe_hybrid_account_count", 0)):
         source_ledger_findings.append("SOURCE_HYBRID_ACCOUNT_ROLLUP_UNSAFE")
@@ -1989,7 +2081,8 @@ def reconcile_accounting(
         source_ledger_findings.append("SOURCE_JOURNAL_TO_CNT_MAYOR_CLOSING_DRIFT")
     ok = not findings and not boundary_findings and not balance_findings and not source_ledger_findings
     summary = {
-        "reconciled": counts["reconciled"], "quarantined": counts["quarantined"],
+        "reconciled": counts["reconciled"], "reference_only": counts["reference_only"],
+        "quarantined": counts["quarantined"],
         "mismatched": counts["mismatched"], "boundary_mismatches": len(boundary_findings),
         "balance_mismatches": len(balance_findings),
         "source_ledger_mismatches": len(source_ledger_findings),
@@ -2002,6 +2095,7 @@ def reconcile_accounting(
         "boundary_findings": boundary_findings, "balance_findings": balance_findings,
         "direct_balance_control": balance_control,
         "source_ledger_control": source_ledger_control,
+        "closed_period_scope_checked": controls_closed_period,
         "source_ledger_findings": source_ledger_findings,
         "gate8_acceptance_ok": ok,
         "direct_journal_control_hash": _hash({

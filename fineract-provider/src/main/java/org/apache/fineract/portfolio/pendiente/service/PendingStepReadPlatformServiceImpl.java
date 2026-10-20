@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.portfolio.client.domain.ClientRepositoryWrapper;
 import org.apache.fineract.portfolio.pendiente.data.PendingStepData;
 import org.apache.fineract.portfolio.pendiente.domain.PendingStep;
 import org.apache.fineract.portfolio.pendiente.domain.PendingStepRepository;
@@ -32,10 +33,12 @@ import org.springframework.stereotype.Service;
 @Service
 public class PendingStepReadPlatformServiceImpl implements PendingStepReadPlatformService {
 
+    private static final List<String> OPEN_STATUSES = List.of("open", "pending");
     private static final List<String> COMPLETED_STATUSES = List.of("completed", "cancelado");
 
     private final PendingStepRepository repository;
     private final PlatformSecurityContext context;
+    private final ClientRepositoryWrapper clientRepositoryWrapper;
 
     @Override
     public List<PendingStepData> retrieveByFlowId(Long pendingFlowId) {
@@ -69,6 +72,28 @@ public class PendingStepReadPlatformServiceImpl implements PendingStepReadPlatfo
     public List<PendingStepData> retrieveByOfficeId(Long officeId) {
         context.authenticatedUser();
         return repository.findByOffice_IdOrderByCreationDateDesc(officeId).stream().map(this::mapToData).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<PendingStepData> retrieveByClientId(Long clientId, Boolean closed) {
+        context.authenticatedUser();
+        if (clientId == null || clientId <= 0) {
+            return List.of();
+        }
+        this.clientRepositoryWrapper.findOneWithNotFoundDetection(clientId);
+        final String statusList = statusListFor(closed);
+        return repository.findRelatedToClient(String.valueOf(clientId), statusList).stream().map(this::mapToData)
+                .collect(Collectors.toList());
+    }
+
+    private static String statusListFor(Boolean closed) {
+        if (Boolean.TRUE.equals(closed)) {
+            return String.join(",", COMPLETED_STATUSES);
+        }
+        if (Boolean.FALSE.equals(closed)) {
+            return String.join(",", OPEN_STATUSES);
+        }
+        return "";
     }
 
     @Override

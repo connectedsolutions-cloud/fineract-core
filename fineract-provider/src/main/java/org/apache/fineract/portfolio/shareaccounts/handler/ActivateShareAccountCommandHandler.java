@@ -22,8 +22,7 @@ import org.apache.fineract.commands.annotation.CommandType;
 import org.apache.fineract.commands.handler.NewCommandSourceHandler;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
-import org.apache.fineract.portfolio.shareaccounts.service.ShareAccountWritePlatformService;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRuleException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,17 +30,11 @@ import org.springframework.transaction.annotation.Transactional;
 @CommandType(entity = "SHAREACCOUNT", action = "ACTIVATE")
 public class ActivateShareAccountCommandHandler implements NewCommandSourceHandler {
 
-    private final ShareAccountWritePlatformService shareAccountWritePlatformService;
-
-    @Autowired
-    public ActivateShareAccountCommandHandler(final ShareAccountWritePlatformService shareAccountWritePlatformService) {
-        this.shareAccountWritePlatformService = shareAccountWritePlatformService;
-    }
-
     @Transactional
     @Override
     public CommandProcessingResult processCommand(JsonCommand jsonCommand) {
-        return this.shareAccountWritePlatformService.activateShareAccount(jsonCommand.entityId(), jsonCommand);
+        throw new GeneralPlatformDomainRuleException("error.msg.share.account.activation.requires.payment",
+                "Share account activation requires a recorded teller cash collection or a cheque or bank transfer payment");
     }
 
 }

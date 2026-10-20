@@ -91,8 +91,8 @@ import org.apache.fineract.portfolio.savings.DepositAccountType;
 import org.apache.fineract.portfolio.savings.DepositsApiConstants;
 import org.apache.fineract.portfolio.savings.SavingsAccountTransactionType;
 import org.apache.fineract.portfolio.savings.SavingsApiConstants;
-import org.apache.fineract.portfolio.savings.data.DepositAccountTransactionDataValidator;
 import org.apache.fineract.portfolio.savings.data.DepositAccountDataValidator;
+import org.apache.fineract.portfolio.savings.data.DepositAccountTransactionDataValidator;
 import org.apache.fineract.portfolio.savings.data.SavingsAccountChargeDataValidator;
 import org.apache.fineract.portfolio.savings.data.SavingsAccountTransactionDTO;
 import org.apache.fineract.portfolio.savings.domain.DepositAccountAssembler;
@@ -245,8 +245,7 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
             association = AccountAssociations.associateSavingsAccount(fixedDeposit, linkedSavings,
                     AccountAssociationType.LINKED_ACCOUNT_ASSOCIATION.getValue(), true);
             this.accountAssociationsRepository.save(association);
-        } else if (association.linkedSavingsAccount() == null
-                || !association.linkedSavingsAccount().getId().equals(linkedSavingsId)) {
+        } else if (association.linkedSavingsAccount() == null || !association.linkedSavingsAccount().getId().equals(linkedSavingsId)) {
             throw new IllegalStateException("Fixed deposit already has a different linked savings account");
         }
         fixedDeposit.configureInterestTransferToLinkedAccount();
@@ -585,8 +584,8 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
     public CommandProcessingResult undoFDTransaction(final Long savingsId, final Long transactionId,
             @SuppressWarnings("unused") final boolean allowAccountTransferModification, final boolean sourceAuthoritativeCleanup) {
         context.authenticatedUser();
-        final SavingsAccountTransaction transaction = this.savingsAccountTransactionRepository
-                .findOneByIdAndSavingsAccountId(transactionId, savingsId);
+        final SavingsAccountTransaction transaction = this.savingsAccountTransactionRepository.findOneByIdAndSavingsAccountId(transactionId,
+                savingsId);
         if (transaction == null) {
             throw new SavingsAccountTransactionNotFoundException(savingsId, transactionId);
         }
@@ -1388,22 +1387,21 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
     }
 
     @Override
-    public void updateMaturityDetails(Long depositAccountId, DepositAccountType depositAccountType,
-            final boolean applyMaturityInstruction, final boolean postMaturityInterest) {
+    public void updateMaturityDetails(Long depositAccountId, DepositAccountType depositAccountType, final boolean applyMaturityInstruction,
+            final boolean postMaturityInterest) {
         updateMaturityDetails(depositAccountId, depositAccountType, applyMaturityInstruction, postMaturityInterest, null);
     }
 
     @Override
-    public Long updateMaturityDetails(Long depositAccountId, DepositAccountType depositAccountType,
-            final boolean applyMaturityInstruction, final boolean postMaturityInterest, final LocalDate sourceRolloverDate) {
+    public Long updateMaturityDetails(Long depositAccountId, DepositAccountType depositAccountType, final boolean applyMaturityInstruction,
+            final boolean postMaturityInterest, final LocalDate sourceRolloverDate) {
         return updateMaturityDetails(depositAccountId, depositAccountType, applyMaturityInstruction, postMaturityInterest,
                 sourceRolloverDate, false);
     }
 
     @Override
-    public Long updateMaturityDetails(Long depositAccountId, DepositAccountType depositAccountType,
-            final boolean applyMaturityInstruction, final boolean postMaturityInterest, final LocalDate sourceRolloverDate,
-            final boolean forceSourceMaturity) {
+    public Long updateMaturityDetails(Long depositAccountId, DepositAccountType depositAccountType, final boolean applyMaturityInstruction,
+            final boolean postMaturityInterest, final LocalDate sourceRolloverDate, final boolean forceSourceMaturity) {
         final boolean isSavingsInterestPostingAtCurrentPeriodEnd = this.configurationDomainService
                 .isSavingsInterestPostingAtCurrentPeriodEnd();
         final Integer financialYearBeginningMonth = this.configurationDomainService.retrieveFinancialYearBeginningMonth();
@@ -1415,8 +1413,8 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
 
         Long reinvestedDepositId = null;
         if (depositAccountType.isFixedDeposit()) {
-            final AccountAssociations linkedAccountAssociation = this.accountAssociationsRepository.findBySavingsIdAndType(
-                    depositAccountId, AccountAssociationType.LINKED_ACCOUNT_ASSOCIATION.getValue());
+            final AccountAssociations linkedAccountAssociation = this.accountAssociationsRepository.findBySavingsIdAndType(depositAccountId,
+                    AccountAssociationType.LINKED_ACCOUNT_ASSOCIATION.getValue());
             FixedDepositAccount fdAccount = ((FixedDepositAccount) account);
             if (applyMaturityInstruction && !postMaturityInterest) {
                 fdAccount.configureSourceAuthoritativePrincipalRollover();
@@ -1456,8 +1454,8 @@ public class DepositAccountWritePlatformServiceJpaRepositoryImpl implements Depo
                         payActivationCharge(reinvestAccount);
                         amountForDeposit = amountForDeposit.plus(activationChargeAmount);
                     }
-                    this.depositAccountDomainService.handleFDDeposit(reinvestAccount, fmt, rolloverDate,
-                            amountForDeposit.getAmount(), null);
+                    this.depositAccountDomainService.handleFDDeposit(reinvestAccount, fmt, rolloverDate, amountForDeposit.getAmount(),
+                            null);
                 }
             }
         } else if (depositAccountType.isRecurringDeposit()) {

@@ -15,13 +15,14 @@ from .storage_health import (
     DEFAULT_CLOSED_RETENTION_DAYS,
     DEFAULT_MIN_CLOSED_CYCLES,
     _parse_instant,
+    _carry_forward_prior_cycle,
     _tree_size,
 )
 
 
-SUCCESS_LOG_DAYS = 7
 FAILED_LOG_DAYS = 30
 SUMMARY_DAYS = 90
+RECENT_WORKFLOW_LOGS = 2
 APPLY_CONFIRMATION = "APPLY-RETENTION"
 ACTIVE_STATUSES = {"queued", "running"}
 TERMINAL_SUCCESS_ITEM_STATUSES = {"succeeded", "unchanged", "recovered"}
@@ -93,7 +94,7 @@ def _validated_cycle_dir(base_state_path: Path, cycle: dict[str, Any]) -> Path:
 
 
 def _log_action(
-    cycle: dict[str, Any], run: dict[str, Any], clock: datetime,
+    cycle: dict[str, Any], run: dict[str, Any], keep: bool,
 ) -> dict[str, Any] | None:
     log_value = run.get("log_path")
     if not log_value:
@@ -110,20 +111,20 @@ def _log_action(
     existing = compressed_path if compressed_path.is_file() else raw_path
     if not existing.is_file():
         return None
-    age = _age_days(run.get("finished_at") or run.get("created_at"), clock)
-    if age is None or run["status"] in ACTIVE_STATUSES:
+    if run["status"] in ACTIVE_STATUSES:
         return None
     common = {
         "cycle_id": cycle["id"], "workflow_run_id": run["id"],
-        "run_status": run["status"], "age_days": round(age, 2),
+        "run_status": run["status"],
         "path": str(existing), "bytes": existing.stat().st_size,
     }
-    if run["status"] == "completed":
-        return {"action": "delete-success-log", **common} if age >= SUCCESS_LOG_DAYS else None
-    if age >= FAILED_LOG_DAYS:
-        return {"action": "delete-failed-log", **common}
-    if existing.suffix != ".gz":
-        return {"action": "compress-failed-log", **common, "output_path": str(compressed_path)}
+    if not keep:
+        return {"action": "delete-extra-workflow-log", **common}
+    # A failed or interrupted workflow can resume into its recorded log_path.
+    # Keep that file appendable until the run is no longer a recovery candidate.
+    if run["status"] == "completed" and existing.suffix != ".gz":
+        return {"action": "compress-retained-workflow-log", **common,
+                "output_path": str(compressed_path)}
     return None
 
 
@@ -334,7 +335,10 @@ def retention_plan(
 
     if cycles:
         newest = cycles[0]
+        protected_prior_cycle = _carry_forward_prior_cycle(cycles)
         for cycle in cycles[1:]:
+            if cycle["id"] == protected_prior_cycle:
+                continue
             if snapshots[cycle["id"]]["active_run_count"]:
                 actions.append({
                     "action": "blocked-delete-active-cycle", "cycle_id": cycle["id"],
@@ -346,6 +350,27 @@ def retention_plan(
                 "action": "delete-obsolete-cycle", "cycle_id": cycle["id"],
                 "replaced_by": newest["id"], "bytes": _tree_size(cycle_dir),
             })
+
+        deleting = {action["cycle_id"] for action in actions
+                    if action["action"] == "delete-obsolete-cycle"}
+        retained = [cycle for cycle in cycles if cycle["id"] not in deleting]
+        terminal_runs = [
+            (cycle, run) for cycle in retained
+            for run in snapshots[cycle["id"]]["workflow_runs"]
+            if run["status"] not in ACTIVE_STATUSES and run.get("log_path")
+        ]
+        terminal_runs.sort(
+            key=lambda item: (_parse_instant(item[1].get("finished_at")
+                                             or item[1].get("created_at"))
+                              or datetime.min.replace(tzinfo=timezone.utc),
+                              str(item[1]["id"])),
+            reverse=True,
+        )
+        keep_logs = {run["id"] for _, run in terminal_runs[:RECENT_WORKFLOW_LOGS]}
+        for cycle, run in terminal_runs:
+            action = _log_action(cycle, run, run["id"] in keep_logs)
+            if action:
+                actions.append(action)
 
     retention_root = base_state_path.resolve().parent / "retention"
     if retention_root.is_dir() and _tree_size(retention_root):
@@ -390,8 +415,9 @@ def retention_plan(
             if action["action"].startswith("delete-")
         ),
         "policy": {
-            "local_cycles": "retain only the newest cycle and its complete state",
+            "local_cycles": "retain the newest cycle and its carry-forward input cycle while rollback is protected",
             "obsolete_local_cycles": "delete all databases, logs, summaries, and catalog entries",
+            "workflow_logs": "retain at most the two most recent terminal workflow logs across retained cycles; compress completed logs and keep resumable logs appendable; keep active logs",
             "legacy_local_state": "delete after confirming no local run is active",
             "production": "retain mappings/links and only the single latest run with its plan/items",
         },
@@ -498,6 +524,47 @@ def _gzip_log(path: Path) -> Path:
     os.utime(destination, (path.stat().st_atime, path.stat().st_mtime))
     path.unlink()
     return destination
+
+
+def _apply_workflow_log_action(catalog: CycleCatalog, action: dict[str, Any]) -> None:
+    cycle = catalog.get(action["cycle_id"])
+    state_path = Path(cycle["state_path"])
+    path = Path(action["path"]).resolve()
+    if not path.is_relative_to(state_path.resolve().parent / "workflow-runs"):
+        raise ValueError("Workflow log retention has an unsafe path")
+    if action["action"] == "compress-retained-workflow-log":
+        replacement = str(_gzip_log(path))
+    elif action["action"] == "delete-extra-workflow-log":
+        path.unlink(missing_ok=True)
+        replacement = None
+    else:
+        raise ValueError("Unknown workflow log retention action")
+    state = State(state_path)
+    try:
+        state.conn.execute(
+            "UPDATE workflow_runs SET log_path=? WHERE id=?",
+            (replacement, action["workflow_run_id"]),
+        )
+        state.conn.commit()
+    finally:
+        state.conn.close()
+
+
+def apply_workflow_log_retention(base_state_path: Path) -> list[dict[str, Any]]:
+    """Apply only the two-run local log policy before a new detached run."""
+    plan = retention_plan(base_state_path, scope="local")
+    actions = [action for action in plan["actions"] if action["action"] in {
+        "compress-retained-workflow-log", "delete-extra-workflow-log",
+    }]
+    if not actions:
+        return []
+    catalog = CycleCatalog(base_state_path)
+    try:
+        for action in actions:
+            _apply_workflow_log_action(catalog, action)
+    finally:
+        catalog.conn.close()
+    return actions
 
 
 def _prune_production(base_state_path: Path, action: dict[str, Any]) -> None:
@@ -691,24 +758,9 @@ def apply_retention(
                     raise ValueError("Local retention archive has an unsafe path")
                 if path.is_dir():
                     shutil.rmtree(path)
-            elif name == "compress-failed-log":
-                compressed = _gzip_log(Path(action["path"]))
-                cycle = catalog.get(action["cycle_id"]) if catalog else None
-                if cycle and Path(cycle["state_path"]).is_file():
-                    state = State(Path(cycle["state_path"]))
-                    try:
-                        state.conn.execute(
-                            "UPDATE workflow_runs SET log_path=? WHERE id=?",
-                            (str(compressed), action["workflow_run_id"]),
-                        )
-                        state.conn.commit()
-                    finally:
-                        state.conn.close()
-            elif name in {"delete-success-log", "delete-failed-log"}:
-                path = Path(action["path"])
-                cycle = catalog.get(action["cycle_id"]) if catalog else None
-                if cycle and path.resolve().is_relative_to(Path(cycle["state_path"]).resolve().parent / "workflow-runs"):
-                    path.unlink(missing_ok=True)
+            elif name in {"compress-retained-workflow-log", "delete-extra-workflow-log"}:
+                assert catalog is not None
+                _apply_workflow_log_action(catalog, action)
             elif name == "archive-and-purge-cycle":
                 assert catalog is not None
                 cycle = catalog.get(action["cycle_id"])

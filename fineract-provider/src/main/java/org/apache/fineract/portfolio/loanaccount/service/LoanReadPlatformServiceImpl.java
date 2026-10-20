@@ -991,6 +991,10 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
             return "l.id as id, l.account_no as accountNo, l.external_id as externalId, l.fund_id as fundId, f.name as fundName,"
                     + " l.loan_type_enum as loanType, l.loanpurpose_cv_id as loanPurposeId, cv.code_value as loanPurposeName,"
                     + " lp.id as loanProductId, lp.name as loanProductName, lp.description as loanProductDescription,"
+                    + " l.portfolio_account_gl_id as portfolioAccountGlId, portfolio_gl.gl_code as portfolioAccountGlCode, portfolio_gl.name as portfolioAccountGlName,"
+                    + " l.portfolio_interest_receivable_gl_id as portfolioInterestReceivableGlId, interest_receivable_gl.gl_code as portfolioInterestReceivableGlCode, interest_receivable_gl.name as portfolioInterestReceivableGlName,"
+                    + " l.portfolio_account_expected_disbursedon_date as portfolioAccountExpectedDisbursementDate, l.portfolio_account_expected_maturedon_date as portfolioAccountExpectedMaturityDate,"
+                    + " l.portfolio_account_term_days as portfolioAccountTermDays, l.portfolio_account_selection_reason as portfolioAccountSelectionReason,"
                     + " lp.is_linked_to_floating_interest_rates as isLoanProductLinkedToFloatingRate, "
                     + " lp.allow_variabe_installments as isvariableInstallmentsAllowed, "
                     + " lp.allow_multiple_disbursals as multiDisburseLoan, lp.disallow_expected_disbursements as disallowExpectedDisbursements, "
@@ -1083,6 +1087,8 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
                     + " l.charge_off_behaviour as chargeOffBehaviour, l.interest_recognition_on_disbursement_date as interestRecognitionOnDisbursementDate, "
                     + " l.dimensions as dimensions " + " from m_loan l" //
                     + " join m_product_loan lp on lp.id = l.product_id" //
+                    + " left join acc_gl_account portfolio_gl on portfolio_gl.id = l.portfolio_account_gl_id" //
+                    + " left join acc_gl_account interest_receivable_gl on interest_receivable_gl.id = l.portfolio_interest_receivable_gl_id" //
                     + " left join m_loan_recalculation_details lir on lir.loan_id = l.id join m_currency rc on rc."
                     + sqlGenerator.escape("code") + " = l.currency_code" //
                     + " left join m_client c on c.id = l.client_id" //
@@ -1494,10 +1500,9 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
                     timeline, loanSummary, feeChargesDueAtDisbursementCharged, syncDisbursementWithMeeting, loanCounter, loanProductCounter,
                     multiDisburseLoan, canDefineInstallmentAmount, fixedEmiAmount, outstandingLoanBalance, inArrears, graceOnArrearsAgeing,
                     isNPA, isFrozen, frozenOn, freezeReason, daysInMonthType, daysInYearType, isInterestRecalculationEnabled,
-                    interestRecalculationData,
-                    createStandingInstructionAtDisbursement, isvariableInstallmentsAllowed, minimumGap, maximumGap, loanSubStatus,
-                    canUseForTopup, isTopup, closureLoanId, closureLoanAccountNo, topupAmount, isEqualAmortization,
-                    fixedPrincipalPercentagePerInstallment, delinquencyRange, disallowExpectedDisbursements, isFraud,
+                    interestRecalculationData, createStandingInstructionAtDisbursement, isvariableInstallmentsAllowed, minimumGap,
+                    maximumGap, loanSubStatus, canUseForTopup, isTopup, closureLoanId, closureLoanAccountNo, topupAmount,
+                    isEqualAmortization, fixedPrincipalPercentagePerInstallment, delinquencyRange, disallowExpectedDisbursements, isFraud,
                     lastClosedBusinessDate, isSimulation, simulatedDate, simulationStartLastClosedBusinessDate, overpaidOnDate,
                     isChargedOff, enableDownPayment, disbursedAmountPercentageForDownPayment, enableAutoRepaymentForDownPayment,
                     enableInstallmentLevelDelinquency, loanScheduleType.asEnumOptionData(), loanScheduleProcessingType.asEnumOptionData(),
@@ -1505,7 +1510,17 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
                     daysInYearCustomStrategy, enableIncomeCapitalization, capitalizedIncomeCalculationType, capitalizedIncomeStrategy,
                     capitalizedIncomeType, enableBuyDownFee, buyDownFeeCalculationType, buyDownFeeStrategy, buyDownFeeIncomeType,
                     merchantBuyDownFee).setClientStaffId(clientStaffId).setClientStaffName(clientStaffName)
-                    .setReadyForComite(readyForComite).setDimensions(dimensions);
+                    .setReadyForComite(readyForComite).setDimensions(dimensions)
+                    .setPortfolioAccountGlId(JdbcSupport.getLong(rs, "portfolioAccountGlId"))
+                    .setPortfolioAccountGlCode(rs.getString("portfolioAccountGlCode"))
+                    .setPortfolioAccountGlName(rs.getString("portfolioAccountGlName"))
+                    .setPortfolioInterestReceivableGlId(JdbcSupport.getLong(rs, "portfolioInterestReceivableGlId"))
+                    .setPortfolioInterestReceivableGlCode(rs.getString("portfolioInterestReceivableGlCode"))
+                    .setPortfolioInterestReceivableGlName(rs.getString("portfolioInterestReceivableGlName"))
+                    .setPortfolioAccountExpectedDisbursementDate(JdbcSupport.getLocalDate(rs, "portfolioAccountExpectedDisbursementDate"))
+                    .setPortfolioAccountExpectedMaturityDate(JdbcSupport.getLocalDate(rs, "portfolioAccountExpectedMaturityDate"))
+                    .setPortfolioAccountTermDays(JdbcSupport.getInteger(rs, "portfolioAccountTermDays"))
+                    .setPortfolioAccountSelectionReason(rs.getString("portfolioAccountSelectionReason"));
         }
     }
 

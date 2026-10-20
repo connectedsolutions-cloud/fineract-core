@@ -30,9 +30,11 @@ class MigrationServiceRegistryTests(unittest.TestCase):
              ("native-share-yield", "native-share-yield"),
              ("aml-alerts", "aml-alerts"),
              ("loans", "loans"),
+             ("delinquency-history", "delinquency-history"),
              ("dte-history", "dte-history"),
              ("mobile-collections", "mobile-collections"),
-             ("accounting-journal-entries", "accounting")],
+             ("accounting-journal-entries", "accounting"),
+             ("cheque-history", "cheque-history")],
         )
 
     def test_service_report_selects_one_service(self):
@@ -42,13 +44,16 @@ class MigrationServiceRegistryTests(unittest.TestCase):
 
     def test_accepted_services_are_available(self):
         services = load_registry()["services"]
-        self.assertEqual(len(services), 16)
-        self.assertTrue(all(service["status"] == "available" for service in services))
+        self.assertEqual(len(services), 18)
+        self.assertEqual(sum(service["status"] == "available" for service in services), 17)
+        cheque = next(service for service in services if service["id"] == "cheque-history")
+        self.assertEqual(cheque["status"], "testing")
         self.assertTrue(all(service["executable"] for service in services))
         self.assertTrue(all(
             service.get("full_resync", {}).get("status") == "supported"
-            for service in services
+            for service in services if service["id"] not in {"delinquency-history", "cheque-history"}
         ))
+        self.assertEqual(next(service for service in services if service["id"] == "delinquency-history")["full_resync"]["status"], "not-supported")
         share_yield = next(service for service in services if service["id"] == "native-share-yield")
         self.assertEqual(share_yield["status"], "available")
         self.assertTrue(share_yield["executable"])
@@ -101,23 +106,13 @@ class MigrationServiceRegistryTests(unittest.TestCase):
         self.assertFalse(origin["synthetic_opening_journal_allowed"])
         self.assertFalse(origin["residual_balance_journal_allowed"])
         eligibility = config["source_eligibility"]
-        self.assertEqual(eligibility["importable_journal_statuses"], ["3"])
-        self.assertEqual(
-            eligibility["journal_status_dispositions"]["1"]["reason_code"],
-            "SOURCE_JOURNAL_NOT_MAYORIZED",
-        )
-        self.assertEqual(
-            eligibility["journal_status_dispositions"]["2"]["reason_code"],
-            "SOURCE_JOURNAL_EXCLUDED_FROM_LEDGER",
-        )
-        self.assertEqual(
-            eligibility["unexpected_status"]["reason_code"],
-            "SOURCE_JOURNAL_STATUS_UNSUPPORTED",
-        )
+        self.assertEqual(eligibility["journal_status_policy"], "observe_without_import_gate")
+        self.assertEqual(eligibility["empty_journal"]["disposition"], "REFERENCE_ONLY")
+        self.assertTrue(eligibility["empty_journal"]["requires_header_concept"])
         self.assertEqual(eligibility["empty_journal"]["reason_code"], "SOURCE_JOURNAL_EMPTY")
         self.assertEqual(eligibility["unbalanced_journal"]["reason_code"], "SOURCE_JOURNAL_UNBALANCED")
         reversal = config["reversal_policy"]
-        self.assertEqual(reversal["reporting_requirement"], "preserve_posted_gl_effects")
+        self.assertEqual(reversal["reporting_requirement"], "preserve_all_valid_source_journal_effects")
         self.assertEqual(
             reversal["historical_representation"],
             "import_each_eligible_source_journal_as_ordinary_journal",
@@ -442,7 +437,7 @@ class MigrationServiceRegistryTests(unittest.TestCase):
         report = service_report("native-share-capital")["service"]
         self.assertEqual(report["status"], "available")
         self.assertTrue(report["executable"])
-        self.assertEqual(report["depends_on"], ["clients", "membership-share-capital", "savings-deposits"])
+        self.assertEqual(report["depends_on"], ["clients", "employees", "membership-share-capital", "savings-deposits"])
         self.assertEqual(set(report["commands"]), {"inspect", "plan", "apply", "retry", "reconcile", "status"})
         args = parser().parse_args(["inspect", "--target", "local", "--block", "native-share-capital"])
         self.assertEqual(args.block, "native-share-capital")

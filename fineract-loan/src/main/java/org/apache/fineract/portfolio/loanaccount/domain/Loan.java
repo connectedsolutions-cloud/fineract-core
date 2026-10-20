@@ -34,12 +34,14 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.OrderBy;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -60,6 +62,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.codes.domain.CodeValue;
 import org.apache.fineract.infrastructure.core.domain.AbstractAuditableWithUTCDateTimeCustom;
 import org.apache.fineract.infrastructure.core.domain.ExternalId;
+import org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRuleException;
 import org.apache.fineract.infrastructure.core.persistence.converter.JsonbStringAttributeConverter;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.core.service.MathUtil;
@@ -288,6 +291,78 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
     @Setter
     @Column(name = "expected_maturedon_date")
     private LocalDate expectedMaturityDate;
+
+    @Column(name = "portfolio_account_gl_id")
+    private Long portfolioAccountGlId;
+
+    @Column(name = "portfolio_interest_receivable_gl_id")
+    private Long portfolioInterestReceivableGlId;
+
+    @Column(name = "portfolio_account_expected_disbursedon_date")
+    private LocalDate portfolioAccountExpectedDisbursementDate;
+
+    @Column(name = "portfolio_account_expected_maturedon_date")
+    private LocalDate portfolioAccountExpectedMaturityDate;
+
+    @Column(name = "portfolio_account_term_days")
+    private Integer portfolioAccountTermDays;
+
+    @Column(name = "portfolio_account_selection_reason")
+    private String portfolioAccountSelectionReason;
+
+    public void selectTermPortfolioAccount(final Long shortAccountId, final Long longAccountId) {
+        selectTermPortfolioAccount(shortAccountId, longAccountId, null, null);
+    }
+
+    public void selectTermPortfolioAccount(final Long shortAccountId, final Long longAccountId, final Long shortInterestAccountId,
+            final Long longInterestAccountId) {
+        if (shortAccountId == null || longAccountId == null || shortAccountId.equals(longAccountId)) {
+            throw new IllegalStateException("Term-based portfolio accounting requires two distinct GL accounts");
+        }
+        if (expectedDisbursementDate == null || expectedMaturityDate == null || !expectedMaturityDate.isAfter(expectedDisbursementDate)) {
+            throw new IllegalStateException("Term-based portfolio accounting requires valid expected disbursement and maturity dates");
+        }
+        final long days = ChronoUnit.DAYS.between(expectedDisbursementDate, expectedMaturityDate);
+        if (days > Integer.MAX_VALUE) {
+            throw new IllegalStateException("Loan term exceeds supported calendar days");
+        }
+        final Long expectedAccountId = days <= 366 ? shortAccountId : longAccountId;
+        final Long expectedInterestAccountId = days <= 366 ? shortInterestAccountId : longInterestAccountId;
+        if (portfolioAccountGlId != null) {
+            if (!Objects.equals(portfolioAccountExpectedDisbursementDate, expectedDisbursementDate)
+                    || !Objects.equals(portfolioAccountExpectedMaturityDate, expectedMaturityDate)
+                    || !Objects.equals(portfolioAccountGlId, expectedAccountId)
+                    || !Objects.equals(portfolioInterestReceivableGlId, expectedInterestAccountId)) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.portfolio.account.reclassification.required",
+                        "Expected loan dates changed after portfolio account selection; reclassification is required");
+            }
+            return;
+        }
+        portfolioAccountGlId = expectedAccountId;
+        portfolioInterestReceivableGlId = expectedInterestAccountId;
+        portfolioAccountExpectedDisbursementDate = expectedDisbursementDate;
+        portfolioAccountExpectedMaturityDate = expectedMaturityDate;
+        portfolioAccountTermDays = (int) days;
+        portfolioAccountSelectionReason = "EXPECTED_DATES_366_DAY_RULE";
+    }
+
+    public void clearTermPortfolioAccountSelection() {
+        portfolioAccountGlId = null;
+        portfolioInterestReceivableGlId = null;
+        portfolioAccountExpectedDisbursementDate = null;
+        portfolioAccountExpectedMaturityDate = null;
+        portfolioAccountTermDays = null;
+        portfolioAccountSelectionReason = null;
+    }
+
+    @PreUpdate
+    public void validateTermPortfolioAccountSelection() {
+        if (portfolioAccountGlId != null && (!Objects.equals(portfolioAccountExpectedDisbursementDate, expectedDisbursementDate)
+                || !Objects.equals(portfolioAccountExpectedMaturityDate, expectedMaturityDate))) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.portfolio.account.reclassification.required",
+                    "Expected loan dates changed after portfolio account selection; reclassification is required");
+        }
+    }
 
     @Setter()
     @Column(name = "maturedon_date")
@@ -1023,6 +1098,18 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
             disbursementDate = this.actualDisbursementDate;
         }
         return disbursementDate;
+    }
+
+    /**
+     * An early financial disbursement does not amend the approved start date of a single-disbursement loan's repayment plan.
+     */
+    public boolean isEarlyDisbursementBeforeExpected(final LocalDate actualDate) {
+        return !isMultiDisburmentLoan() && actualDate != null && expectedDisbursementDate != null
+                && DateUtils.isBefore(actualDate, expectedDisbursementDate);
+    }
+
+    public LocalDate getRepaymentScheduleStartDate() {
+        return isEarlyDisbursementBeforeExpected(actualDisbursementDate) ? expectedDisbursementDate : getDisbursementDate();
     }
 
     public LocalDate getExpectedDisbursedOnLocalDateForTemplate() {

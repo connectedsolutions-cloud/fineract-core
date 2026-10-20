@@ -121,8 +121,7 @@ class SourceExactInsuranceChargeRebaseTest {
     void otherChargeIdentityCannotUseMigrationCommand() {
         charge.setExternalId(new ExternalId("OTHER:CHARGE:2100"));
 
-        assertThrows(GeneralPlatformDomainRuleException.class,
-                () -> service.rebaseSourceExactInsuranceCharge(55L, 99L, command));
+        assertThrows(GeneralPlatformDomainRuleException.class, () -> service.rebaseSourceExactInsuranceCharge(55L, 99L, command));
         verify(loanRepositoryWrapper, never()).save(loan);
     }
 }

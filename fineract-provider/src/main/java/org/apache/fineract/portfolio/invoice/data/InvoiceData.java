@@ -15,6 +15,9 @@ public class InvoiceData {
     private Long id;
     private String status;
     private Long loanTransactionId;
+    private Long historicalClientId;
+    private Long historicalOfficeId;
+    private String sourceLoanMovementExternalId;
     private Long loanId;
     private String loanProductName;
     private String loanExternalId;
@@ -74,6 +77,9 @@ public class InvoiceData {
         data.id = invoice.getId();
         data.status = invoice.getStatus().name();
         data.loanTransactionId = invoice.getLoanTransactionId();
+        data.historicalClientId = invoice.getHistoricalClientId();
+        data.historicalOfficeId = invoice.getHistoricalOfficeId();
+        data.sourceLoanMovementExternalId = invoice.getSourceLoanMovementExternalId();
         data.savingsTransactionId = invoice.getSavingsTransactionId();
         data.clientTransactionId = invoice.getClientTransactionId();
         data.sourceOrigin = invoice.getSourceOrigin();
@@ -147,6 +153,18 @@ public class InvoiceData {
 
     public Long getLoanTransactionId() {
         return loanTransactionId;
+    }
+
+    public Long getHistoricalClientId() {
+        return historicalClientId;
+    }
+
+    public Long getHistoricalOfficeId() {
+        return historicalOfficeId;
+    }
+
+    public String getSourceLoanMovementExternalId() {
+        return sourceLoanMovementExternalId;
     }
 
     public Long getLoanId() {

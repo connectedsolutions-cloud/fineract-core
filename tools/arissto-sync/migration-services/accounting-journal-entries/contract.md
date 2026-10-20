@@ -5,7 +5,9 @@
 This is the frozen contract for the sync engine's `accounting` category. The
 G3 inspector, explicit-key and bounded-period G4 planning, G5 provenance
 schema, G6 atomic target API, G7 apply/retry/status path, G8 direct-journal
-reconciliation, G9 report-parity proof, and G10 scoped canaries are complete.
+reconciliation, the original status-`3` G9 report-parity proof, and G10 scoped
+canaries are complete. Status-independent imports require a new report-parity
+review because Arissto's materialized ledger excludes some source journals.
 The service is `available` and `executable: true` for reviewed local test
 workflows. G11 clean-cycle reproduction and G12 approval remain production
 promotion requirements, not local testing blockers.
@@ -16,7 +18,7 @@ ownership classification:
 - the sync engine creates every pre-cutoff business record selected for
   retention, including clients, loans, schedules, loan transactions, savings,
   deposits, shares, balances, statuses, relationships and provenance;
-- the accounting service imports the final posted Arissto GL journals before
+- the accounting service imports structurally valid Arissto journals before
   the cutoff and is the only owner of their historical GL effect;
 - native Fineract accounting generated while other migration services create
   pre-cutoff operational history must be suppressed;
@@ -65,14 +67,14 @@ move the cutoff implicitly.
 
 ## Historical accounting scope
 
-The accounting service imports every reviewed, posted, balanced Arissto journal
+The accounting service imports every reviewed, populated, balanced Arissto journal
 whose effective accounting date is strictly before the cutoff. `CNT_PERIODO.ANIO`
 and `MES` define the intended accounting month: an in-period `FECHA_PARTIDA` is
 retained, while an out-of-period value is normalized to that period's final
 calendar day. Eligibility is mechanical:
 
 - the full source header and all detail lines are present;
-- the source status is `ESTADO_PARTIDA='3'`;
+- `ESTADO_PARTIDA` is retained as provenance but does not gate import;
 - total debits equal total credits at the approved precision;
 - every non-zero source posting account resolves to exactly one Fineract leaf
   GL account;
@@ -87,18 +89,41 @@ product accounting. `CODIGO_SISTEMA`, staging, bank, cash, vault and product
 links remain useful source provenance and exception evidence, but they do not
 decide whether an otherwise eligible pre-cutoff journal is imported.
 
-Unbalanced, empty, unsupported-status, unresolved-account or structurally
-invalid journals are quarantined. Quarantine is an integrity outcome, not an
-ownership category.
+Unbalanced, unresolved-account or structurally invalid journals are quarantined.
+A pre-cutoff header with no `CNT_DETALLE_PARTIDAS` lines and a nonblank
+`CNT_PARTIDAS.CONCEPTO` is retained as `REFERENCE_ONLY` provenance. It keeps the
+complete source key, source number, date, type, status, module, concept and text
+hashes. It creates no GL journal entries, voucher, transaction ID, debit or credit
+amount. Any other blocker on the same header still quarantines it. Empty
+headers without a concept remain quarantined. Quarantine is an integrity
+outcome, not an ownership category.
 
-Status selection is fail-closed. Status `1` represents a journal that has not
-yet reached the materialized daily ledger and quarantines as
-`SOURCE_JOURNAL_NOT_MAYORIZED`. The two observed status-`2` journals are
-balanced but excluded from every affected `CNT_MAYOR_DIARIO` amount, so status
-`2` quarantines as `SOURCE_JOURNAL_EXCLUDED_FROM_LEDGER`. Any new status uses
-`SOURCE_JOURNAL_STATUS_UNSUPPORTED` until independently reviewed. Empty and
-unbalanced status-`3` headers remain quarantined rather than becoming monetary
-postings.
+Status `1` has been observed before mayorización and status `2` has been
+observed outside `CNT_MAYOR_DIARIO`; neither status now blocks a valid journal.
+The exact source status is preserved in target provenance. The source-ledger
+closing control continues to compare the status-`3` subset to `CNT_MAYOR`,
+while every imported journal, regardless of status, receives direct source-line
+to target-line, balance, cutoff, and duplicate checks. Fineract reports may
+therefore differ from Arissto's materialized ledger by the non-`3` entries.
+Reference-only empty headers remain outside all GL totals and ledger reports.
+Unbalanced headers remain quarantined. A reference-only result is reconciled by
+source identity, text hash, number, date, status, absence of target transaction
+and absence of target lines. The next reviewed fresh/clean run will include the
+30 observed empty headers as reference-only records if the source has not
+changed; this contract does not retroactively alter the completed 2026-10-19
+sandbox run.
+
+The accounting report `Referencias de Partidas sin Movimiento` lists only
+`REFERENCE_ONLY` headers, with office and date range filters plus an optional
+exact partida number. Its Mifos table and export expose the original concept
+while clearly labeling the row as having no accounting movement. The regular
+journal search and GL reports continue to show only actual postings.
+
+The existing `Comprobante Contable por Sucursal` SQL report filters imported
+provenance to status `3` for its Arissto posted-ledger view; it is not a
+complete view of the expanded Fineract historical GL. Native GL entries and
+the general voucher report retain imported non-`3` journals. The Mifos visual
+report reads the SQL report rows and adds no status filter.
 
 ## Historical bank, vault and cash boundary
 
@@ -233,12 +258,12 @@ the journal from `acc_gl_journal_entry` or reconciliation.
 In composed fresh/clean and checkpointed full re-sync workflows, the immutable
 workflow plan freezes the highest Arissto number already assigned before the
 first Fineract-owned accounting date, grouped by the number's YYYYMM prefix.
-This highwater includes headers that are not yet eligible posted journals: an
+This highwater includes headers not yet present in the materialized ledger: an
 audit on 2026-09-28 found 2026090450 assigned while the highest state-3 number
 was 2026090446. The runner checks the source highwater again after historical
 journal reconciliation and fails on drift, then asks Fineract to raise each
 monthly counter to at least that value. It never lowers a counter or imports
-ineligible headers merely to reserve their numbers. See the
+empty or otherwise invalid headers merely to reserve their numbers. See the
 [Arissto numbering evidence](../../../../../../credesal-db-space/docs/learnings/contabilidad-libro-mayor-y-partidas.md#numeración-que-se-reinicia-por-período).
 
 `CNT_PARTIDAS.NUMERO_PARTIDA` generally follows the verified `YYYYMM####`
@@ -254,7 +279,33 @@ and never regenerates it or derives the effective date from it.
 | Detail `ID_CUENTA` | `acc_gl_journal_entry.account_id` | Reviewed source-code-to-target-account resolution |
 | Detail `ID_SUCURSAL_DESTINO` | Per-line `acc_gl_journal_entry.office_id` and `dimensions.office` | Resolve both native office ID and stable dimension tag from the frozen crosswalk; never replace the posted destination with one journal-wide office |
 | Detail `DEBE`/`HABER` | Entry type and amount | Preserve one non-zero side per normalized line |
+| First linked `BNC_LIBRO_BANCO.ID_LIBRO_BANCO` in the complete source journal | `credesal_arissto_gl_journal_line.source_movement_reference` | Select the smallest bank-book ID across all lines in the full `(ID_EMPRESA, ID_SUCURSAL, ID_PERIODO, ID_PARTIDA)` journal and repeat it on every imported line. Do not create another GL posting or a bank-book subledger row. |
+| That bank-book row's `COMPROBANTE` | `credesal_arissto_gl_journal_line.source_document_reference` | Repeat the trimmed text on every imported line; leave blank values null. This reproduces the Arissto Informe Auxiliar de Mayor `No. Cheque` column in the reviewed 2026-09-01 to 2026-09-14 PDF. Do not substitute `NUM_COMPROBANTE`. |
 | Header/detail concepts | Dedicated header/line provenance columns plus `description` display projection | Preserve all four fields independently; never concatenate them into the native 500-character column |
+| Header concept/description | `acc_gl_journal_entry.header_concept` / `header_description` | Copy both complete header values onto every native posting line for UI and report use; keep the 500-character `description` as the line comment |
+
+Migration `0414` backfilled native cheque numbers and voucher categories for
+previous imports only. Every subsequent historical import writes the trimmed
+bank-book `COMPROBANTE` to `acc_gl_journal_entry.check_number` on each line in
+the same transaction as the posting. Blank values stay null; values longer
+than the native 128-character column fail before persistence. Type `003` is
+annual **closing**, not opening: new vouchers receive
+`credesal_gl_voucher.posting_category='CLOSING'`. Migration `0421` corrects
+the `OPENING` label assigned by `0414` to existing type-`003` vouchers and
+keeps the income-statement exclusion on the native voucher category. Source
+`source_opening_flag` remains `0` for this reviewed cohort, and a nonzero
+value is still quarantined for separate review.
+
+The source join is `CNT_DETALLE_PARTIDAS.ID_LIBRO_BANCO` to the bank-book
+primary key. The first linked book row is chosen at journal level, including
+when its transaction type is not `00002`: that is the observed legacy report
+rule. A line without its own book ID can still print the journal's value.
+The sampled rule is documented in the separate `fineract-reports` project's
+`reports/informe-auxiliar-mayor/arissto-investigation-2026-10-09.md`.
+Check another period before treating the rule as universal. Existing imported journal provenance is
+immutable under the current import endpoint: the new line mapping applies to
+new imports, while already imported lines require a separately reviewed,
+metadata-only enrichment path keyed by their durable source line identity.
 
 ### Vault COA consolidation
 
@@ -281,11 +332,15 @@ detail liability `222099910201` (`DESEMBOLSO DE CREDITOS EN EFECTIVO`), with
 the posted office carried on each journal line. Native financial activity
 `202` (`Disbursements Payable`) uses that target account in the sandbox.
 
-Historical loan portfolio alternatives follow the approved one-account-per-
-product decision: source `1142030101` resolves to `1141030101` for line
-`00010`, and source `1142040101` resolves to `1141040101` for line `00001`.
-The source code remains in provenance; the target product and dimensions
-retain the loan-line and office context.
+Historical loan portfolio lines retain their short- or long-term source group.
+Source `1142030101` posts to the same enabled detail code in Fineract.
+Source `1142040101` posts to `114204010101`, its enabled consumer-principal
+detail beneath the `1142040101` reporting header. The planner never sends
+either `1142` source code to a `1141` account. It freezes the resolved target
+code and ID per line and preserves the source code in provenance. An absent or
+non-detail destination blocks the journal; the planner does not fall back to a
+short-term account. The current crosswalk version is
+`arissto-to-fineract-coa-v5-long-term-loan-postings`.
 
 The historical-journal planner verifies that each resolved target is an
 enabled detail account (`account_usage=1`). A target header is quarantined
@@ -298,6 +353,9 @@ movements retain their original codes in provenance and are never substituted
 by materialized parent balances. The same versioned crosswalk serves fresh/clean
 and checkpointed full re-sync plans; existing imported journals are immutable
 and must not be silently remapped as an incremental source change.
+Previously imported `1142` lines posted under the older `1141` mapping require
+a reviewed fresh/clean rebuild of the disposable local tenant or a separately
+approved balanced correction for a retained target.
 The inspector compares each previously imported source line's frozen target GL
 code with the current crosswalk. A mismatch is
 `TARGET_ACCOUNT_MAPPING_DRIFT` and blocks a checkpointed full re-sync. A
@@ -544,13 +602,15 @@ characters using the first 499 characters plus a Unicode ellipsis when needed.
 The dedicated API must validate every projected line description against the
 500-character limit before persistence, including per-line comment overrides.
 
-Complete legacy text columns are omitted from ordinary journal responses and
-from sync plan, status, error, and reconciliation output. A dedicated,
-restricted provenance permission may return them for authorized historical
-inspection. This access boundary does not alter or redact their stored values.
+The two header fields are also copied to native postings and returned by the
+ordinary journal API for authorized accounting users. Raw line concept and
+auxiliary concept remain omitted from ordinary journal responses. Sync plan,
+status, error, and reconciliation output must not print any complete legacy
+text. A dedicated, restricted provenance permission may return all four raw
+source fields for historical inspection.
 
 Reversal reconstruction is outside this service's reporting requirement.
-Every eligible posted journal—including an opposite counter-posting—is imported
+Every eligible journal—including an opposite counter-posting—is imported
 independently using its own `FECHA_PARTIDA`, accounts, sides and amounts. The
 writer never calls Fineract's reversal operation and leaves core `reversed=false`
 and `reversal_id=NULL`. Pairing and classification are optional audit metadata;

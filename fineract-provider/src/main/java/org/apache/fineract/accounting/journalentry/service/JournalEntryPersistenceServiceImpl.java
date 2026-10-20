@@ -18,6 +18,8 @@
  */
 package org.apache.fineract.accounting.journalentry.service;
 
+import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.accounting.cutoff.AccountingCutoffPolicyService;
 import org.apache.fineract.accounting.cutoff.AccountingPostingContext;
@@ -26,7 +28,6 @@ import org.apache.fineract.accounting.journalentry.domain.JournalEntry;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntryRepository;
 import org.apache.fineract.infrastructure.event.business.domain.journalentry.LoanJournalEntryCreatedBusinessEvent;
 import org.apache.fineract.infrastructure.event.business.service.BusinessEventNotifierService;
-import org.apache.fineract.accounting.journalentry.service.JournalNumberAllocationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,7 +55,8 @@ public class JournalEntryPersistenceServiceImpl implements JournalEntryPersisten
                 groupKey = journalEntry.getTransactionId() + "|" + journalEntry.getTransactionDate();
             }
             String number = postingContext.getOrigin() == AccountingPostingOrigin.ARISSTO_HISTORICAL_GL_IMPORT
-                    ? journalReferenceNumberService.reserveImported(groupKey, journalEntry.getTransactionId(), journalEntry.getReferenceNumber())
+                    ? journalReferenceNumberService.reserveImported(groupKey, journalEntry.getTransactionId(),
+                            journalEntry.getReferenceNumber())
                     : journalReferenceNumberService.assign(groupKey, journalEntry.getTransactionDate());
             journalEntry.setReferenceNumber(number);
         }
@@ -63,5 +65,38 @@ public class JournalEntryPersistenceServiceImpl implements JournalEntryPersisten
             businessEventNotifierService.notifyPostBusinessEvent(new LoanJournalEntryCreatedBusinessEvent(savedJournalEntry));
         }
         return savedJournalEntry;
+    }
+
+    @Override
+    @Transactional
+    public List<JournalEntry> saveImportedJournal(List<JournalEntry> entries) {
+        if (postingContext.getOrigin() != AccountingPostingOrigin.ARISSTO_HISTORICAL_GL_IMPORT || entries == null || entries.isEmpty()) {
+            throw new IllegalArgumentException("A complete historical journal and import posting context are required");
+        }
+        JournalEntry first = entries.get(0);
+        if (first == null || !first.isNew() || first.getTransactionId() == null || first.getTransactionId().isBlank()
+                || first.getReferenceNumber() == null || first.getReferenceNumber().isBlank() || first.getTransactionDate() == null) {
+            throw new IllegalArgumentException("Historical journal identity, reference and date are required");
+        }
+        String groupKey = first.getJournalNumberGroupKey();
+        if (groupKey == null) {
+            groupKey = first.getTransactionId() + "|" + first.getTransactionDate();
+        }
+        for (JournalEntry entry : entries) {
+            if (entry == null || !entry.isNew() || !Objects.equals(first.getTransactionId(), entry.getTransactionId())
+                    || !Objects.equals(first.getTransactionDate(), entry.getTransactionDate())
+                    || !Objects.equals(first.getReferenceNumber(), entry.getReferenceNumber())
+                    || !Objects.equals(first.getJournalNumberGroupKey(), entry.getJournalNumberGroupKey())
+                    || entry.getLoanTransactionId() != null || entry.getSavingsTransactionId() != null
+                    || entry.getClientTransactionId() != null || entry.getShareTransactionId() != null || entry.getEntityId() != null) {
+                throw new IllegalArgumentException("All imported lines must belong to one new, unlinked journal");
+            }
+            cutoffPolicyService.assertJournalPersistenceAllowed(entry.getTransactionDate());
+        }
+        String number = journalReferenceNumberService.reserveImported(groupKey, first.getTransactionId(), first.getReferenceNumber());
+        entries.forEach(entry -> entry.setReferenceNumber(number));
+        List<JournalEntry> saved = repository.saveAll(entries);
+        repository.flush();
+        return saved;
     }
 }

@@ -62,6 +62,11 @@ public class JournalEntry extends AbstractAuditableWithUTCDateTimeCustom<Long> {
     @JoinColumn(name = "reversal_id")
     private JournalEntry reversalJournalEntry;
 
+    @Setter
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "voucher_id")
+    private GlVoucher voucher;
+
     @Column(name = "transaction_id", nullable = false, length = 50)
     private String transactionId;
 
@@ -95,6 +100,18 @@ public class JournalEntry extends AbstractAuditableWithUTCDateTimeCustom<Long> {
 
     @Column(name = "description", length = 500)
     private String description;
+
+    @Setter
+    @Column(name = "check_number", length = 128)
+    private String nativeCheckNumber;
+
+    @Setter
+    @Column(name = "header_concept", columnDefinition = "text")
+    private String headerConcept;
+
+    @Setter
+    @Column(name = "header_description", columnDefinition = "text")
+    private String headerDescription;
 
     @Column(name = "entity_type_enum", length = 50)
     private Integer entityType;

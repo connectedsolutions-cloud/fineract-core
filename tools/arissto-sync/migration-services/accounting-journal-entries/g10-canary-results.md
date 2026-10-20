@@ -43,8 +43,9 @@ matching expected/actual balance hash
 
 ## Passing quarantine and recovery canaries
 
-- `001:001:00071:0000013957` quarantined as
-  `SOURCE_JOURNAL_EXCLUDED_FROM_LEDGER`.
+- `001:001:00071:0000013957` was quarantined as
+  `SOURCE_JOURNAL_EXCLUDED_FROM_LEDGER` under the former status gate. The
+  status-independent contract supersedes that historical canary expectation.
 - `001:001:00045:0000003217` quarantined as `SOURCE_JOURNAL_EMPTY`.
 - Under the then-current contract, `001:002:00058:0000007509` quarantined as
   `SOURCE_JOURNAL_BACK_PERIOD` and `SOURCE_JOURNAL_REFERENCE_DATE_MISMATCH`.

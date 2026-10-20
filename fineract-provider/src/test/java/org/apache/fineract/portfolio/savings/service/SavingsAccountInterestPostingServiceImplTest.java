@@ -43,10 +43,9 @@ class SavingsAccountInterestPostingServiceImplTest {
 
     @BeforeEach
     void setUpTenantRounding() {
-        ThreadLocalContextUtil.setTenant(new FineractPlatformTenant(1L, TENANT_IDENTIFIER, "Scheduled interest preservation test", "UTC",
-                null));
-        ThreadLocalContextUtil.setBusinessDates(
-                new HashMap<>(Map.of(BusinessDateType.BUSINESS_DATE, LocalDate.of(2026, 8, 1))));
+        ThreadLocalContextUtil
+                .setTenant(new FineractPlatformTenant(1L, TENANT_IDENTIFIER, "Scheduled interest preservation test", "UTC", null));
+        ThreadLocalContextUtil.setBusinessDates(new HashMap<>(Map.of(BusinessDateType.BUSINESS_DATE, LocalDate.of(2026, 8, 1))));
         MoneyHelper.initializeTenantRoundingMode(TENANT_IDENTIFIER, 6);
     }
 
@@ -62,10 +61,9 @@ class SavingsAccountInterestPostingServiceImplTest {
                 SavingsAccountTransactionType.INTEREST_POSTING.getValue().longValue(),
                 SavingsAccountTransactionType.INTEREST_POSTING.getCode(), null);
         final CurrencyData currency = new CurrencyData("USD", "US Dollar", 2, 1, "$", "currency.USD");
-        final SavingsAccountTransactionData transaction = SavingsAccountTransactionData.createForInterestPosting(1L, type, null, 2L,
-                "0002", LocalDate.of(2026, 8, 1), currency, new BigDecimal("4.17"), null, new BigDecimal("104.17"), false,
-                LocalDate.of(2026, 8, 1), false, new BigDecimal("104.17"), LocalDate.of(2026, 8, 1), true,
-                "AHO_MOVIMIENTOS|1102");
+        final SavingsAccountTransactionData transaction = SavingsAccountTransactionData.createForInterestPosting(1L, type, null, 2L, "0002",
+                LocalDate.of(2026, 8, 1), currency, new BigDecimal("4.17"), null, new BigDecimal("104.17"), false, LocalDate.of(2026, 8, 1),
+                false, new BigDecimal("104.17"), LocalDate.of(2026, 8, 1), true, "AHO_MOVIMIENTOS|1102");
 
         assertThat(SavingsAccountInterestPostingServiceImpl.requiresInterestCorrection(transaction,
                 Money.of(currency, new BigDecimal("4.16")))).isFalse();
@@ -77,8 +75,8 @@ class SavingsAccountInterestPostingServiceImplTest {
                 SavingsAccountTransactionType.WITHHOLD_TAX.getValue().longValue(), SavingsAccountTransactionType.WITHHOLD_TAX.getCode(),
                 null);
         final CurrencyData currency = new CurrencyData("USD", "US Dollar", 2, 1, "$", "currency.USD");
-        final SavingsAccountTransactionData transaction = SavingsAccountTransactionData.createForInterestPosting(1L, type, null, 2L,
-                "0002", LocalDate.of(2024, 12, 31), currency, new BigDecimal("8.20"), null, new BigDecimal("100.00"), false,
+        final SavingsAccountTransactionData transaction = SavingsAccountTransactionData.createForInterestPosting(1L, type, null, 2L, "0002",
+                LocalDate.of(2024, 12, 31), currency, new BigDecimal("8.20"), null, new BigDecimal("100.00"), false,
                 LocalDate.of(2024, 12, 31), false, new BigDecimal("100.00"), LocalDate.of(2024, 12, 31), false,
                 "MIGT:001:001:0000000084:000000000817");
 

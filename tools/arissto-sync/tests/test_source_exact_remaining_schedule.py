@@ -37,7 +37,8 @@ class SourceExactRemainingScheduleTests(unittest.TestCase):
 
     def planned(self, loan_id, original, remaining, paid, source_state="1",
                 first_due="2026-09-29", later=(), adjustment_count=2,
-                interim_interest="0.00"):
+                interim_interest="0.00", archived_mismatch=False,
+                archive_terminal_revision=False):
         loan, source, target, product = self.fixture.lifecycle_fixture()
         loan.update({
             "ID_CREDITO": loan_id, "MONTO_APROBADO": original,
@@ -48,23 +49,41 @@ class SourceExactRemainingScheduleTests(unittest.TestCase):
             "source_state": source_state, "FECHA_OTORGAMIENTO": "2026-09-28",
         })
         source["application"].update({"FECHA_DESEMBOLSO": "2026-08-28"})
-        adjustment_at = (
-            datetime(2026, 9, 29, 21, 14) if loan_id == 2427
-            else datetime(2026, 9, 28, 15, 1)
-        )
+        adjustment_at = {
+            2427: datetime(2026, 9, 29, 21, 14),
+            2494: datetime(2026, 10, 8, 0, 3),
+            2561: datetime(2026, 10, 8, 20, 47),
+        }.get(loan_id, datetime(2026, 9, 28, 15, 1))
         source["schedule_adjustment_summary"] = {
             "adjustment_count": adjustment_count,
             "last_adjustment_created_at": adjustment_at,
+            "adjustments": [
+                {"ID_REESTRUCTURACION": 1000 + index,
+                 "DT_CREO": adjustment_at - timedelta(days=adjustment_count - index - 1),
+                 "MONTO_REESTRUCTURADO": remaining}
+                for index in range(adjustment_count)
+            ],
         }
         left = Decimal(remaining) - Decimal("1.00")
         source["schedule"] = [
             {"NO_CUOTA": 1, "FECHA_PAGO": first_due, "MONTO_CAPITAL": "1.00",
              "MONTO_INTERES": "0.81", "MONTO_OTROS": "0", "MONTO_APORTACION": 0,
              "ID_REESTRUCTURACION": None, "CUOTA_DIFERIDA": 0},
-            {"NO_CUOTA": 2, "FECHA_PAGO": "2026-10-01", "MONTO_CAPITAL": str(left),
+            {"NO_CUOTA": 2, "FECHA_PAGO": max(
+                "2026-10-01", (datetime.fromisoformat(first_due) + timedelta(days=1)).date().isoformat(),
+            ), "MONTO_CAPITAL": str(left),
              "MONTO_INTERES": "0.79", "MONTO_OTROS": "0", "MONTO_APORTACION": 0,
              "ID_REESTRUCTURACION": None, "CUOTA_DIFERIDA": 0},
         ]
+        archived = [dict(row) for row in source["schedule"]]
+        if archived_mismatch:
+            archived[0]["MONTO_INTERES"] = "99.00"
+        if archive_terminal_revision:
+            archived[-1]["FECHA_PAGO"] = "2026-10-31"
+            archived[-1]["MONTO_INTERES"] = "1.79"
+        source["schedule_adjustment_summary"]["archived_schedules"] = {
+            str(1000 + adjustment_count - 1): archived,
+        }
         disb = dict(source["movements"][0])
         disb.update({"ID_CREDITO": loan_id, "FECHA_OPERACION": "2026-08-28",
                      "MONTO": original, "MONTO_CAPITAL": original})
@@ -141,6 +160,10 @@ class SourceExactRemainingScheduleTests(unittest.TestCase):
               ("2026-09-30", "7.31", "2.94")), 1, "25.46"),
             (2499, "172.00", "118.69", "53.31", "1", "2026-09-29",
              (("2026-09-30", "3.37", "1.63"),), 2, "0.00"),
+            (2494, "272.00", "158.67", "113.33", "1", "2026-10-08",
+             (("2026-10-08", "10.00", "0.00"),), 2, "0.00"),
+            (2561, "325.00", "317.62", "7.38", "1", "2026-10-09",
+             (("2026-10-08", "5.00", "0.00"),), 1, "0.00"),
         ):
             with self.subTest(loan_id=loan_id):
                 result = self.planned(
@@ -155,9 +178,99 @@ class SourceExactRemainingScheduleTests(unittest.TestCase):
                 self.assertNotIn("source_exact_remaining_schedule_signature_mismatch",
                                  result["quarantine_reasons"])
 
-    def test_post_adjustment_exception_does_not_expand_to_another_loan(self):
+    def test_post_adjustment_pattern_accepts_another_loan_with_source_proof(self):
         result = self.planned(
             9999, "172.00", "118.69", "53.31", later=(("2026-09-30", "3.37", "1.63"),),
+        )
+        policy = result["lifecycle"]["source_exact_remaining_schedule_policy"]
+        self.assertIsNotNone(policy)
+        self.assertEqual(policy["adjustment_proof"]["classification"],
+                         "source-adjustment-remaining-schedule")
+        self.assertNotIn("source_exact_remaining_schedule_signature_mismatch",
+                         result["quarantine_reasons"])
+
+    def test_post_adjustment_pattern_rejects_changed_archived_schedule(self):
+        result = self.planned(
+            9999, "172.00", "118.69", "53.31",
+            later=(("2026-09-30", "3.37", "1.63"),), archived_mismatch=True,
+        )
+        self.assertIn("source_exact_remaining_schedule_signature_mismatch",
+                      result["quarantine_reasons"])
+
+    def test_superseded_full_principal_archive_uses_dated_payment_split(self):
+        loan, source, target, product = self.fixture.lifecycle_fixture()
+        loan.update({
+            "ID_CREDITO": 9999, "MONTO_APROBADO": "172.00",
+            "MONTO_DESEMBOLSADO": "172.00", "ULTIMO_SALDO": "115.32",
+            "SALDO_TOTAL": "115.32", "FECHA_OTORGAMIENTO": "2026-09-28",
+        })
+        source["application"]["FECHA_DESEMBOLSO"] = "2026-08-28"
+        source["schedule"] = [
+            {"NO_CUOTA": 1, "FECHA_PAGO": "2026-09-29", "MONTO_CAPITAL": "1.00",
+             "MONTO_INTERES": "0.81", "MONTO_OTROS": 0, "MONTO_APORTACION": 0,
+             "ID_REESTRUCTURACION": None, "CUOTA_DIFERIDA": 0},
+            {"NO_CUOTA": 2, "FECHA_PAGO": "2026-10-01", "MONTO_CAPITAL": "117.69",
+             "MONTO_INTERES": "0.79", "MONTO_OTROS": 0, "MONTO_APORTACION": 0,
+             "ID_REESTRUCTURACION": None, "CUOTA_DIFERIDA": 0},
+        ]
+        archived = [dict(row) for row in source["schedule"]]
+        archived[0].update({"FECHA_PAGO": "2026-09-01", "MONTO_CAPITAL": "54.31"})
+        archived[1].update({"FECHA_PAGO": "2026-09-08"})
+        source["schedule_adjustment_summary"] = {
+            "adjustment_count": 1,
+            "adjustments": [{"ID_REESTRUCTURACION": 77,
+                             "DT_CREO": datetime(2026, 9, 28, 15),
+                             "MONTO_REESTRUCTURADO": None}],
+            "archived_schedules": {"77": archived},
+        }
+        disb, repay = (dict(row) for row in source["movements"])
+        disb.update({"FECHA_OPERACION": "2026-08-28", "MONTO": "172.00",
+                     "MONTO_CAPITAL": "172.00"})
+        repay.update({"FECHA_OPERACION": "2026-09-26", "MONTO": "53.31",
+                      "MONTO_CAPITAL": "53.31", "MONTO_INTERES": "0.00",
+                      "MONTO_SEGURO": "0.00", "DT_CREO": datetime(2026, 9, 26, 17)})
+        later = dict(repay)
+        later.update({"ID_MOVIMIENTO_CARTERA": "102", "FECHA_OPERACION": "2026-09-30",
+                      "MONTO": "3.37", "MONTO_CAPITAL": "3.37",
+                      "DT_CREO": datetime(2026, 9, 30, 17)})
+        source["movements"] = [disb, repay, later]
+        source["charge_details"] = []
+        accepted = _build_loan_lifecycle_action(
+            self.fixture.contract, loan, source, target, product,
+        )
+        policy = accepted["lifecycle"]["source_exact_remaining_schedule_policy"]
+        self.assertEqual(policy["bridge_principal"], "53.31")
+        self.assertEqual(policy["adjustment_proof"]["archive_provenance"],
+                         "superseded-full-principal")
+        source["movements"][1]["MONTO_CAPITAL"] = "52.31"
+        source["movements"][1]["MONTO"] = "52.31"
+        rejected = _build_loan_lifecycle_action(
+            self.fixture.contract, loan, source, target, product,
+        )
+        self.assertIn("source_exact_remaining_schedule_signature_mismatch",
+                      rejected["quarantine_reasons"])
+
+    def test_terminal_archive_revision_accepts_only_terminal_date_and_interest(self):
+        result = self.planned(
+            9999, "172.00", "118.69", "53.31",
+            later=(("2026-09-30", "3.37", "1.63"),),
+            archive_terminal_revision=True,
+        )
+        policy = result["lifecycle"]["source_exact_remaining_schedule_policy"]
+        self.assertEqual(policy["adjustment_proof"]["archive_provenance"],
+                         "terminal-date-interest-revision")
+        changed_earlier = self.planned(
+            9999, "172.00", "118.69", "53.31",
+            later=(("2026-09-30", "3.37", "1.63"),), archived_mismatch=True,
+            archive_terminal_revision=True,
+        )
+        self.assertIn("source_exact_remaining_schedule_signature_mismatch",
+                      changed_earlier["quarantine_reasons"])
+
+    def test_post_adjustment_pattern_rejects_unproven_payment_split(self):
+        # The planner must never infer this split from the current balance alone.
+        result = self.planned(
+            9999, "172.00", "118.69", "50.00", later=(("2026-09-30", "3.37", "1.63"),),
         )
         self.assertIn("source_exact_remaining_schedule_signature_mismatch",
                       result["quarantine_reasons"])
@@ -195,6 +308,84 @@ class SourceExactRemainingScheduleTests(unittest.TestCase):
         result = _build_loan_lifecycle_action(self.fixture.contract, loan, source, target, product)
         self.assertIn("source_exact_remaining_schedule_signature_mismatch",
                       result["quarantine_reasons"])
+
+    def test_repeated_adjustment_uses_proven_earlier_payment_split(self):
+        loan, source, target, product = self.fixture.lifecycle_fixture()
+        loan.update({
+            "ID_CREDITO": 1728, "MONTO_APROBADO": "1100.00",
+            "MONTO_DESEMBOLSADO": "1100.00", "ULTIMO_SALDO": "705.55",
+            "SALDO_INTERES": "0.00", "SALDO_INTERES_PENDIENTE": "0.00",
+            "SALDO_SEGURO": "0.00", "SALDO_TOTAL": "705.55",
+            "FECHA_OTORGAMIENTO": "2026-09-21",
+        })
+        source["application"]["FECHA_DESEMBOLSO"] = "2026-08-28"
+        source["schedule"] = [
+            {"NO_CUOTA": 1, "FECHA_PAGO": "2026-09-28", "MONTO_CAPITAL": "300.00",
+             "MONTO_INTERES": "10.00", "MONTO_OTROS": "0", "MONTO_APORTACION": 0,
+             "ID_REESTRUCTURACION": None, "CUOTA_DIFERIDA": 0},
+            {"NO_CUOTA": 2, "FECHA_PAGO": "2026-10-05", "MONTO_CAPITAL": "456.75",
+             "MONTO_INTERES": "5.00", "MONTO_OTROS": "0", "MONTO_APORTACION": 0,
+             "ID_REESTRUCTURACION": None, "CUOTA_DIFERIDA": 0},
+        ]
+        historical, later = (dict(row) for row in source["movements"])
+        historical.update({
+            "ID_CREDITO": 1728, "FECHA_OPERACION": "2026-08-28",
+            "MONTO": "1100.00", "MONTO_CAPITAL": "1100.00",
+        })
+        later.update({
+            "ID_CREDITO": 1728, "FECHA_OPERACION": "2026-09-18",
+            "DT_CREO": datetime(2026, 9, 18, 12),
+            "MONTO": "343.25", "MONTO_CAPITAL": "343.25",
+            "MONTO_INTERES": "0.00", "MONTO_SEGURO": "0.00",
+        })
+        source["movements"] = [historical, later]
+        for movement_id, when, principal, interest in (
+            (102, "2026-09-28", "30.00", "0.00"),
+            (103, "2026-10-03", "21.20", "8.36"),
+        ):
+            payment = dict(later)
+            payment.update({
+                "ID_MOVIMIENTO_CARTERA": str(movement_id),
+                "FECHA_OPERACION": when,
+                "DT_CREO": datetime.fromisoformat(when + "T12:00:00"),
+                "MONTO": str(Decimal(principal) + Decimal(interest)),
+                "MONTO_CAPITAL": principal, "MONTO_INTERES": interest,
+            })
+            source["movements"].append(payment)
+        source["charge_details"] = []
+        adjustments = [
+            {"ID_REESTRUCTURACION": 202, "DT_CREO": datetime(2026, 9, 21, 20, 46),
+             "MONTO_REESTRUCTURADO": "756.75"},
+            {"ID_REESTRUCTURACION": 223, "DT_CREO": datetime(2026, 10, 6, 17, 20),
+             "MONTO_REESTRUCTURADO": "756.75"},
+        ]
+        archived = {
+            str(item["ID_REESTRUCTURACION"]): [dict(row) for row in source["schedule"]]
+            for item in adjustments
+        }
+        source["schedule_adjustment_summary"] = {
+            "adjustment_count": 2,
+            "last_adjustment_created_at": adjustments[-1]["DT_CREO"],
+            "adjustments": adjustments,
+            "archived_schedules": archived,
+        }
+        accepted = _build_loan_lifecycle_action(
+            self.fixture.contract, loan, source, target, product,
+        )
+        policy = accepted["lifecycle"]["source_exact_remaining_schedule_policy"]
+        self.assertIsNotNone(policy)
+        self.assertEqual(policy["bridge_principal"], "343.25")
+        self.assertEqual(policy["adjustment_proof"]["anchor_adjustment_id"], 202)
+        self.assertEqual(policy["adjustment_proof"]["latest_adjustment_id"], 223)
+        self.assertNotIn("source_exact_remaining_schedule_signature_mismatch",
+                         accepted["quarantine_reasons"])
+
+        source["schedule_adjustment_summary"]["archived_schedules"]["223"][0]["MONTO_INTERES"] = "11.00"
+        rejected = _build_loan_lifecycle_action(
+            self.fixture.contract, loan, source, target, product,
+        )
+        self.assertIn("source_exact_remaining_schedule_signature_mismatch",
+                      rejected["quarantine_reasons"])
 
     def test_regular_plan_freezes_manual_fallback_capability(self):
         loan, source, target, product = self.fixture.lifecycle_fixture()

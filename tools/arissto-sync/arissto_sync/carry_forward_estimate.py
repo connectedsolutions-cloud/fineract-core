@@ -10,10 +10,12 @@ import argparse
 import json
 import sqlite3
 from collections import Counter, defaultdict
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
+
+from .carry_forward_boundary import CarryForwardBoundary
 
 
 def _zero(value: Any) -> bool:
@@ -27,13 +29,8 @@ def evaluate_candidates(
     plan: dict[str, Any], item_status: dict[str, str], proposed_source_through: str,
 ) -> tuple[dict[str, Any], list[str]]:
     prior = plan.get("accounting_cutoff") or {}
-    old_t = date.fromisoformat(str(prior["date"]))
-    proposed_s = date.fromisoformat(proposed_source_through)
-    if proposed_s.isoformat() != proposed_source_through:
-        raise ValueError("Arissto through date must use YYYY-MM-DD")
-    new_t = proposed_s + timedelta(days=1)
-    if new_t <= old_t:
-        raise ValueError("Carry-forward estimate requires a later Fineract start date")
+    boundary = CarryForwardBoundary.select(str(prior["date"]), proposed_source_through)
+    old_t = date.fromisoformat(boundary.old_fineract_starts)
     scope = plan.get("scope") or {}
     if scope.get("mode") != "full-block" or scope.get("proof_namespace"):
         raise ValueError("Carry-forward estimate requires a full-block, non-proof loan plan")
@@ -85,9 +82,10 @@ def evaluate_candidates(
     report = {
         "run_mode": "carry-forward-rebuild",
         "report_kind": "read-only-upper-bound",
-        "arissto_through": proposed_source_through,
-        "fineract_starts": new_t.isoformat(),
-        "prior_fineract_starts": old_t.isoformat(),
+        "arissto_through": boundary.arissto_through,
+        "fineract_starts": boundary.fineract_starts,
+        "prior_arissto_through": boundary.old_arissto_through,
+        "prior_fineract_starts": boundary.old_fineract_starts,
         "total_loans": len(actions),
         "potential_closed_loans": candidates,
         "excluded_by_reason": dict(sorted(Counter(reason for values in reasons.values() for reason in values).items())),
@@ -101,12 +99,14 @@ def estimate(plan: dict[str, Any], item_status: dict[str, str], proposed_source_
     return evaluate_candidates(plan, item_status, proposed_source_through)[0]
 
 
-def load_accepted_run(path: Path) -> tuple[dict[str, Any], dict[str, str]]:
-    """Read the latest accepted full-block loan run without changing cycle state."""
+def load_accepted_run_details(
+    path: Path,
+) -> tuple[dict[str, Any], dict[str, str], dict[str, str]]:
+    """Read the accepted loan plan, items, and immutable reconciliation binding."""
     uri = path.resolve().as_uri() + "?mode=ro"
     with sqlite3.connect(uri, uri=True) as conn:
         row = conn.execute("""
-            SELECT p.document, r.id
+            SELECT p.document, r.id, p.id, rec.result_hash, rec.reconciled_at
             FROM runs r JOIN plans p ON p.id = r.plan_id
             JOIN reconciliations rec ON rec.run_id = r.id
             WHERE p.block = 'loans' AND rec.ok = 1 AND r.status IN ('completed', 'completed-with-quarantine')
@@ -118,6 +118,18 @@ def load_accepted_run(path: Path) -> tuple[dict[str, Any], dict[str, str]]:
         item_status = {key: status for key, status in conn.execute(
             "SELECT source_key,status FROM items WHERE run_id = ?", (row[1],)
         )}
+    binding = {
+        "accepted_run_id": str(row[1]),
+        "accepted_plan_id": str(row[2]),
+        "accepted_reconciliation_hash": str(row[3]),
+        "accepted_reconciled_at": str(row[4]),
+    }
+    return plan, item_status, binding
+
+
+def load_accepted_run(path: Path) -> tuple[dict[str, Any], dict[str, str]]:
+    """Read the latest accepted full-block loan run without changing cycle state."""
+    plan, item_status, _ = load_accepted_run_details(path)
     return plan, item_status
 
 

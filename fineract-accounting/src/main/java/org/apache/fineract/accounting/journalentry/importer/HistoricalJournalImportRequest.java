@@ -32,7 +32,7 @@ public record HistoricalJournalImportRequest(String provenanceSchemaVersion, Str
         String policyHash, String descriptionPolicyVersion, String sourceFingerprint, String targetFingerprint, String targetBaselineHash,
         LocalDate cutoffDate, String cutoffTimezoneId, Long cutoffConfigurationRevision, String cutoffConfigurationHash, String planId,
         String runId, String refNum, String currency, BigDecimal debitTotal, BigDecimal creditTotal,
-        Boolean knownTransferredLoanOfficeMismatch, String knownAnomalyCodes, List<HistoricalJournalLineImportRequest> lines) {
+        Boolean knownTransferredLoanOfficeMismatch, String knownAnomalyCodes, Boolean referenceOnly, List<HistoricalJournalLineImportRequest> lines) {
 
     public record HistoricalJournalLineImportRequest(String sourceLineId, Integer sourceLineSequence, String sourceLineHash,
             String sourceAccountId, String sourceAccountCode, String targetAccountCode, Long targetGlAccountId, BigDecimal debit,

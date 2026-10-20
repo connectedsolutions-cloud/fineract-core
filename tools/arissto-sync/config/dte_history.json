@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "depends_on": ["clients", "loans"],
   "source": {
     "fiscal_table": "FAC_MOVIMIENTOS",
@@ -38,7 +38,8 @@
   "scope": {
     "tipo_dte": "01",
     "requires_normalized_detail": true,
-    "requires_exactly_one_loan_movement": true
+    "requires_exactly_one_loan_movement": true,
+    "allow_missing_target_loan_transaction": true
   },
   "missing_normal_mode": {
     "model_type": 1,

@@ -48,13 +48,13 @@ import org.apache.fineract.organisation.monetary.exception.InvalidCurrencyExcept
 import org.apache.fineract.portfolio.charge.domain.Charge;
 import org.apache.fineract.portfolio.charge.domain.ChargeRepositoryWrapper;
 import org.apache.fineract.portfolio.common.domain.PeriodFrequencyType;
+import org.apache.fineract.portfolio.namingsequence.CredesalNamingCodes;
+import org.apache.fineract.portfolio.namingsequence.CredesalNamingNamespace;
+import org.apache.fineract.portfolio.namingsequence.service.CredesalProductNumberingSupport;
 import org.apache.fineract.portfolio.shareproducts.constants.ShareProductApiConstants;
 import org.apache.fineract.portfolio.shareproducts.data.ShareProductMarketPriceData;
 import org.apache.fineract.portfolio.shareproducts.domain.ShareProduct;
 import org.apache.fineract.portfolio.shareproducts.domain.ShareProductMarketPrice;
-import org.apache.fineract.portfolio.namingsequence.CredesalNamingCodes;
-import org.apache.fineract.portfolio.namingsequence.CredesalNamingNamespace;
-import org.apache.fineract.portfolio.namingsequence.service.CredesalProductNumberingSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -192,8 +192,8 @@ public class ShareProductDataSerializer {
                 sharesIssued, unitPrice, shareCapitalValue, minimumClientShares, nominalClientShares, maximumClientShares, marketPriceSet,
                 charges, allowdividendsForInactiveClients, lockinPeriod, lockPeriodType, minimumActivePeriod, minimumActivePeriodType,
                 accountingRuleType);
-        product.setNumberingCode(this.productNumberingSupport.assignOnCreate(jsonCommand, CredesalNamingNamespace.SHARE_CERTIFICATE,
-                "m_share_product"));
+        product.setNumberingCode(
+                this.productNumberingSupport.assignOnCreate(jsonCommand, CredesalNamingNamespace.SHARE_CERTIFICATE, "m_share_product"));
 
         for (ShareProductMarketPrice data : marketPriceSet) {
             data.setShareProduct(product);

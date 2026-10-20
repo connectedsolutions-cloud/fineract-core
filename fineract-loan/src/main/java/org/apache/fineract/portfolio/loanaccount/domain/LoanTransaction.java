@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
 import lombok.Getter;
@@ -358,12 +359,24 @@ public class LoanTransaction extends AbstractAuditableWithUTCDateTimeCustom<Long
                 loan.getSummary().getTotalPenaltyChargesOutstanding(), null, false, null, externalId);
     }
 
+    public static LoanTransaction initiateTransfer(final Office office, final Loan loan, final LocalDate transferDate,
+            final ExternalId externalId, final LoanTransferAmounts amounts) {
+        return new LoanTransaction(loan, office, LoanTransactionType.INITIATE_TRANSFER, transferDate, amounts.amount(), amounts.principal(),
+                amounts.interest(), amounts.fee(), amounts.penalty(), null, false, null, externalId);
+    }
+
     public static LoanTransaction approveTransfer(final Office office, final Loan loan, final LocalDate transferDate,
             final ExternalId externalId) {
         return new LoanTransaction(loan, office, LoanTransactionType.APPROVE_TRANSFER, transferDate,
                 loan.getSummary().getTotalOutstanding(), loan.getSummary().getTotalPrincipalOutstanding(),
                 loan.getSummary().getTotalInterestOutstanding(), loan.getSummary().getTotalFeeChargesOutstanding(),
                 loan.getSummary().getTotalPenaltyChargesOutstanding(), null, false, null, externalId);
+    }
+
+    public static LoanTransaction approveTransfer(final Office office, final Loan loan, final LocalDate transferDate,
+            final ExternalId externalId, final LoanTransferAmounts amounts) {
+        return new LoanTransaction(loan, office, LoanTransactionType.APPROVE_TRANSFER, transferDate, amounts.amount(), amounts.principal(),
+                amounts.interest(), amounts.fee(), amounts.penalty(), null, false, null, externalId);
     }
 
     public static LoanTransaction withdrawTransfer(final Office office, final Loan loan, final LocalDate transferDate,
@@ -620,6 +633,17 @@ public class LoanTransaction extends AbstractAuditableWithUTCDateTimeCustom<Long
     public void reverse(final ExternalId reversalExternalId) {
         this.reverse();
         this.reversalExternalId = reversalExternalId;
+    }
+
+    public void reverse(final ExternalId reversalExternalId, final LocalDate reversalDate) {
+        final LocalDate effectiveDate = Objects.requireNonNull(reversalDate, "reversalDate");
+        if (effectiveDate.isBefore(this.dateOf)) {
+            throw new IllegalArgumentException("reversalDate cannot precede the original transaction date");
+        }
+        this.reversed = true;
+        this.reversedOnDate = effectiveDate;
+        this.reversalExternalId = reversalExternalId;
+        this.loanTransactionToRepaymentScheduleMappings.clear();
     }
 
     public void resetDerivedComponents() {

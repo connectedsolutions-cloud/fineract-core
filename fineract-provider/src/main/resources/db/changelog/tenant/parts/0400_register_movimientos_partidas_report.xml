@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more
+     contributor license agreements. See the NOTICE file distributed with
+     this work for additional information regarding copyright ownership.
+     The ASF licenses this file to you under the Apache License, Version 2.0. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0400-1-register-movimientos-partidas-report" author="credesal" dbms="postgresql">
+        <comment>Register the visual Accounting journal movements report.</comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+INSERT INTO stretchy_report (
+    report_name, report_type, report_subtype, report_category, report_sql,
+    description, core_report, use_report, self_service_user_report
+)
+VALUES (
+    'Movimientos de Partidas', 'Table', 'VisualPartidaMoves', 'Accounting',
+    $report$
+WITH selected_offices AS (
+    SELECT child.id, child.name, child.external_id
+      FROM m_office selected
+      JOIN m_office child ON child.hierarchy LIKE selected.hierarchy || '%'
+     WHERE selected.id = CAST('${officeId}' AS BIGINT)
+       AND child.hierarchy LIKE '${currentUserHierarchy}' || '%'
+),
+selected_journals AS (
+    SELECT journal.id, journal.source_journal_number, journal.source_journal_date,
+           journal.source_header_concept, journal.source_header_description,
+           journal.source_status, journal.source_branch_id,
+           office.id AS report_office_id,
+           CASE office.external_id
+               WHEN '1' THEN 'AGENCIA CENTRAL'
+               WHEN '2' THEN 'USULUTAN'
+               ELSE UPPER(office.name)
+           END AS report_branch
+      FROM credesal_arissto_gl_journal journal
+      JOIN selected_offices office
+        ON office.external_id = NULLIF(LTRIM(journal.source_branch_id, '0'), '')
+     WHERE journal.source_journal_date BETWEEN CAST('${startDate}' AS DATE)
+                                           AND CAST('${endDate}' AS DATE)
+       AND journal.source_status = '3'
+       AND journal.target_transaction_id IS NOT NULL
+       AND (NULLIF(BTRIM('${partidaNumber}'), '') IS NULL
+            OR journal.source_journal_number = BTRIM('${partidaNumber}'))
+),
+detail AS (
+    SELECT journal.id AS journal_id,
+           journal.source_journal_number AS entry_number,
+           journal.source_journal_date AS entry_date,
+           journal.source_branch_id AS report_branch_code,
+           journal.report_office_id,
+           journal.report_branch,
+           COALESCE(NULLIF(BTRIM(journal.source_header_concept), ''), '-') AS entry_concept,
+           COALESCE(BTRIM(journal.source_header_description), '') AS entry_description,
+           'CERRADA' AS entry_status,
+           line.source_line_sequence AS line_sequence,
+           line.source_account_code AS account_code,
+           COALESCE(presentation.source_name,
+                    CASE line.source_account_code
+                        WHEN '222099940102' THEN 'DESEMBOLSO DE CREDITOS EN EFECTIVO SANTIAGO DE MARIA'
+                        WHEN '222099940103' THEN 'DESEMBOLSOS DE CREDITOS EN EFECTIVO AGENCIA USULUTAN'
+                        ELSE account.name
+                    END) AS account_name,
+           CASE line_office.external_id
+               WHEN '1' THEN 'AGENCIA CENTRAL'
+               WHEN '2' THEN 'USULUTAN'
+               ELSE UPPER(line_office.name)
+           END AS line_branch,
+           ROUND(CASE WHEN entry.type_enum = 2 THEN entry.amount ELSE 0 END, 2) AS debit,
+           ROUND(CASE WHEN entry.type_enum = 1 THEN entry.amount ELSE 0 END, 2) AS credit
+      FROM selected_journals journal
+      JOIN credesal_arissto_gl_journal_line line ON line.journal_provenance_id = journal.id
+      JOIN acc_gl_journal_entry entry ON entry.id = line.target_journal_entry_id
+      JOIN acc_gl_account account ON account.id = entry.account_id
+      JOIN m_office line_office ON line_office.id = entry.office_id
+      LEFT JOIN credesal_gl_account_presentation presentation
+        ON presentation.source_gl_code = line.source_account_code
+),
+balanced AS (
+    SELECT detail.*,
+           SUM(debit - credit) OVER (
+               PARTITION BY journal_id ORDER BY line_sequence
+               ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+           ) AS running_balance,
+           SUM(debit) OVER (PARTITION BY journal_id) AS entry_debit_total,
+           SUM(credit) OVER (PARTITION BY journal_id) AS entry_credit_total,
+           COUNT(*) OVER (PARTITION BY journal_id) AS entry_line_count
+      FROM detail
+)
+SELECT ROW_NUMBER() OVER (
+           ORDER BY DATE_TRUNC('month', entry_date), report_branch_code,
+                    entry_date, entry_number, journal_id, line_sequence
+       ) AS "Orden",
+       report_office_id AS "Id Oficina",
+       report_branch_code AS "Código Sucursal",
+       report_branch AS "Sucursal",
+       entry_number AS "Partida",
+       entry_date AS "Fecha",
+       entry_concept AS "Concepto Partida",
+       entry_description AS "Descripción Partida",
+       entry_status AS "Estado",
+       line_sequence AS "Orden Línea",
+       account_code AS "No. Cuenta",
+       account_name AS "Concepto",
+       line_branch AS "Sucursal Línea",
+       debit AS "Cargos",
+       credit AS "Abonos",
+       running_balance AS "Saldo",
+       entry_debit_total AS "Total Cargos",
+       entry_credit_total AS "Total Abonos",
+       entry_debit_total - entry_credit_total AS "Saldo Partida",
+       entry_line_count AS "Líneas Partida"
+  FROM balanced
+ ORDER BY "Orden"
+$report$,
+    'Partidas contables cerradas con líneas y saldo progresivo de los asientos migrados a Fineract.',
+    FALSE, TRUE, FALSE
+)
+ON CONFLICT (report_name) DO UPDATE
+SET report_type = EXCLUDED.report_type,
+    report_subtype = EXCLUDED.report_subtype,
+    report_category = EXCLUDED.report_category,
+    report_sql = EXCLUDED.report_sql,
+    description = EXCLUDED.description,
+    core_report = EXCLUDED.core_report,
+    use_report = EXCLUDED.use_report,
+    self_service_user_report = EXCLUDED.self_service_user_report;
+
+DELETE FROM stretchy_report_parameter
+ WHERE report_id = (SELECT id FROM stretchy_report WHERE report_name = 'Movimientos de Partidas');
+
+INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+SELECT report.id, parameter.id, parameter.parameter_variable
+  FROM stretchy_report report
+  JOIN stretchy_parameter parameter ON parameter.parameter_name IN (
+      'OfficeIdSelectOne', 'startDateSelect', 'endDateSelect', 'partidaNumberOptional'
+  )
+ WHERE report.report_name = 'Movimientos de Partidas';
+
+DO $validation$
+BEGIN
+    IF (
+        SELECT COUNT(*) FROM stretchy_report_parameter usage
+        JOIN stretchy_report report ON report.id = usage.report_id
+        WHERE report.report_name = 'Movimientos de Partidas'
+          AND usage.report_parameter_name IN ('officeId', 'startDate', 'endDate', 'partidaNumber')
+    ) <> 4 THEN
+        RAISE EXCEPTION 'Movimientos de Partidas requires officeId, startDate, endDate, partidaNumber parameters';
+    END IF;
+END
+$validation$;
+
+INSERT INTO m_permission (grouping, code, entity_name, action_name, can_maker_checker)
+SELECT 'report', 'READ_Movimientos de Partidas', 'Movimientos de Partidas', 'READ', FALSE
+ WHERE NOT EXISTS (SELECT 1 FROM m_permission WHERE code = 'READ_Movimientos de Partidas');
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

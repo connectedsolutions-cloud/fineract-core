@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0409-1-read-native-gl-posting-text" author="credesal" dbms="postgresql">
+        <comment>Use native journal header text and comments for accounting report narration.</comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+DO $change$
+DECLARE
+    old_sql TEXT;
+    new_sql TEXT;
+BEGIN
+    SELECT report_sql INTO old_sql FROM stretchy_report WHERE report_name = 'Movimientos de Partidas';
+    IF old_sql IS NULL OR POSITION('journal.source_header_concept' IN old_sql) = 0 THEN
+        RAISE EXCEPTION 'Expected Movimientos de Partidas report SQL is missing';
+    END IF;
+    new_sql := REPLACE(old_sql, 'journal.source_header_concept,', '');
+    new_sql := REPLACE(new_sql, 'journal.source_header_concept)', 'entry.header_concept)');
+    new_sql := REPLACE(new_sql, 'entry.description', 'entry.header_description');
+    UPDATE stretchy_report SET report_sql = new_sql WHERE report_name = 'Movimientos de Partidas';
+
+    SELECT report_sql INTO old_sql FROM stretchy_report WHERE report_name = 'Comprobante Contable';
+    IF old_sql IS NULL OR POSITION('voucher.source_header_concept' IN old_sql) = 0 THEN
+        RAISE EXCEPTION 'Expected Comprobante Contable report SQL is missing';
+    END IF;
+    new_sql := REPLACE(old_sql, 'voucher.source_header_concept', 'entry.header_concept');
+    new_sql := REPLACE(new_sql, 'voucher_descriptions.shared_description',
+                       $native$NULLIF(BTRIM(entry.header_description), '')$native$);
+    UPDATE stretchy_report SET report_sql = new_sql WHERE report_name = 'Comprobante Contable';
+
+    SELECT report_sql INTO old_sql FROM stretchy_report WHERE report_name = 'Informe Auxiliar de Mayor';
+    IF old_sql IS NULL OR POSITION('source_journal.source_header_concept' IN old_sql) = 0 THEN
+        RAISE EXCEPTION 'Expected Informe Auxiliar de Mayor report SQL is missing';
+    END IF;
+    new_sql := REPLACE(old_sql, 'source_journal.source_header_concept', 'journal_entry.header_concept');
+    new_sql := REPLACE(new_sql, 'source_journal.source_header_description', 'journal_entry.header_description');
+    new_sql := REPLACE(new_sql, 'source_line.source_line_concept', 'journal_entry.description');
+    new_sql := REPLACE(new_sql, $legacy$NULLIF(BTRIM(source_line.source_line_aux_concept), ''),$legacy$, '');
+    UPDATE stretchy_report SET report_sql = new_sql WHERE report_name = 'Informe Auxiliar de Mayor';
+
+    SELECT report_sql INTO old_sql FROM stretchy_report WHERE report_name = 'Balance de Saldos Detallado';
+    IF old_sql IS NULL OR POSITION('provenance.source_header_concept' IN old_sql) = 0 THEN
+        RAISE EXCEPTION 'Expected Balance de Saldos Detallado report SQL is missing';
+    END IF;
+    new_sql := REPLACE(old_sql, 'provenance.source_header_concept', 'journal.header_concept');
+    new_sql := REPLACE(new_sql, 'provenance.source_header_description', 'journal.header_description');
+    new_sql := REPLACE(new_sql, 'line.source_line_concept', 'journal.description');
+    new_sql := REPLACE(new_sql, $legacy$NULLIF(BTRIM(line.source_line_aux_concept), ''),$legacy$, '');
+    UPDATE stretchy_report SET report_sql = new_sql WHERE report_name = 'Balance de Saldos Detallado';
+END
+$change$;
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

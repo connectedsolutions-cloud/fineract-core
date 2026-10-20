@@ -45,12 +45,14 @@ import org.apache.fineract.portfolio.shareaccounts.service.ShareAccountChargeRea
 import org.apache.fineract.portfolio.shareaccounts.service.ShareAccountCommandsServiceImpl;
 import org.apache.fineract.portfolio.shareaccounts.service.ShareAccountDividendReadPlatformService;
 import org.apache.fineract.portfolio.shareaccounts.service.ShareAccountDividendReadPlatformServiceImpl;
+import org.apache.fineract.portfolio.shareaccounts.service.ShareAccountPaymentService;
 import org.apache.fineract.portfolio.shareaccounts.service.ShareAccountReadPlatformService;
 import org.apache.fineract.portfolio.shareaccounts.service.ShareAccountReadPlatformServiceImpl;
 import org.apache.fineract.portfolio.shareaccounts.service.ShareAccountSchedularService;
 import org.apache.fineract.portfolio.shareaccounts.service.ShareAccountSchedularServiceImpl;
 import org.apache.fineract.portfolio.shareaccounts.service.ShareAccountWritePlatformService;
 import org.apache.fineract.portfolio.shareaccounts.service.ShareAccountWritePlatformServiceJpaRepositoryImpl;
+import org.apache.fineract.portfolio.shareaccounts.service.ShareCertificateService;
 import org.apache.fineract.portfolio.shareproducts.domain.ShareProductRepositoryWrapper;
 import org.apache.fineract.portfolio.shareproducts.service.ShareProductDropdownReadPlatformService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -118,9 +120,11 @@ public class ShareAccountsConfiguration {
             ShareAccountRepositoryWrapper shareAccountRepository, ShareProductRepositoryWrapper shareProductRepository,
             AccountNumberGenerator accountNumberGenerator, AccountNumberFormatRepositoryWrapper accountNumberFormatRepository,
             JournalEntryWritePlatformService journalEntryWritePlatformService, NoteRepository noteRepository,
-            BusinessEventNotifierService businessEventNotifierService, AccountingCutoffPolicyService cutoffPolicyService) {
+            BusinessEventNotifierService businessEventNotifierService, AccountingCutoffPolicyService cutoffPolicyService,
+            ShareCertificateService shareCertificateService, ShareAccountPaymentService shareAccountPaymentService,
+            org.apache.fineract.portfolio.paymentdetail.domain.PaymentDetailAssembler paymentDetailAssembler) {
         return new ShareAccountWritePlatformServiceJpaRepositoryImpl(accountDataSerializer, shareAccountRepository, shareProductRepository,
-                accountNumberGenerator, accountNumberFormatRepository, journalEntryWritePlatformService, cutoffPolicyService, noteRepository,
-                businessEventNotifierService);
+                accountNumberGenerator, accountNumberFormatRepository, journalEntryWritePlatformService, cutoffPolicyService,
+                noteRepository, businessEventNotifierService, shareCertificateService, shareAccountPaymentService, paymentDetailAssembler);
     }
 }

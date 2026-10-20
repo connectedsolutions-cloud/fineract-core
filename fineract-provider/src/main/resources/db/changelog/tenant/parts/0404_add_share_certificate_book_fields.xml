@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="0404-1-share-certificate-book-fields" author="credesal">
+        <addColumn tableName="credesal_share_certificate">
+            <column name="book_number" type="VARCHAR(25)"/>
+            <column name="book_date" type="DATE"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

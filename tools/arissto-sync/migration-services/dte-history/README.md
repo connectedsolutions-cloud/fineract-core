@@ -9,12 +9,13 @@ flowchart LR
     clients[clients] --> dte[dte-history]
     loans[loans] --> dte
     dte --> invoice[m_invoice + children]
-    invoice --> transaction[m_loan_transaction]
+    invoice --> transaction[m_loan_transaction when present]
     transaction --> loan[m_loan]
     loan --> client[m_client]
+    invoice --> owner[m_client and m_office for unlinked history]
 ```
 
-Version 1 includes only ordinary type `01` documents that have a legal
+Version 2 includes only ordinary type `01` documents that have a legal
 generation/control identity, normalized `facturacion` detail, one exact
 `CRD_MOVIMIENTOS_CARTERA` bridge, a resolved `AFI_SOCIO.NUMERO_AFILIACION`, and
 terminal legal evidence. Subject-excluded documents, code-less fiscal rows,
@@ -28,12 +29,14 @@ contingency signal with missing modes is quarantined.
 
 The import does not create an Arissto shadow table. Legal identity, receiver,
 lines, totals, loan transaction, loan, and client live in the normal Fineract
-model. `m_invoice` retains only the irreducible import origin, immutable source
-hash, and raw lifecycle flags; `m_invoice_summary.total_iva` holds ordinary IVA
-as a first-class fiscal value.
+model. For source movements without a target loan transaction, `m_invoice`
+retains the mapped historical client and office plus the exact source movement
+external ID. It also retains import origin, immutable source hash, and raw
+lifecycle flags; `m_invoice_summary.total_iva` holds ordinary IVA as a
+first-class fiscal value.
 
 The service is registered as `available`. Runtime inspection still requires a
-configured `target.ambiente`, Liquibase migration 0335, and reconciled Clients
+configured `target.ambiente`, Liquibase migrations 0335 and 0385, and reconciled Clients
 and Loans dependencies; those are fail-closed execution prerequisites rather
 than registry-status blockers. Before workflow inspection, the prepare phase
 fills an incomplete target `m_mh_company_config` singleton from the reviewed,

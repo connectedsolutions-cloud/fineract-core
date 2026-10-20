@@ -35,4 +35,6 @@ public interface TransferWritePlatformService {
 
     CommandProcessingResult proposeAndAcceptClientTransfer(Long clientId, JsonCommand jsonCommand);
 
+    CommandProcessingResult sourceExactProposeAndAcceptClientTransfer(Long clientId, JsonCommand jsonCommand);
+
 }

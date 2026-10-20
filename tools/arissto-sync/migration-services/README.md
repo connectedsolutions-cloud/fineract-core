@@ -10,6 +10,12 @@ services. It answers three questions before an operator runs anything:
 The machine-readable index is `registry.json`. Each service also has a folder
 with its guide and detailed contract.
 
+Native product display names created by migration services use Credesal or the
+reviewed business line name, without `Arissto` in the name. Keep source
+provenance in external IDs, crosswalks, and descriptions instead of product
+names. Existing target products retain their names unless a reviewed rename is
+performed separately.
+
 ## Documentation ownership
 
 This directory is the single front door for migration-service information:
@@ -103,6 +109,7 @@ Individual service guides continue to own their block-specific behavior.
 | Status | Meaning |
 |---|---|
 | `available` | Implemented in the CLI and eligible for reviewed local runs |
+| `testing` | Executable in a guarded local acceptance workflow; production apply is disabled |
 | `export-ready` | A read-only discovery/export step exists; target migration is not implemented |
 | `planned` | Design exists but the service cannot be run |
 | `blocked` | Implementation exists but a documented prerequisite prevents use |

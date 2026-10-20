@@ -21,11 +21,11 @@ package org.apache.fineract.portfolio.treasury.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.ArgumentMatchers.startsWith;
+import static org.mockito.Mockito.when;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
@@ -100,8 +100,7 @@ class JournalReferenceNumberServiceTest {
                 .thenReturn(insertCounter);
         when(lockedCounter.setParameter(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(lockedCounter);
-        when(assignment.setParameter(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any()))
-                .thenReturn(assignment);
+        when(assignment.setParameter(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any())).thenReturn(assignment);
         when(lockedCounter.getSingleResult()).thenReturn(451);
         when(assignment.getResultList()).thenReturn(java.util.List.<Object[]>of(new Object[] { "202609", "2026090451", "GENERATED" }));
         JournalReferenceNumberService service = new JournalReferenceNumberService();
@@ -141,8 +140,7 @@ class JournalReferenceNumberServiceTest {
         when(collision.getSingleResult()).thenReturn(1L);
         JournalReferenceNumberService service = new JournalReferenceNumberService();
         ReflectionTestUtils.setField(service, "entityManager", entityManager);
-        assertThrows(GeneralPlatformDomainRuleException.class,
-                () -> service.reserveImported("AI123|2026-09-17", "AI123", "2026090446"));
+        assertThrows(GeneralPlatformDomainRuleException.class, () -> service.reserveImported("AI123|2026-09-17", "AI123", "2026090446"));
     }
 
     @Test

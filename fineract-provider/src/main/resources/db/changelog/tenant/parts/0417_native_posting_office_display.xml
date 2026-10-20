@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0417-1-native-posting-office-display" author="credesal" dbms="postgresql">
+        <comment>Display native office names and group branch voucher totals by complete native postings.</comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+UPDATE stretchy_report SET report_sql = $report$
+WITH selected_offices AS (
+ SELECT child.id FROM m_office selected
+ JOIN m_office child ON child.hierarchy LIKE selected.hierarchy || '%'
+ WHERE selected.id = CAST('${officeId}' AS BIGINT)
+   AND child.hierarchy LIKE '${currentUserHierarchy}' || '%'
+),
+posting_groups AS (
+ SELECT COALESCE('V:' || entry.voucher_id::text, 'T:' || entry.transaction_id) AS posting_key,
+        MIN(entry.entry_date) AS entry_date,
+        MIN(entry.office_id) AS report_office_id,
+        CASE WHEN COUNT(entry.ref_num) = COUNT(*) AND COUNT(DISTINCT entry.ref_num) = 1
+             THEN MIN(entry.ref_num) ELSE 'TX-' || MIN(entry.transaction_id) END AS entry_number,
+        COALESCE(NULLIF(BTRIM(MAX(voucher.header_concept)), ''),
+                 CASE WHEN COUNT(DISTINCT NULLIF(BTRIM(entry.header_concept), '')) = 1
+                      THEN MIN(NULLIF(BTRIM(entry.header_concept), '')) END, '-') AS entry_concept,
+        CASE WHEN COUNT(*) = COUNT(NULLIF(BTRIM(entry.description), ''))
+                   AND COUNT(DISTINCT NULLIF(BTRIM(entry.description), '')) = 1
+             THEN MIN(BTRIM(entry.description)) ELSE '' END AS entry_description,
+        CASE WHEN ROUND(SUM(CASE WHEN entry.type_enum = 2 THEN entry.amount
+                                 WHEN entry.type_enum = 1 THEN -entry.amount ELSE 0 END), 2) <> 0
+             THEN 'DESCUADRADA'
+             WHEN COUNT(*) < 2 OR BOOL_OR(entry.amount = 0) THEN 'INCOMPLETA'
+             WHEN BOOL_OR(COALESCE(entry.reversed, FALSE)) THEN 'REVERTIDA'
+             ELSE 'CONTABILIZADA' END AS entry_status,
+        BOOL_AND(line_office.hierarchy LIKE '${currentUserHierarchy}' || '%') AS all_lines_permitted
+ FROM acc_gl_journal_entry entry
+ JOIN m_office line_office ON line_office.id = entry.office_id
+ LEFT JOIN credesal_gl_voucher voucher ON voucher.id = entry.voucher_id
+ WHERE entry.currency_code = 'USD' AND entry.transaction_id IS NOT NULL
+   AND entry.type_enum IN (1, 2)
+ GROUP BY COALESCE('V:' || entry.voucher_id::text, 'T:' || entry.transaction_id)
+),
+selected_groups AS (
+ SELECT posting_groups.*, office.external_id AS report_branch_code,
+        UPPER(office.name) AS report_branch
+ FROM posting_groups
+ JOIN selected_offices selected ON selected.id = posting_groups.report_office_id
+ JOIN m_office office ON office.id = posting_groups.report_office_id
+ WHERE posting_groups.entry_date BETWEEN CAST('${startDate}' AS DATE) AND CAST('${endDate}' AS DATE)
+   AND posting_groups.all_lines_permitted
+   AND (NULLIF(BTRIM('${partidaNumber}'), '') IS NULL
+        OR posting_groups.entry_number = BTRIM('${partidaNumber}'))
+),
+detail AS (
+ SELECT selected_groups.posting_key, selected_groups.entry_number, selected_groups.entry_date,
+        selected_groups.report_branch_code, selected_groups.report_office_id,
+        selected_groups.report_branch, selected_groups.entry_concept,
+        selected_groups.entry_description, selected_groups.entry_status,
+        ROW_NUMBER() OVER (PARTITION BY selected_groups.posting_key ORDER BY entry.id) AS line_sequence,
+        account.gl_code AS account_code, account.name AS account_name,
+        UPPER(line_office.name) AS line_branch,
+        ROUND(CASE WHEN entry.type_enum = 2 THEN entry.amount ELSE 0 END, 2) AS debit,
+        ROUND(CASE WHEN entry.type_enum = 1 THEN entry.amount ELSE 0 END, 2) AS credit
+ FROM selected_groups
+ JOIN acc_gl_journal_entry entry
+   ON COALESCE('V:' || entry.voucher_id::text, 'T:' || entry.transaction_id) = selected_groups.posting_key
+ JOIN acc_gl_account account ON account.id = entry.account_id
+ JOIN m_office line_office ON line_office.id = entry.office_id
+ WHERE entry.currency_code = 'USD' AND entry.type_enum IN (1, 2)
+),
+balanced AS (
+ SELECT detail.*,
+        SUM(debit - credit) OVER (PARTITION BY posting_key ORDER BY line_sequence
+                                 ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running_balance,
+        SUM(debit) OVER (PARTITION BY posting_key) AS entry_debit_total,
+        SUM(credit) OVER (PARTITION BY posting_key) AS entry_credit_total,
+        COUNT(*) OVER (PARTITION BY posting_key) AS entry_line_count
+ FROM detail
+)
+SELECT ROW_NUMBER() OVER (ORDER BY DATE_TRUNC('month', entry_date), report_office_id,
+                                  entry_date, entry_number, posting_key, line_sequence) AS "Orden",
+       report_office_id AS "Id Oficina", report_branch_code AS "Código Sucursal",
+       report_branch AS "Sucursal", entry_number AS "Partida", entry_date AS "Fecha",
+       entry_concept AS "Concepto Partida", entry_description AS "Descripción Partida",
+       entry_status AS "Estado", line_sequence AS "Orden Línea",
+       account_code AS "No. Cuenta", account_name AS "Concepto",
+       line_branch AS "Sucursal Línea", debit AS "Cargos", credit AS "Abonos",
+       running_balance AS "Saldo", entry_debit_total AS "Total Cargos",
+       entry_credit_total AS "Total Abonos",
+       entry_debit_total - entry_credit_total AS "Saldo Partida",
+       entry_line_count AS "Líneas Partida"
+FROM balanced ORDER BY "Orden"
+$report$ WHERE report_name = 'Movimientos de Partidas';
+
+UPDATE stretchy_report SET report_sql = $report$
+WITH selected_office AS (
+    SELECT office.id,
+           office.external_id,
+           UPPER(office.name) AS office_name
+      FROM m_office office
+     WHERE office.id = CAST('${officeId}' AS BIGINT)
+       AND office.hierarchy LIKE '${currentUserHierarchy}' || '%'
+       AND office.external_id IS NOT NULL
+),
+posting_groups AS (
+    SELECT COALESCE('V:' || journal.voucher_id::text,
+                    'T:' || journal.transaction_id,
+                    'J:' || journal.id::text) AS posting_key,
+           MIN(journal.office_id) AS report_office_id,
+           MIN(journal.entry_date) AS report_date
+      FROM acc_gl_journal_entry journal
+     WHERE journal.currency_code = 'USD'
+       AND journal.type_enum IN (1, 2)
+       AND NOT journal.reversed
+     GROUP BY COALESCE('V:' || journal.voucher_id::text,
+                       'T:' || journal.transaction_id,
+                       'J:' || journal.id::text)
+),
+account_amounts AS (
+    SELECT target_account.gl_code AS source_account_code,
+           MIN(target_account.name) AS target_account_name,
+           ROUND(SUM(CASE WHEN journal_entry.type_enum = 2 THEN journal_entry.amount ELSE 0 END), 2) AS debit,
+           ROUND(SUM(CASE WHEN journal_entry.type_enum = 1 THEN journal_entry.amount ELSE 0 END), 2) AS credit
+      FROM posting_groups posting
+      JOIN acc_gl_journal_entry journal_entry
+        ON COALESCE('V:' || journal_entry.voucher_id::text,
+                    'T:' || journal_entry.transaction_id,
+                    'J:' || journal_entry.id::text) = posting.posting_key
+      JOIN acc_gl_account target_account
+        ON target_account.id = journal_entry.account_id
+     CROSS JOIN selected_office office
+     WHERE posting.report_date = CAST('${endDate}' AS DATE)
+       AND posting.report_office_id = office.id
+       AND journal_entry.currency_code = 'USD'
+       AND NOT journal_entry.reversed
+       AND journal_entry.type_enum IN (1, 2)
+     GROUP BY target_account.gl_code
+),
+account_rows AS (
+    SELECT LEFT(amount.source_account_code, 3) AS group_code,
+           COALESCE(group_account.name, LEFT(amount.source_account_code, 3))
+               AS group_name,
+           amount.source_account_code AS account_code,
+           amount.target_account_name AS account_name,
+           amount.debit,
+           amount.credit
+      FROM account_amounts amount
+ LEFT JOIN acc_gl_account group_account
+        ON group_account.gl_code = LEFT(amount.source_account_code, 3)
+),
+group_rows AS (
+    SELECT DISTINCT group_code, group_name
+      FROM account_rows
+),
+totals AS (
+    SELECT ROUND(SUM(debit), 2) AS debit,
+           ROUND(SUM(credit), 2) AS credit
+      FROM account_rows
+),
+display_rows AS (
+    SELECT groups.group_code AS group_order,
+           1 AS row_order,
+           ''::VARCHAR AS account_order,
+           'GROUP'::VARCHAR AS row_type,
+           groups.group_code,
+           groups.group_name,
+           NULL::VARCHAR AS account_code,
+           NULL::VARCHAR AS account_name,
+           NULL::NUMERIC AS debit,
+           NULL::NUMERIC AS credit
+      FROM group_rows groups
+
+    UNION ALL
+
+    SELECT account.group_code,
+           2,
+           account.account_code,
+           'ACCOUNT',
+           account.group_code,
+           account.group_name,
+           account.account_code,
+           account.account_name,
+           account.debit,
+           account.credit
+      FROM account_rows account
+
+    UNION ALL
+
+    SELECT '~~~~',
+           3,
+           '~~~~',
+           'TOTAL',
+           NULL,
+           NULL,
+           NULL,
+           'TOTAL',
+           totals.debit,
+           totals.credit
+      FROM totals
+     WHERE totals.debit IS NOT NULL
+)
+SELECT ROW_NUMBER() OVER (
+           ORDER BY row.group_order COLLATE "C", row.row_order, row.account_order COLLATE "C"
+       ) AS row_sequence,
+       row.row_type,
+       office.id AS office_id,
+       office.external_id AS office_code,
+       office.office_name,
+       CAST('${endDate}' AS DATE) AS report_date,
+       row.group_code,
+       row.group_name,
+       row.account_code,
+       row.account_name,
+       row.debit,
+       row.credit
+  FROM display_rows row
+ CROSS JOIN selected_office office
+ ORDER BY row.group_order COLLATE "C", row.row_order, row.account_order COLLATE "C";
+$report$ WHERE report_name = 'Comprobante Contable por Sucursal';
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.27.xsd">
+
+    <changeSet id="0397-historical-cheque-lookup" author="credesal">
+        <createTable tableName="credesal_historical_cheque">
+            <column name="id" type="BIGINT" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="source_kind" type="VARCHAR(16)"><constraints nullable="false"/></column>
+            <column name="source_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="cheque_number" type="VARCHAR(128)"/>
+            <column name="bank_name" type="VARCHAR(200)"><constraints nullable="false"/></column>
+            <column name="amount" type="DECIMAL(19,2)"><constraints nullable="false"/></column>
+            <column name="cheque_date" type="DATE"/>
+            <column name="cancelled" type="BOOLEAN"/>
+            <column name="source_hash" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="source_fingerprint" type="VARCHAR(64)"><constraints nullable="false"/></column>
+            <column name="imported_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="credesal_historical_cheque" columnNames="source_kind,source_id"
+                             constraintName="uk_credesal_historical_cheque_source"/>
+        <createIndex tableName="credesal_historical_cheque" indexName="idx_credesal_historical_cheque_number">
+            <column name="cheque_number"/>
+        </createIndex>
+        <createIndex tableName="credesal_historical_cheque" indexName="idx_credesal_historical_cheque_date">
+            <column name="cheque_date"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="0397-historical-cheque-links" author="credesal">
+        <createTable tableName="credesal_historical_cheque_link">
+            <column name="id" type="BIGINT" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="cheque_id" type="BIGINT"><constraints nullable="false"/></column>
+            <column name="relationship_type" type="VARCHAR(48)"><constraints nullable="false"/></column>
+            <column name="source_key" type="VARCHAR(256)"><constraints nullable="false"/></column>
+            <column name="target_type" type="VARCHAR(48)"/>
+            <column name="target_id" type="VARCHAR(100)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="credesal_historical_cheque_link" baseColumnNames="cheque_id"
+                                 constraintName="fk_credesal_historical_cheque_link" referencedTableName="credesal_historical_cheque"
+                                 referencedColumnNames="id" onDelete="CASCADE"/>
+        <addUniqueConstraint tableName="credesal_historical_cheque_link"
+                             columnNames="cheque_id,relationship_type,source_key"
+                             constraintName="uk_credesal_historical_cheque_link"/>
+        <createIndex tableName="credesal_historical_cheque_link" indexName="idx_credesal_historical_cheque_link_target">
+            <column name="target_type"/><column name="target_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

@@ -14,6 +14,41 @@ DEFAULT_MIN_CLOSED_CYCLES = 5
 WARNING_NEEDLE = b"InsecureRequestWarning"
 
 
+def _carry_forward_prior_cycle(cycles: list[dict[str, Any]]) -> str | None:
+    """Keep the newest carry-forward run's input cycle available for rollback."""
+    if not cycles:
+        return None
+    state_path = Path(cycles[0]["state_path"])
+    if not state_path.is_file():
+        return None
+    connection: sqlite3.Connection | None = None
+    try:
+        try:
+            connection = sqlite3.connect(
+                f"file:{state_path.resolve()}?mode=ro", uri=True, timeout=2,
+            )
+            connection.execute("PRAGMA query_only=ON")
+            connection.execute("SELECT COUNT(*) FROM sqlite_master").fetchone()
+        except sqlite3.Error:
+            if connection is not None:
+                connection.close()
+            connection = sqlite3.connect(
+                f"file:{state_path.resolve()}?immutable=1", uri=True, timeout=2,
+            )
+        if not connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='state_metadata'"
+        ).fetchone():
+            return None
+        row = connection.execute(
+            "SELECT value FROM state_metadata WHERE key='carry_forward_old_cycle'"
+        ).fetchone()
+        prior = str(row[0]) if row else None
+        return prior if prior in {cycle["id"] for cycle in cycles[1:]} else None
+    finally:
+        if connection is not None:
+            connection.close()
+
+
 def _tree_size(path: Path) -> int:
     if path.is_file():
         return path.stat().st_size
@@ -191,8 +226,11 @@ def storage_health(
             })
 
     newest_cycle_id = cycle_reports[0]["id"] if cycle_reports else None
+    protected_prior_cycle = _carry_forward_prior_cycle(cycles)
     for cycle in cycle_reports:
         if cycle["id"] != newest_cycle_id:
+            if cycle["id"] == protected_prior_cycle:
+                continue
             findings.append({
                 "code": "obsolete-cycle-retention-candidate", "severity": "warning",
                 "cycle_id": cycle["id"], "bytes": cycle["bytes"],

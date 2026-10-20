@@ -96,13 +96,12 @@ commit/worktree, commands, counts, and unresolved failures.
    Advancing the dates requires a new restored disposable-tenant cycle; an
    existing plan or active tenant cutoff is never mutated. Approve the one
    permanent production boundary at G12.
-2. **Complete — journal status policy approved.** Only populated, balanced
-   `ESTADO_PARTIDA='3'` journals are eligible by status and integrity. Status
-   `1` quarantines as `SOURCE_JOURNAL_NOT_MAYORIZED`; status `2` quarantines as
-   `SOURCE_JOURNAL_EXCLUDED_FROM_LEDGER`; unexpected values, empty journals,
-   and unbalanced journals have their own stable reasons. The two balanced
-   status-`2` journals are excluded from every affected daily-ledger amount;
-   balance alone does not make a journal importable.
+2. **Complete — journal status policy revised.** The original status-`3`-only
+   gate is superseded. Populated, balanced, mapped pre-cutoff journals are
+   eligible regardless of `ESTADO_PARTIDA`; source status is preserved as
+   provenance. Empty and unbalanced journals remain quarantined. The earlier
+   source audit still establishes that non-`3` entries can be absent from
+   Arissto's materialized ledger, so `CNT_MAYOR` parity covers only status `3`.
 3. **Complete — reversal handling reduced to ledger preservation.** The
    accounting service does not recreate loan/savings reversal lifecycles and
    does not need to identify or pair reversals to reproduce financial reports.

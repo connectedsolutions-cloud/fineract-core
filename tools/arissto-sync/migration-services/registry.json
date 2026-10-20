@@ -270,7 +270,7 @@
         "deletions": "not-supported"
       },
       "cli_block": "native-share-capital",
-      "depends_on": ["clients", "membership-share-capital", "savings-deposits"],
+      "depends_on": ["clients", "employees", "membership-share-capital", "savings-deposits"],
       "description": "Projects reviewed paid common and preferred positions into native Fineract products, accounts, purchases, accounting, and certificate extensions through deterministic plan/apply/retry/reconcile workflows; the payment-channel schema/API support and controlled lifecycle acceptance have passed locally, while positions without an eligible same-client VISTA account remain explicit quarantines.",
       "documentation": "migration-services/native-share-capital/README.md",
       "detail_documents": [
@@ -379,6 +379,28 @@
       }
     },
     {
+      "id": "delinquency-history",
+      "name": "Historical loan delinquency categories",
+      "kind": "standalone",
+      "status": "available",
+      "executable": true,
+      "full_resync": {
+        "status": "not-supported",
+        "checkpoint": "accepted-reconciliation",
+        "ownership": "immutable-source-timeline",
+        "deletions": "not-supported"
+      },
+      "cli_block": "delinquency-history",
+      "depends_on": ["loans"],
+      "description": "Compresses completed Arissto loan classifications into native Fineract delinquency tag intervals with source provenance. The carry-forward workflow runs it after reconciled loans; the standalone CLI remains available for reviewed targets. Historical extension still needs a reviewed incremental contract.",
+      "documentation": "migration-services/delinquency-history/README.md",
+      "commands": {
+        "plan": "./arissto-sync delinquency-history plan --target TARGET --source-through-date YYYY-MM-DD",
+        "apply": "./arissto-sync delinquency-history apply --target TARGET --plan PLAN_ID",
+        "reconcile": "./arissto-sync delinquency-history reconcile --target TARGET --run RUN_ID"
+      }
+    },
+    {
       "id": "dte-history",
       "name": "Fiscal DTE history",
       "kind": "sync-block",
@@ -482,6 +504,25 @@
         "retry": "./arissto-sync retry --run RUN_ID --failed-only --target TARGET",
         "reconcile": "./arissto-sync reconcile --run RUN_ID --target TARGET",
         "status": "./arissto-sync status --block accounting --target TARGET"
+      }
+    },
+    {
+      "id": "cheque-history",
+      "name": "Historical cheques",
+      "kind": "sync-block",
+      "category": "treasury",
+      "status": "testing",
+      "executable": true,
+      "cli_block": "cheque-history",
+      "depends_on": ["accounting-journal-entries"],
+      "description": "Metadata-only import code for basic issued and received cheque facts and exact payment, vault, and accounting relationships is implemented. Controlled local acceptance is pending; GL posting, treasury balance changes, and delivery or clearing status are excluded.",
+      "documentation": "migration-services/cheque-history/README.md",
+      "detail_documents": ["migration-services/cheque-history/contract.md"],
+      "commands": {
+        "inspect": "./arissto-sync cheque-history inspect --target TARGET",
+        "plan": "./arissto-sync cheque-history plan --target TARGET",
+        "apply": "./arissto-sync cheque-history apply --plan PLAN_ID --target TARGET",
+        "reconcile": "./arissto-sync cheque-history reconcile --run RUN_ID --target TARGET"
       }
     }
   ]

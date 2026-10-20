@@ -38,7 +38,7 @@
   "collateral_contract": {
     "target_currency": "USD",
     "collateral_product": {
-      "name": "ARISSTO-COLLATERAL",
+      "name": "Credesal Garantía de Crédito",
       "quality": "Source-exact",
       "basePrice": "1.00",
       "pctToBase": "100.00",
@@ -77,17 +77,25 @@
     "transaction_strategy": "credesal-accrued-interest-first-strategy",
     "source_term_policy": "loan-level-approved-terms-override-line-defaults",
     "portfolio_account_policy": {
-      "mode": "single-native-account-per-product",
+      "mode": "term-based-dual-native-accounts",
       "source_primary_field": "ID_CUENTA_CARGO_CAPITAL",
-      "dynamic_gl_switching": false,
+      "dynamic_gl_switching": true,
       "split_products_by_historical_account": false,
       "reviewed_primary_gl_by_line": {
         "00001": "1141040101",
         "00010": "1141030101"
       },
-      "historical_alternate_gl_for_reconciliation": {
-        "00001": ["1142040101"],
-        "00010": ["1142030101"]
+      "reviewed_long_gl_by_line": {
+        "00001": "114204010101",
+        "00010": "1142030101"
+      },
+      "reviewed_short_interest_receivable_gl_by_line": {
+        "00001": "1141049901",
+        "00010": "1141039901"
+      },
+      "reviewed_long_interest_receivable_gl_by_line": {
+        "00001": "1142049901",
+        "00010": "1142039901"
       }
     },
     "dimension_contract": {
@@ -133,7 +141,6 @@
     "accounting_gl_codes": {
       "fundSourceAccountId": "14",
       "transfersInSuspenseAccountId": "1510",
-      "receivableInterestAccountId": "1520",
       "receivableFeeAccountId": "1530",
       "receivablePenaltyAccountId": "1540",
       "interestOnLoanAccountId": "611001010001",
@@ -256,6 +263,10 @@
       "expected_contractual_origin_date": "2026-09-29",
       "expected_principal": "493.00",
       "expected_payoff_amount": "492.18"
+    },
+    "2482": {
+      "classification": "reviewed-early-payoff-future-interest-cutover",
+      "terminal_adjustment_maximum_source": "source-schedule-total"
     },
     "2498": {
       "classification": "reviewed-refinance-application-quote-date",

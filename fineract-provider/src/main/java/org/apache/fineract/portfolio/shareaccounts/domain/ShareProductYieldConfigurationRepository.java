@@ -5,5 +5,6 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ShareProductYieldConfigurationRepository extends JpaRepository<ShareProductYieldConfiguration, Long> {
+
     List<ShareProductYieldConfiguration> findByEnabledTrue();
 }

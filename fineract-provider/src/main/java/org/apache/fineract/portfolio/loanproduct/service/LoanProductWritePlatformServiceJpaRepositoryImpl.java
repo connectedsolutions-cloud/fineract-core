@@ -156,8 +156,8 @@ public class LoanProductWritePlatformServiceJpaRepositoryImpl implements LoanPro
 
             applyCrdCatalogTags(loanProduct, command);
 
-            loanProduct.setNumberingCode(
-                    this.productNumberingSupport.assignOnCreate(command, CredesalNamingNamespace.LOAN, "m_product_loan"));
+            loanProduct
+                    .setNumberingCode(this.productNumberingSupport.assignOnCreate(command, CredesalNamingNamespace.LOAN, "m_product_loan"));
 
             this.loanProductRepository.saveAndFlush(loanProduct);
 

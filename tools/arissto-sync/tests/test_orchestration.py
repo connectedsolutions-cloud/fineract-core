@@ -22,6 +22,7 @@ from arissto_sync.orchestration import (
     _record_child_item_failures,
     assert_zero_pre_cutoff_native_gl,
     assert_scheduler_paused,
+    pause_local_carry_forward_scheduler,
     bind_active_accounting_cutoff,
     build_workflow_plan,
     ensure_arissto_api_user_offices,
@@ -195,7 +196,18 @@ class WorkflowDefinitionTests(unittest.TestCase):
             item["service_id"] for item in broad["blockers"]
             if item["code"] == "full-resync-unsupported"
         }
-        self.assertEqual(unsupported, set())
+        self.assertEqual(unsupported, {"delinquency-history", "cheque-history"})
+
+    def test_local_fresh_clean_includes_risk_and_cheque_history(self):
+        definition = load_workflow("local-full-sync")
+        report = inspect_workflow(definition, target="local", run_mode="fresh-clean")
+
+        self.assertTrue(report["ready"])
+        self.assertEqual(len(report["ordered_services"]), 18)
+        self.assertLess(
+            report["ordered_services"].index("loans"),
+            report["ordered_services"].index("delinquency-history"),
+        )
 
     def test_production_full_resync_selects_all_available_services(self):
         definition = load_workflow("prod-full-resync")
@@ -206,6 +218,99 @@ class WorkflowDefinitionTests(unittest.TestCase):
         self.assertEqual(report["run_modes"], ["full-resync"])
         self.assertEqual(len(report["ordered_services"]), 16)
         self.assertEqual(report["ordered_services"][-1], "native-share-yield")
+
+    def test_carry_forward_runs_risk_and_cheque_history(self):
+        definition = load_workflow("carry-forward-rebuild")
+        report = inspect_workflow(definition, target="local", run_mode="carry-forward")
+
+        self.assertTrue(report["ready"])
+        self.assertEqual(len(report["ordered_services"]), 18)
+        self.assertLess(
+            report["ordered_services"].index("loans"),
+            report["ordered_services"].index("delinquency-history"),
+        )
+        self.assertLess(
+            report["ordered_services"].index("accounting-journal-entries"),
+            report["ordered_services"].index("cheque-history"),
+        )
+
+    def test_cheque_adapter_uses_frozen_source_date_and_plan(self):
+        runtime = ServiceRuntime.__new__(ServiceRuntime)
+        runtime.settings = SimpleNamespace()
+        runtime.state = SimpleNamespace(accounting_cutoff={
+            "date": "2026-10-08", "source_through_date": "2026-10-07",
+        })
+        with patch("arissto_sync.service_runtime.inspect_cheque_history",
+                   return_value={"conflict_count": 0}) as inspect_cheques, patch(
+                       "arissto_sync.service_runtime.build_cheque_history_plan",
+                       return_value=("plan-id", {})) as plan_cheques:
+            inspected = runtime.inspect("cheque-history")
+            planned = runtime.plan("cheque-history")
+
+        inspect_cheques.assert_called_once_with(runtime.settings, "2026-10-07")
+        plan_cheques.assert_called_once_with(runtime.settings, runtime.state, "2026-10-07")
+        self.assertTrue(inspected["ready"])
+        self.assertTrue(inspected["contract_hash"])
+        self.assertEqual(planned[0], "plan-id")
+
+    def test_cheque_adapter_applies_reconciles_and_retries_frozen_plan(self):
+        runtime = ServiceRuntime.__new__(ServiceRuntime)
+        runtime.settings = SimpleNamespace()
+        runtime.state = Mock()
+        runtime.state.run.return_value = {"block": "cheque-history", "plan_id": "plan-id"}
+        with patch("arissto_sync.service_runtime.apply_cheque_history_plan",
+                   return_value=("run-id", {"created": 2})) as apply_cheques, patch(
+                       "arissto_sync.service_runtime.reconcile_cheque_history",
+                       return_value={"ok": True}) as reconcile_cheques:
+            self.assertEqual(runtime.apply("cheque-history", "plan-id"),
+                             ("run-id", {"created": 2}))
+            self.assertEqual(runtime.reconcile("cheque-history", "run-id"),
+                             {"ok": True})
+            self.assertEqual(runtime.retry("cheque-history", "prior-run"),
+                             ("run-id", {"created": 2}))
+
+        self.assertEqual(apply_cheques.call_count, 2)
+        apply_cheques.assert_called_with(runtime.settings, runtime.state, "plan-id", None)
+        reconcile_cheques.assert_called_once_with(runtime.settings, runtime.state, "run-id")
+
+    def test_carry_forward_risk_adapter_uses_frozen_source_date(self):
+        runtime = ServiceRuntime.__new__(ServiceRuntime)
+        runtime.settings = SimpleNamespace()
+        runtime.state = SimpleNamespace(accounting_cutoff={
+            "date": "2026-10-08", "source_through_date": "2026-10-07",
+        })
+        with patch("arissto_sync.service_runtime.inspect_delinquency_history",
+                   return_value={"ready": True}) as inspect_risk, patch(
+                       "arissto_sync.service_runtime.build_delinquency_history_plan",
+                       return_value=("plan-id", {})) as plan_risk:
+            inspected = runtime.inspect("delinquency-history")
+            planned = runtime.plan("delinquency-history")
+
+        inspect_risk.assert_called_once_with(runtime.settings, "2026-10-07")
+        plan_risk.assert_called_once_with(runtime.settings, runtime.state, "2026-10-07")
+        self.assertTrue(inspected["contract_hash"])
+        self.assertTrue(inspected["schema_signature"])
+        self.assertEqual(planned[0], "plan-id")
+
+    def test_carry_forward_risk_adapter_applies_reconciles_and_retries_frozen_plan(self):
+        runtime = ServiceRuntime.__new__(ServiceRuntime)
+        runtime.settings = SimpleNamespace()
+        runtime.state = Mock()
+        runtime.state.run.return_value = {"block": "delinquency-history", "plan_id": "plan-id"}
+        with patch("arissto_sync.service_runtime.apply_delinquency_history_plan",
+                   return_value=("run-id", {"created": 2})) as apply_risk, patch(
+                       "arissto_sync.service_runtime.reconcile_delinquency_history",
+                       return_value={"ok": True}) as reconcile_risk:
+            self.assertEqual(runtime.apply("delinquency-history", "plan-id"),
+                             ("run-id", {"created": 2}))
+            self.assertEqual(runtime.reconcile("delinquency-history", "run-id"),
+                             {"ok": True})
+            self.assertEqual(runtime.retry("delinquency-history", "prior-run"),
+                             ("run-id", {"created": 2}))
+
+        self.assertEqual(apply_risk.call_count, 2)
+        apply_risk.assert_called_with(runtime.settings, runtime.state, "plan-id", None)
+        reconcile_risk.assert_called_once_with(runtime.settings, runtime.state, "run-id")
 
     def test_production_workflow_cli_requires_explicit_mode_and_confirmation_fields(self):
         planned = parser().parse_args([
@@ -555,6 +660,27 @@ class WorkflowDefinitionTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "must be paused"):
             assert_scheduler_paused(api)
 
+    def test_carry_forward_pauses_active_local_scheduler_and_verifies(self):
+        api = Mock()
+        api.request.side_effect = [{"active": True}, {}, {"active": False}]
+        self.assertEqual(pause_local_carry_forward_scheduler(api), {"active": False})
+        self.assertEqual(api.request.call_args_list, [
+            unittest.mock.call("GET", "scheduler"),
+            unittest.mock.call("POST", "scheduler", {}, query={"command": "stop"}),
+            unittest.mock.call("GET", "scheduler"),
+        ])
+
+        api.reset_mock()
+        api.request.side_effect = [{"active": False}, {"active": False}]
+        self.assertEqual(pause_local_carry_forward_scheduler(api), {"active": False})
+        api.request.assert_any_call("GET", "scheduler")
+        self.assertEqual(api.request.call_count, 2)
+
+        api.reset_mock()
+        api.request.side_effect = [{"active": True}, {}, {"active": True}]
+        with self.assertRaisesRegex(RuntimeError, "must be paused"):
+            pause_local_carry_forward_scheduler(api)
+
     @staticmethod
     def active_cutoff(configuration_hash="cutoff-hash", revision=2):
         return {
@@ -888,7 +1014,10 @@ class WorkflowDefinitionTests(unittest.TestCase):
         self.assertTrue(catalog["local-credit-collections"]["ready"])
         self.assertTrue(catalog["local-full-sync"]["ready"])
         self.assertEqual(catalog["local-credit-collections"]["warnings"], [])
-        self.assertEqual(catalog["local-full-sync"]["warnings"], [])
+        self.assertEqual(catalog["local-full-sync"]["warnings"], [{
+            "service_id": "cheque-history", "code": "service-unavailable",
+            "status": "testing", "allowed_by": "allow-executable",
+        }])
 
     def test_allow_executable_policy_never_allows_non_executable_service(self):
         definition = load_workflow("local-credit-collections")
@@ -1002,6 +1131,10 @@ class ProductionCheckpointTests(unittest.TestCase):
     )
 
     def setUp(self):
+        delinquency = patch("arissto_sync.orchestration.ensure_delinquency_buckets",
+                            return_value={"performed": False, "actions": []})
+        delinquency.start()
+        self.addCleanup(delinquency.stop)
         self.directory = tempfile.TemporaryDirectory()
         self.state = State(Path(self.directory.name) / "state.sqlite3")
         self.fingerprint = "prod-fingerprint"
@@ -1237,6 +1370,10 @@ class ProductionCheckpointTests(unittest.TestCase):
 
 class WorkflowStateTests(unittest.TestCase):
     def setUp(self):
+        delinquency = patch("arissto_sync.orchestration.ensure_delinquency_buckets",
+                            return_value={"performed": False, "actions": []})
+        delinquency.start()
+        self.addCleanup(delinquency.stop)
         self.directory = tempfile.TemporaryDirectory()
         self.state_path = Path(self.directory.name) / "state.sqlite3"
         self.state = State(self.state_path)

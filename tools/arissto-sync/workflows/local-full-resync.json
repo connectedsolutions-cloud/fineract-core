@@ -1,7 +1,7 @@
 {
   "version": 1,
   "id": "local-full-resync",
-  "description": "Checkpointed local sandbox re-sync for all 16 services using reviewed deltas without restoring the tenant or replaying unchanged history.",
+  "description": "Checkpointed local sandbox re-sync for all 16 incrementally supported services using reviewed deltas without restoring the tenant or replaying unchanged history.",
   "targets": [
     "local"
   ],
@@ -16,11 +16,11 @@
     "client-family-references",
     "client-personal-family-references",
     "membership-share-capital",
+    "loans",
     "savings-deposits",
     "savings-account-parties",
     "native-share-capital",
     "aml-alerts",
-    "loans",
     "dte-history",
     "mobile-collections",
     "accounting-journal-entries",

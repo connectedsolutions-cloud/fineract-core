@@ -51,7 +51,8 @@ public class SavingsAccountPartyServiceImpl implements SavingsAccountPartyServic
     @Transactional(readOnly = true)
     public List<SavingsBeneficiaryData> retrieveBeneficiaries(final Long accountId) {
         loadAccount(accountId);
-        return beneficiaryRepository.findBySavingsAccountIdAndActiveTrueOrderById(accountId).stream().map(SavingsBeneficiaryData::from).toList();
+        return beneficiaryRepository.findBySavingsAccountIdAndActiveTrueOrderById(accountId).stream().map(SavingsBeneficiaryData::from)
+                .toList();
     }
 
     @Override
@@ -124,8 +125,7 @@ public class SavingsAccountPartyServiceImpl implements SavingsAccountPartyServic
             final SavingsAuthorizedPersonData saved = saveAuthorizedPerson(account, person, request);
             retainedIds.add(saved.getId());
         }
-        for (final SavingsAuthorizedPerson existing : authorizedPersonRepository
-                .findBySavingsAccountIdAndActiveTrueOrderById(accountId)) {
+        for (final SavingsAuthorizedPerson existing : authorizedPersonRepository.findBySavingsAccountIdAndActiveTrueOrderById(accountId)) {
             if (!retainedIds.contains(existing.getId())) {
                 existing.setActive(false);
                 existing.setUpdatedAt(DateUtils.getLocalDateTimeOfTenant());
@@ -200,8 +200,7 @@ public class SavingsAccountPartyServiceImpl implements SavingsAccountPartyServic
     private SavingsAuthorizedPerson resolveAuthorizedPerson(final Long accountId, final SavingsAuthorizedPersonRequest request) {
         SavingsAuthorizedPerson person = null;
         if (request.getId() != null) {
-            person = authorizedPersonRepository.findById(request.getId())
-                    .orElseThrow(() -> notFound("authorized.person", request.getId()));
+            person = authorizedPersonRepository.findById(request.getId()).orElseThrow(() -> notFound("authorized.person", request.getId()));
         } else if (StringUtils.isNotBlank(request.getExternalId())) {
             person = authorizedPersonRepository.findByExternalId(request.getExternalId().trim()).orElse(null);
         }

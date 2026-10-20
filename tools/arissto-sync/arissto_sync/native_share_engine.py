@@ -12,6 +12,7 @@ from .arissto import select_rows, source_connection, source_fingerprint
 from .config import Settings
 from .connections import FineractApi, postgres_connection
 from .native_shares import BLOCK, NativeShareContract, inspect_native_shares
+from .share_certificate_sequences import counter_seed
 from .state import State
 
 
@@ -19,7 +20,10 @@ SOURCE_SYSTEM = "arissto"
 ACCOUNT_EXTERNAL_PREFIX = "arissto:share:"
 PREREQUISITE_VISTA_EXTERNAL_PREFIX = "arissto:share-vista:"
 VISTA_PRODUCT_SOURCE_KEY = "AHO_LINEA_AHORRO|001|00001"
-PRODUCT_NAME_PREFIX = "Arissto Credesal"
+PRODUCT_NAMES = {
+    "COMMON": "Credesal Acciones Comunes",
+    "PREFERRED": "Credesal Acciones Preferidas",
+}
 PLANNING_PROVISIONING_BLOCKERS = {
     "native_share_products_not_provisioned",
     "controlled_native_share_lifecycle_proof",
@@ -107,13 +111,25 @@ def extract_native_share_records(settings: Settings, contract: NativeShareContra
             JOIN dbo.{source['party_table']} s ON s.ID_ASOCIADO=a.ID_ASOCIADO
             ORDER BY a.ID_ACCION
         """)
-        certificates = select_rows(conn, f"SELECT * FROM dbo.{source['certificate_table']} ORDER BY ID_CERTIFICADO")
+        certificates = select_rows(conn, f"""
+            SELECT c.*,s.ID_EMPRESA AS ASSOCIATE_COMPANY_ID,
+                   b.NUMERO_LIBRO AS SOURCE_BOOK_NUMBER,b.FECHA AS SOURCE_BOOK_DATE
+            FROM dbo.{source['certificate_table']} c
+            JOIN dbo.{source['party_table']} s ON s.ID_ASOCIADO=c.ID_ASOCIADO
+            LEFT JOIN dbo.{source['book_table']} b ON b.ID_LIBRO_ACCIONES=c.ID_LIBRO_ACCIONES
+            ORDER BY c.ID_CERTIFICADO
+        """)
+        books = select_rows(conn, f"""
+            SELECT ID_LIBRO_ACCIONES,NUMERO_LIBRO,FECHA
+            FROM dbo.{source['book_table']}
+        """)
         movements = select_rows(conn, f"""
             SELECT * FROM dbo.{source['movement_table']}
             ORDER BY FECHA,ID_EMPRESA,ID_SUCURSAL,ID_MOV_APORTACION
         """)
 
     certs_by_position: dict[tuple[int, int], list[dict[str, Any]]] = defaultdict(list)
+    books_by_id = {int(row["ID_LIBRO_ACCIONES"]): row for row in books}
     events_by_position: dict[tuple[int, int], list[dict[str, Any]]] = defaultdict(list)
     for row in certificates:
         certs_by_position[(int(row["ID_ASOCIADO"]), int(row["ID_TIPO_ACCION"]))].append(row)
@@ -129,6 +145,10 @@ def extract_native_share_records(settings: Settings, contract: NativeShareContra
         share_type = str(int(position["ID_TIPO_ACCION"]))
         if share_type not in contract.raw["share_classes"]:
             continue
+        class_definition = contract.raw["share_classes"][share_type]
+        class_book = books_by_id.get(int(class_definition["arissto_book_config_id"]))
+        if class_book is None or str(class_book.get("NUMERO_LIBRO") or "").strip() != class_definition["certificate_book_number"]:
+            raise RuntimeError(f"Share-class book configuration changed: {share_type}")
         identity = (int(position["ID_ASOCIADO"]), int(position["ID_TIPO_ACCION"]))
         record_certificates = []
         for row in certs_by_position.get(identity, []):
@@ -139,7 +159,16 @@ def extract_native_share_records(settings: Settings, contract: NativeShareContra
                 "share_type": int(row["ID_TIPO_ACCION"]),
                 "status_id": int(row["ID_ESTADO_CERTIFICADO"]),
                 "branch_id": str(row.get("ID_SUCURSAL") or "").strip() or None,
-                "book_id": row.get("ID_LIBRO_ACCIONES"),
+                "source_book_id": row.get("ID_LIBRO_ACCIONES"),
+                "source_book_number": str(row.get("SOURCE_BOOK_NUMBER") or "").strip() or None,
+                "source_book_date": _date_string(row["SOURCE_BOOK_DATE"]) if row.get("SOURCE_BOOK_DATE") else None,
+                "book_id": int(class_definition["certificate_book_id"]),
+                "book_number": class_definition["certificate_book_number"],
+                "book_date": _date_string(class_book["FECHA"]) if class_book.get("FECHA") else None,
+                "promoter_external_id": (
+                    f"{str(row['ASSOCIATE_COMPANY_ID']).strip()}:{str(row['ID_PROMOTOR']).strip()}"
+                    if row.get("ASSOCIATE_COMPANY_ID") and row.get("ID_PROMOTOR") else None
+                ),
                 "certificate_number": row.get("NUMERO_CERTIFICADO"),
                 "certificate_date": _date_string(row["FECHA_CERTIFICADO"]) if row.get("FECHA_CERTIFICADO") else None,
                 "unit_price": format(_decimal(row.get("VALOR_ACCION")), "f"),
@@ -149,10 +178,13 @@ def extract_native_share_records(settings: Settings, contract: NativeShareContra
                 "subscribed_balance": format(_decimal(row.get("SALDO_SUSCRITO")), "f"),
                 "paid_balance": format(_decimal(row.get("SALDO_PAGADO")), "f"),
                 "current_balance": format(_decimal(row.get("SALDO_ACCIONES")), "f"),
+                "pledged_balance": format(_decimal(row.get("SALDO_PIGNORADO")), "f"),
                 "blocked_balance": format(_decimal(row.get("SALDO_BLOQUEADO")), "f"),
                 "available_balance": format(_decimal(row.get("SALDO_DISPONIBLE")), "f"),
                 "certificate_number_start": row.get("ACCION_INI"),
                 "certificate_number_end": row.get("ACCION_FIN"),
+                "share_serial_start": int(str(row["ACCION_INI"]).strip()) if row.get("ACCION_INI") is not None else None,
+                "share_serial_end": int(str(row["ACCION_FIN"]).strip()) if row.get("ACCION_FIN") is not None else None,
                 "folio": row.get("FOLIO"), "line_number": row.get("LINEA"), "series": row.get("SERIE"),
                 "printed": bool(row.get("IMPRESO")), "blocked": _truthy(row.get("BLOQUEO")),
                 "restricted": _truthy(row.get("RESTRINGIDO")),
@@ -197,6 +229,8 @@ def _target_context(settings: Settings, contract: NativeShareContract,
     if not settings.target.pg_url:
         raise RuntimeError("Native share planning requires target PostgreSQL inspection")
     external_ids = sorted({record["client_external_id"] for record in records})
+    promoter_external_ids = sorted({certificate["promoter_external_id"] for record in records
+                                    for certificate in record["certificates"] if certificate["promoter_external_id"]})
     account_external_ids = sorted({record["account_external_id"] for record in records})
     prerequisite_external_ids = sorted(prerequisite_vista_external_id(value) for value in external_ids)
     product_external_ids = sorted(item["product_external_id"] for item in contract.raw["share_classes"].values())
@@ -205,6 +239,10 @@ def _target_context(settings: Settings, contract: NativeShareContract,
             "SELECT external_id,id,status_enum,activation_date FROM m_client WHERE external_id=ANY(%s)",
             (external_ids,),
         ).fetchall()
+        staff = conn.execute(
+            "SELECT external_id,id FROM m_staff WHERE external_id=ANY(%s)",
+            (promoter_external_ids,),
+        ).fetchall() if promoter_external_ids else []
         savings = conn.execute("""
             SELECT sma.client_id,sma.savings_account_id,sma.source_key,sma.source_opened_on
             FROM credesal_savings_migration_account sma
@@ -255,6 +293,7 @@ def _target_context(settings: Settings, contract: NativeShareContract,
             "id": int(row[1]), "status": int(row[2]),
             "activation_date": _date_string(row[3]) if row[3] else None,
         } for row in clients},
+        "staff": {str(row[0]): int(row[1]) for row in staff},
         "savings": dict(savings_by_client),
         "vista_product": ({
             "id": int(vista_products[0][0]), "currency": str(vista_products[0][1]),
@@ -329,6 +368,10 @@ def build_native_share_plan(settings: Settings, state: State, contract: NativeSh
             action, reason = "quarantine", "client_dependency_missing"
         elif client["status"] != 300:
             action, reason = "quarantine", "client_dependency_inactive"
+        elif any(certificate["promoter_external_id"] and
+                 certificate["promoter_external_id"] not in target["staff"]
+                 for certificate in record["certificates"]):
+            action, reason = "quarantine", "certificate_promoter_staff_missing"
         elif not savings_options:
             vista_product = target["vista_product"]
             external_id = prerequisite_vista_external_id(record["client_external_id"])
@@ -466,7 +509,7 @@ def _product_resources(settings: Settings, contract: NativeShareContract) -> dic
 def _product_payload(item: dict[str, Any], resources: dict[str, Any]) -> dict[str, Any]:
     code = item["code"]
     return {
-        "name": f"{PRODUCT_NAME_PREFIX} shares {code.title()}",
+        "name": PRODUCT_NAMES[code],
         "shortName": "ACOM" if code == "COMMON" else "APRF",
         "numberingCode": item["numbering_code"],
         "description": f"Native {code.lower()} paid share capital migrated from Arissto",
@@ -856,35 +899,53 @@ def _persist_projection(settings: Settings, contract: NativeShareContract, plan_
                     transaction_ids[event["source_key"]], event["event_date"], event["shares"],
                     event["unit_price"], event["amount"]))
         for certificate in record["certificates"]:
-            conn.execute("""
-                INSERT INTO credesal_share_certificate
-                  (source_system,source_key,source_hash,client_id,share_account_id,arissto_certificate_id,
-                   arissto_associate_id,arissto_share_type_id,share_type_name,arissto_status_id,branch_id,book_id,
-                   certificate_number,certificate_date,unit_price,represented_shares,initial_share_number,final_share_number,
-                   current_balance,subscribed_shares,subscribed_balance,paid_shares,paid_balance,blocked_balance,
-                   available_balance,folio,line_number,series,printed,blocked,restricted,reference,certification,
-                   capital_account_source_id,interest_account_source_id,updated_at)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                        %s,%s,%s,%s,%s,%s,%s,CURRENT_TIMESTAMP)
-                ON CONFLICT (source_system,source_key) DO UPDATE SET
-                  source_hash=EXCLUDED.source_hash,client_id=EXCLUDED.client_id,share_account_id=EXCLUDED.share_account_id,
-                  share_type_name=EXCLUDED.share_type_name,arissto_status_id=EXCLUDED.arissto_status_id,
-                  subscribed_shares=EXCLUDED.subscribed_shares,subscribed_balance=EXCLUDED.subscribed_balance,
-                  paid_shares=EXCLUDED.paid_shares,paid_balance=EXCLUDED.paid_balance,current_balance=EXCLUDED.current_balance,
-                  blocked_balance=EXCLUDED.blocked_balance,available_balance=EXCLUDED.available_balance,
-                  updated_at=CURRENT_TIMESTAMP
-            """, (SOURCE_SYSTEM, certificate["source_key"], certificate["source_hash"], action["client_id"], account_id,
-                    certificate["certificate_id"], certificate["associate_id"], certificate["share_type"], class_name,
-                    certificate["status_id"], certificate["branch_id"], certificate["book_id"],
-                    certificate["certificate_number"], certificate["certificate_date"], certificate["unit_price"],
-                    certificate["represented_shares"], certificate["certificate_number_start"],
-                    certificate["certificate_number_end"], certificate["current_balance"],
-                    certificate["subscribed_shares"], certificate["subscribed_balance"], certificate["paid_shares"],
-                    certificate["paid_balance"], certificate["blocked_balance"], certificate["available_balance"],
-                    certificate["folio"], certificate["line_number"], certificate["series"], certificate["printed"],
-                    certificate["blocked"], certificate["restricted"], certificate["reference"],
-                    certificate["certification"], certificate["capital_account_source_id"],
-                    certificate["interest_account_source_id"]))
+            promoter_staff_id = None
+            if certificate["promoter_external_id"]:
+                staff_rows = conn.execute(
+                    "SELECT id FROM m_staff WHERE external_id=%s", (certificate["promoter_external_id"],)
+                ).fetchall()
+                if len(staff_rows) != 1:
+                    raise RuntimeError(f"Certificate promoter is not uniquely migrated: {certificate['source_key']}")
+                promoter_staff_id = int(staff_rows[0][0])
+            fields = {
+                "source_system": SOURCE_SYSTEM, "source_key": certificate["source_key"],
+                "source_hash": certificate["source_hash"], "client_id": action["client_id"],
+                "share_account_id": account_id, "arissto_certificate_id": certificate["certificate_id"],
+                "arissto_associate_id": certificate["associate_id"],
+                "arissto_share_type_id": certificate["share_type"], "share_type_name": class_name,
+                "share_class_code": contract.raw["share_classes"][record["share_type"]]["numbering_code"],
+                "arissto_status_id": certificate["status_id"], "branch_id": certificate["branch_id"],
+                "book_id": certificate["book_id"], "book_number": certificate["book_number"],
+                "book_date": certificate["book_date"], "promoter_staff_id": promoter_staff_id,
+                "certificate_number": certificate["certificate_number"],
+                "certificate_date": certificate["certificate_date"], "unit_price": certificate["unit_price"],
+                "represented_shares": certificate["represented_shares"],
+                "initial_share_number": certificate["certificate_number_start"],
+                "final_share_number": certificate["certificate_number_end"],
+                "share_serial_start": certificate["share_serial_start"],
+                "share_serial_end": certificate["share_serial_end"],
+                "current_balance": certificate["current_balance"],
+                "pledged_balance": certificate["pledged_balance"],
+                "subscribed_shares": certificate["subscribed_shares"],
+                "subscribed_balance": certificate["subscribed_balance"],
+                "paid_shares": certificate["paid_shares"], "paid_balance": certificate["paid_balance"],
+                "blocked_balance": certificate["blocked_balance"],
+                "available_balance": certificate["available_balance"],
+                "folio": certificate["folio"], "line_number": certificate["line_number"],
+                "series": certificate["series"], "printed": certificate["printed"],
+                "blocked": certificate["blocked"], "restricted": certificate["restricted"],
+                "reference": certificate["reference"], "certification": certificate["certification"],
+                "capital_account_source_id": certificate["capital_account_source_id"],
+                "interest_account_source_id": certificate["interest_account_source_id"],
+            }
+            columns = tuple(fields)
+            updates = ",".join(f"{name}=EXCLUDED.{name}" for name in columns if name not in {"source_system", "source_key"})
+            conn.execute(
+                f"INSERT INTO credesal_share_certificate ({','.join(columns)},updated_at) "
+                f"VALUES ({','.join(['%s'] * len(columns))},CURRENT_TIMESTAMP) "
+                f"ON CONFLICT (source_system,source_key) DO UPDATE SET {updates},updated_at=CURRENT_TIMESTAMP",
+                tuple(fields.values()),
+            )
         conn.commit()
 
 
@@ -961,8 +1022,61 @@ def apply_native_share_plan(settings: Settings, state: State, contract: NativeSh
             state.record_item(run_id, key, action["action"], action["source_hash"], "failed",
                               action.get("target_id"), f"{type(exc).__name__}:{message}"[:1100])
             counts["failed"] += 1
+    try:
+        seed_share_certificate_counters(settings, contract)
+    except Exception as exc:
+        counts["sequence_seed_failed"] += 1
+        state.finish_run(run_id, "completed-with-errors", dict(counts))
+        raise RuntimeError(f"Share certificate sequence seed failed: {exc}") from exc
     state.finish_run(run_id, "completed" if counts["failed"] == 0 else "completed-with-errors", dict(counts))
     return run_id, dict(counts)
+
+
+def seed_share_certificate_counters(settings: Settings, contract: NativeShareContract) -> dict[str, int]:
+    """Store the last Arissto-issued provisional, certificate, and share-serial numbers."""
+
+    source = contract.raw["source"]
+    with source_connection(settings.source) as conn:
+        rows = select_rows(conn, f"""
+            SELECT NUMERO_CERTIFICADO, ACCION_FIN, ID_TIPO_ACCION
+            FROM dbo.{source['certificate_table']}
+        """)
+        history_columns = {
+            str(row.get("COLUMN_NAME") or "").upper()
+            for row in select_rows(conn, """
+                SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'AFI_CERTIFICADO_HISTORICO_MENSUAL'
+            """)
+        }
+        if {"NUMERO_CERTIFICADO", "ACCION_FIN", "ID_TIPO_ACCION"}.issubset(history_columns):
+            rows.extend(select_rows(conn, """
+                SELECT NUMERO_CERTIFICADO, ACCION_FIN, ID_TIPO_ACCION
+                FROM dbo.AFI_CERTIFICADO_HISTORICO_MENSUAL
+            """))
+    with _postgres_write_connection(settings.target.pg_url or "") as conn:
+        stored = conn.execute("""
+            SELECT certificate_number, provisional_number, share_serial_end, share_class_code,
+                   final_share_number, arissto_share_type_id
+            FROM credesal_share_certificate
+        """).fetchall()
+        stored_rows = [
+            {
+                "certificate_number": item[0], "provisional_number": item[1], "share_serial_end": item[2],
+                "share_class_code": item[3], "final_share_number": item[4], "arissto_share_type_id": item[5],
+            }
+            for item in stored
+        ]
+        counters = counter_seed(list(rows) + stored_rows)
+        for key, last_ordinal in counters.items():
+            namespace, prefix = key.split("|", 1)
+            conn.execute("""
+                INSERT INTO credesal_naming_sequence (namespace, prefix, last_ordinal)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (namespace, prefix) DO UPDATE
+                SET last_ordinal = GREATEST(credesal_naming_sequence.last_ordinal, EXCLUDED.last_ordinal)
+            """, (namespace, prefix, last_ordinal))
+        conn.commit()
+    return counters
 
 
 def reconcile_native_shares(settings: Settings, state: State, contract: NativeShareContract,
@@ -996,8 +1110,14 @@ def reconcile_native_shares(settings: Settings, state: State, contract: NativeSh
             WHERE em.source_system=%s AND em.source_key=ANY(%s)
         """, (SOURCE_SYSTEM, event_keys)).fetchall() if event_keys else []
         certificate_rows = conn.execute("""
-            SELECT source_key,source_hash,client_id,share_account_id,paid_shares,subscribed_shares
-            FROM credesal_share_certificate WHERE source_system=%s AND source_key=ANY(%s)
+            SELECT c.source_key,c.source_hash,c.client_id,c.share_account_id,c.paid_shares,c.subscribed_shares,
+                   c.certificate_number,c.certificate_date,c.represented_shares,c.unit_price,
+                   c.initial_share_number,c.final_share_number,c.share_serial_start,c.share_serial_end,
+                   c.current_balance,c.pledged_balance,st.external_id,c.book_id,c.series,c.book_number,
+                   c.book_date,c.folio,c.line_number
+            FROM credesal_share_certificate c
+            LEFT JOIN m_staff st ON st.id=c.promoter_staff_id
+            WHERE c.source_system=%s AND c.source_key=ANY(%s)
         """, (SOURCE_SYSTEM, certificate_keys)).fetchall() if certificate_keys else []
         journal_rows = conn.execute("""
             SELECT em.source_key,ga.gl_code,je.type_enum,je.amount
@@ -1029,6 +1149,14 @@ def reconcile_native_shares(settings: Settings, state: State, contract: NativeSh
     certificates = {str(row[0]): {
         "source_hash": str(row[1]), "client_id": int(row[2]), "account_id": int(row[3]),
         "paid_shares": int(_decimal(row[4])), "subscribed_shares": int(_decimal(row[5])),
+        "certificate_number": row[6], "certificate_date": _date_string(row[7]) if row[7] else None,
+        "represented_shares": _decimal(row[8]), "unit_price": _decimal(row[9]),
+        "initial_share_number": row[10], "final_share_number": row[11],
+        "share_serial_start": row[12], "share_serial_end": row[13],
+        "current_balance": _decimal(row[14]), "pledged_balance": _decimal(row[15]),
+        "promoter_external_id": row[16], "book_id": row[17], "series": row[18],
+        "book_number": row[19], "book_date": _date_string(row[20]) if row[20] else None,
+        "folio": row[21], "line_number": row[22],
     } for row in certificate_rows}
     journals: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for source_key, gl_code, type_enum, amount in journal_rows:
@@ -1134,7 +1262,24 @@ def reconcile_native_shares(settings: Settings, state: State, contract: NativeSh
                     elif (projected["source_hash"] != certificate["source_hash"]
                           or projected["account_id"] != account["id"]
                           or projected["paid_shares"] != int(_decimal(certificate["paid_shares"]))
-                          or projected["subscribed_shares"] != int(_decimal(certificate["subscribed_shares"]))):
+                          or projected["subscribed_shares"] != int(_decimal(certificate["subscribed_shares"]))
+                          or projected["certificate_number"] != certificate["certificate_number"]
+                          or projected["certificate_date"] != certificate["certificate_date"]
+                          or projected["represented_shares"] != _decimal(certificate["represented_shares"])
+                          or projected["unit_price"] != _decimal(certificate["unit_price"])
+                          or projected["initial_share_number"] != certificate["certificate_number_start"]
+                          or projected["final_share_number"] != certificate["certificate_number_end"]
+                          or projected["share_serial_start"] != certificate["share_serial_start"]
+                          or projected["share_serial_end"] != certificate["share_serial_end"]
+                          or projected["current_balance"] != _decimal(certificate["current_balance"])
+                          or projected["pledged_balance"] != _decimal(certificate["pledged_balance"])
+                          or projected["promoter_external_id"] != certificate["promoter_external_id"]
+                          or projected["book_id"] != certificate["book_id"]
+                          or projected["series"] != certificate["series"]
+                          or projected["book_number"] != certificate["book_number"]
+                          or projected["book_date"] != certificate["book_date"]
+                          or projected["folio"] != certificate["folio"]
+                          or projected["line_number"] != certificate["line_number"]):
                         reasons.append(f"certificate_mismatch:{certificate['source_key']}")
         if reasons:
             counts["mismatch"] += 1

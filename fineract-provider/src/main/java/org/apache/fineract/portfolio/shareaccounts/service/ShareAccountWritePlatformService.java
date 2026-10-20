@@ -44,4 +44,10 @@ public interface ShareAccountWritePlatformService {
     CommandProcessingResult rejectAdditionalShares(Long accountId, JsonCommand jsonCommand);
 
     CommandProcessingResult redeemShares(Long accountId, JsonCommand jsonCommand);
+
+    CommandProcessingResult markShareAccountPaid(Long accountId, JsonCommand jsonCommand);
+
+    CommandProcessingResult collectShareAccountCash(Long accountId, JsonCommand jsonCommand);
+
+    CommandProcessingResult undoShareAccountPayment(Long accountId, JsonCommand jsonCommand);
 }

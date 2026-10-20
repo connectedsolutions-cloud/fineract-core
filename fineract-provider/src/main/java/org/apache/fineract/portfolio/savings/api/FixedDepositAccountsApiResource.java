@@ -413,7 +413,8 @@ public class FixedDepositAccountsApiResource {
             final CommandWrapper commandRequest = builder.withNoJsonBody().fixedDepositAccountInterestTransfer(accountId).build();
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
         } else if (is(commandParam, "sourceExactTransferInterest")) {
-            final CommandWrapper commandRequest = builder.withNoJsonBody().sourceExactFixedDepositAccountInterestTransfer(accountId).build();
+            final CommandWrapper commandRequest = builder.withNoJsonBody().sourceExactFixedDepositAccountInterestTransfer(accountId)
+                    .build();
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
         } else if (is(commandParam, "migrationLink")) {
             final CommandWrapper commandRequest = builder.fixedDepositAccountMigrationLink(accountId).build();
@@ -446,8 +447,7 @@ public class FixedDepositAccountsApiResource {
         if (result == null) {
             throw new UnrecognizedQueryParamException("command", commandParam,
                     new Object[] { "reject", "withdrawnByApplicant", "approve", "undoapproval", "activate", "calculateInterest",
-                            "processMaturity", "transferInterest", "postInterest", "close", "prematureClose",
-                            "calculatePrematureAmount" });
+                            "processMaturity", "transferInterest", "postInterest", "close", "prematureClose", "calculatePrematureAmount" });
         }
 
         return this.toApiJsonSerializer.serialize(result);

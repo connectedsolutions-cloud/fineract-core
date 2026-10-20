@@ -31,7 +31,7 @@ from .state import State
 
 SOURCE_SYSTEM = "arissto"
 ACCOUNT_EXTERNAL_PREFIX = "arissto:savings:"
-PRODUCT_NAME_PREFIX = "Arissto Credesal"
+PRODUCT_NAME_PREFIX = "Credesal"
 PRODUCT_NUMBERING_CODES = {
     "00001": "4V1",
     "00003": "5D1",
@@ -518,7 +518,7 @@ def _vista_product_payload(canary: VistaCanary, gl: dict[str, int], default_rate
     if numbering_code is None:
         raise RuntimeError(f"Savings line {canary.line_id} has no approved numbering code")
     return {
-        "name": f"{PRODUCT_NAME_PREFIX} VISTA {canary.line_id}",
+        "name": f"Credesal Vista {canary.line_id}",
         "shortName": f"AV{canary.line_id[-2:]}",
         "numberingCode": numbering_code,
         "description": f"Arissto VISTA line {canary.line_id} migrated under the reviewed Credesal contract",
@@ -526,7 +526,8 @@ def _vista_product_payload(canary: VistaCanary, gl: dict[str, int], default_rate
         "nominalAnnualInterestRate": format(default_rate, "f"),
         "interestCompoundingPeriodType": 5, "interestPostingPeriodType": 5,
         "interestCalculationType": 1, "interestCalculationDaysInYearType": 1,
-        "minRequiredOpeningBalance": "50.00", "minBalanceForInterestCalculation": "50.00",
+        "minRequiredOpeningBalance": "0", "minBalanceForInterestCalculation": "0",
+        "minRequiredBalance": "0", "enforceMinRequiredBalance": False,
         "lockinPeriodFrequency": 0, "lockinPeriodFrequencyType": 0,
         "withdrawalFeeForTransfers": False, "allowOverdraft": False,
         "withHoldTax": False, "taxGroupId": 2, "accountingRule": 3,
@@ -762,8 +763,7 @@ def _ensure_products(settings: Settings, contract: SavingsContract,
             )
             product_ids[source_key] = product_id
             continue
-        name = (f"{PRODUCT_NAME_PREFIX} VISTA {representative.line_id}" if isinstance(representative, VistaCanary)
-                else f"{PRODUCT_NAME_PREFIX} DPF {representative.line_id}")
+        name = product_payload["name"]
         with postgres_connection(settings.target.pg_url) as conn:
             matches = conn.execute("SELECT id FROM m_savings_product WHERE name=%s", (name,)).fetchall()
         if len(matches) > 1:

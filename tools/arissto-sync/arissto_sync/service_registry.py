@@ -7,7 +7,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / "migration-services" / "registry.json"
-VALID_STATUSES = {"available", "export-ready", "planned", "blocked", "retired"}
+VALID_STATUSES = {"available", "testing", "export-ready", "planned", "blocked", "retired"}
 
 
 def load_registry(path: Path = REGISTRY_PATH) -> dict[str, Any]:

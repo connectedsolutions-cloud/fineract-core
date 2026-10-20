@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor
+license agreements. See the NOTICE file distributed with this work for
+additional information regarding copyright ownership. The ASF licenses this
+file to you under the Apache License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License. You may obtain a
+copy of the License at http://www.apache.org/licenses/LICENSE-2.0 -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="0403-1-unique-historical-gl-voucher-source" author="credesal" dbms="postgresql">
+        <sql>
+            CREATE UNIQUE INDEX uk_cr_gl_voucher_arissto_provenance
+                ON credesal_gl_voucher (source_entity_id)
+             WHERE origin = 'ARISSTO_HISTORICAL_GL_IMPORT'
+               AND source_entity_type = 'ARISSTO_JOURNAL';
+        </sql>
+    </changeSet>
+
+    <changeSet id="0403-2-backfill-historical-gl-vouchers" author="credesal" dbms="postgresql" runInTransaction="true">
+        <comment>
+            Use exact provenance-to-target-line IDs. This changes only voucher metadata; posted
+            account, amount, date, side, office, currency and journal number are untouched.
+        </comment>
+        <sql splitStatements="false"><![CDATA[
+DO $voucher_backfill$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+          FROM credesal_arissto_gl_journal p
+         WHERE p.result = 'IMPORTED'
+           AND (
+               NOT EXISTS (
+                   SELECT 1 FROM credesal_arissto_gl_journal_line l
+                    WHERE l.journal_provenance_id = p.id
+               )
+               OR EXISTS (
+                   SELECT 1 FROM credesal_arissto_gl_journal_line l
+                    WHERE l.journal_provenance_id = p.id
+                      AND (l.result <> 'IMPORTED' OR l.target_journal_entry_id IS NULL)
+               )
+               OR EXISTS (
+                   SELECT 1 FROM credesal_arissto_gl_journal_line l
+                    WHERE l.journal_provenance_id = p.id
+                      AND NOT EXISTS (
+                          SELECT 1 FROM acc_gl_journal_entry j
+                           WHERE j.id = l.target_journal_entry_id
+                      )
+               )
+           )
+    ) THEN
+        RAISE EXCEPTION 'Historical voucher backfill: imported provenance has missing or incomplete lines';
+    END IF;
+
+    INSERT INTO credesal_gl_voucher
+        (auxiliar_code, header_concept, origin, operation_type, source_entity_type, source_entity_id)
+    SELECT a.code,
+           COALESCE(NULLIF(BTRIM(p.source_header_concept), ''),
+                    NULLIF(BTRIM(p.source_header_description), '')),
+           'ARISSTO_HISTORICAL_GL_IMPORT',
+           'HISTORICAL_JOURNAL',
+           'ARISSTO_JOURNAL',
+           CAST(p.id AS VARCHAR(80))
+      FROM credesal_arissto_gl_journal p
+      LEFT JOIN credesal_gl_auxiliar a
+        ON a.code = NULLIF(BTRIM(p.source_module_code), '')
+     WHERE p.result = 'IMPORTED'
+       AND NOT EXISTS (
+           SELECT 1
+             FROM credesal_gl_voucher v
+            WHERE v.origin = 'ARISSTO_HISTORICAL_GL_IMPORT'
+              AND v.source_entity_type = 'ARISSTO_JOURNAL'
+              AND v.source_entity_id = CAST(p.id AS VARCHAR(80))
+       );
+
+    UPDATE acc_gl_journal_entry j
+       SET voucher_id = v.id
+      FROM credesal_arissto_gl_journal_line l
+      JOIN credesal_arissto_gl_journal p
+        ON p.id = l.journal_provenance_id
+      JOIN credesal_gl_voucher v
+        ON v.origin = 'ARISSTO_HISTORICAL_GL_IMPORT'
+       AND v.source_entity_type = 'ARISSTO_JOURNAL'
+       AND v.source_entity_id = CAST(p.id AS VARCHAR(80))
+     WHERE p.result = 'IMPORTED'
+       AND l.result = 'IMPORTED'
+       AND j.id = l.target_journal_entry_id
+       AND j.voucher_id IS NULL;
+
+    IF EXISTS (
+        SELECT 1
+          FROM credesal_arissto_gl_journal p
+          LEFT JOIN credesal_gl_voucher v
+            ON v.origin = 'ARISSTO_HISTORICAL_GL_IMPORT'
+           AND v.source_entity_type = 'ARISSTO_JOURNAL'
+           AND v.source_entity_id = CAST(p.id AS VARCHAR(80))
+         WHERE p.result = 'IMPORTED'
+           AND v.id IS NULL
+    ) OR EXISTS (
+        SELECT 1
+          FROM credesal_arissto_gl_journal_line l
+          JOIN credesal_arissto_gl_journal p
+            ON p.id = l.journal_provenance_id
+          JOIN acc_gl_journal_entry j
+            ON j.id = l.target_journal_entry_id
+          LEFT JOIN credesal_gl_voucher v
+            ON v.origin = 'ARISSTO_HISTORICAL_GL_IMPORT'
+           AND v.source_entity_type = 'ARISSTO_JOURNAL'
+           AND v.source_entity_id = CAST(p.id AS VARCHAR(80))
+         WHERE p.result = 'IMPORTED'
+           AND j.voucher_id IS DISTINCT FROM v.id
+    ) THEN
+        RAISE EXCEPTION 'Historical voucher backfill: target lines do not match their source voucher';
+    END IF;
+END
+$voucher_backfill$;
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

@@ -93,6 +93,83 @@ public class AccountingProcessorHelper {
     private final OfficeRepository officeRepository;
     private final AccountTransfersReadPlatformService accountTransfersReadPlatformService;
     private final ChargeRepositoryWrapper chargeRepositoryWrapper;
+    private final org.apache.fineract.portfolio.loanaccount.domain.LoanRepositoryWrapper loanRepositoryWrapper;
+    private final org.apache.fineract.accounting.journalentry.domain.JournalEntryRepository journalEntryRepository;
+
+    private static boolean isArisstoSourceExactLoan(final org.apache.fineract.portfolio.loanaccount.domain.Loan loan) {
+        if (loan.getExternalId().isEmpty()) {
+            return false;
+        }
+        final String externalId = loan.getExternalId().getValue();
+        return externalId.matches("ARISSTO:CRD:[0-9]+|PROOF:[a-z0-9][a-z0-9-]{0,23}:ARISSTO:CRD:[0-9]+");
+    }
+
+    public void prepareSourceExactLoanPortfolioAccount(final Long loanId) {
+        final org.apache.fineract.portfolio.loanaccount.domain.Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId);
+        if (!isArisstoSourceExactLoan(loan)) {
+            throw new IllegalArgumentException("Term portfolio account repair is limited to Arissto source-exact loans");
+        }
+        prepareLoanPortfolioAccount(loanId, loan.getLoanProduct().getId());
+    }
+
+    public void clearSourceExactLoanPortfolioAccount(final Long loanId) {
+        final org.apache.fineract.portfolio.loanaccount.domain.Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId);
+        if (!isArisstoSourceExactLoan(loan)) {
+            throw new IllegalArgumentException("Term portfolio account reset is limited to Arissto source-exact loans");
+        }
+        if (this.journalEntryRepository.countUnreversedEntriesForEntity(loanId, PortfolioProductType.LOAN.getValue()) > 0) {
+            throw new IllegalStateException("Posted loan journals prevent term portfolio account reset");
+        }
+        loan.clearTermPortfolioAccountSelection();
+    }
+
+    public void alignSourceExactLoanExpectedMaturity(final Long loanId, final java.time.LocalDate expectedMaturityDate) {
+        final org.apache.fineract.portfolio.loanaccount.domain.Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId);
+        if (!isArisstoSourceExactLoan(loan)) {
+            throw new IllegalArgumentException("Expected maturity repair is limited to Arissto source-exact loans");
+        }
+        if (this.journalEntryRepository.countUnreversedEntriesForEntity(loanId, PortfolioProductType.LOAN.getValue()) > 0) {
+            throw new IllegalStateException("Posted loan journals prevent expected maturity repair");
+        }
+        final java.time.LocalDate start = loan.getExpectedDisbursementDate();
+        final java.time.LocalDate currentMaturity = loan.getExpectedMaturityDate();
+        if (start == null || currentMaturity == null || expectedMaturityDate == null || !expectedMaturityDate.isAfter(start)) {
+            throw new IllegalArgumentException("Expected maturity repair requires valid loan dates");
+        }
+        // Before any native journal exists, the source contractual maturity may
+        // correct Fineract's provisional short/long class. Clear any provisional
+        // selection so the reviewed account is chosen from the corrected date.
+        loan.clearTermPortfolioAccountSelection();
+        loan.setExpectedMaturityDate(expectedMaturityDate);
+    }
+
+    public void prepareLoanPortfolioAccount(final Long loanId, final Long productId) {
+        final ProductToGLAccountMapping longMapping = this.accountMappingRepository.findCoreProductToFinAccountMapping(productId,
+                PortfolioProductType.LOAN.getValue(), CashAccountsForLoan.LONG_TERM_LOAN_PORTFOLIO.getValue());
+        if (longMapping == null) {
+            return;
+        }
+        final ProductToGLAccountMapping shortMapping = this.accountMappingRepository.findCoreProductToFinAccountMapping(productId,
+                PortfolioProductType.LOAN.getValue(), CashAccountsForLoan.LOAN_PORTFOLIO.getValue());
+        if (shortMapping == null) {
+            throw new IllegalStateException("Term-based portfolio accounting has no short-term account mapping");
+        }
+        final org.apache.fineract.portfolio.loanaccount.domain.Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId);
+        if (loan.getPortfolioAccountGlId() == null && this.journalEntryRepository.countUnreversedEntriesForEntity(loanId,
+                PortfolioProductType.LOAN.getValue()) > 0) {
+            throw new IllegalStateException("Existing loan journals require a reviewed portfolio-account migration");
+        }
+        final ProductToGLAccountMapping shortInterestMapping = this.accountMappingRepository.findCoreProductToFinAccountMapping(productId,
+                PortfolioProductType.LOAN.getValue(), AccrualAccountsForLoan.INTEREST_RECEIVABLE.getValue());
+        final ProductToGLAccountMapping longInterestMapping = this.accountMappingRepository.findCoreProductToFinAccountMapping(productId,
+                PortfolioProductType.LOAN.getValue(), AccrualAccountsForLoan.LONG_TERM_INTEREST_RECEIVABLE.getValue());
+        if ((shortInterestMapping == null) != (longInterestMapping == null)) {
+            throw new IllegalStateException("Term-based interest receivable accounting requires both GL mappings");
+        }
+        loan.selectTermPortfolioAccount(shortMapping.getGlAccount().getId(), longMapping.getGlAccount().getId(),
+                shortInterestMapping == null ? null : shortInterestMapping.getGlAccount().getId(),
+                longInterestMapping == null ? null : longInterestMapping.getGlAccount().getId());
+    }
 
     public LoanDTO populateLoanDtoFromDTO(
             final org.apache.fineract.portfolio.loanaccount.data.AccountingBridgeDataDTO accountingBridgeData) {
@@ -531,14 +608,14 @@ public class AccountingProcessorHelper {
             LocalDate transactionDate, String dimensions) {
         splitAccountsHolder.forEach(journalItemHolder -> {
             if (MathUtil.isGreaterThanZero(journalItemHolder.getAmount())) {
-                final GLAccount account = getLinkedGLAccountForLoanProduct(loanProductId, journalItemHolder.getAccountType(),
+                final GLAccount account = getLinkedGLAccountForLoan(loanId, loanProductId, journalItemHolder.getAccountType(),
                         paymentTypeId);
                 createDebitJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate,
                         journalItemHolder.getAmount(), dimensions);
             }
         });
         if (MathUtil.isGreaterThanZero(totalAccountHolder.getAmount())) {
-            final GLAccount totalAccount = getLinkedGLAccountForLoanProduct(loanProductId, totalAccountHolder.getAccountType(),
+            final GLAccount totalAccount = getLinkedGLAccountForLoan(loanId, loanProductId, totalAccountHolder.getAccountType(),
                     paymentTypeId);
             createCreditJournalEntryForLoan(office, currencyCode, totalAccount, loanId, transactionId, transactionDate,
                     totalAccountHolder.getAmount(), dimensions);
@@ -582,8 +659,8 @@ public class AccountingProcessorHelper {
     private void createJournalEntriesForLoan(final Office office, final String currencyCode, final int accountTypeToDebitId,
             final int accountTypeToCreditId, final Long loanProductId, final Long paymentTypeId, final Long loanId,
             final String transactionId, final LocalDate transactionDate, final BigDecimal amount, final String dimensions) {
-        final GLAccount debitAccount = getLinkedGLAccountForLoanProduct(loanProductId, accountTypeToDebitId, paymentTypeId);
-        final GLAccount creditAccount = getLinkedGLAccountForLoanProduct(loanProductId, accountTypeToCreditId, paymentTypeId);
+        final GLAccount debitAccount = getLinkedGLAccountForLoan(loanId, loanProductId, accountTypeToDebitId, paymentTypeId);
+        final GLAccount creditAccount = getLinkedGLAccountForLoan(loanId, loanProductId, accountTypeToCreditId, paymentTypeId);
         createDebitJournalEntryForLoan(office, currencyCode, debitAccount, loanId, transactionId, transactionDate, amount, dimensions);
         createCreditJournalEntryForLoan(office, currencyCode, creditAccount, loanId, transactionId, transactionDate, amount, dimensions);
     }
@@ -591,7 +668,7 @@ public class AccountingProcessorHelper {
     private void createJournalEntriesForLoan(final Office office, final String currencyCode, final int accountTypeToDebitId,
             final GLAccount creditAccount, final Long loanProductId, final Long paymentTypeId, final Long loanId,
             final String transactionId, final LocalDate transactionDate, final BigDecimal amount, final String dimensions) {
-        final GLAccount debitAccount = getLinkedGLAccountForLoanProduct(loanProductId, accountTypeToDebitId, paymentTypeId);
+        final GLAccount debitAccount = getLinkedGLAccountForLoan(loanId, loanProductId, accountTypeToDebitId, paymentTypeId);
         createDebitJournalEntryForLoan(office, currencyCode, debitAccount, loanId, transactionId, transactionDate, amount, dimensions);
         createCreditJournalEntryForLoan(office, currencyCode, creditAccount, loanId, transactionId, transactionDate, amount, dimensions);
     }
@@ -761,7 +838,7 @@ public class AccountingProcessorHelper {
     public void createDebitJournalEntryForLoan(final Office office, final String currencyCode, final int accountMappingTypeId,
             final Long loanProductId, final Long paymentTypeId, final Long loanId, final String transactionId,
             final LocalDate transactionDate, final BigDecimal amount, final String dimensions) {
-        final GLAccount account = getLinkedGLAccountForLoanProduct(loanProductId, accountMappingTypeId, paymentTypeId);
+        final GLAccount account = getLinkedGLAccountForLoan(loanId, loanProductId, accountMappingTypeId, paymentTypeId);
         createDebitJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount, dimensions);
     }
 
@@ -902,7 +979,7 @@ public class AccountingProcessorHelper {
     public void createCreditJournalEntryForLoan(final Office office, final String currencyCode, final int accountMappingTypeId,
             final Long loanProductId, final Long paymentTypeId, final Long loanId, final String transactionId,
             final LocalDate transactionDate, final BigDecimal amount, final String dimensions) {
-        final GLAccount account = getLinkedGLAccountForLoanProduct(loanProductId, accountMappingTypeId, paymentTypeId);
+        final GLAccount account = getLinkedGLAccountForLoan(loanId, loanProductId, accountMappingTypeId, paymentTypeId);
         createCreditJournalEntryForLoan(office, currencyCode, loanId, transactionId, transactionDate, amount, account, dimensions);
     }
 
@@ -1014,6 +1091,32 @@ public class AccountingProcessorHelper {
                 transactionDate, JournalEntryType.DEBIT, amount, null, PortfolioProductType.CLIENT.getValue(), clientId, null, null, null,
                 transactionId, null, null);
         persistJournalEntry(journalEntry);
+    }
+
+    public GLAccount getCashAtTellerGLAccount() {
+        return this.financialActivityAccountRepository
+                .findByFinancialActivityTypeWithNotFoundDetection(FinancialActivity.CASH_AT_TELLER.getValue()).getGlAccount();
+    }
+
+    public GLAccount getShareProductGLAccount(final Long shareProductId, final int accountMappingTypeId, final Long paymentTypeId) {
+        return getLinkedGLAccountForShareProduct(shareProductId, accountMappingTypeId, paymentTypeId);
+    }
+
+    public void createShareFundingJournalEntry(final Office office, final String currencyCode, final GLAccount debitAccount,
+            final GLAccount creditAccount, final Long shareAccountId, final String transactionId, final LocalDate transactionDate,
+            final BigDecimal amount, final org.apache.fineract.portfolio.paymentdetail.domain.PaymentDetail paymentDetail) {
+        final GLClosure latestGLClosure = getLatestClosureByBranch(office.getId());
+        checkForBranchClosures(latestGLClosure, transactionDate);
+        final String modifiedTransactionId = SHARE_TRANSACTION_IDENTIFIER + transactionId;
+        final Long shareTransactionId = Long.valueOf(transactionId);
+        final JournalEntry debit = JournalEntry.createNew(office, paymentDetail, debitAccount, currencyCode, modifiedTransactionId, false,
+                transactionDate, JournalEntryType.DEBIT, amount, null, PortfolioProductType.SHARES.getValue(), shareAccountId, null, null,
+                null, null, shareTransactionId, null);
+        final JournalEntry credit = JournalEntry.createNew(office, paymentDetail, creditAccount, currencyCode, modifiedTransactionId, false,
+                transactionDate, JournalEntryType.CREDIT, amount, null, PortfolioProductType.SHARES.getValue(), shareAccountId, null, null,
+                null, null, shareTransactionId, null);
+        persistJournalEntry(debit);
+        persistJournalEntry(credit);
     }
 
     public void createJournalEntriesForShares(final Office office, final String currencyCode, final int accountTypeToDebitId,
@@ -1175,6 +1278,38 @@ public class AccountingProcessorHelper {
             glAccount = accountMapping.getGlAccount();
         }
         return glAccount;
+    }
+
+    public GLAccount getLinkedGLAccountForLoan(final Long loanId, final Long loanProductId, final int accountMappingTypeId,
+            final Long paymentTypeId) {
+        if (accountMappingTypeId != CashAccountsForLoan.LOAN_PORTFOLIO.getValue()
+                && accountMappingTypeId != AccrualAccountsForLoan.INTEREST_RECEIVABLE.getValue()) {
+            return getLinkedGLAccountForLoanProduct(loanProductId, accountMappingTypeId, paymentTypeId);
+        }
+        final org.apache.fineract.portfolio.loanaccount.domain.Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId);
+        if (accountMappingTypeId == AccrualAccountsForLoan.INTEREST_RECEIVABLE.getValue()
+                && loan.getPortfolioInterestReceivableGlId() != null) {
+            return this.glAccountRepository.findById(loan.getPortfolioInterestReceivableGlId())
+                    .orElseThrow(() -> new IllegalStateException("Selected loan interest receivable GL account no longer exists"));
+        }
+        if (accountMappingTypeId == AccrualAccountsForLoan.INTEREST_RECEIVABLE.getValue()) {
+            final ProductToGLAccountMapping longInterestMapping = this.accountMappingRepository.findCoreProductToFinAccountMapping(loanProductId,
+                    PortfolioProductType.LOAN.getValue(), AccrualAccountsForLoan.LONG_TERM_INTEREST_RECEIVABLE.getValue());
+            if (longInterestMapping != null) {
+                throw new IllegalStateException("Term-based interest receivable account was not selected before posting");
+            }
+            return getLinkedGLAccountForLoanProduct(loanProductId, accountMappingTypeId, paymentTypeId);
+        }
+        if (loan.getPortfolioAccountGlId() != null) {
+            return this.glAccountRepository.findById(loan.getPortfolioAccountGlId())
+                    .orElseThrow(() -> new IllegalStateException("Selected loan portfolio GL account no longer exists"));
+        }
+        final ProductToGLAccountMapping longMapping = this.accountMappingRepository.findCoreProductToFinAccountMapping(loanProductId,
+                PortfolioProductType.LOAN.getValue(), CashAccountsForLoan.LONG_TERM_LOAN_PORTFOLIO.getValue());
+        if (longMapping != null) {
+            throw new IllegalStateException("Term-based loan portfolio account was not selected before posting");
+        }
+        return getLinkedGLAccountForLoanProduct(loanProductId, accountMappingTypeId, paymentTypeId);
     }
 
     private GLAccount getLinkedGLAccountForLoanCharges(final Long loanProductId, final int accountMappingTypeId, final Long chargeId) {

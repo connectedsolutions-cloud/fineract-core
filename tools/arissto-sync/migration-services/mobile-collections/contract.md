@@ -132,10 +132,13 @@ identifier establishes the relationship; the difference is reported during
 reconciliation rather than used to reject the identity.
 
 Missing required target clients quarantine the affected party assignment or
-routed account and do not block unrelated metadata. The accepted local run has
-four such assignments and two such routed accounts. These are reviewed,
-explicit quarantines rather than guessed links. A new quarantine reason or an
-unexpected increase in production requires operator review.
+routed account and do not block unrelated metadata. Resolve route assignments
+only through `MCD_ASIGNACION_RUTA.ID_ASOCIADO = AFI_SOCIO.ID_ASOCIADO` before
+classifying a client as missing. An earlier local run reported four assignment
+and two routed-account quarantines under an incorrect assignment join; those
+historical counts are not proof of absent source clients. The corrected
+carry-forward repair reconciled all 1,010 party assignments with zero
+quarantines. A new quarantine reason or an unexpected increase requires review.
 
 ## Idempotency
 

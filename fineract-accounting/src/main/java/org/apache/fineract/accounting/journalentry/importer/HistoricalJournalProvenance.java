@@ -191,6 +191,21 @@ public class HistoricalJournalProvenance extends AbstractPersistableCustom<Long>
         this.updatedAt = this.appliedAt;
     }
 
+    void markReferenceOnly(String referenceNumber) {
+        if (!"RESERVED".equals(result)) {
+            throw new HistoricalJournalImportException("provenance.immutable", "Successful historical journal provenance is immutable");
+        }
+        this.targetRefNum = referenceNumber;
+        this.result = "REFERENCE_ONLY";
+        this.reasonCode = "SOURCE_JOURNAL_EMPTY";
+        this.appliedAt = DateUtils.getAuditOffsetDateTime();
+        this.updatedAt = this.appliedAt;
+    }
+
+    boolean isReferenceOnly() {
+        return "REFERENCE_ONLY".equals(result);
+    }
+
     boolean isImported() {
         return "IMPORTED".equals(result);
     }

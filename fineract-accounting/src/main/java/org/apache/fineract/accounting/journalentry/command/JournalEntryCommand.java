@@ -57,8 +57,14 @@ public class JournalEntryCommand {
     private final String dateFormat;
     private final String externalAssetOwner;
     private final String dimensions;
+    private final String auxiliarCode;
+    private final String headerConcept;
 
     public void validateForCreate() {
+        validateForCreate(true);
+    }
+
+    public void validateForCreate(boolean requireVoucherMetadata) {
 
         final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
 
@@ -71,6 +77,10 @@ public class JournalEntryCommand {
         baseDataValidator.reset().parameter(JournalEntryJsonInputParams.CURRENCY_CODE.getValue()).value(this.currencyCode).notBlank();
 
         baseDataValidator.reset().parameter("comments").value(this.comments).ignoreIfNull().notExceedingLengthOf(500);
+        if (requireVoucherMetadata) {
+            baseDataValidator.reset().parameter("auxiliarCode").value(this.auxiliarCode).notBlank().notExceedingLengthOf(32);
+            baseDataValidator.reset().parameter("headerConcept").value(this.headerConcept).notBlank().notExceedingLengthOf(1000);
+        }
 
         baseDataValidator.reset().parameter("referenceNumber").value(this.referenceNumber).ignoreIfNull().notExceedingLengthOf(100);
 

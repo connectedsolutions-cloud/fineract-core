@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0407-1-share-payment-columns" author="credesal">
+        <addColumn tableName="m_share_account_transactions">
+            <column name="payment_detail_id" type="BIGINT"/>
+            <column name="cashier_transaction_id" type="BIGINT"/>
+        </addColumn>
+    </changeSet>
+    <changeSet id="0407-2-share-payment-permissions" author="credesal">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(1) FROM m_permission WHERE code = 'MARKASPAID_SHAREACCOUNT'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="m_permission">
+            <column name="grouping" value="transaction_share"/>
+            <column name="code" value="MARKASPAID_SHAREACCOUNT"/>
+            <column name="entity_name" value="SHAREACCOUNT"/>
+            <column name="action_name" value="MARKASPAID"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="transaction_share"/>
+            <column name="code" value="COLLECTCASH_SHAREACCOUNT"/>
+            <column name="entity_name" value="SHAREACCOUNT"/>
+            <column name="action_name" value="COLLECTCASH"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <insert tableName="m_permission">
+            <column name="grouping" value="transaction_share"/>
+            <column name="code" value="UNDOPAYMENT_SHAREACCOUNT"/>
+            <column name="entity_name" value="SHAREACCOUNT"/>
+            <column name="action_name" value="UNDOPAYMENT"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+        <sql>
+            INSERT INTO m_role_permission (role_id, permission_id)
+            SELECT existing.role_id, created.id
+            FROM m_role_permission existing
+            JOIN m_permission source_permission ON source_permission.id = existing.permission_id
+                AND source_permission.code IN ('ACTIVATE_SHAREACCOUNT', 'ALLOCATECASHTOCASHIER')
+            JOIN m_permission created ON created.code IN ('MARKASPAID_SHAREACCOUNT', 'COLLECTCASH_SHAREACCOUNT', 'UNDOPAYMENT_SHAREACCOUNT')
+            WHERE NOT EXISTS (
+                SELECT 1 FROM m_role_permission already
+                WHERE already.role_id = existing.role_id AND already.permission_id = created.id
+            );
+        </sql>
+        <rollback>
+            <delete tableName="m_role_permission">
+                <where>permission_id IN (SELECT id FROM m_permission WHERE code IN ('MARKASPAID_SHAREACCOUNT', 'COLLECTCASH_SHAREACCOUNT', 'UNDOPAYMENT_SHAREACCOUNT'))</where>
+            </delete>
+            <delete tableName="m_permission">
+                <where>code IN ('MARKASPAID_SHAREACCOUNT', 'COLLECTCASH_SHAREACCOUNT', 'UNDOPAYMENT_SHAREACCOUNT')</where>
+            </delete>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

@@ -95,6 +95,11 @@ public final class ProductToGLAccountMappingFromApiJsonDeserializer {
             baseDataValidator.reset().parameter(LoanProductAccountingParams.LOAN_PORTFOLIO.getValue()).value(loanPortfolioAccountId)
                     .notNull().integerGreaterThanZero();
 
+            final Long longTermLoanPortfolioAccountId = this.fromApiJsonHelper
+                    .extractLongNamed(LoanProductAccountingParams.LONG_TERM_LOAN_PORTFOLIO.getValue(), element);
+            baseDataValidator.reset().parameter(LoanProductAccountingParams.LONG_TERM_LOAN_PORTFOLIO.getValue())
+                    .value(longTermLoanPortfolioAccountId).ignoreIfNull().integerGreaterThanZero();
+
             final Long incomeFromInterestId = this.fromApiJsonHelper
                     .extractLongNamed(LoanProductAccountingParams.INTEREST_ON_LOANS.getValue(), element);
             baseDataValidator.reset().parameter(LoanProductAccountingParams.INTEREST_ON_LOANS.getValue()).value(incomeFromInterestId)
@@ -138,6 +143,11 @@ public final class ProductToGLAccountMappingFromApiJsonDeserializer {
                     .extractLongNamed(LoanProductAccountingParams.INTEREST_RECEIVABLE.getValue(), element);
             baseDataValidator.reset().parameter(LoanProductAccountingParams.INTEREST_RECEIVABLE.getValue())
                     .value(receivableInterestAccountId).notNull().integerGreaterThanZero();
+
+            final Long longTermInterestReceivableAccountId = this.fromApiJsonHelper
+                    .extractLongNamed(LoanProductAccountingParams.LONG_TERM_INTEREST_RECEIVABLE.getValue(), element);
+            baseDataValidator.reset().parameter(LoanProductAccountingParams.LONG_TERM_INTEREST_RECEIVABLE.getValue())
+                    .value(longTermInterestReceivableAccountId).ignoreIfNull().integerGreaterThanZero();
 
             final Long receivableFeeAccountId = this.fromApiJsonHelper
                     .extractLongNamed(LoanProductAccountingParams.FEES_RECEIVABLE.getValue(), element);

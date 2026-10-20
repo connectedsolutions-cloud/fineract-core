@@ -20,10 +20,8 @@ package org.apache.fineract.portfolio.namingsequence;
 
 public enum CredesalNamingNamespace {
 
-    LOAN(2, 99),
-    SAVINGS(2, 99),
-    SHARE_CERTIFICATE(2, 99),
-    VISTA_PASSBOOK(3, 999);
+    LOAN(2, 99), SAVINGS(2, 99), SHARE_CERTIFICATE(2, 99), SHARE_CERTIFICATE_PROVISIONAL(8, 99_999_999), SHARE_SERIAL(1,
+            Integer.MAX_VALUE), VISTA_PASSBOOK(3, 999);
 
     private final int ordinalWidth;
     private final int maxOrdinal;

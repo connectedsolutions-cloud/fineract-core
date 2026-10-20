@@ -94,13 +94,13 @@ class CreateJournalEntriesForChargeOffLoanTest {
         loanPortfolioGLAccount.setName("Loan Portfolio Account");
         loanPortfolioGLAccount.setGlCode("54321");
 
-        when(helper.getLinkedGLAccountForLoanProduct(1L, AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), 1L))
+        when(helper.getLinkedGLAccountForLoan(1L, 1L, AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), 1L))
                 .thenReturn(loanPortfolioGLAccount);
 
         processor.createJournalEntriesForLoan(loanDTO);
 
         verify(helper, times(1)).getChargeOffMappingByCodeValue(1L, PortfolioProductType.LOAN, chargeOffReasonId);
-        verify(helper, times(1)).getLinkedGLAccountForLoanProduct(1L, AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), 1L);
+        verify(helper, times(1)).getLinkedGLAccountForLoan(1L, 1L, AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), 1L);
         verify(helper, times(1)).createCreditJournalEntryForLoan(helper.getOfficeById(1L), "USD", AccrualAccountsForLoan.LOAN_PORTFOLIO, 1L,
                 null, 1L, "txn-123", LocalDate.now(ZoneId.systemDefault()), new BigDecimal("500.00"), null);
         verify(helper, times(1)).createDebitJournalEntryForLoan(helper.getOfficeById(1L), "USD",
@@ -124,16 +124,16 @@ class CreateJournalEntriesForChargeOffLoanTest {
         fraudExpenseGLAccount.setName("Fraud Expense Account");
         fraudExpenseGLAccount.setGlCode("98765");
 
-        when(helper.getLinkedGLAccountForLoanProduct(1L, AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), 1L))
+        when(helper.getLinkedGLAccountForLoan(1L, 1L, AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), 1L))
                 .thenReturn(loanPortfolioGLAccount);
 
-        when(helper.getLinkedGLAccountForLoanProduct(1L, AccrualAccountsForLoan.CHARGE_OFF_FRAUD_EXPENSE.getValue(), 1L))
+        when(helper.getLinkedGLAccountForLoan(1L, 1L, AccrualAccountsForLoan.CHARGE_OFF_FRAUD_EXPENSE.getValue(), 1L))
                 .thenReturn(fraudExpenseGLAccount);
 
         processor.createJournalEntriesForLoan(loanDTO);
 
-        verify(helper, times(1)).getLinkedGLAccountForLoanProduct(1L, AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), 1L);
-        verify(helper, times(1)).getLinkedGLAccountForLoanProduct(1L, AccrualAccountsForLoan.CHARGE_OFF_FRAUD_EXPENSE.getValue(), 1L);
+        verify(helper, times(1)).getLinkedGLAccountForLoan(1L, 1L, AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), 1L);
+        verify(helper, times(1)).getLinkedGLAccountForLoan(1L, 1L, AccrualAccountsForLoan.CHARGE_OFF_FRAUD_EXPENSE.getValue(), 1L);
     }
 
     @Test
@@ -152,16 +152,16 @@ class CreateJournalEntriesForChargeOffLoanTest {
         expenseGLAccount.setName("Expense Account");
         expenseGLAccount.setGlCode("67890");
 
-        when(helper.getLinkedGLAccountForLoanProduct(1L, AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), 1L))
+        when(helper.getLinkedGLAccountForLoan(1L, 1L, AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), 1L))
                 .thenReturn(loanPortfolioGLAccount);
 
-        when(helper.getLinkedGLAccountForLoanProduct(1L, AccrualAccountsForLoan.CHARGE_OFF_EXPENSE.getValue(), 1L))
+        when(helper.getLinkedGLAccountForLoan(1L, 1L, AccrualAccountsForLoan.CHARGE_OFF_EXPENSE.getValue(), 1L))
                 .thenReturn(expenseGLAccount);
 
         processor.createJournalEntriesForLoan(loanDTO);
 
-        verify(helper, times(1)).getLinkedGLAccountForLoanProduct(1L, AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), 1L);
-        verify(helper, times(1)).getLinkedGLAccountForLoanProduct(1L, AccrualAccountsForLoan.CHARGE_OFF_EXPENSE.getValue(), 1L);
+        verify(helper, times(1)).getLinkedGLAccountForLoan(1L, 1L, AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), 1L);
+        verify(helper, times(1)).getLinkedGLAccountForLoan(1L, 1L, AccrualAccountsForLoan.CHARGE_OFF_EXPENSE.getValue(), 1L);
     }
 
     @Test
@@ -178,8 +178,8 @@ class CreateJournalEntriesForChargeOffLoanTest {
         portfolio.setId(20L);
         final GLAccount interestReceivable = new GLAccount();
         interestReceivable.setId(21L);
-        when(helper.getLinkedGLAccountForLoanProduct(1L, AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), null)).thenReturn(portfolio);
-        when(helper.getLinkedGLAccountForLoanProduct(1L, AccrualAccountsForLoan.INTEREST_RECEIVABLE.getValue(), null))
+        when(helper.getLinkedGLAccountForLoan(1L, 1L, AccrualAccountsForLoan.LOAN_PORTFOLIO.getValue(), null)).thenReturn(portfolio);
+        when(helper.getLinkedGLAccountForLoan(1L, 1L, AccrualAccountsForLoan.INTEREST_RECEIVABLE.getValue(), null))
                 .thenReturn(interestReceivable);
 
         processor.createJournalEntriesForLoan(loanDTO);

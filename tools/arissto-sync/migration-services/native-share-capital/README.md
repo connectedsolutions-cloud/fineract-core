@@ -57,6 +57,26 @@ only provenance/certificate extensions directly. Account external IDs and
 event maps are read before every command so interrupted runs resume without
 duplicating financial transactions.
 
+The certificate projection copies document number/date, represented and
+subscribed shares, unit price, share range (text and numeric), current and
+pledged balances, series, folio, line, and the linked book's number/date.
+Book fields use the approved Fineract class mapping: common is logical book
+ID 1 / `No. 1`, and preferred is logical book ID 2 / `No. 2`. The book number
+and date are checked against the corresponding Arissto book configuration
+(source IDs 1 and 3). This deliberately corrects the current preferred
+certificates' inconsistent `ID_LIBRO_ACCIONES=1` link; their original link and
+all original fields remain in the membership archive. The preferred source
+certificates also retain series `A` while the inactive preferred book
+configuration declares series `B`. The sync preserves each certificate's
+actual series and does not infer a replacement. `ID_PROMOTOR` resolves through
+the employee service's `ID_EMPRESA:ID_PERSONA` staff identity to
+`promoter_staff_id`; an unmapped
+promoter quarantines the position. Arissto has no provisional certificate
+number, so migrated rows leave `provisional_number` null while retaining the
+definitive `certificate_number`. The original source row remains in the
+membership archive. For new certificates, Mifos fills the class-specific book
+number and Fineract validates it against the share product before saving.
+
 Inspection checks source schema and the reviewed 57-account/66-purchase
 projection, separates common paid shares from preferred paid and subscribed
 shares, validates whole shares at 5.00, and reports product, permission,

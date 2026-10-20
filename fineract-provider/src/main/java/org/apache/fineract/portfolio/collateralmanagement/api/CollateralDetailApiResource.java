@@ -42,7 +42,6 @@ import org.apache.fineract.portfolio.collateralmanagement.data.CollateralDetailD
 import org.apache.fineract.portfolio.collateralmanagement.service.CollateralDetailService;
 import org.springframework.stereotype.Component;
 
-@Path("/v1/clients/{clientId}/collaterals/{clientCollateralId}")
 @Component
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)

@@ -1,0 +1,731 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0425-1-unwrap-comprobante-sucursal" author="credesal" dbms="postgresql">
+        <comment>Keep the report query valid when Fineract wraps it for pagination.</comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+UPDATE stretchy_report SET report_sql = $report$
+WITH selected_office AS (
+    SELECT office.id,
+           office.external_id,
+           UPPER(office.name) AS office_name
+      FROM m_office office
+     WHERE office.id = CAST('${officeId}' AS BIGINT)
+       AND office.hierarchy LIKE '${currentUserHierarchy}' || '%'
+       AND office.external_id IS NOT NULL
+),
+posting_groups AS (
+    SELECT COALESCE('V:' || journal.voucher_id::text,
+                    'T:' || journal.transaction_id,
+                    'J:' || journal.id::text) AS posting_key,
+           MIN(journal.office_id) AS report_office_id,
+           MIN(journal.entry_date) AS report_date
+      FROM acc_gl_journal_entry journal
+     WHERE journal.currency_code = 'USD'
+       AND journal.type_enum IN (1, 2)
+       AND NOT journal.reversed
+     GROUP BY COALESCE('V:' || journal.voucher_id::text,
+                       'T:' || journal.transaction_id,
+                       'J:' || journal.id::text)
+),
+account_amounts AS (
+    SELECT target_account.gl_code AS source_account_code,
+           MIN(target_account.name) AS target_account_name,
+           ROUND(SUM(CASE WHEN journal_entry.type_enum = 2 THEN journal_entry.amount ELSE 0 END), 2) AS debit,
+           ROUND(SUM(CASE WHEN journal_entry.type_enum = 1 THEN journal_entry.amount ELSE 0 END), 2) AS credit
+      FROM posting_groups posting
+      JOIN acc_gl_journal_entry journal_entry
+        ON COALESCE('V:' || journal_entry.voucher_id::text,
+                    'T:' || journal_entry.transaction_id,
+                    'J:' || journal_entry.id::text) = posting.posting_key
+      JOIN acc_gl_account target_account
+        ON target_account.id = journal_entry.account_id
+     CROSS JOIN selected_office office
+     WHERE posting.report_date = CAST('${endDate}' AS DATE)
+       AND posting.report_office_id = office.id
+       AND journal_entry.currency_code = 'USD'
+       AND NOT journal_entry.reversed
+       AND journal_entry.type_enum IN (1, 2)
+     GROUP BY target_account.gl_code
+),
+account_rows AS (
+    SELECT LEFT(amount.source_account_code, 3) AS group_code,
+           COALESCE(group_account.name, LEFT(amount.source_account_code, 3))
+               AS group_name,
+           amount.source_account_code AS account_code,
+           amount.target_account_name AS account_name,
+           amount.debit,
+           amount.credit
+      FROM account_amounts amount
+ LEFT JOIN acc_gl_account group_account
+        ON group_account.gl_code = LEFT(amount.source_account_code, 3)
+),
+group_rows AS (
+    SELECT DISTINCT group_code, group_name
+      FROM account_rows
+),
+totals AS (
+    SELECT ROUND(SUM(debit), 2) AS debit,
+           ROUND(SUM(credit), 2) AS credit
+      FROM account_rows
+),
+display_rows AS (
+    SELECT groups.group_code AS group_order,
+           1 AS row_order,
+           ''::VARCHAR AS account_order,
+           'GROUP'::VARCHAR AS row_type,
+           groups.group_code,
+           groups.group_name,
+           NULL::VARCHAR AS account_code,
+           NULL::VARCHAR AS account_name,
+           NULL::NUMERIC AS debit,
+           NULL::NUMERIC AS credit
+      FROM group_rows groups
+
+    UNION ALL
+
+    SELECT account.group_code,
+           2,
+           account.account_code,
+           'ACCOUNT',
+           account.group_code,
+           account.group_name,
+           account.account_code,
+           account.account_name,
+           account.debit,
+           account.credit
+      FROM account_rows account
+
+    UNION ALL
+
+    SELECT '~~~~',
+           3,
+           '~~~~',
+           'TOTAL',
+           NULL,
+           NULL,
+           NULL,
+           'TOTAL',
+           totals.debit,
+           totals.credit
+      FROM totals
+     WHERE totals.debit IS NOT NULL
+)
+SELECT ROW_NUMBER() OVER (
+           ORDER BY row.group_order COLLATE "C", row.row_order, row.account_order COLLATE "C"
+       ) AS row_sequence,
+       row.row_type,
+       office.id AS office_id,
+       office.external_id AS office_code,
+       office.office_name,
+       CAST('${endDate}' AS DATE) AS report_date,
+       row.group_code,
+       row.group_name,
+       row.account_code,
+       row.account_name,
+       row.debit,
+       row.credit
+  FROM display_rows row
+ CROSS JOIN selected_office office
+ ORDER BY row.group_order COLLATE "C", row.row_order, row.account_order COLLATE "C"
+$report$ WHERE report_name = 'Comprobante Contable por Sucursal';
+        ]]></sql>
+    </changeSet>
+    <changeSet id="0425-2-unwrap-estado-resultados" author="credesal" dbms="postgresql">
+        <comment>Keep the report query valid when Fineract wraps it for pagination.</comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+UPDATE stretchy_report SET report_sql = $report$
+WITH RECURSIVE
+selected_scope AS (
+    SELECT selected_office.id AS selected_office_id,
+           selected_office.name AS selected_office_name,
+           CAST('${endDate}' AS DATE) AS report_date,
+           DATE_TRUNC('month', CAST('${endDate}' AS DATE))::DATE AS month_start,
+           MAKE_DATE(EXTRACT(YEAR FROM CAST('${endDate}' AS DATE))::INTEGER, 1, 1) AS year_start
+      FROM m_office selected_office
+     WHERE selected_office.id = CAST('${officeId}' AS BIGINT)
+       AND selected_office.hierarchy LIKE '${currentUserHierarchy}' || '%'
+),
+selected_offices AS (
+    SELECT office_under.id
+      FROM selected_scope scope
+      JOIN m_office selected_office ON selected_office.id = scope.selected_office_id
+      JOIN m_office office_under
+        ON office_under.hierarchy LIKE selected_office.hierarchy || '%'
+       AND office_under.hierarchy LIKE '${currentUserHierarchy}' || '%'
+),
+selected_accounts AS (
+    SELECT account.id AS report_account_id,
+           account.gl_code AS source_gl_code,
+           account.name AS source_name,
+           CASE account.classification_enum WHEN 5 THEN '004' ELSE '005' END AS classifier_code,
+           CASE WHEN account.classification_enum = 5 THEN 'D' ELSE 'A' END AS balance_nature,
+           account.gl_code::BIGINT AS account_order,
+           parent.gl_code AS group_code,
+           parent.name AS group_name
+      FROM acc_gl_account account
+      JOIN acc_gl_account parent ON parent.id = account.parent_id
+     WHERE account.acc_level = 4
+       AND account.classification_enum IN (4, 5)
+),
+report_tree AS (
+    SELECT selected.report_account_id,
+           selected.source_gl_code,
+           selected.source_name,
+           selected.classifier_code,
+           selected.balance_nature,
+           selected.account_order,
+           selected.group_code,
+           selected.group_name,
+           selected.report_account_id AS descendant_account_id,
+           ARRAY[selected.report_account_id]::BIGINT[] AS account_path
+      FROM selected_accounts selected
+
+    UNION ALL
+
+    SELECT tree.report_account_id,
+           tree.source_gl_code,
+           tree.source_name,
+           tree.classifier_code,
+           tree.balance_nature,
+           tree.account_order,
+           tree.group_code,
+           tree.group_name,
+           child.id,
+           tree.account_path || child.id
+      FROM report_tree tree
+      JOIN acc_gl_account child ON child.parent_id = tree.descendant_account_id
+     WHERE NOT child.id = ANY(tree.account_path)
+),
+account_balances AS (
+    SELECT tree.report_account_id,
+           tree.source_gl_code,
+           tree.source_name,
+           tree.classifier_code,
+           tree.account_order,
+           tree.group_code,
+           tree.group_name,
+           ROUND(COALESCE(SUM(
+               CASE
+                   WHEN journal_entry.entry_date BETWEEN scope.month_start AND scope.report_date
+                   THEN CASE
+                       WHEN tree.balance_nature = 'D'
+                       THEN CASE WHEN journal_entry.type_enum = 2 THEN journal_entry.amount ELSE -journal_entry.amount END
+                       ELSE CASE WHEN journal_entry.type_enum = 1 THEN journal_entry.amount ELSE -journal_entry.amount END
+                   END
+                   ELSE 0.00
+               END
+           ), 0.00), 2) AS monthly_amount,
+           ROUND(COALESCE(SUM(
+               CASE
+                   WHEN journal_entry.entry_date BETWEEN scope.year_start AND scope.report_date
+                   THEN CASE
+                       WHEN tree.balance_nature = 'D'
+                       THEN CASE WHEN journal_entry.type_enum = 2 THEN journal_entry.amount ELSE -journal_entry.amount END
+                       ELSE CASE WHEN journal_entry.type_enum = 1 THEN journal_entry.amount ELSE -journal_entry.amount END
+                   END
+                   ELSE 0.00
+               END
+           ), 0.00), 2) AS accumulated_amount
+      FROM report_tree tree
+ CROSS JOIN selected_scope scope
+ LEFT JOIN acc_gl_journal_entry journal_entry
+        ON journal_entry.account_id = tree.descendant_account_id
+       AND journal_entry.office_id IN (SELECT id FROM selected_offices)
+       AND journal_entry.currency_code = 'USD'
+       AND journal_entry.entry_date BETWEEN scope.year_start AND scope.report_date
+       AND NOT EXISTS (
+            SELECT 1 FROM credesal_gl_voucher opening_voucher
+             WHERE opening_voucher.id = journal_entry.voucher_id
+               AND opening_voucher.posting_category = 'OPENING'
+       )
+     GROUP BY tree.report_account_id,
+              tree.source_gl_code,
+              tree.source_name,
+              tree.classifier_code,
+              tree.account_order,
+              tree.group_code,
+              tree.group_name
+),
+visible_accounts AS (
+    SELECT *
+      FROM account_balances
+     WHERE monthly_amount <> 0.00 OR accumulated_amount <> 0.00
+),
+group_totals AS (
+    SELECT classifier_code,
+           group_code,
+           MIN(group_name) AS group_name,
+           MIN(account_order) AS account_order,
+           ROUND(SUM(monthly_amount), 2) AS monthly_amount,
+           ROUND(SUM(accumulated_amount), 2) AS accumulated_amount
+      FROM visible_accounts
+     GROUP BY classifier_code, group_code
+),
+section_totals AS (
+    SELECT classifier_code,
+           ROUND(SUM(monthly_amount), 2) AS monthly_amount,
+           ROUND(SUM(accumulated_amount), 2) AS accumulated_amount
+      FROM account_balances
+     GROUP BY classifier_code
+),
+net_result AS (
+    SELECT ROUND(
+               COALESCE(SUM(monthly_amount) FILTER (WHERE classifier_code = '005'), 0.00)
+               - COALESCE(SUM(monthly_amount) FILTER (WHERE classifier_code = '004'), 0.00),
+               2
+           ) AS monthly_amount,
+           ROUND(
+               COALESCE(SUM(accumulated_amount) FILTER (WHERE classifier_code = '005'), 0.00)
+               - COALESCE(SUM(accumulated_amount) FILTER (WHERE classifier_code = '004'), 0.00),
+               2
+           ) AS accumulated_amount
+      FROM section_totals
+),
+display_rows AS (
+    SELECT CASE section.classifier_code WHEN '005' THEN 1 ELSE 2 END AS section_order,
+           1 AS row_order,
+           ''::VARCHAR AS group_order,
+           ''::VARCHAR AS account_order,
+           'SECTION'::VARCHAR AS row_type,
+           CASE section.classifier_code WHEN '005' THEN 'INGRESOS' ELSE 'GASTOS' END::VARCHAR AS section_name,
+           NULL::VARCHAR AS group_code,
+           NULL::VARCHAR AS group_name,
+           NULL::VARCHAR AS account_code,
+           NULL::VARCHAR AS account_name,
+           section.monthly_amount,
+           section.accumulated_amount
+      FROM section_totals section
+
+    UNION ALL
+
+    SELECT CASE report_group.classifier_code WHEN '005' THEN 1 ELSE 2 END,
+           2,
+           report_group.group_code,
+           '',
+           'GROUP',
+           CASE report_group.classifier_code WHEN '005' THEN 'INGRESOS' ELSE 'GASTOS' END,
+           report_group.group_code,
+           report_group.group_name,
+           NULL,
+           NULL,
+           report_group.monthly_amount,
+           report_group.accumulated_amount
+      FROM group_totals report_group
+
+    UNION ALL
+
+    SELECT CASE account.classifier_code WHEN '005' THEN 1 ELSE 2 END,
+           3,
+           account.group_code,
+           LPAD(COALESCE(account.account_order, 9223372036854775807)::TEXT, 19, '0'),
+           'ACCOUNT',
+           CASE account.classifier_code WHEN '005' THEN 'INGRESOS' ELSE 'GASTOS' END,
+           account.group_code,
+           account.group_name,
+           account.source_gl_code,
+           account.source_name,
+           account.monthly_amount,
+           account.accumulated_amount
+      FROM visible_accounts account
+
+    UNION ALL
+
+    SELECT 3,
+           4,
+           '',
+           '',
+           'RESULT',
+           'RESULTADO',
+           NULL,
+           NULL,
+           NULL,
+           CASE WHEN result.accumulated_amount < 0 THEN 'DÉFICIT' ELSE 'EXCEDENTE' END,
+           result.monthly_amount,
+           result.accumulated_amount
+      FROM net_result result
+)
+SELECT ROW_NUMBER() OVER (
+           ORDER BY row.section_order,
+                    row.group_order COLLATE "C",
+                    row.row_order,
+                    row.account_order COLLATE "C"
+       ) AS row_sequence,
+       row.row_type,
+       scope.selected_office_id AS office_id,
+       scope.selected_office_name AS office_name,
+       scope.month_start,
+       scope.year_start,
+       scope.report_date,
+       row.section_name,
+       row.group_code,
+       row.group_name,
+       row.account_code,
+       row.account_name,
+       row.monthly_amount,
+       row.accumulated_amount
+  FROM display_rows row
+ CROSS JOIN selected_scope scope
+ ORDER BY row.section_order,
+          row.group_order COLLATE "C",
+          row.row_order,
+          row.account_order COLLATE "C"
+$report$ WHERE report_name = 'Estado de Resultados Consolidado';
+        ]]></sql>
+    </changeSet>
+    <changeSet id="0425-3-align-cash-flow-office-scope" author="credesal" dbms="postgresql">
+        <comment>Keep the canonical cash-flow statement aligned with the installed office-scope helper.</comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+UPDATE stretchy_report SET report_sql = $report$
+WITH RECURSIVE
+selected_offices AS (
+    SELECT office_under.id
+      FROM m_office selected_office
+      JOIN m_office office_under
+        ON office_under.hierarchy LIKE selected_office.hierarchy || '%'
+     WHERE credesal_report_office_is_root(selected_office.id, '${officeId}', '${currentUserHierarchy}')
+       AND office_under.hierarchy LIKE '${currentUserHierarchy}' || '%'
+),
+cash_account_tree AS (
+    SELECT configured.gl_account_id AS root_account_id,
+           configured.gl_account_id AS account_id,
+           ARRAY[configured.gl_account_id]::BIGINT[] AS account_path
+      FROM credesal_cash_flow_cash_account configured
+     WHERE configured.active
+
+    UNION ALL
+
+    SELECT tree.root_account_id,
+           child.id,
+           tree.account_path || child.id
+      FROM cash_account_tree tree
+      JOIN acc_gl_account child ON child.parent_id = tree.account_id
+     WHERE NOT child.id = ANY(tree.account_path)
+),
+cash_accounts AS (
+    SELECT DISTINCT account_id FROM cash_account_tree
+),
+account_ancestry AS (
+    SELECT account.id AS descendant_account_id,
+           account.id AS ancestor_account_id,
+           0 AS distance,
+           ARRAY[account.id]::BIGINT[] AS account_path
+      FROM acc_gl_account account
+
+    UNION ALL
+
+    SELECT ancestry.descendant_account_id,
+           parent.id,
+           ancestry.distance + 1,
+           ancestry.account_path || parent.id
+      FROM account_ancestry ancestry
+      JOIN acc_gl_account child ON child.id = ancestry.ancestor_account_id
+      JOIN acc_gl_account parent ON parent.id = child.parent_id
+     WHERE NOT parent.id = ANY(ancestry.account_path)
+),
+scoped_journal AS (
+    SELECT journal.id,
+           journal.transaction_id,
+           journal.ref_num,
+           journal.entry_date,
+           journal.office_id,
+           journal.account_id,
+           journal.type_enum,
+           journal.amount,
+           journal.description
+      FROM acc_gl_journal_entry journal
+     WHERE journal.currency_code = 'USD'
+       AND journal.office_id IN (SELECT id FROM selected_offices)
+       AND journal.entry_date <= CAST('${endDate}' AS DATE)
+),
+cash_balances AS (
+    SELECT COALESCE(SUM(CASE
+               WHEN journal.entry_date < CAST('${startDate}' AS DATE)
+               THEN CASE WHEN journal.type_enum = 2 THEN journal.amount ELSE -journal.amount END
+               ELSE 0.00 END), 0.00) AS opening_cash,
+           COALESCE(SUM(CASE
+               WHEN journal.entry_date BETWEEN CAST('${startDate}' AS DATE) AND CAST('${endDate}' AS DATE)
+               THEN CASE WHEN journal.type_enum = 2 THEN journal.amount ELSE -journal.amount END
+               ELSE 0.00 END), 0.00) AS period_cash_change,
+           COALESCE(SUM(CASE WHEN journal.type_enum = 2 THEN journal.amount ELSE -journal.amount END), 0.00) AS closing_cash
+      FROM scoped_journal journal
+     WHERE journal.account_id IN (SELECT account_id FROM cash_accounts)
+),
+period_journal AS (
+    SELECT *
+      FROM scoped_journal
+     WHERE entry_date BETWEEN CAST('${startDate}' AS DATE) AND CAST('${endDate}' AS DATE)
+),
+cash_transactions AS (
+    SELECT journal.transaction_id,
+           journal.office_id,
+           journal.entry_date,
+           MIN(journal.ref_num) AS ref_num,
+           SUM(CASE WHEN journal.type_enum = 2 THEN journal.amount ELSE -journal.amount END) AS net_cash_change
+      FROM period_journal journal
+     WHERE journal.account_id IN (SELECT account_id FROM cash_accounts)
+     GROUP BY journal.transaction_id, journal.office_id, journal.entry_date
+    HAVING SUM(CASE WHEN journal.type_enum = 2 THEN journal.amount ELSE -journal.amount END) <> 0.00
+),
+counterpart_candidates AS (
+    SELECT cash.transaction_id,
+           cash.office_id,
+           cash.entry_date,
+           cash.ref_num,
+           cash.net_cash_change,
+           journal.id AS journal_entry_id,
+           journal.account_id AS counterpart_account_id,
+           journal.amount AS counterpart_amount,
+           journal.description
+      FROM cash_transactions cash
+      JOIN period_journal journal
+        ON journal.transaction_id = cash.transaction_id
+       AND journal.office_id = cash.office_id
+       AND journal.entry_date = cash.entry_date
+     WHERE journal.account_id NOT IN (SELECT account_id FROM cash_accounts)
+       AND ((cash.net_cash_change > 0.00 AND journal.type_enum = 1)
+         OR (cash.net_cash_change < 0.00 AND journal.type_enum = 2))
+),
+candidate_totals AS (
+    SELECT cash.transaction_id,
+           cash.office_id,
+           cash.entry_date,
+           cash.ref_num,
+           cash.net_cash_change,
+           COALESCE(SUM(candidate.counterpart_amount), 0.00) AS candidate_total
+      FROM cash_transactions cash
+      LEFT JOIN counterpart_candidates candidate
+        ON candidate.transaction_id = cash.transaction_id
+       AND candidate.office_id = cash.office_id
+       AND candidate.entry_date = cash.entry_date
+     GROUP BY cash.transaction_id, cash.office_id, cash.entry_date, cash.ref_num, cash.net_cash_change
+),
+valid_components AS (
+    SELECT candidate.transaction_id,
+           candidate.office_id,
+           candidate.entry_date,
+           candidate.ref_num,
+           candidate.journal_entry_id,
+           candidate.counterpart_account_id,
+           account.gl_code AS counterpart_gl_code,
+           account.name AS counterpart_name,
+           CASE WHEN candidate.net_cash_change > 0.00 THEN 'I' ELSE 'O' END AS cash_direction,
+           CASE WHEN candidate.net_cash_change > 0.00
+                THEN candidate.counterpart_amount ELSE -candidate.counterpart_amount END AS net_amount,
+           mapping.section_code,
+           mapping.line_code,
+           mapping.line_label,
+           mapping.line_order,
+           CASE WHEN mapping.gl_account_id IS NULL THEN 'UNMAPPED' ELSE 'MAPPED' END AS classification_status
+      FROM counterpart_candidates candidate
+      JOIN candidate_totals totals
+        ON totals.transaction_id = candidate.transaction_id
+       AND totals.office_id = candidate.office_id
+       AND totals.entry_date = candidate.entry_date
+       AND totals.candidate_total = ABS(totals.net_cash_change)
+      JOIN acc_gl_account account ON account.id = candidate.counterpart_account_id
+      LEFT JOIN LATERAL (
+          SELECT configured.gl_account_id,
+                 configured.section_code,
+                 configured.line_code,
+                 configured.line_label,
+                 configured.line_order
+            FROM account_ancestry ancestry
+            JOIN credesal_cash_flow_mapping configured
+              ON configured.gl_account_id = ancestry.ancestor_account_id
+           WHERE ancestry.descendant_account_id = candidate.counterpart_account_id
+             AND configured.cash_direction = CASE WHEN candidate.net_cash_change > 0.00 THEN 'I' ELSE 'O' END
+             AND configured.active
+           ORDER BY ancestry.distance, configured.gl_account_id
+           LIMIT 1
+      ) mapping ON TRUE
+),
+ambiguous_components AS (
+    SELECT totals.transaction_id,
+           totals.office_id,
+           totals.entry_date,
+           totals.ref_num,
+           NULL::BIGINT AS journal_entry_id,
+           NULL::BIGINT AS counterpart_account_id,
+           NULL::VARCHAR AS counterpart_gl_code,
+           NULL::VARCHAR AS counterpart_name,
+           CASE WHEN totals.net_cash_change > 0.00 THEN 'I' ELSE 'O' END AS cash_direction,
+           totals.net_cash_change AS net_amount,
+           NULL::VARCHAR AS section_code,
+           'AMBIGUOUS'::VARCHAR AS line_code,
+           'Movimientos ambiguos pendientes de clasificación'::VARCHAR AS line_label,
+           9999 AS line_order,
+           'AMBIGUOUS'::VARCHAR AS classification_status
+      FROM candidate_totals totals
+     WHERE totals.candidate_total <> ABS(totals.net_cash_change)
+),
+flow_components AS (
+    SELECT * FROM valid_components
+    UNION ALL
+    SELECT * FROM ambiguous_components
+),
+report_lines AS (
+    SELECT COALESCE(component.section_code, 'UNCLASSIFIED') AS section_code,
+           COALESCE(component.line_code, 'UNMAPPED') AS line_code,
+           COALESCE(component.line_label, 'Movimientos sin mapeo contable') AS line_label,
+           COALESCE(component.line_order, 9999) AS line_order,
+           COUNT(DISTINCT (component.transaction_id, component.office_id, component.entry_date)) AS movement_count,
+           SUM(CASE WHEN component.net_amount > 0.00 THEN component.net_amount ELSE 0.00 END) AS inflows,
+           SUM(CASE WHEN component.net_amount < 0.00 THEN -component.net_amount ELSE 0.00 END) AS outflows,
+           SUM(component.net_amount) AS net_amount,
+           CASE WHEN BOOL_AND(component.classification_status = 'MAPPED') THEN 'CLASIFICADO'
+                ELSE 'REQUIERE CLASIFICACION' END AS status
+      FROM flow_components component
+     GROUP BY COALESCE(component.section_code, 'UNCLASSIFIED'),
+              COALESCE(component.line_code, 'UNMAPPED'),
+              COALESCE(component.line_label, 'Movimientos sin mapeo contable'),
+              COALESCE(component.line_order, 9999)
+),
+sections(section_code, section_label, section_order) AS (
+    VALUES ('OPERATING', 'ACTIVIDADES DE OPERACIÓN', 100),
+           ('INVESTING', 'ACTIVIDADES DE INVERSIÓN', 200),
+           ('FINANCING', 'ACTIVIDADES DE FINANCIAMIENTO', 300)
+),
+section_totals AS (
+    SELECT section.section_code,
+           section.section_label,
+           section.section_order,
+           COALESCE(SUM(line.movement_count), 0) AS movement_count,
+           COALESCE(SUM(line.inflows), 0.00) AS inflows,
+           COALESCE(SUM(line.outflows), 0.00) AS outflows,
+           COALESCE(SUM(line.net_amount), 0.00) AS net_amount
+      FROM sections section
+      LEFT JOIN report_lines line ON line.section_code = section.section_code
+     GROUP BY section.section_code, section.section_label, section.section_order
+),
+statement_change AS (
+    SELECT COALESCE(SUM(net_amount), 0.00) AS amount FROM flow_components
+),
+classification_control AS (
+    SELECT COUNT(*) FILTER (WHERE classification_status = 'UNMAPPED') AS unmapped_components,
+           COUNT(*) FILTER (WHERE classification_status = 'AMBIGUOUS') AS ambiguous_transactions
+      FROM flow_components
+),
+output_rows AS (
+    SELECT 10 AS row_order,
+           'CONTROL'::TEXT AS row_type,
+           'EFECTIVO'::TEXT AS section_label,
+           'OPENING_CASH'::TEXT AS line_code,
+           'Efectivo y equivalentes al inicio del período'::TEXT AS concept,
+           0::BIGINT AS movement_count,
+           NULL::NUMERIC AS inflows,
+           NULL::NUMERIC AS outflows,
+           balances.opening_cash AS net_amount,
+           CASE WHEN EXISTS (SELECT 1 FROM credesal_cash_flow_cash_account WHERE active)
+                THEN 'CONFIGURADO' ELSE 'CONFIGURACION REQUERIDA' END AS status
+      FROM cash_balances balances
+
+    UNION ALL
+
+    SELECT section.section_order + line.line_order,
+           'DETALLE',
+           section.section_label,
+           line.line_code,
+           line.line_label,
+           line.movement_count,
+           line.inflows,
+           line.outflows,
+           line.net_amount,
+           line.status
+      FROM sections section
+      JOIN report_lines line ON line.section_code = section.section_code
+
+    UNION ALL
+
+    SELECT section.section_order + 99,
+           'SUBTOTAL',
+           section.section_label,
+           'SUBTOTAL_' || section.section_code,
+           'Flujo neto de ' || lower(section.section_label),
+           section.movement_count,
+           section.inflows,
+           section.outflows,
+           section.net_amount,
+           'CALCULADO'
+      FROM section_totals section
+
+    UNION ALL
+
+    SELECT 400 + line.line_order,
+           'DETALLE',
+           'SIN CLASIFICAR',
+           line.line_code,
+           line.line_label,
+           line.movement_count,
+           line.inflows,
+           line.outflows,
+           line.net_amount,
+           line.status
+      FROM report_lines line
+     WHERE line.section_code = 'UNCLASSIFIED'
+
+    UNION ALL
+
+    SELECT 900,
+           'CONTROL',
+           'EFECTIVO',
+           'NET_CHANGE',
+           'Aumento (disminución) neto de efectivo',
+           0,
+           NULL,
+           NULL,
+           change.amount,
+           CASE WHEN NOT EXISTS (SELECT 1 FROM credesal_cash_flow_cash_account WHERE active)
+                THEN 'CONFIGURACION REQUERIDA'
+                WHEN control.unmapped_components = 0 AND control.ambiguous_transactions = 0
+                THEN 'CLASIFICACION COMPLETA' ELSE 'REQUIERE CLASIFICACION' END
+      FROM statement_change change CROSS JOIN classification_control control
+
+    UNION ALL
+
+    SELECT 910,
+           'CONTROL',
+           'EFECTIVO',
+           'CLOSING_CASH',
+           'Efectivo y equivalentes al final del período',
+           0,
+           NULL,
+           NULL,
+           balances.closing_cash,
+           CASE WHEN EXISTS (SELECT 1 FROM credesal_cash_flow_cash_account WHERE active)
+                THEN 'CALCULADO' ELSE 'CONFIGURACION REQUERIDA' END
+      FROM cash_balances balances
+
+    UNION ALL
+
+    SELECT 920,
+           'CONTROL',
+           'CONCILIACIÓN',
+           'RECONCILIATION_DIFFERENCE',
+           'Diferencia de conciliación',
+           0,
+           NULL,
+           NULL,
+           balances.closing_cash - balances.opening_cash - change.amount,
+           CASE WHEN NOT EXISTS (SELECT 1 FROM credesal_cash_flow_cash_account WHERE active)
+                THEN 'CONFIGURACION REQUERIDA'
+                WHEN balances.closing_cash - balances.opening_cash - change.amount = 0.00
+                THEN 'CONCILIADO' ELSE 'ERROR DE CONCILIACION' END
+      FROM cash_balances balances CROSS JOIN statement_change change
+)
+SELECT row_type AS "Tipo",
+       section_label AS "Sección",
+       line_code AS "Código",
+       concept AS "Concepto",
+       movement_count AS "Movimientos",
+       ROUND(inflows, 2) AS "Entradas",
+       ROUND(outflows, 2) AS "Salidas",
+       ROUND(net_amount, 2) AS "Flujo Neto",
+       status AS "Estado"
+  FROM output_rows
+ ORDER BY row_order, line_code
+$report$ WHERE report_name = 'Estado de Flujo de Efectivo';
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

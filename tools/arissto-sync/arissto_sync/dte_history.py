@@ -44,7 +44,8 @@ TARGET_TABLES = (
     "m_invoice_summary",
 )
 REQUIRED_TARGET_COLUMNS = {
-    "m_invoice": {"id", "status", "loan_transaction_id", "version", "ambiente", "tipo_dte",
+    "m_invoice": {"id", "status", "loan_transaction_id", "historical_client_id",
+                  "historical_office_id", "source_loan_movement_external_id", "version", "ambiente", "tipo_dte",
                   "numero_control", "codigo_generacion", "tipo_modelo", "tipo_operacion",
                   "fec_emi", "hor_emi", "tipo_moneda", "createdby_id", "created_date",
                   "lastmodifiedby_id", "lastmodified_date", "source_origin", "source_hash",
@@ -99,7 +100,7 @@ class DteHistoryContract:
     @classmethod
     def load(cls, path: Path) -> "DteHistoryContract":
         value = json.loads(path.read_text(encoding="utf-8"))
-        if value.get("version") != 1:
+        if value.get("version") != 2:
             raise ValueError("Unsupported DTE history contract version")
         if value.get("depends_on") != ["clients", "loans"]:
             raise ValueError("DTE history dependency order changed")
@@ -130,6 +131,7 @@ class DteHistoryContract:
         if value.get("scope") != {
             "tipo_dte": "01", "requires_normalized_detail": True,
             "requires_exactly_one_loan_movement": True,
+            "allow_missing_target_loan_transaction": True,
         }:
             raise ValueError("DTE history v1 cohort changed")
         if value.get("missing_normal_mode") != {
@@ -156,7 +158,10 @@ class DteHistoryContract:
     def source_hash(self, row: dict[str, Any]) -> str:
         durable_source = {key: value for key, value in row.items() if key not in NON_DURABLE_SOURCE_FIELDS}
         # Preserve hashes stored under the original create-only contract.
-        source_contract = {**self.raw, "write_policy": SOURCE_HASH_WRITE_POLICY}
+        legacy_scope = {key: value for key, value in self.raw["scope"].items()
+                        if key != "allow_missing_target_loan_transaction"}
+        source_contract = {**self.raw, "version": 1, "scope": legacy_scope,
+                           "write_policy": SOURCE_HASH_WRITE_POLICY}
         return _hash({"contract": _hash(source_contract), "source": durable_source})
 
 
@@ -413,10 +418,16 @@ def _payload(row: dict[str, Any], contract: DteHistoryContract,
     )
     if client_id is None:
         return None, "missing_target_client"
-    if transaction is None:
-        return None, "missing_target_loan_transaction"
-    if int(transaction["client_id"]) != int(client_id):
+    if transaction is not None and int(transaction["client_id"]) != int(client_id):
         return None, "client_loan_mismatch"
+    office_id = None
+    if transaction is None:
+        branch = clean(row.get("branch_id"))
+        if not branch or not branch.isdecimal():
+            return None, "invalid_source_branch"
+        office_id = catalog["offices"].get(str(int(branch)))
+        if office_id is None:
+            return None, "missing_target_office"
     lines = []
     discounts = {"non_subject": Decimal("0"), "exempt": Decimal("0"), "taxable": Decimal("0")}
     for line in row["lines"]:
@@ -468,7 +479,11 @@ def _payload(row: dict[str, Any], contract: DteHistoryContract,
     target_receiver_type = receiver_type if len(receiver_type or "") <= 5 else None
     return {
         "invoice": {
-            "status": status, "loan_transaction_id": int(transaction["id"]),
+            "status": status, "loan_transaction_id": int(transaction["id"]) if transaction else None,
+            **({"historical_client_id": int(client_id),
+                "historical_office_id": int(office_id),
+                "source_loan_movement_external_id": f"ARISSTO:CRD-MOV:{clean(row.get('loan_movement_id'))}"}
+               if transaction is None else {}),
             "source_origin": SOURCE_ORIGIN,
             "source_lifecycle_json": json.dumps({
                 "dteState": row.get("dte_state"),
@@ -526,6 +541,14 @@ def _target_catalog(conn: Any, settings: Settings) -> dict[str, Any]:
     clients = {clean(ext): int(identifier) for identifier, ext in conn.execute(
         "SELECT id,external_id FROM m_client WHERE external_id IS NOT NULL"
     ).fetchall()}
+    offices: dict[str, int] = {}
+    for identifier, external_id in conn.execute(
+        "SELECT id,external_id FROM m_office WHERE external_id IS NOT NULL"
+    ).fetchall():
+        key = clean(external_id)
+        if key in offices:
+            raise RuntimeError("Duplicate target office external ID")
+        offices[key] = int(identifier)
     transactions: dict[str, dict[str, int]] = {}
     for identifier, external_id, client_id in conn.execute("""
         SELECT t.id,t.external_id,l.client_id FROM m_loan_transaction t
@@ -565,7 +588,7 @@ def _target_catalog(conn: Any, settings: Settings) -> dict[str, Any]:
                 raise RuntimeError("Duplicate target invoice control number within an emission year")
             legal[control_year] = owner
     return {
-        "clients": clients, "transactions": transactions, "issuer": issuer,
+        "clients": clients, "offices": offices, "transactions": transactions, "issuer": issuer,
         "audit_user_id": int(users[0][0]) if len(users) == 1 else None,
         "existing": existing, "legal": legal,
     }
@@ -703,7 +726,7 @@ def inspect_dte_history(settings: Settings, contract: DteHistoryContract) -> dic
         "schema_signature": _schema_signature(source_schema, target_schema),
         "depends_on": contract.raw["depends_on"], "source": {"counts": counts},
         "target": {"counts": target_counts}, "blockers": blockers,
-        "scope": "ordinary DTEs with normalized lines, client, and exactly one loan movement",
+        "scope": "ordinary DTEs with normalized lines and exactly one source loan movement; target loan transaction optional",
         "write_boundary": "create-only terminal invoice history; no MH or financial writes",
     }
 
@@ -1011,19 +1034,27 @@ def reconcile_dte_history(settings: Settings, state: State, contract: DteHistory
             clean(row[0]): {
                 "invoice_id": int(row[1]), "source_hash": clean(row[2]), "status": clean(row[3]),
                 "generation_code": clean(row[4]), "control_number": clean(row[5]),
-                "loan_transaction_id": int(row[6]), "client_id": int(row[7]),
+                "loan_transaction_id": int(row[6]) if row[6] is not None else None,
+                "client_id": int(row[7]) if row[7] is not None else None,
                 "line_count": int(row[8]),
+                "historical_client_id": int(row[9]) if row[9] is not None else None,
+                "historical_office_id": int(row[10]) if row[10] is not None else None,
+                "source_loan_movement_external_id": clean(row[11]),
             }
             for row in conn.execute("""
                 SELECT i.codigo_generacion,i.id,i.source_hash,i.status,i.codigo_generacion,
-                       i.numero_control,i.loan_transaction_id,loan.client_id,COUNT(line.id)
+                       i.numero_control,i.loan_transaction_id,
+                       COALESCE(loan.client_id,i.historical_client_id),COUNT(line.id),
+                       i.historical_client_id,i.historical_office_id,
+                       i.source_loan_movement_external_id
                 FROM m_invoice i
-                JOIN m_loan_transaction tx ON tx.id=i.loan_transaction_id
-                JOIN m_loan loan ON loan.id=tx.loan_id
+                LEFT JOIN m_loan_transaction tx ON tx.id=i.loan_transaction_id
+                LEFT JOIN m_loan loan ON loan.id=tx.loan_id
                 LEFT JOIN m_invoice_line line ON line.invoice_id=i.id
                 WHERE i.source_origin=%s
                 GROUP BY i.codigo_generacion,i.id,i.source_hash,i.status,i.numero_control,
-                         i.loan_transaction_id,loan.client_id
+                         i.loan_transaction_id,loan.client_id,i.historical_client_id,
+                         i.historical_office_id,i.source_loan_movement_external_id
             """, (SOURCE_ORIGIN,)).fetchall()
         }
         catalog = _target_catalog(conn, settings)
@@ -1043,6 +1074,9 @@ def reconcile_dte_history(settings: Settings, state: State, contract: DteHistory
                 and current["loan_transaction_id"] == expected.get("loan_transaction_id")
                 and current["client_id"] == payload["links"]["client_id"]
                 and current["line_count"] == len(payload["lines"])
+                and current["historical_client_id"] == expected.get("historical_client_id")
+                and current["historical_office_id"] == expected.get("historical_office_id")
+                and current["source_loan_movement_external_id"] == expected.get("source_loan_movement_external_id")
             )
             results["matched" if ok else "mismatched"] += 1
             if not ok and len(mismatches) < 20:

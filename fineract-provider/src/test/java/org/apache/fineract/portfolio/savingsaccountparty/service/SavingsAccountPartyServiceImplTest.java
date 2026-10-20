@@ -68,8 +68,7 @@ class SavingsAccountPartyServiceImplTest {
         final SavingsBeneficiaryRequest second = beneficiary("Second", "30.00");
 
         assertThatThrownBy(() -> service.replaceBeneficiaries(17L, List.of(first, second)))
-                .isInstanceOf(GeneralPlatformDomainRuleException.class)
-                .hasMessageContaining("must total exactly 100.00");
+                .isInstanceOf(GeneralPlatformDomainRuleException.class).hasMessageContaining("must total exactly 100.00");
         verifyNoInteractions(beneficiaryRepository, authorizedPersonRepository, clientRepository);
     }
 
@@ -78,8 +77,7 @@ class SavingsAccountPartyServiceImplTest {
         final SavingsBeneficiaryRequest beneficiary = beneficiary("First", "0.00");
 
         assertThatThrownBy(() -> service.replaceBeneficiaries(17L, List.of(beneficiary)))
-                .isInstanceOf(GeneralPlatformDomainRuleException.class)
-                .hasMessageContaining("greater than zero");
+                .isInstanceOf(GeneralPlatformDomainRuleException.class).hasMessageContaining("greater than zero");
         verifyNoInteractions(beneficiaryRepository, authorizedPersonRepository, clientRepository);
     }
 

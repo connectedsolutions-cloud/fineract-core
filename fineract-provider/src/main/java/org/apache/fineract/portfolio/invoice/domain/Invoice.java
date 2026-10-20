@@ -30,6 +30,15 @@ public class Invoice extends AbstractAuditableCustom {
     @Column(name = "loan_transaction_id")
     private Long loanTransactionId;
 
+    @Column(name = "historical_client_id")
+    private Long historicalClientId;
+
+    @Column(name = "historical_office_id")
+    private Long historicalOfficeId;
+
+    @Column(name = "source_loan_movement_external_id", length = 80)
+    private String sourceLoanMovementExternalId;
+
     @Column(name = "savings_transaction_id")
     private Long savingsTransactionId;
 
@@ -178,6 +187,18 @@ public class Invoice extends AbstractAuditableCustom {
 
     public Long getLoanTransactionId() {
         return loanTransactionId;
+    }
+
+    public Long getHistoricalClientId() {
+        return historicalClientId;
+    }
+
+    public Long getHistoricalOfficeId() {
+        return historicalOfficeId;
+    }
+
+    public String getSourceLoanMovementExternalId() {
+        return sourceLoanMovementExternalId;
     }
 
     public Long getSavingsTransactionId() {

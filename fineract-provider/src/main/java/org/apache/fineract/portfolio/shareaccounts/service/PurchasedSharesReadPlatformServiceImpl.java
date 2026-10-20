@@ -50,7 +50,12 @@ public class PurchasedSharesReadPlatformServiceImpl implements PurchasedSharesRe
             StringBuilder buff = new StringBuilder()
                     .append("saps.id, saps.account_id, saps.transaction_date, saps.total_shares, saps.unit_price, ")
                     .append("saps.status_enum, saps.type_enum, saps.amount, saps.charge_amount as chargeamount, ")
-                    .append("saps.amount_paid as amountPaid").append(" from m_share_account_transactions saps ");
+                    .append("saps.amount_paid as amountPaid, pt.value as paymentTypeName, pd.check_number as checkNumber, ")
+                    .append("pd.bank_number as bankNumber, pd.account_number as accountNumber, pd.receipt_number as receiptNumber, ")
+                    .append("saps.cashier_transaction_id as cashierTransactionId ")
+                    .append("from m_share_account_transactions saps ")
+                    .append("left join m_payment_detail pd on pd.id = saps.payment_detail_id ")
+                    .append("left join m_payment_type pt on pt.id = pd.payment_type_id ");
             schema = buff.toString();
         }
 
@@ -68,9 +73,16 @@ public class PurchasedSharesReadPlatformServiceImpl implements PurchasedSharesRe
             final BigDecimal amount = JdbcSupport.getBigDecimalDefaultToZeroIfNull(rs, "amount");
             final BigDecimal chargeAmount = JdbcSupport.getBigDecimalDefaultToZeroIfNull(rs, "chargeamount");
             final BigDecimal amountPaid = JdbcSupport.getBigDecimalDefaultToZeroIfNull(rs, "amountPaid");
+            final String paymentTypeName = rs.getString("paymentTypeName");
+            final String checkNumber = rs.getString("checkNumber");
+            final String bankNumber = rs.getString("bankNumber");
+            final String accountNumber = rs.getString("accountNumber");
+            final String receiptNumber = rs.getString("receiptNumber");
+            final Long cashierTransactionId = JdbcSupport.getLong(rs, "cashierTransactionId");
 
             return new ShareAccountTransactionData(id, accountId, purchasedDate, numberOfShares, purchasedPrice, statusEnum, typeEnum,
-                    amount, chargeAmount, amountPaid);
+                    amount, chargeAmount, amountPaid, paymentTypeName, checkNumber, bankNumber, accountNumber, receiptNumber,
+                    cashierTransactionId);
         }
 
         public String schema() {

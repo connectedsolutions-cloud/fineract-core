@@ -20,7 +20,10 @@ import requests
 
 from .arissto import IDENTIFIER, select_rows, source_connection, source_fingerprint
 from .config import Settings, SourceConfig
+from .client_office_transfers import (attach_pretransfer_loan_balances, plan_client_office_transfers,
+                                      target_client_office_transfer_blockers)
 from .connections import FineractApi, FineractError, postgres_connection, postgres_schema
+from .delinquency_prerequisite import ensure_standard_loan_product_bucket
 from .engine import datatable_api_payload
 from .state import State
 from .sql_writer import ControlledSqlWriter
@@ -41,8 +44,10 @@ CLOSED_REFINANCE_HISTORICAL_SCHEDULE_LOANS = (
 ACCOUNTING_RESPONSE_KEYS = {
     "fundSourceAccountId": "fundSourceAccount",
     "loanPortfolioAccountId": "loanPortfolioAccount",
+    "longTermLoanPortfolioAccountId": "longTermLoanPortfolioAccount",
     "transfersInSuspenseAccountId": "transfersInSuspenseAccount",
     "receivableInterestAccountId": "receivableInterestAccount",
+    "longTermInterestReceivableAccountId": "longTermInterestReceivableAccount",
     "receivableFeeAccountId": "receivableFeeAccount",
     "receivablePenaltyAccountId": "receivablePenaltyAccount",
     "interestOnLoanAccountId": "interestOnLoanAccount",
@@ -61,6 +66,10 @@ ACCOUNTING_RESPONSE_KEYS = {
     "chargeOffFraudExpenseAccountId": "chargeOffFraudExpenseAccount",
     "overpaymentLiabilityAccountId": "overpaymentLiabilityAccount",
 }
+TERM_ACCOUNT_MAPPING_PARAMETERS = frozenset({
+    "loanPortfolioAccountId", "longTermLoanPortfolioAccountId",
+    "receivableInterestAccountId", "longTermInterestReceivableAccountId",
+})
 
 ATTRIBUTE_OVERRIDE_FIELDS = (
     "amortizationType",
@@ -171,7 +180,16 @@ REQUIRED_TARGET_COLUMNS = {
         "max_nominal_interest_rate_per_period", "repay_every", "repayment_period_frequency_enum",
         "number_of_repayments", "min_number_of_repayments", "max_number_of_repayments",
     },
-    "m_client": {"id", "external_id", "status_enum", "office_id", "activation_date"},
+    "m_client": {"id", "external_id", "status_enum", "office_id", "office_joining_date", "activation_date"},
+    "m_client_transfer_details": {
+        "client_id", "from_office_id", "to_office_id", "proposed_transfer_date", "transfer_type",
+    },
+    "m_office": {"id", "opening_date"},
+    "m_loan_transaction": {
+        "loan_id", "office_id", "transaction_type_enum", "transaction_date", "amount", "is_reversed",
+        "principal_portion_derived", "interest_portion_derived",
+        "fee_charges_portion_derived", "penalty_charges_portion_derived",
+    },
     "m_staff": {"id", "external_id", "is_active", "office_id"},
     "credesal_loan_staff_assignment": {
         "loan_id", "client_id", "arissto_company_id", "arissto_promoter_person_id",
@@ -187,7 +205,11 @@ REQUIRED_TARGET_COLUMNS = {
         "id", "source_system", "source_key", "source_hash", "contract_hash", "loan_product_id",
         "arissto_company_id", "arissto_line_id", "mapping_status", "created_at", "updated_at",
     },
-    "m_loan": {"id", "account_no", "external_id", "product_id", "client_id", "loan_officer_id", "loan_status_id"},
+    "m_loan": {"id", "account_no", "external_id", "product_id", "client_id", "loan_officer_id", "loan_status_id",
+               "submittedon_date", "total_outstanding_derived", "portfolio_account_gl_id",
+               "portfolio_interest_receivable_gl_id", "portfolio_account_expected_disbursedon_date",
+               "portfolio_account_expected_maturedon_date", "portfolio_account_term_days",
+               "portfolio_account_selection_reason"},
     "m_guarantor": {"id", "loan_id", "type_enum", "entity_id", "is_active"},
     "m_collateral_management": {"id", "name", "quality", "base_price", "unit_type", "pct_to_base", "currency"},
     "m_client_collateral_management": {"id", "client_id", "collateral_id", "quantity"},
@@ -304,22 +326,30 @@ class LoanContract:
         portfolio_policy = product_contract.get("portfolio_account_policy")
         if not isinstance(portfolio_policy, dict):
             raise ValueError("Loans product contract must define its portfolio-account policy")
-        if portfolio_policy.get("mode") != "single-native-account-per-product":
-            raise ValueError("Each native loan product must use one portfolio account")
+        if portfolio_policy.get("mode") != "term-based-dual-native-accounts":
+            raise ValueError("Each native loan product must use reviewed short and long portfolio accounts")
         if portfolio_policy.get("source_primary_field") != "ID_CUENTA_CARGO_CAPITAL":
             raise ValueError("Native portfolio accounts must come from the reviewed source primary field")
-        if portfolio_policy.get("dynamic_gl_switching") is not False:
-            raise ValueError("Loan products cannot switch portfolio GL accounts dynamically")
+        if portfolio_policy.get("dynamic_gl_switching") is not True:
+            raise ValueError("Loan portfolio GL selection must be loan-specific")
         if portfolio_policy.get("split_products_by_historical_account") is not False:
             raise ValueError("Historical source accounts cannot split a native loan product")
         if portfolio_policy.get("reviewed_primary_gl_by_line") != {
             "00001": "1141040101", "00010": "1141030101",
         }:
             raise ValueError("Reviewed loan lines must retain their single primary portfolio accounts")
-        if portfolio_policy.get("historical_alternate_gl_for_reconciliation") != {
-            "00001": ["1142040101"], "00010": ["1142030101"],
+        if portfolio_policy.get("reviewed_long_gl_by_line") != {
+            "00001": "114204010101", "00010": "1142030101",
         }:
-            raise ValueError("Historical alternate portfolio accounts must remain reconciliation-only")
+            raise ValueError("Reviewed long-term portfolio accounts must match the source GL families")
+        if portfolio_policy.get("reviewed_short_interest_receivable_gl_by_line") != {
+            "00001": "1141049901", "00010": "1141039901",
+        }:
+            raise ValueError("Reviewed short-term interest receivable accounts must match the source GL families")
+        if portfolio_policy.get("reviewed_long_interest_receivable_gl_by_line") != {
+            "00001": "1142049901", "00010": "1142039901",
+        }:
+            raise ValueError("Reviewed long-term interest receivable accounts must match the source GL families")
         dimension_contract = product_contract.get("dimension_contract")
         if not isinstance(dimension_contract, dict):
             raise ValueError("Loans product contract must define reporting dimensions")
@@ -344,7 +374,8 @@ class LoanContract:
                 raise ValueError(f"Loan product terms are incomplete for line {line_id}")
         accounting_codes = product_contract.get("accounting_gl_codes")
         if not isinstance(accounting_codes, dict) or set(accounting_codes) != (
-            set(ACCOUNTING_RESPONSE_KEYS) - {"loanPortfolioAccountId"}
+            set(ACCOUNTING_RESPONSE_KEYS) - {"loanPortfolioAccountId", "longTermLoanPortfolioAccountId",
+                                             "receivableInterestAccountId", "longTermInterestReceivableAccountId"}
         ):
             raise ValueError("Loans mapping must freeze every shared native accounting GL role")
         resources = product_contract.get("target_resources")
@@ -462,6 +493,10 @@ class LoanContract:
             "classification": "reviewed-early-payoff-future-interest-cutover",
             "terminal_adjustment_maximum_source": "source-schedule-total",
         }
+        expected_native_creation_overrides["2482"] = {
+            "classification": "reviewed-early-payoff-future-interest-cutover",
+            "terminal_adjustment_maximum_source": "source-schedule-total",
+        }
         expected_native_creation_overrides["1182"]["terminal_adjustment_maximum_source"] = (
             "source-schedule-total"
         )
@@ -562,6 +597,34 @@ def _json_default(value: Any) -> str:
 def _stable_hash(value: Any) -> str:
     material = json.dumps(value, sort_keys=True, separators=(",", ":"), default=_json_default)
     return hashlib.sha256(material.encode()).hexdigest()
+
+
+def _post_boundary_only_loan_drift(
+    planned: dict[str, Any], current: dict[str, Any], first_fineract_date: str | None,
+) -> bool:
+    """Accept a frozen source snapshot only when new movements belong to Fineract's day."""
+    if not first_fineract_date:
+        return False
+    old = _loan_source_hash_view(planned)
+    new = _loan_source_hash_view(current)
+    if old is None or new is None:
+        return False
+    old_events = old.get("events") or []
+    new_events = new.get("events") or []
+    if not old_events or any(event.get("date", "") >= first_fineract_date for event in old_events):
+        return False
+    old_ids = {event.get("external_id") for event in old_events}
+    later = [event for event in new_events if event.get("external_id") not in old_ids]
+    if not later or any(event.get("date", "") < first_fineract_date for event in later):
+        return False
+    new["events"] = [event for event in new_events if event.get("external_id") in old_ids]
+    for field in ("principal_balance", "interest_balance", "fee_balance", "penalty_balance", "total_outstanding"):
+        if field in (old.get("expected") or {}):
+            new.setdefault("expected", {})[field] = old["expected"][field]
+    for field in ("cutover_insurance_charge", "recurring_insurance_charge"):
+        if field in old:
+            new[field] = old[field]
+    return _stable_hash(new) == _stable_hash(old)
 
 
 def _loan_source_hash_view(lifecycle: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -726,6 +789,13 @@ def build_loan_product_payload(
         payload[parameter] = int(gl_ids[gl_code])
     portfolio_code = contract.raw["product_contract"]["portfolio_account_policy"]["reviewed_primary_gl_by_line"][line_id]
     payload["loanPortfolioAccountId"] = int(gl_ids[portfolio_code])
+    long_portfolio_code = contract.raw["product_contract"]["portfolio_account_policy"]["reviewed_long_gl_by_line"][line_id]
+    payload["longTermLoanPortfolioAccountId"] = int(gl_ids[long_portfolio_code])
+    interest_policy = contract.raw["product_contract"]["portfolio_account_policy"]
+    short_interest_code = interest_policy["reviewed_short_interest_receivable_gl_by_line"][line_id]
+    long_interest_code = interest_policy["reviewed_long_interest_receivable_gl_by_line"][line_id]
+    payload["receivableInterestAccountId"] = int(gl_ids[short_interest_code])
+    payload["longTermInterestReceivableAccountId"] = int(gl_ids[long_interest_code])
     charge_id = int(target_resources["debt_insurance_charge_id"])
     insurance_account_id = int(gl_ids[
         contract.raw["product_contract"]["target_resources"]["debt_insurance_charge"]["income_or_liability_gl"]
@@ -1575,6 +1645,7 @@ def extract_loan_lifecycle_rows(
     collateral_registrations: list[dict[str, Any]] = []
     schedules: list[dict[str, Any]] = []
     schedule_adjustments: list[dict[str, Any]] = []
+    archived_adjustment_schedules: list[dict[str, Any]] = []
     movements: list[dict[str, Any]] = []
     charge_details: list[dict[str, Any]] = []
     refinance_links: list[dict[str, Any]] = []
@@ -1659,11 +1730,24 @@ def extract_loan_lifecycle_rows(
             ORDER BY p.ID_CREDITO,p.NO_CUOTA,p.FECHA_PAGO,p.ID_PLAN_PAGO
         """, tuple(batch)))
             schedule_adjustments.extend(select_rows(conn, f"""
-            SELECT r.ID_CREDITO,COUNT(DISTINCT r.ID_REESTRUCTURACION) AS adjustment_count,
-                   MAX(r.DT_CREO) AS last_adjustment_created_at
+            SELECT r.ID_CREDITO,r.ID_REESTRUCTURACION,r.DT_CREO,r.MONTO_REESTRUCTURADO,
+                   r.PLAZO_APROBADO,r.INTERES_MONTO_APROBADO,r.INTERES_MORA_APROBADO,
+                   r.DIA_PAGO,r.FLAT,r.ID_TIPO_PLAN_PAGO,r.MONTO_CUOTA_APROBADO,
+                   r.MONTO_CUOTA_NORMAL_APROBADO,r.FECHA_OTORGAMIENTO,
+                   r.FECHA_VENCIMIENTO,r.FECHA_REESTRUCTURACION,r.TIPO_REESTRUCTURACION
             FROM [dbo].[{source['schedule_adjustment_table']}] r
             WHERE r.ID_CREDITO IN ({placeholders})
-            GROUP BY r.ID_CREDITO
+            ORDER BY r.ID_CREDITO,r.DT_CREO,r.ID_REESTRUCTURACION
+        """, tuple(batch)))
+            archived_adjustment_schedules.extend(select_rows(conn, f"""
+            SELECT r.ID_CREDITO,p.ID_REESTRUCTURACION,p.NO_CUOTA,p.FECHA_PAGO,
+                   p.MONTO_CAPITAL,p.MONTO_INTERES,p.MONTO_OTROS,p.MONTO_APORTACION,
+                   p.CUOTA_DIFERIDA
+            FROM [dbo].[{source['schedule_table']}] p
+            JOIN [dbo].[{source['schedule_adjustment_table']}] r
+              ON r.ID_REESTRUCTURACION=p.ID_REESTRUCTURACION
+            WHERE r.ID_CREDITO IN ({placeholders}) AND p.ID_CREDITO IS NULL
+            ORDER BY r.ID_CREDITO,p.ID_REESTRUCTURACION,p.NO_CUOTA,p.FECHA_PAGO
         """, tuple(batch)))
             movements.extend(select_rows(conn, f"""
             SELECT m.ID_CREDITO,m.ID_MOVIMIENTO_CARTERA,m.ID_CRD_MOVIMIENTO,
@@ -1785,7 +1869,8 @@ def extract_loan_lifecycle_rows(
     result = {loan_id: {
         "application": None, "guarantors": [], "collaterals": [], "collateral_valuations": [],
         "collateral_registrations": [], "schedule": [], "movements": [], "charge_details": [],
-        "schedule_adjustment_summary": {"adjustment_count": 0},
+        "schedule_adjustment_summary": {"adjustment_count": 0, "adjustments": [],
+                                        "archived_schedules": {}},
         "refinance_incoming": [], "refinance_outgoing": [],
     } for loan_id in loan_ids}
     for row in applications:
@@ -1801,10 +1886,13 @@ def extract_loan_lifecycle_rows(
     for row in schedules:
         result[int(row["ID_CREDITO"])]["schedule"].append(row)
     for row in schedule_adjustments:
-        result[int(row["ID_CREDITO"])]["schedule_adjustment_summary"] = {
-            "adjustment_count": int(row.get("adjustment_count") or 0),
-            "last_adjustment_created_at": row.get("last_adjustment_created_at"),
-        }
+        summary = result[int(row["ID_CREDITO"])]["schedule_adjustment_summary"]
+        summary["adjustments"].append(row)
+        summary["adjustment_count"] += 1
+        summary["last_adjustment_created_at"] = row.get("DT_CREO")
+    for row in archived_adjustment_schedules:
+        summary = result[int(row["ID_CREDITO"])]["schedule_adjustment_summary"]
+        summary["archived_schedules"].setdefault(str(row["ID_REESTRUCTURACION"]), []).append(row)
     for row in movements:
         result[int(row["ID_CREDITO"])]["movements"].append(row)
     for row in charge_details:
@@ -1859,13 +1947,14 @@ def _collateral_product_view(value: dict[str, Any]) -> dict[str, Any]:
 
 def _find_collateral_product(api: FineractApi, contract: LoanContract) -> dict[str, Any] | None:
     expected_name = contract.raw["collateral_contract"]["collateral_product"]["name"]
-    matches = [
-        row for row in _api_list(api.request("GET", "collateral-management"))
-        if row.get("name") == expected_name
-    ]
-    if len(matches) > 1:
+    products = _api_list(api.request("GET", "collateral-management"))
+    matches = [row for row in products if row.get("name") == expected_name]
+    legacy = [row for row in products if row.get("name") == "ARISSTO-COLLATERAL"]
+    if len(matches) > 1 or len(legacy) > 1:
         raise RuntimeError("collateral_product_name_is_not_unique")
-    return matches[0] if matches else None
+    # Treat an existing old-name product as a contract conflict. This prevents
+    # the new name from silently creating a second collateral product.
+    return matches[0] if matches else (legacy[0] if legacy else None)
 
 
 def _resource_id(result: dict[str, Any]) -> int:
@@ -1946,15 +2035,29 @@ def resolve_loan_product_target(
     if not settings.target.pg_url:
         raise RuntimeError("Target PostgreSQL URL is required for loans planning")
     lines = sorted(_clean(row["line_id"]) for row in source_products)
+    product_external_ids = [
+        contract.raw["identity"]["product_external_id"].format(ID_LINEA_CREDITO=line_id)
+        for line_id in lines
+    ]
     product_contract = contract.raw["product_contract"]
     shared_codes = set(product_contract["accounting_gl_codes"].values())
     shared_codes.add(product_contract["target_resources"]["debt_insurance_charge"]["income_or_liability_gl"])
     shared_codes.add(product_contract["target_resources"]["mobile_collection_fund_source_gl"])
     portfolio = product_contract["portfolio_account_policy"]["reviewed_primary_gl_by_line"]
+    long_portfolio = product_contract["portfolio_account_policy"]["reviewed_long_gl_by_line"]
+    short_interest = product_contract["portfolio_account_policy"]["reviewed_short_interest_receivable_gl_by_line"]
+    long_interest = product_contract["portfolio_account_policy"]["reviewed_long_interest_receivable_gl_by_line"]
     for line_id in lines:
         if line_id not in portfolio:
             raise RuntimeError(f"Credit line {line_id} has no reviewed portfolio GL mapping")
         shared_codes.add(portfolio[line_id])
+        if line_id not in long_portfolio:
+            raise RuntimeError(f"Credit line {line_id} has no reviewed long-term portfolio GL mapping")
+        shared_codes.add(long_portfolio[line_id])
+        if line_id not in short_interest or line_id not in long_interest:
+            raise RuntimeError(f"Credit line {line_id} has no reviewed interest receivable GL mapping")
+        shared_codes.add(short_interest[line_id])
+        shared_codes.add(long_interest[line_id])
     loans = loans or []
     source_lifecycles = source_lifecycles or {}
     client_external_ids = sorted(
@@ -1975,16 +2078,23 @@ def resolve_loan_product_target(
     })
     with postgres_connection(settings.target.pg_url) as conn:
         rows = conn.execute(
-            "SELECT id,gl_code,disabled FROM acc_gl_account WHERE gl_code=ANY(%s) ORDER BY gl_code,id",
+            "SELECT id,gl_code,disabled,account_usage FROM acc_gl_account WHERE gl_code=ANY(%s) ORDER BY gl_code,id",
             (sorted(shared_codes),),
         ).fetchall()
-        by_code: dict[str, list[tuple[int, bool]]] = defaultdict(list)
-        for identifier, code, disabled in rows:
-            by_code[str(code)].append((int(identifier), bool(disabled)))
-        invalid = sorted(code for code in shared_codes if len(by_code.get(code, [])) != 1 or by_code[code][0][1])
+        by_code: dict[str, list[tuple[int, bool, int]]] = defaultdict(list)
+        for identifier, code, disabled, account_usage in rows:
+            by_code[str(code)].append((int(identifier), bool(disabled), int(account_usage)))
+        invalid = sorted(code for code in shared_codes if len(by_code.get(code, [])) != 1
+                         or by_code[code][0][1] or by_code[code][0][2] != 1)
         if invalid:
-            raise RuntimeError(f"Loan product GL codes are missing, duplicated, or disabled: {invalid}")
+            raise RuntimeError(f"Loan product GL codes are missing, duplicated, disabled, or not posting details: {invalid}")
         gl_ids = {code: values[0][0] for code, values in by_code.items()}
+        product_loan_count_rows = conn.execute(
+            "SELECT p.external_id,COUNT(l.id) FROM m_product_loan p "
+            "LEFT JOIN m_loan l ON l.product_id=p.id "
+            "WHERE p.external_id=ANY(%s) GROUP BY p.external_id",
+            (product_external_ids,),
+        ).fetchall()
         crosswalk_rows = conn.execute(
             "SELECT source_key,source_hash,contract_hash,loan_product_id,arissto_company_id,arissto_line_id,mapping_status "
             "FROM credesal_loan_product_map WHERE source_system=%s AND source_key=ANY(%s)",
@@ -2153,6 +2263,7 @@ def resolve_loan_product_target(
             "repayment_external_id": str(repayment) if repayment is not None else None,
         }
     return {
+        "product_loan_counts": {str(external_id): int(count) for external_id, count in product_loan_count_rows},
         "resources": {
             "gl_ids": gl_ids,
             "debt_insurance_charge_id": int(matching_charges[0]["id"]),
@@ -2327,6 +2438,77 @@ def _collateral_runtime_contract(
     ):
         quarantines.append(f"collateral_valuation_under_covers_principal:{format(total_value, 'f')}:{format(principal, 'f')}")
     return summaries, runtime, quarantines
+
+
+_ADJUSTMENT_CONTRACT_FIELDS = (
+    "PLAZO_APROBADO", "INTERES_MONTO_APROBADO", "INTERES_MORA_APROBADO",
+    "DIA_PAGO", "FLAT", "ID_TIPO_PLAN_PAGO", "MONTO_CUOTA_APROBADO",
+    "MONTO_CUOTA_NORMAL_APROBADO", "FECHA_OTORGAMIENTO",
+    "FECHA_VENCIMIENTO", "FECHA_REESTRUCTURACION", "TIPO_REESTRUCTURACION",
+)
+
+
+def _adjustment_schedule_signature(
+    rows: list[dict[str, Any]], *, ignore_zero_due_dates: bool = False,
+) -> tuple[tuple[Any, ...], ...]:
+    """Compare archived and current installment economics without source row IDs."""
+    result = []
+    for row in sorted(rows, key=lambda item: (int(item["NO_CUOTA"]), _iso_date(item["FECHA_PAGO"], "FECHA_PAGO"))):
+        amounts = tuple(format(_amount(row.get(field)), "f") for field in (
+            "MONTO_CAPITAL", "MONTO_INTERES", "MONTO_OTROS", "MONTO_APORTACION",
+        ))
+        zero_marker = int(row.get("CUOTA_DIFERIDA") or 0)
+        due_date = _iso_date(row["FECHA_PAGO"], "FECHA_PAGO")
+        if ignore_zero_due_dates and all(_amount(amount) == 0 for amount in amounts) and not zero_marker:
+            due_date = None
+        result.append((int(row["NO_CUOTA"]), due_date, *amounts, zero_marker))
+    return tuple(result)
+
+
+def _repeated_schedule_adjustment_candidates(
+    summary: dict[str, Any], current_schedule: list[dict[str, Any]],
+    current_principal: Decimal,
+) -> list[tuple[datetime, dict[str, Any]]]:
+    """Find earlier adjustment anchors only when later snapshots repeat the plan."""
+    adjustments = sorted(
+        summary.get("adjustments") or [],
+        key=lambda row: (row.get("DT_CREO") or datetime.min, int(row["ID_REESTRUCTURACION"])),
+    )
+    if len(adjustments) < 2:
+        return []
+    archived = summary.get("archived_schedules") or {}
+    latest = adjustments[-1]
+    latest_id = str(latest["ID_REESTRUCTURACION"])
+    latest_rows = archived.get(latest_id) or []
+    if (not isinstance(latest.get("DT_CREO"), datetime) or not latest_rows
+            or _amount(latest.get("MONTO_REESTRUCTURADO")) != current_principal
+            or _adjustment_schedule_signature(latest_rows, ignore_zero_due_dates=True)
+            != _adjustment_schedule_signature(current_schedule, ignore_zero_due_dates=True)):
+        return []
+    latest_signature = _adjustment_schedule_signature(latest_rows)
+    latest_contract = tuple(latest.get(field) for field in _ADJUSTMENT_CONTRACT_FIELDS)
+    candidates = []
+    for index, row in enumerate(adjustments[:-1]):
+        created_at = row.get("DT_CREO")
+        if not isinstance(created_at, datetime) or created_at >= latest["DT_CREO"]:
+            continue
+        tail = adjustments[index:]
+        if any(
+            _amount(item.get("MONTO_REESTRUCTURADO")) != current_principal
+            or tuple(item.get(field) for field in _ADJUSTMENT_CONTRACT_FIELDS) != latest_contract
+            or _adjustment_schedule_signature(
+                archived.get(str(item["ID_REESTRUCTURACION"])) or []
+            ) != latest_signature
+            for item in tail
+        ):
+            continue
+        candidates.append((created_at, {
+            "classification": "repeated-source-schedule-adjustment",
+            "anchor_adjustment_id": int(row["ID_REESTRUCTURACION"]),
+            "latest_adjustment_id": int(latest["ID_REESTRUCTURACION"]),
+            "archived_schedule_hash": _stable_hash(latest_signature),
+        }))
+    return candidates
 
 
 def _build_loan_lifecycle_action(
@@ -2750,6 +2932,17 @@ def _build_loan_lifecycle_action(
         _iso_date(loan["FECHA_OTORGAMIENTO"], "contractual origin")
         if loan.get("FECHA_OTORGAMIENTO") else effective_disbursement_date
     )
+    contractual_maturity_date = (
+        _iso_date(loan["FECHA_VENCIMIENTO"], "contractual maturity")
+        if loan.get("FECHA_VENCIMIENTO") else None
+    )
+    source_maturity_pending = bool(
+        contractual_maturity_date is None
+        and _clean(loan.get("source_state")) == "2"
+        and not events
+    )
+    if contractual_maturity_date is None and not source_maturity_pending:
+        quarantines.append("missing_source_contractual_maturity")
     approval_value = None if application is None else (
         application.get("FECHA_APROBADO") or application.get("FECHA_RESOLUCION")
     )
@@ -2879,6 +3072,7 @@ def _build_loan_lifecycle_action(
     if principal == 0:
         principal = _amount(application_principal)
     native_expected_disbursement_date = contractual_origin_date
+    refinance_quote_date_policy = None
     if native_creation_override.get("expected_disbursement_source") == "effective-financial-disbursement":
         reviewed_link = refinance_incoming[0] if len(refinance_incoming) == 1 else None
         reviewed_signature_matches = (
@@ -2893,13 +3087,97 @@ def _build_loan_lifecycle_action(
         )
         if reviewed_signature_matches:
             # Native refinancing quotes the predecessor at this application date.
-            # The contractual origin remains frozen in the reviewed override.
-            native_expected_disbursement_date = effective_disbursement_date
+            # Keep the successor's contractual start; pass the source payoff
+            # date independently to the guarded refinance quote validation.
+            refinance_quote_date_policy = {
+                "classification": "reviewed-source-refinance-quote-date",
+                "actual_disbursement_date": effective_disbursement_date,
+                "contractual_origin_date": contractual_origin_date,
+                "payoff_movement_id": _clean(reviewed_link.get("payoff_movement_id")),
+                "payoff_amount": format(_amount(reviewed_link["payoff_amount"]), "f"),
+            }
         else:
             quarantines.append("reviewed_refinance_application_date_signature_changed")
+    elif refinance_incoming and contractual_origin_date > effective_disbursement_date:
+        # The application quote must use the actual source refinance day. A
+        # later contractual origin would quote accrued predecessor interest
+        # that was not part of the historical payoff. For a consolidation,
+        # prove every payoff belongs to the same source disbursement and day.
+        disbursement_ids = {
+            _clean(link.get("disbursement_movement_id")) for link in refinance_incoming
+        }
+        disbursement_id = next(iter(disbursement_ids)) if len(disbursement_ids) == 1 else None
+        disbursements = [
+            event for event in events if event.get("role") == "disbursement"
+            and _clean(event.get("source_movement_id")) == disbursement_id
+            and event.get("date") == effective_disbursement_date
+        ]
+        payoff_amounts = [_amount(link.get("payoff_amount")) for link in refinance_incoming]
+        if (
+            disbursement_id and len(disbursements) == 1
+            and all(str(link.get("new_credit_id")) == str(loan_id) for link in refinance_incoming)
+            and all(
+                _iso_date(link["payoff_date"], "refinance payoff") == effective_disbursement_date
+                for link in refinance_incoming
+            )
+            and all(amount > 0 for amount in payoff_amounts)
+            and sum(payoff_amounts, Decimal("0.00")) <= principal
+            and all(
+                int(link.get("later_posted_payment_count") or 0) == 0
+                or (
+                    len(refinance_incoming) > 1
+                    and int(link.get("later_posted_payment_count") or 0) > 0
+                    and int(link.get("predecessor_post_payoff_state") or -1) == 1
+                    and int(link.get("predecessor_current_state") or -1) == 3
+                )
+                for link in refinance_incoming
+            )
+        ):
+            refinance_quote_date_policy = {
+                "classification": "source-proven-refinance-quote-date",
+                "actual_disbursement_date": effective_disbursement_date,
+                "contractual_origin_date": contractual_origin_date,
+                "disbursement_movement_id": disbursement_id,
+            }
+            if len(refinance_incoming) == 1:
+                link = refinance_incoming[0]
+                refinance_quote_date_policy.update({
+                    "payoff_movement_id": _clean(link.get("payoff_movement_id")),
+                    "payoff_amount": format(payoff_amounts[0], "f"),
+                })
+            else:
+                refinance_quote_date_policy.update({
+                    "payoff_movement_ids": [
+                        _clean(link.get("payoff_movement_id")) for link in refinance_incoming
+                    ],
+                    "payoff_amount_total": format(sum(payoff_amounts, Decimal("0.00")), "f"),
+                })
+        else:
+            quarantines.append("refinance_application_quote_date_unproven")
     first_accrual_day_policy = _classify_first_accrual_day(
         loan, schedule, effective_disbursement_date,
     )
+    term_account_contract = None
+    if contractual_maturity_date is not None:
+        term_days = (date.fromisoformat(contractual_maturity_date)
+                     - date.fromisoformat(native_expected_disbursement_date)).days
+        if term_days <= 0:
+            quarantines.append("invalid_source_contractual_term_dates")
+        else:
+            long_term = term_days > 366
+            term_account_contract = {
+                "expected_disbursement_date": native_expected_disbursement_date,
+                "expected_maturity_date": contractual_maturity_date,
+                "term_days": term_days,
+                "classification": "long" if long_term else "short",
+                "maturity_date_policy": "exact",
+                "portfolio_account_id": int(product_payload[
+                    "longTermLoanPortfolioAccountId" if long_term else "loanPortfolioAccountId"
+                ]),
+                "interest_receivable_account_id": int(product_payload[
+                    "longTermInterestReceivableAccountId" if long_term else "receivableInterestAccountId"
+                ]),
+            }
     contractual_anchor_policy = _classify_source_exact_contractual_anchor(
         loan, schedule, schedule_adjustment_summary,
     )
@@ -3460,53 +3738,137 @@ def _build_loan_lifecycle_action(
         bridge_principal = principal - current_schedule_principal
         source_state = _clean(loan.get("source_state"))
         expected_principal = _amount(loan.get("ULTIMO_SALDO"))
-        # These three reviewed regenerated plans have servicing after the plan
-        # was saved. Partition by the source adjustment timestamp so payments
-        # with interest but no principal remain in the historical bridge.
-        reviewed_post_adjustment_signatures = {
-            2357: (Decimal("433.00"), Decimal("175.28"), "2026-09-29", 2),
-            2427: (Decimal("493.00"), Decimal("438.80"), "2026-09-30", 1),
-            2499: (Decimal("172.00"), Decimal("118.69"), "2026-09-29", 2),
-        }
-        reviewed_signature = reviewed_post_adjustment_signatures.get(int(loan["ID_CREDITO"]))
+        # An adjustment can replace the remaining plan before later payments.
+        # Use source adjustment rows and movement creation timestamps rather
+        # than a loan-ID list to prove the historical/ongoing split.
         reviewed_post_adjustment = False
-        adjustment_created_at = schedule_adjustment_summary.get("last_adjustment_created_at")
-        if reviewed_signature == (
-            principal, current_schedule_principal, effective_schedule[0]["due_date"],
-            int(schedule_adjustment_summary.get("adjustment_count") or 0),
-        ) and isinstance(adjustment_created_at, datetime):
+        adjustment_proof = None
+        candidate_adjustments = []
+        adjustments = sorted(
+            schedule_adjustment_summary.get("adjustments") or [],
+            key=lambda row: (row.get("DT_CREO") or datetime.min,
+                             int(row["ID_REESTRUCTURACION"])),
+        )
+        if adjustments:
+            latest = adjustments[-1]
+            latest_at = latest.get("DT_CREO")
+            archived_latest = (schedule_adjustment_summary.get("archived_schedules") or {}).get(
+                str(latest["ID_REESTRUCTURACION"]),
+            ) or []
+            archived_matches = not archived_latest or (
+                _adjustment_schedule_signature(archived_latest, ignore_zero_due_dates=True)
+                == _adjustment_schedule_signature(schedule, ignore_zero_due_dates=True)
+            )
+            if (
+                isinstance(latest_at, datetime)
+                and _amount(latest.get("MONTO_REESTRUCTURADO")) == current_schedule_principal
+                and int(schedule_adjustment_summary.get("adjustment_count") or 0) == len(adjustments)
+                and archived_matches
+            ):
+                candidate_adjustments.append((latest_at, {
+                    "classification": "source-adjustment-remaining-schedule",
+                    "anchor_adjustment_id": int(latest["ID_REESTRUCTURACION"]),
+                    "adjustment_created_at": latest_at.isoformat(),
+                    "current_schedule_hash": _stable_hash(_adjustment_schedule_signature(schedule)),
+                }))
+        candidate_adjustments.extend(
+            _repeated_schedule_adjustment_candidates(
+                schedule_adjustment_summary, schedule, current_schedule_principal,
+            )
+        )
+        # Some source adjustments archive the superseded full-principal plan,
+        # while the live plan starts with only the unpaid principal. The archive
+        # cannot be compared row-for-row to its replacement. Require the latest
+        # adjustment, its dated archive, and the exact payment split below.
+        if adjustments and len(adjustments) == int(schedule_adjustment_summary.get("adjustment_count") or 0):
+            latest = adjustments[-1]
+            latest_at = latest.get("DT_CREO")
+            archived_latest = (schedule_adjustment_summary.get("archived_schedules") or {}).get(
+                str(latest["ID_REESTRUCTURACION"]),
+            ) or []
+            archived_principal = sum(
+                (_amount(row.get("MONTO_CAPITAL")) for row in archived_latest), Decimal("0.00")
+            )
+            archived_signature = _adjustment_schedule_signature(archived_latest)
+            current_signature = _adjustment_schedule_signature(schedule)
+            # A revised-principal archive may differ only in the final due date
+            # and interest. Any changed principal or earlier installment stays
+            # quarantined until its source history is explained.
+            terminal_revision = bool(
+                archived_principal == current_schedule_principal
+                and len(archived_signature) == len(current_signature)
+                and len(current_signature) > 0
+                and archived_signature[:-1] == current_signature[:-1]
+                and archived_signature[-1][0] == current_signature[-1][0]
+                and archived_signature[-1][2] == current_signature[-1][2]
+                and archived_signature[-1][4:] == current_signature[-1][4:]
+            )
+            archive_provenance = (
+                "superseded-full-principal"
+                if archived_principal == principal and archived_principal > current_schedule_principal
+                else "terminal-date-interest-revision" if terminal_revision else None
+            )
+            reported_amount = latest.get("MONTO_REESTRUCTURADO")
+            if (
+                isinstance(latest_at, datetime)
+                and latest_at.date() <= first_due
+                and archived_latest
+                and archive_provenance
+                and not any(created_at == latest_at for created_at, _ in candidate_adjustments)
+                and (reported_amount is None
+                     or _amount(reported_amount) == current_schedule_principal)
+            ):
+                candidate_adjustments.append((latest_at, {
+                    "classification": "source-adjustment-temporal-remaining-schedule",
+                    "anchor_adjustment_id": int(latest["ID_REESTRUCTURACION"]),
+                    "adjustment_created_at": latest_at.isoformat(),
+                    "archive_provenance": archive_provenance,
+                    "archived_schedule_hash": _stable_hash(archived_signature),
+                    "current_schedule_hash": _stable_hash(current_signature),
+                }))
+        distinct_candidates = {}
+        for created_at, proof in candidate_adjustments:
+            if created_at not in distinct_candidates or proof is not None:
+                distinct_candidates[created_at] = proof
+        candidate_adjustments = list(distinct_candidates.items())
+        if candidate_adjustments:
             movement_created_at = {
                 _clean(row.get("ID_MOVIMIENTO_CARTERA")): row.get("DT_CREO")
                 for row in movements
             }
-            historical_principal = Decimal("0.00")
-            historical_interest = Decimal("0.00")
-            historical_events = []
-            later_events = []
-            missing_created_at = False
-            for event in events:
-                if event["role"] not in {
-                    "repayment", "adjusted-repayment", "mobile-collection-repayment",
-                    "repayment-reversal", "source-exact-component-reallocation",
-                }:
+            matches = []
+            for adjustment_created_at, proof in candidate_adjustments:
+                if not isinstance(adjustment_created_at, datetime):
                     continue
-                created_at = movement_created_at.get(_clean(event.get("source_movement_id")))
-                if not isinstance(created_at, datetime):
-                    missing_created_at = True
-                    break
-                if created_at <= adjustment_created_at:
-                    historical_events.append(event)
-                    sign = -1 if event["role"] == "repayment-reversal" else 1
-                    historical_principal += sign * _amount(event.get("allocation", {}).get("principal"))
-                    historical_interest += sign * _amount(event.get("allocation", {}).get("interest"))
-                else:
-                    later_events.append(event)
-            if not missing_created_at:
+                historical_principal = Decimal("0.00")
+                historical_interest = Decimal("0.00")
+                historical_events = []
+                later_events = []
+                missing_created_at = False
+                for event in events:
+                    if event["role"] not in {
+                        "repayment", "adjusted-repayment", "mobile-collection-repayment",
+                        "repayment-reversal", "source-exact-component-reallocation",
+                    }:
+                        continue
+                    created_at = movement_created_at.get(_clean(event.get("source_movement_id")))
+                    if not isinstance(created_at, datetime):
+                        missing_created_at = True
+                        break
+                    if created_at <= adjustment_created_at:
+                        historical_events.append(event)
+                        sign = -1 if event["role"] == "repayment-reversal" else 1
+                        historical_principal += sign * _amount(event.get("allocation", {}).get("principal"))
+                        historical_interest += sign * _amount(event.get("allocation", {}).get("interest"))
+                    else:
+                        later_events.append(event)
+                if missing_created_at:
+                    continue
                 last_historical_date = max(
                     (event["date"] for event in historical_events
                      if event["role"] != "disbursement"), default=None,
                 )
-                reviewed_post_adjustment = (
+                matches_signature = (
                     bool(later_events) and historical_principal == bridge_principal
                     and last_historical_date is not None
                     and last_historical_date <= bridge_due.isoformat()
@@ -3517,8 +3879,14 @@ def _build_loan_lifecycle_action(
                     and (source_state == "1" or
                          (source_state == "3" and principal_paid == principal))
                 )
-                if reviewed_post_adjustment:
-                    interest_paid = historical_interest
+                if matches_signature:
+                    matches.append((historical_interest, proof))
+            # Interest-only activity can make two anchors produce the same
+            # principal split. Do not guess which historical interest belongs
+            # in the bridge when that evidence is ambiguous.
+            if len(matches) == 1:
+                reviewed_post_adjustment = True
+                interest_paid, adjustment_proof = matches[0]
         complete_history = (
             source_state == "1" and principal_paid == bridge_principal
             and expected_principal == current_schedule_principal
@@ -3543,6 +3911,8 @@ def _build_loan_lifecycle_action(
                 "bridge_principal": format(bridge_principal, "f"),
                 "bridge_interest": format(interest_paid, "f"),
             }
+            if adjustment_proof is not None:
+                remaining_schedule_policy["adjustment_proof"] = adjustment_proof
         elif int(schedule_adjustment_summary.get("adjustment_count") or 0) > 0:
             quarantines.append("source_exact_remaining_schedule_signature_mismatch")
     unordered_source_schedule = any(
@@ -3551,12 +3921,25 @@ def _build_loan_lifecycle_action(
     )
     if unordered_source_schedule and source_schedule_provenance is None:
         source_schedule_provenance = normalized_schedule
+    if term_account_contract and effective_schedule:
+        final_source_due = effective_schedule[-1]["due_date"]
+        if final_source_due != contractual_maturity_date:
+            scheduled_days = (date.fromisoformat(final_source_due)
+                              - date.fromisoformat(native_expected_disbursement_date)).days
+            if scheduled_days <= 0 or (scheduled_days > 366) != (term_account_contract["term_days"] > 366):
+                quarantines.append("source_schedule_maturity_crosses_account_boundary")
+            else:
+                term_account_contract["maturity_date_policy"] = "class-equivalent-source-schedule-variance"
+                term_account_contract["source_schedule_maturity_date"] = final_source_due
     reviewed_native_schedule = (
         reviewed_schedule_exception or reviewed_reference_only_schedule
         or unordered_source_schedule
     )
     lifecycle = {
         "application_payload": application_payload,
+        "contractual_maturity_date": contractual_maturity_date,
+        "term_account_contract": term_account_contract,
+        "source_maturity_pending": source_maturity_pending,
         "guarantors": guarantors,
         "collaterals": collaterals,
         "staff_assignment": staff_assignment,
@@ -3565,6 +3948,7 @@ def _build_loan_lifecycle_action(
         "contractual_schedule_anchor_policy": contractual_anchor_policy,
         "active_manual_schedule_import_policy": active_manual_import_policy,
         "source_exact_remaining_schedule_policy": remaining_schedule_policy,
+        "refinance_quote_date_policy": refinance_quote_date_policy,
         "native_creation_override": native_creation_override or None,
         "approval_payload": {
             "approvedOnDate": approved_date,
@@ -3632,6 +4016,9 @@ def _build_loan_lifecycle_action(
             "pair_count", "repayment_pair_count", "disbursement_pair_count", "issues"
         )},
     }
+    if refinance_quote_date_policy is not None and application_payload.get("isTopup"):
+        application_payload["sourceExactRefinancingQuoteDate"] = effective_disbursement_date
+        lifecycle["approval_payload"]["sourceExactRefinancingQuoteDate"] = effective_disbursement_date
     if (
         lifecycle["schedule_reconciliation_policy"] == "exact-source-schedule"
         and lifecycle["schedule_writer"] == "fineract-variable-installments-v1"
@@ -3812,6 +4199,7 @@ def compose_loan_plan(
         existing = target["products"].get(line_id)
         crosswalk = target["crosswalks"].get(line_id)
         mismatch: list[dict[str, Any]] = []
+        missing_term_roles: set[str] = set()
         reason: str | None = None
         if existing is None:
             action = "create-product"
@@ -3821,6 +4209,16 @@ def compose_loan_plan(
             mismatch = loan_product_conflicts(payload, existing)
             if mismatch:
                 fields = {row["field"] for row in mismatch}
+                missing_term_roles = {
+                    row["field"] for row in mismatch
+                    if row["field"] in TERM_ACCOUNT_MAPPING_PARAMETERS and row["actual"] == 0
+                }
+                term_reference_backfill = bool(missing_term_roles) and all(
+                    row["field"] not in TERM_ACCOUNT_MAPPING_PARAMETERS or row["field"] in missing_term_roles
+                    for row in mismatch
+                )
+                product_loan_count = target.get("product_loan_counts", {}).get(payload["externalId"])
+                term_backfill_safe = product_loan_count == 0
                 migration_enablement_fields = {
                     "canUseForTopup", "allowVariableInstallments", "canDefineInstallmentAmount",
                     "minimumGap", "maximumGap",
@@ -3840,11 +4238,16 @@ def compose_loan_plan(
                     row["field"] != "name" or row["actual"] == legacy_name
                     for row in mismatch
                 )
-                if (fields.issubset(migration_enablement_fields | {"numberingCode", "name"})
-                        and numbering_code_backfill and legacy_name_rename):
+                if (fields.issubset(migration_enablement_fields | {"numberingCode", "name"} | missing_term_roles)
+                        and numbering_code_backfill and legacy_name_rename
+                        and (not term_reference_backfill or term_backfill_safe)):
                     action, reason = "update-product", None
                 else:
-                    action, reason = "conflict-product", "external_id_product_contract_differs"
+                    action, reason = "conflict-product", (
+                        "term_account_mapping_requires_existing_loan_repair"
+                        if term_reference_backfill and not term_backfill_safe
+                        else "external_id_product_contract_differs"
+                    )
             elif crosswalk is not None and int(crosswalk["loan_product_id"]) != int(existing["id"]):
                 action, reason = "conflict-product", "crosswalk_product_identity_differs"
             elif crosswalk is not None and (
@@ -3872,6 +4275,7 @@ def compose_loan_plan(
             "target_id": int(existing["id"]) if existing else None,
             "payload": payload,
             "payload_hash": _stable_hash(loan_product_contract_view(payload, planned=True)),
+            "term_mapping_backfill": sorted(missing_term_roles) if action == "update-product" else [],
             "crosswalk": {
                 "exists": crosswalk is not None,
                 "repair_after_product_resolution": repair_crosswalk or action == "create-product",
@@ -3982,7 +4386,7 @@ def compose_loan_plan(
 def build_loan_plan(
     settings: Settings, state: State, contract: LoanContract, source_keys: list[str] | None = None,
     proof_namespace: str | None = None, migration_cutover_date: str | None = None,
-    *, skip_unchanged: bool = False,
+    *, skip_unchanged: bool = False, retain_seeded: bool = False,
 ) -> tuple[str, dict[str, Any]]:
     if proof_namespace:
         if settings.target.name != "local":
@@ -4002,10 +4406,65 @@ def build_loan_plan(
         settings, contract, loans, source_products, target, blockers, source_keys, source_lifecycles,
         proof_namespace, migration_cutover_date,
     )
+    client_keys = {
+        _clean(row.get("client_source_key")) for row in loans
+        if _clean(row.get("client_source_key"))
+    }
+    document["client_office_transfers"] = attach_pretransfer_loan_balances(
+        settings, plan_client_office_transfers(
+            settings, target.get("clients", {}), client_keys, require_all=not bool(source_keys),
+        ),
+    )
+    transfer_clients = {event["client_external_id"] for event in document.get("client_office_transfers", [])}
+    transfer_counts = Counter(event["client_external_id"] for event in document["client_office_transfers"])
+    if document["client_office_transfers"] and source_keys:
+        document["readiness_blockers"].append("scoped_loan_plan_cannot_replay_client_office_transfers")
+    if any(count != 1 for count in transfer_counts.values()):
+        document["readiness_blockers"].append("multiple_client_office_transfers_need_review")
+    for action in document["actions"]:
+        if action.get("entity_type") != "loan" or action.get("client_external_id") not in transfer_clients:
+            continue
+        if action["action"] == "quarantine-loan":
+            document["readiness_blockers"].append("transfer_client_has_quarantined_loan")
+    document["readiness_blockers"].extend(
+        target_client_office_transfer_blockers(settings, document["client_office_transfers"])
+    )
+    document["readiness_blockers"] = sorted(set(document["readiness_blockers"]))
+    if document["readiness_blockers"]:
+        document["applicable"] = False
     if skip_unchanged:
         _freeze_full_resync_schedule_guards(document, target)
         _mark_unchanged_mapped_loans(document, state, settings.target.fingerprint)
         _freeze_full_resync_insurance_guards(document, contract)
+    if retain_seeded:
+        if skip_unchanged:
+            raise ValueError("Carry-forward retention cannot use full re-sync skipping")
+        previous_boundary = state.cycle_metadata().get("carry_forward_old_fineract_starts")
+        if not previous_boundary or previous_boundary >= str(migration_cutover_date):
+            raise ValueError("Carry-forward cycle has no valid previous accounting boundary")
+        previous_document = compose_loan_plan(
+            settings, contract, loans, source_products, target, blockers,
+            source_keys, source_lifecycles, proof_namespace, previous_boundary,
+        )
+        _mark_retained_seeded_loans(
+            document, previous_document, state, settings.target.fingerprint,
+        )
+    transfer_clients = {
+        event["client_external_id"] for event in document["client_office_transfers"]
+    }
+    transfer_actions = [
+        action for action in document["actions"]
+        if action.get("entity_type") == "loan"
+        and action.get("client_external_id") in transfer_clients
+    ]
+    zero_write = {"unchanged-loan", "retained-loan"}
+    if any(action["action"] in zero_write for action in transfer_actions) and not all(
+        action["action"] in zero_write for action in transfer_actions
+    ):
+        document["readiness_blockers"] = sorted(set(
+            document["readiness_blockers"] + ["mixed_retained_and_replayed_transfer_cohort"]
+        ))
+        document["applicable"] = False
     document["schema_signature"] = inspections[0]["schema_signature"]
     document["target_schema_signature"] = inspections[0]["target_schema_signature"]
     plan_id = state.save_plan(
@@ -4051,6 +4510,84 @@ def _mark_unchanged_mapped_loans(
     document["counts"] = dict(Counter(action["action"] for action in document["actions"]))
 
 
+def _mark_retained_seeded_loans(
+    document: dict[str, Any], previous_document: dict[str, Any],
+    state: State, target_fingerprint: str,
+) -> None:
+    """Bind zero-write actions to the separately proven new-cycle seed."""
+    metadata = state.cycle_metadata()
+    if not all(metadata.get(key) for key in (
+        "carry_forward_mapping_hash", "carry_forward_retained_proof_hash",
+        "carry_forward_stage_dump_sha256", "carry_forward_classification_hash",
+    )):
+        raise ValueError("Carry-forward cycle has no imported retention proof")
+    if (metadata["carry_forward_fineract_starts"] != document["migration_cutover_date"]
+            or metadata["baseline_ref"] != metadata["carry_forward_stage_dump_sha256"]):
+        raise ValueError("Carry-forward loan plan boundary or seed differs")
+    mappings = {
+        row["source_key"]: dict(row) for row in state.conn.execute(
+            "SELECT source_key,target_id,source_hash FROM mappings "
+            "WHERE target_fingerprint=? AND block='loans' AND source_key LIKE 'loan:%'",
+            (target_fingerprint,),
+        )
+    }
+    if not mappings:
+        raise ValueError("Carry-forward cycle has no retained loan mappings")
+    product_mappings = {
+        row["source_key"]: dict(row) for row in state.conn.execute(
+            "SELECT source_key,target_id,source_hash FROM mappings "
+            "WHERE target_fingerprint=? AND block='loans' AND source_key LIKE 'product:%'",
+            (target_fingerprint,),
+        )
+    }
+    product_actions = {
+        action["source_key"]: action for action in document["actions"]
+        if action.get("entity_type") == "product"
+    }
+    if not product_mappings or not set(product_mappings) <= set(product_actions):
+        raise ValueError("Retained loan products are missing from the fresh plan")
+    for key, mapping in product_mappings.items():
+        action = product_actions[key]
+        if (action["action"] != "unchanged-product"
+                or action["source_hash"] != mapping["source_hash"]
+                or str(action["target_id"]) != str(mapping["target_id"])):
+            raise ValueError(f"Retained loan product changed after seed proof: {key}")
+    actions = {
+        action["source_key"]: action for action in document["actions"]
+        if action.get("entity_type") == "loan"
+    }
+    if not set(mappings) <= set(actions):
+        raise ValueError("A retained loan disappeared from the fresh source plan")
+    previous_actions = {
+        action["source_key"]: action for action in previous_document["actions"]
+        if action.get("entity_type") == "loan"
+    }
+    for key, mapping in mappings.items():
+        action = actions[key]
+        previous_action = previous_actions.get(key)
+        if (action["action"] != "recover-loan"
+                or previous_action is None
+                or previous_action["source_hash"] != mapping["source_hash"]
+                or str(action["target_id"]) != str(mapping["target_id"])):
+            raise ValueError(f"Retained loan changed after seed proof: {key}")
+        action["action"] = "retained-loan"
+        action["retained_proof_hash"] = metadata["carry_forward_retained_proof_hash"]
+        action["seed_source_hash"] = mapping["source_hash"]
+    for component in _refinance_components(list(actions.values())):
+        retained = [action["action"] == "retained-loan" for action in component]
+        if any(retained) and not all(retained):
+            raise ValueError("Carry-forward refinance component mixes retained and replayed loans")
+    document["carry_forward_retention"] = {
+        "mapping_hash": metadata["carry_forward_mapping_hash"],
+        "classification_hash": metadata["carry_forward_classification_hash"],
+        "retained_proof_hash": metadata["carry_forward_retained_proof_hash"],
+        "stage_dump_sha256": metadata["carry_forward_stage_dump_sha256"],
+        "loan_count": len(mappings),
+        "product_count": len(product_mappings),
+    }
+    document["counts"] = dict(Counter(action["action"] for action in document["actions"]))
+
+
 def _freeze_full_resync_insurance_guards(document: dict[str, Any], contract: LoanContract) -> None:
     """Freeze the source-owned cutover charge identity for each changed loan."""
     for action in document["actions"]:
@@ -4080,6 +4617,26 @@ def _loan_apply_guard(
     if settings.target.name == "prod" and production_confirmation != settings.target.fingerprint:
         raise RuntimeError(f"Production apply requires --confirm-production {settings.target.fingerprint}")
     document = plan["document"]
+    if "client_office_transfers" not in document:
+        raise RuntimeError("loan_plan_predates_client_office_transfer_chronology")
+    retention = document.get("carry_forward_retention")
+    if retention:
+        metadata = state.cycle_metadata()
+        if (retention.get("mapping_hash") != metadata.get("carry_forward_mapping_hash")
+                or retention.get("classification_hash") != metadata.get("carry_forward_classification_hash")
+                or retention.get("retained_proof_hash") != metadata.get("carry_forward_retained_proof_hash")
+                or retention.get("stage_dump_sha256") != metadata.get("carry_forward_stage_dump_sha256")):
+            raise RuntimeError("Carry-forward loan proof changed after planning")
+        retained_actions = [action for action in document["actions"]
+                            if action.get("action") == "retained-loan"]
+        if len(retained_actions) != retention["loan_count"]:
+            raise RuntimeError("Carry-forward retained loan count changed")
+        for action in retained_actions:
+            mapping = state.mapping(settings.target.fingerprint, BLOCK, action["source_key"])
+            if (mapping is None or mapping["source_hash"] != action.get("seed_source_hash")
+                    or str(mapping["target_id"]) != str(action["target_id"])
+                    or action.get("retained_proof_hash") != retention["retained_proof_hash"]):
+                raise RuntimeError(f"Carry-forward loan mapping changed: {action['source_key']}")
     if not document.get("applicable"):
         raise RuntimeError("Loans plan is not applicable")
     if not document.get("product_writer_registered"):
@@ -4173,8 +4730,31 @@ def _loan_apply_guard(
                 "header": current,
                 "lifecycle": _loan_source_hash_view(rebuilt_lifecycle["lifecycle"]),
             }) if rebuilt_lifecycle else None
-            if current is None or current_hash != action["source_hash"]:
+            if current is None or (
+                current_hash != action["source_hash"]
+                and not _post_boundary_only_loan_drift(
+                    action["lifecycle"], rebuilt_lifecycle["lifecycle"],
+                    document.get("migration_cutover_date"),
+                )
+            ):
                 raise RuntimeError(f"Loan source changed after planning: {action['source_key']}")
+            if action.get("action") == "retained-loan":
+                old_cutover = state.cycle_metadata().get("carry_forward_old_fineract_starts")
+                old_lifecycle = _build_loan_lifecycle_action(
+                    contract, current, source_lifecycles.get(int(action["entity_source_key"])), target,
+                    build_loan_product_payload(contract, source_product, target["resources"]),
+                    old_cutover,
+                ) if old_cutover and source_product else None
+                old_hash = _stable_hash({
+                    "header": current,
+                    "lifecycle": _loan_source_hash_view(old_lifecycle["lifecycle"]),
+                }) if old_lifecycle else None
+                if old_hash != action.get("seed_source_hash"):
+                    raise RuntimeError(f"Retained loan source proof changed: {action['source_key']}")
+                existing = target.get("loans", {}).get(action["external_id"])
+                if (existing is None or str(existing["id"]) != str(action["target_id"])
+                        or int(existing.get("status") or -1) not in {600, 601, 602, 700}):
+                    raise RuntimeError(f"Retained loan target changed after planning: {action['source_key']}")
             planned_refinance = (action.get("lifecycle") or {}).get("refinance") or {}
             rebuilt_refinance = ((rebuilt_lifecycle or {}).get("lifecycle") or {}).get("refinance") or {}
             if planned_refinance.get("historical_insert_repair"):
@@ -4278,9 +4858,19 @@ def loan_retry_keys(actions: list[dict[str, Any]], run_items: list[dict[str, Any
         action["source_key"] for action in actions
         if action["source_key"] not in journal or journal[action["source_key"]] == "failed"
     }
-    # A blocked action was never attempted. Retry it only when the failed or
-    # unjournaled dependency that blocked it is part of this retry, rather than
-    # re-evaluating every independent quarantine/dependency chain in the plan.
+    # Native office transfers replay as one cohort. A failure marks every other
+    # cohort loan blocked even when there is no direct refinance dependency, so
+    # all of those blocked actions must be included in the next attempt.
+    if any(item["status"] == "failed" and str(item.get("error_code") or "").startswith(
+        "client_office_transfer_"
+    ) for item in run_items):
+        selected.update(
+            item["source_key"] for item in run_items
+            if item["status"] == "blocked"
+            and item.get("error_code") == "client_office_transfer_cohort_failed"
+        )
+    # Other blocked actions are retried only when their failed or unjournaled
+    # dependency is selected, avoiding unrelated quarantine chains.
     changed = True
     while changed:
         changed = False
@@ -4315,6 +4905,10 @@ def _resolve_or_create_loan_product(
         if existing is None:
             raise RuntimeError("created_loan_product_not_recoverable_by_external_id")
     elif action["action"] == "update-product":
+        current_mapping_view = loan_product_contract_view(existing, planned=False)
+        for parameter in action.get("term_mapping_backfill") or []:
+            if current_mapping_view[parameter] not in {0, int(action["payload"][parameter])}:
+                raise RuntimeError("loan_product_term_mapping_changed_after_plan")
         capability_payload = {
             key: action["payload"][key]
             for key in (
@@ -4324,6 +4918,9 @@ def _resolve_or_create_loan_product(
             )
             if key in action["payload"]
         }
+        for parameter in action.get("term_mapping_backfill") or []:
+            if current_mapping_view[parameter] == 0:
+                capability_payload[parameter] = action["payload"][parameter]
         capability_payload["locale"] = action["payload"].get("locale", "en")
         api.request(
             "PUT", f"loanproducts/{int(existing['id'])}", capability_payload,
@@ -4338,6 +4935,7 @@ def _resolve_or_create_loan_product(
     conflicts = loan_product_conflicts(action["payload"], existing)
     if conflicts:
         raise RuntimeError("loan_product_contract_changed_after_plan")
+    ensure_standard_loan_product_bucket(api, int(existing["id"]), action["external_id"])
     return int(existing["id"]), recovered
 
 
@@ -5018,12 +5616,63 @@ def _ensure_refinance_prepayment_ready(
     return predecessor
 
 
+def _restore_refinance_predecessor_term_selection(
+    api: FineractApi, predecessor: dict[str, Any], frozen_maturity: str,
+) -> dict[str, Any]:
+    loan_id = int(predecessor["id"])
+    current_maturity = _iso_date(
+        (predecessor.get("timeline") or {}).get("expectedMaturityDate"),
+        "predecessor expectedMaturityDate",
+    )
+    if current_maturity != frozen_maturity:
+        api.request(
+            "POST", f"loans/{loan_id}/source-exact-expected-maturity", {},
+            query={"date": frozen_maturity},
+        )
+        predecessor = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
+    return _ensure_loan_term_account_selection(api, predecessor)
+
+
+def _prepare_refinance_predecessor(
+    api: FineractApi, predecessor: dict[str, Any], refinance: dict[str, Any],
+    attempt_key: str | None, *, full_close: bool, restore_selection: bool = True,
+) -> dict[str, Any]:
+    """Repair provisional term metadata around historical settlement mutations."""
+    loan_id = int(predecessor["id"])
+    selected = predecessor.get("portfolioAccountGlId") is not None
+    frozen_maturity = None
+    if selected:
+        frozen_maturity = _iso_date(
+            (predecessor.get("timeline") or {}).get("expectedMaturityDate"),
+            "predecessor expectedMaturityDate",
+        )
+        # Charges and a component bridge can recalculate expected dates. The
+        # guarded API refuses to clear a selection used by native journals.
+        api.request("POST", f"loans/{loan_id}/source-exact-term-portfolio-account/reset", {})
+        predecessor = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
+    if full_close:
+        predecessor = _ensure_refinance_prepayment_ready(api, predecessor, refinance, attempt_key)
+    else:
+        predecessor = _ensure_refinance_settlement_charges(api, predecessor, refinance, attempt_key)
+    if selected and restore_selection:
+        predecessor = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
+        predecessor = _restore_refinance_predecessor_term_selection(
+            api, predecessor, frozen_maturity,
+        )
+    return predecessor
+
+
 def _target_transaction_is_reversed(transaction: dict[str, Any]) -> bool:
     return bool(
         transaction.get("manuallyReversed")
         or transaction.get("reversed")
         or transaction.get("reversedOnDate")
     )
+
+
+def _target_reversal_date_matches(transaction: dict[str, Any], event: dict[str, Any]) -> bool:
+    value = transaction.get("reversedOnDate")
+    return value is not None and _iso_date(value, "loan reversal") == event["date"]
 
 
 def _verify_repayment_allocation(transaction: dict[str, Any], event: dict[str, Any]) -> None:
@@ -5056,10 +5705,19 @@ def _loan_schedule_differences(
     # identity, amount, paid-by allocation, and accounting are reconciled
     # independently, so including that extension here creates a false
     # contractual schedule-count mismatch.
+    source_zero_installments = {
+        (int(row["number"]), row["due_date"])
+        for row in source_schedule
+        if not _amount(row.get("principal")) and not _amount(row.get("interest"))
+    }
     target_periods = [
         period for period in repayment_periods
         if _amount(period.get("principalOriginalDue", period.get("principalDue")))
         or _amount(period.get("interestOriginalDue", period.get("interestDue")))
+        or (
+            int(period.get("period") or 0),
+            _iso_date(period.get("dueDate"), "target schedule due date"),
+        ) in source_zero_installments
     ]
     if source_schedule and not repayment_schedule:
         differences.append({"kind": "schedule_missing"})
@@ -5445,10 +6103,109 @@ def _validate_existing_loan(
         conflicts.append("principal")
     if check_expected_date:
         target_expected = (loan.get("timeline") or {}).get("expectedDisbursementDate")
-        if target_expected is None or _iso_date(target_expected, "target expected disbursement") != payload["expectedDisbursementDate"]:
+        actual_expected = (
+            _iso_date(target_expected, "target expected disbursement")
+            if target_expected is not None else None
+        )
+        if actual_expected != payload["expectedDisbursementDate"]:
             conflicts.append("expected_disbursement_date")
     if conflicts:
         raise RuntimeError(f"existing_loan_contract_conflict:{','.join(conflicts)}")
+
+
+def _verify_loan_term_account_contract(
+    loan: dict[str, Any], lifecycle: dict[str, Any], *, selected: bool,
+) -> None:
+    """Prove the contractual dates before posting and the selected GLs after posting."""
+    contract = lifecycle.get("term_account_contract")
+    if not contract:
+        raise RuntimeError("loan_plan_missing_frozen_term_account_contract")
+    timeline = loan.get("timeline") or {}
+    start_value = timeline.get("expectedDisbursementDate")
+    maturity_value = timeline.get("expectedMaturityDate")
+    if start_value is None:
+        raise RuntimeError("loan_term_target_date_missing:expectedDisbursementDate")
+    if maturity_value is None:
+        raise RuntimeError("loan_term_target_date_missing:expectedMaturityDate")
+    target_start = _iso_date(start_value, "expectedDisbursementDate")
+    target_maturity = _iso_date(maturity_value, "expectedMaturityDate")
+    if target_start != contract["expected_disbursement_date"]:
+        raise RuntimeError("loan_term_target_date_mismatch:expectedDisbursementDate")
+    target_days = (date.fromisoformat(target_maturity) - date.fromisoformat(target_start)).days
+    if target_days <= 0:
+        raise RuntimeError("loan_term_target_invalid_maturity")
+    if contract.get("maturity_date_policy", "exact") == "exact":
+        if target_maturity != contract["expected_maturity_date"]:
+            # Fineract may provisionally derive a different maturity before the
+            # reviewed source-exact active schedule is installed. The account
+            # class must still match; schedule reconciliation proves the source
+            # due dates after replay.
+            source_exact_schedule = lifecycle.get("schedule_writer") == "fineract-source-exact-active-schedule-v1"
+            if not source_exact_schedule or (target_days > 366) != (contract["term_days"] > 366):
+                raise RuntimeError("loan_term_target_date_mismatch:expectedMaturityDate")
+    elif contract["maturity_date_policy"] == "class-equivalent-source-schedule-variance":
+        if (target_days > 366) != (contract["term_days"] > 366):
+            raise RuntimeError("loan_term_target_account_classification_mismatch")
+    else:
+        raise RuntimeError("loan_plan_unknown_maturity_date_policy")
+    if not selected:
+        return
+    for target_key, expected_date in (
+        ("portfolioAccountExpectedDisbursementDate", target_start),
+        ("portfolioAccountExpectedMaturityDate", target_maturity),
+    ):
+        value = loan.get(target_key)
+        if value is None or _iso_date(value, target_key) != expected_date:
+            raise RuntimeError(f"loan_term_selection_date_mismatch:{target_key}")
+    for target_key, expected_key in (
+        ("portfolioAccountGlId", "portfolio_account_id"),
+        ("portfolioInterestReceivableGlId", "interest_receivable_account_id"),
+    ):
+        value = loan.get(target_key)
+        if value is None or int(value) != int(contract[expected_key]):
+            raise RuntimeError(f"loan_term_selection_mismatch:{target_key}")
+    if loan.get("portfolioAccountTermDays") is None or int(loan["portfolioAccountTermDays"]) != target_days:
+        raise RuntimeError("loan_term_selection_mismatch:portfolioAccountTermDays")
+    if loan.get("portfolioAccountSelectionReason") != "EXPECTED_DATES_366_DAY_RULE":
+        raise RuntimeError("loan_term_selection_reason_mismatch")
+
+
+def _align_loan_expected_maturity(
+    api: FineractApi, loan: dict[str, Any], lifecycle: dict[str, Any],
+) -> dict[str, Any]:
+    """Align reviewed reference-only loans to the frozen source contract."""
+    contract = lifecycle.get("term_account_contract")
+    if (not contract or lifecycle.get("schedule_writer") == "fineract-source-exact-active-schedule-v1"
+            or contract.get("maturity_date_policy", "exact") != "exact"):
+        return loan
+    timeline = loan.get("timeline") or {}
+    start = _iso_date(timeline.get("expectedDisbursementDate"), "expectedDisbursementDate")
+    maturity = _iso_date(timeline.get("expectedMaturityDate"), "expectedMaturityDate")
+    if maturity == contract["expected_maturity_date"]:
+        return loan
+    if start != contract["expected_disbursement_date"]:
+        raise RuntimeError("loan_term_target_date_mismatch:expectedDisbursementDate")
+    actual_days = (date.fromisoformat(maturity) - date.fromisoformat(start)).days
+    if actual_days <= 0:
+        raise RuntimeError("loan_term_target_invalid_maturity")
+    # The target's provisional term may cross 366 days. The guarded API permits
+    # correction only before any native loan journal has used that account.
+    loan_id = int(loan["id"])
+    api.request("POST", f"loans/{loan_id}/source-exact-expected-maturity", {},
+                query={"date": contract["expected_maturity_date"]})
+    return api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
+
+
+def _ensure_loan_term_account_selection(api: FineractApi, loan: dict[str, Any]) -> dict[str, Any]:
+    """Recover a source-exact loan created before its term GL selection persisted."""
+    if all(loan.get(key) is not None for key in (
+        "portfolioAccountGlId", "portfolioInterestReceivableGlId",
+        "portfolioAccountExpectedDisbursementDate", "portfolioAccountExpectedMaturityDate",
+    )):
+        return loan
+    loan_id = int(loan["id"])
+    api.request("POST", f"loans/{loan_id}/source-exact-term-portfolio-account", {})
+    return api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
 
 
 def _validate_existing_loan_collaterals(
@@ -5682,6 +6439,11 @@ def _apply_loan_lifecycle(
     lifecycle = action.get("lifecycle")
     if not lifecycle:
         raise RuntimeError("loan_plan_missing_frozen_lifecycle")
+    replay_events = lifecycle["events"] if events_override is None else events_override
+    first_fineract_date = lifecycle.get("migration_cutover_date")
+    defer_term_selection = bool(first_fineract_date and replay_events) and all(
+        event.get("date") and event["date"] < first_fineract_date for event in replay_events
+    )
     refinance = lifecycle.get("refinance")
     if refinance and refinance.get("settlement_classifier") != "historical-post-payoff-state-v2":
         raise RuntimeError("loan_plan_predates_historical_refinance_classifier")
@@ -5758,7 +6520,9 @@ def _apply_loan_lifecycle(
             # before preview so replay-created interest and fees cannot reject
             # an otherwise source-valid successor amount.
             for predecessor, settlement in closing_predecessors:
-                _ensure_refinance_prepayment_ready(api, predecessor, settlement, attempt_key)
+                _prepare_refinance_predecessor(
+                    api, predecessor, settlement, attempt_key, full_close=True,
+                )
         if (
             lifecycle.get("schedule_reconciliation_policy") == "exact-source-schedule"
             and lifecycle.get("schedule_writer") == "fineract-variable-installments-v1"
@@ -5799,6 +6563,13 @@ def _apply_loan_lifecycle(
             for event in lifecycle.get("events") or []
         ),
     )
+    if defer_term_selection and existing.get("portfolioAccountGlId") is not None:
+        # A recovered partial loan may still need its source-exact schedule
+        # installed. Clear provisional metadata only when Fineract proves that
+        # no native loan journal has used the selected account.
+        api.request("POST", f"loans/{loan_id}/source-exact-term-portfolio-account/reset", {})
+        existing = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
+    existing = _align_loan_expected_maturity(api, existing, lifecycle)
     existing = _ensure_existing_loan_collateral_attachments(
         api, existing, loan_collaterals, action["external_id"], attempt_key,
     )
@@ -5832,6 +6603,13 @@ def _apply_loan_lifecycle(
                 raise
             manual_schedule_needed = True
 
+    # Pending schedule variations may move Fineract's expected maturity. Prove
+    # the persisted result before approval or the first accounting event.
+    if lifecycle.get("source_maturity_pending") and int((existing.get("status") or {}).get("id") or -1) not in {100, 200}:
+        raise RuntimeError("source_maturity_pending_loan_has_accounting")
+    if int((existing.get("status") or {}).get("id") or -1) in {100, 200} and not lifecycle.get("source_maturity_pending"):
+        _verify_loan_term_account_contract(existing, lifecycle, selected=False)
+
     _ensure_source_exact_guarantors(
         api, loan_id, lifecycle.get("guarantors") or [], action["external_id"], attempt_key
     )
@@ -5839,7 +6617,10 @@ def _apply_loan_lifecycle(
     status = int((existing.get("status") or {}).get("id") or -1)
     if status == 100:
         api.request(
-            "POST", f"loans/{loan_id}", lifecycle["approval_payload"],
+            "POST", f"loans/{loan_id}", {
+                **lifecycle["approval_payload"],
+                "expectedDisbursementDate": lifecycle["approval_payload"]["expectedDisbursementDate"],
+            },
             query={"command": "approve"},
             idempotency_key=_attempt_idempotency_key(f"{action['external_id']}:approve", attempt_key),
         )
@@ -5850,11 +6631,19 @@ def _apply_loan_lifecycle(
     }
     refinance = lifecycle.get("refinance")
     loan = existing
+    selection_needs_verification = False
     cutover_settlement_event_ids = _full_resync_cutover_insurance_events(loan, action)
     cutover_charge = lifecycle.get("cutover_insurance_charge")
-    for event in lifecycle["events"] if events_override is None else events_override:
+    for event in replay_events:
         loan = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
         role = event["role"]
+        if (not defer_term_selection
+                and int((loan.get("status") or {}).get("id") or -1) not in {100, 200}
+                and lifecycle.get("schedule_writer") != "fineract-source-exact-active-schedule-v1"):
+            loan = _align_loan_expected_maturity(api, loan, lifecycle)
+            loan = _ensure_loan_term_account_selection(api, loan)
+            _verify_loan_term_account_contract(loan, lifecycle, selected=True)
+            selection_needs_verification = False
         existing_transaction = _transaction_by_external_id(loan, event["external_id"])
         if role == "disbursement" and refinance and event["external_id"] == refinance["disbursement_external_id"]:
             topup_disbursements = [
@@ -5869,7 +6658,19 @@ def _apply_loan_lifecycle(
             if reversed_transaction is not None and _target_transaction_is_reversed(reversed_transaction):
                 continue
         if role == "disbursement":
+            predecessor_maturities: dict[str, str] = {}
+            if refinance and event["external_id"] == refinance["disbursement_external_id"]:
+                for settlement in _refinance_settlements(refinance):
+                    predecessor = _find_loan(api, settlement["predecessor_external_id"])
+                    if predecessor is None:
+                        raise RuntimeError("refinance_predecessor_missing_before_disbursement")
+                    predecessor_maturities[settlement["predecessor_external_id"]] = _iso_date(
+                        (predecessor.get("timeline") or {}).get("expectedMaturityDate"),
+                        "predecessor expectedMaturityDate",
+                    )
             if existing_transaction is None:
+                loan = _align_loan_expected_maturity(api, loan, lifecycle)
+                _verify_loan_term_account_contract(loan, lifecycle, selected=False)
                 status = int((loan.get("status") or {}).get("id") or -1)
                 if status != 200:
                     raise RuntimeError(f"loan_not_approved_before_disbursement:{status}")
@@ -5882,10 +6683,14 @@ def _apply_loan_lifecycle(
                         if predecessor_status != 300:
                             raise RuntimeError(f"refinance_predecessor_not_active:{predecessor_status}")
                         if settlement.get("settlement_type", "FULL_CLOSE") == "FULL_CLOSE":
-                            _ensure_refinance_prepayment_ready(api, predecessor, settlement, attempt_key)
+                            _prepare_refinance_predecessor(
+                                api, predecessor, settlement, attempt_key,
+                                full_close=True, restore_selection=False,
+                            )
                         else:
-                            _ensure_refinance_settlement_charges(
-                                api, predecessor, settlement, attempt_key
+                            _prepare_refinance_predecessor(
+                                api, predecessor, settlement, attempt_key,
+                                full_close=False, restore_selection=False,
                             )
                 disbursement_payload = {
                     "actualDisbursementDate": event["date"], "transactionAmount": event["amount"],
@@ -5938,6 +6743,7 @@ def _apply_loan_lifecycle(
                         disbursement_payload["refinancingSettlements"].append(settlement_payload)
                 api.request("POST", f"loans/{loan_id}", disbursement_payload, query={"command": disbursement_command},
                     idempotency_key=_attempt_idempotency_key(event["external_id"], attempt_key))
+                selection_needs_verification = True
             if refinance and event["external_id"] == refinance["disbursement_external_id"]:
                 for settlement in _refinance_settlements(refinance):
                     predecessor = _find_loan(api, settlement["predecessor_external_id"])
@@ -6001,6 +6807,16 @@ def _apply_loan_lifecycle(
                         raise RuntimeError(
                             f"refinance_predecessor_not_closed_after_refinancing:{predecessor_status}:{residual}"
                         )
+                # The refinancing command and terminal bridge can both adjust the
+                # predecessor's expected dates. Select only after all historical
+                # settlement mutations have finished.
+                for predecessor_external_id, frozen_maturity in predecessor_maturities.items():
+                    predecessor = _find_loan(api, predecessor_external_id)
+                    if predecessor is None:
+                        raise RuntimeError("refinance_predecessor_missing_before_term_restoration")
+                    _restore_refinance_predecessor_term_selection(
+                        api, predecessor, frozen_maturity,
+                    )
             if lifecycle.get("schedule_writer") == "fineract-source-exact-active-schedule-v1":
                 loan = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
                 loan = _ensure_source_exact_active_schedule(api, loan, action, attempt_key)
@@ -6133,6 +6949,14 @@ def _apply_loan_lifecycle(
         else:
             raise RuntimeError(f"unsupported_frozen_loan_event:{role}")
 
+    if not defer_term_selection and (
+            selection_needs_verification or lifecycle.get("schedule_writer") == "fineract-source-exact-active-schedule-v1"):
+        loan = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
+        if int((loan.get("status") or {}).get("id") or -1) not in {100, 200}:
+            loan = _align_loan_expected_maturity(api, loan, lifecycle)
+            loan = _ensure_loan_term_account_selection(api, loan)
+            _verify_loan_term_account_contract(loan, lifecycle, selected=True)
+
     if not finalize:
         return loan_id, recovered
 
@@ -6198,6 +7022,12 @@ def _apply_loan_lifecycle(
         loan = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
         if int((loan.get("status") or {}).get("id") or -1) == 300:
             _ensure_source_exact_accrual_catchup(api, loan, action, attempt_key)
+    if defer_term_selection:
+        loan = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
+        if int((loan.get("status") or {}).get("id") or -1) not in {100, 200}:
+            loan = _align_loan_expected_maturity(api, loan, lifecycle)
+            loan = _ensure_loan_term_account_selection(api, loan)
+            _verify_loan_term_account_contract(loan, lifecycle, selected=True)
     return loan_id, recovered
 
 
@@ -6309,6 +7139,12 @@ class LoanComponentApplyError(RuntimeError):
         super().__init__(f"{source_key}:{type(cause).__name__}:{detail}")
         self.source_key = source_key
         self.cause = cause
+
+
+class ClientOfficeTransferLoanMismatch(RuntimeError):
+    def __init__(self, source_key: str, reason: str = "client_office_transfer_active_loan_set_mismatch"):
+        super().__init__(reason)
+        self.source_key = source_key
 
 
 def _refinance_components(actions: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
@@ -6433,6 +7269,301 @@ def _replay_refinance_component(
     return final_results
 
 
+
+
+def _native_client_office_transfer_snapshot(
+    settings: Settings, event: dict[str, Any],
+) -> tuple[int, str | None, int, int, list[int]]:
+    if not settings.target.pg_url:
+        raise RuntimeError("client_office_transfer_requires_target_postgres")
+    with postgres_connection(settings.target.pg_url) as conn:
+        client = conn.execute(
+            "SELECT office_id,office_joining_date FROM m_client WHERE id=%s",
+            (int(event["client_id"]),),
+        ).fetchone()
+        if client is None:
+            raise RuntimeError("client_office_transfer_target_disappeared")
+        rows = conn.execute(
+            "SELECT transfer_type,COUNT(*) FROM m_client_transfer_details "
+            "WHERE client_id=%s AND from_office_id=%s AND to_office_id=%s "
+            "AND proposed_transfer_date=%s AND transfer_type IN (1,2) "
+            "GROUP BY transfer_type",
+            (int(event["client_id"]), int(event["from_office_id"]),
+             int(event["to_office_id"]), event["effective_date"]),
+        ).fetchall()
+        counts = {int(transfer_type): int(count) for transfer_type, count in rows}
+        active_loan_rows = conn.execute(
+            "SELECT l.id FROM m_loan l WHERE l.client_id=%s "
+            "AND l.loan_status_id IN (300,700) "
+            "AND EXISTS (SELECT 1 FROM m_loan_transaction t WHERE t.loan_id=l.id "
+            "AND t.transaction_type_enum=1 AND t.is_reversed=false) ORDER BY l.id",
+            (int(event["client_id"]),),
+        ).fetchall()
+    joining = client[1].isoformat() if client[1] is not None else None
+    return (int(client[0]), joining, counts.get(1, 0), counts.get(2, 0),
+            [int(row[0]) for row in active_loan_rows])
+
+
+
+def _expected_native_transfer_loan_ids(
+    settings: Settings, event: dict[str, Any], *, verify_pretransfer_balance: bool,
+) -> list[int]:
+    expected = {
+        f"ARISSTO:CRD:{item['source_loan_id']}": item
+        for item in event.get("active_source_loans") or []
+    }
+    with postgres_connection(settings.target.pg_url) as conn:
+        rows = conn.execute(
+            "SELECT external_id,id,loan_status_id,principal_outstanding_derived FROM m_loan "
+            "WHERE client_id=%s AND (external_id=ANY(%s) OR loan_status_id IN (300,700))",
+            (int(event["client_id"]), list(expected)),
+        ).fetchall()
+    by_external = {str(external_id): (int(loan_id), int(status), _amount(balance))
+                   for external_id, loan_id, status, balance in rows}
+    if not set(expected).issubset(by_external):
+        raise RuntimeError("expected_client_office_transfer_loan_missing")
+    if verify_pretransfer_balance:
+        active = {external_id for external_id, (_, status, _) in by_external.items()
+                  if status in {300, 700}}
+        if active != set(expected):
+            different = active ^ set(expected)
+            if len(different) == 1:
+                external_id = next(iter(different))
+                if external_id.startswith("ARISSTO:CRD:"):
+                    source_loan_id = external_id.removeprefix("ARISSTO:CRD:")
+                    if source_loan_id.isdigit():
+                        raise ClientOfficeTransferLoanMismatch(f"loan:{int(source_loan_id)}")
+            raise RuntimeError("client_office_transfer_active_loan_set_mismatch")
+        for external_id, source_loan in expected.items():
+            if "principal_balance" not in source_loan:
+                raise RuntimeError("client_office_transfer_requires_component_snapshot_plan")
+            native_principal = by_external[external_id][2]
+            if abs(native_principal - _amount(source_loan["principal_balance"])) > Decimal("0.01"):
+                raise ClientOfficeTransferLoanMismatch(
+                    f"loan:{int(source_loan['source_loan_id'])}",
+                    "client_office_transfer_pretransfer_principal_mismatch",
+                )
+    return sorted(by_external[key][0] for key in expected)
+
+
+def _verify_native_client_office_transfer_loans(
+    settings: Settings, event: dict[str, Any], active_loan_ids: list[int],
+) -> None:
+    if not active_loan_ids:
+        return
+    with postgres_connection(settings.target.pg_url) as conn:
+        rows = conn.execute(
+            "SELECT t.loan_id,l.external_id,t.transaction_type_enum,t.office_id,t.transaction_date,t.amount,"
+            "t.principal_portion_derived,t.interest_portion_derived,t.fee_charges_portion_derived,t.penalty_charges_portion_derived "
+            "FROM m_loan_transaction t JOIN m_loan l ON l.id=t.loan_id WHERE t.loan_id=ANY(%s) "
+            "AND t.transaction_type_enum IN (12,13) AND t.transaction_date=%s "
+            "AND t.is_reversed=false ORDER BY t.loan_id,t.transaction_type_enum",
+            (active_loan_ids, event["effective_date"]),
+        ).fetchall()
+    by_loan: dict[int, dict[int, tuple[Any, ...]]] = defaultdict(dict)
+    loan_external_ids: dict[int, str] = {}
+    source_balances = {
+        f"ARISSTO:CRD:{item['source_loan_id']}": _amount(item["total_balance"])
+        for item in event.get("active_source_loans") or []
+    }
+    for loan_id, external_id, kind, office_id, txn_date, *amounts in rows:
+        loan_external_ids[int(loan_id)] = str(external_id)
+        if int(kind) in by_loan[int(loan_id)]:
+            raise RuntimeError("duplicate_native_loan_transfer_transaction")
+        by_loan[int(loan_id)][int(kind)] = (int(office_id), txn_date.isoformat(), *amounts)
+    for loan_id in active_loan_ids:
+        pair = by_loan.get(loan_id, {})
+        if set(pair) != {12, 13}:
+            raise RuntimeError("native_loan_transfer_transaction_pair_missing")
+        if pair[12][0:2] != (event["from_office_id"], event["effective_date"]):
+            raise RuntimeError("native_loan_transfer_initiation_office_or_date_mismatch")
+        if pair[13][0:2] != (event["to_office_id"], event["effective_date"]):
+            raise RuntimeError("native_loan_transfer_acceptance_office_or_date_mismatch")
+        if pair[12][2:] != pair[13][2:]:
+            raise RuntimeError("native_loan_transfer_balance_mismatch")
+        source_balance = source_balances.get(loan_external_ids[loan_id])
+        if source_balance is None or abs(_amount(pair[12][2]) - source_balance) > Decimal("0.01"):
+            raise RuntimeError("native_loan_transfer_source_balance_mismatch")
+        source_loan = next(item for item in event["active_source_loans"]
+                           if f"ARISSTO:CRD:{item['source_loan_id']}" == loan_external_ids[loan_id])
+        for actual, key in zip(pair[12][3:], ("principal_balance", "interest_balance", "other_balance", "penalty_balance")):
+            if key not in source_loan or abs(_amount(actual) - _amount(source_loan[key])) > Decimal("0.01"):
+                raise RuntimeError("native_loan_transfer_source_components_mismatch")
+
+
+def _apply_native_client_office_transfer(
+    settings: Settings, api: FineractApi, event: dict[str, Any],
+    gate: _FineractCircuitBreaker, controls: LoanApplyControls,
+) -> None:
+    office_id, joining_date, proposal_count, acceptance_count, _ = (
+        _native_client_office_transfer_snapshot(settings, event)
+    )
+    if office_id == event["to_office_id"] and proposal_count == acceptance_count == 1:
+        if joining_date != event["effective_date"]:
+            raise RuntimeError("client_office_joining_date_mismatch_after_transfer")
+        expected_loan_ids = _expected_native_transfer_loan_ids(
+            settings, event, verify_pretransfer_balance=False,
+        )
+        _verify_native_client_office_transfer_loans(settings, event, expected_loan_ids)
+        return
+    if office_id != event["from_office_id"] or proposal_count or acceptance_count:
+        raise RuntimeError("client_office_transfer_target_state_conflict")
+    expected_loan_ids = _expected_native_transfer_loan_ids(
+        settings, event, verify_pretransfer_balance=True,
+    )
+    with postgres_connection(settings.target.pg_url) as conn:
+        rows = conn.execute(
+            "SELECT external_id,id FROM m_loan WHERE id=ANY(%s)", (expected_loan_ids,)
+        ).fetchall()
+    target_by_external = {str(external_id): int(loan_id) for external_id, loan_id in rows}
+    transfer_balances = []
+    for item in event.get("active_source_loans") or []:
+        external_id = f"ARISSTO:CRD:{item['source_loan_id']}"
+        if external_id not in target_by_external:
+            raise RuntimeError("expected_client_office_transfer_loan_missing")
+        transfer_balances.append({
+            "loanId": target_by_external[external_id],
+            "amount": item["total_balance"],
+            "principal": item["principal_balance"],
+            "interest": item["interest_balance"],
+            "fee": item["other_balance"],
+            "penalty": item["penalty_balance"],
+        })
+    try:
+        _with_fineract_recovery(
+            lambda: api.request(
+                "POST", f"clients/{int(event['client_id'])}", {
+                    "destinationOfficeId": int(event["to_office_id"]),
+                    "transferDate": event["effective_date"],
+                    "dateFormat": "yyyy-MM-dd", "locale": "en",
+                    "loanTransferBalances": transfer_balances,
+                }, query={"command": "sourceExactProposeAndAcceptTransfer"},
+                idempotency_key=(
+                    f"ARISSTO:CLIENT-OFFICE:{event['source_client_id']}:"
+                    f"{event['observed_date']}:{event['to_branch']}"
+                ),
+            ), gate, controls.recovery_attempts,
+        )
+    except Exception:
+        # A lost response can follow a committed, atomic proposal/acceptance.
+        # Recover only if the exact native history and loan pairs are present.
+        current_office, current_joining, proposed, accepted, _ = (
+            _native_client_office_transfer_snapshot(settings, event)
+        )
+        if (current_office != event["to_office_id"]
+                or current_joining != event["effective_date"]
+                or proposed != 1 or accepted != 1):
+            raise
+        _verify_native_client_office_transfer_loans(settings, event, expected_loan_ids)
+        return
+    office_id, joining_date, proposal_count, acceptance_count, _ = (
+        _native_client_office_transfer_snapshot(settings, event)
+    )
+    if (office_id != event["to_office_id"] or joining_date != event["effective_date"]
+            or proposal_count != 1 or acceptance_count != 1):
+        raise RuntimeError("native_client_office_transfer_history_mismatch")
+    _verify_native_client_office_transfer_loans(settings, event, expected_loan_ids)
+
+
+def _replay_client_office_transfer_timeline(
+    loan_actions: list[dict[str, Any]], transfer_events: list[dict[str, Any]],
+    apply_phase: Any, transfer_client: Any,
+) -> tuple[dict[str, tuple[int, bool]], set[str]]:
+    """Pause refinance-connected loans before each client office boundary.
+
+    Every pre-boundary phase excludes transactions on the effective transfer
+    day. The native client transfer then sees only the balance that existed at
+    that boundary; same-day and later loan events resume in the new office.
+    """
+    transfer_clients = {event["client_external_id"] for event in transfer_events}
+    related_components = [
+        component for component in _refinance_components(loan_actions)
+        if any(action.get("client_external_id") in transfer_clients for action in component)
+    ]
+    related_keys = {
+        action["source_key"] for component in related_components for action in component
+    }
+    related_actions = [action for component in related_components for action in component]
+    by_key = {action["source_key"]: action for action in related_actions}
+
+    def pretransfer_phase(action: dict[str, Any], events: list[dict[str, Any]], finalize: bool) -> None:
+        try:
+            apply_phase(action, events, finalize)
+        except Exception as exc:
+            raise LoanComponentApplyError(action["source_key"], exc) from exc
+
+    ordered_events = sorted(
+        transfer_events, key=lambda event: (event["effective_date"], event["client_id"])
+    )
+    for transfer in ordered_events:
+        boundary = transfer["effective_date"]
+        pending_successors = {
+            action["source_key"]: action for action in related_actions
+            if (action.get("lifecycle") or {}).get("refinance")
+            and next(
+                event["date"] for event in action["lifecycle"]["events"]
+                if event["external_id"] == action["lifecycle"]["refinance"]["disbursement_external_id"]
+            ) < boundary
+        }
+        completed_successors: set[str] = set()
+        while pending_successors:
+            ready = []
+            for key, action in pending_successors.items():
+                predecessor_keys = [
+                    loan_action_key(settlement["predecessor_source_key"])
+                    for settlement in _refinance_settlements(action["lifecycle"]["refinance"])
+                ]
+                if any(key in pending_successors for key in predecessor_keys):
+                    continue
+                disbursement_date = next(
+                    event["date"] for event in action["lifecycle"]["events"]
+                    if event["external_id"] == action["lifecycle"]["refinance"]["disbursement_external_id"]
+                )
+                ready.append((disbursement_date, key, action))
+            if not ready:
+                raise RuntimeError("client_office_transfer_refinance_dependency_cycle")
+            _, key, action = min(ready)
+            refinance = action["lifecycle"]["refinance"]
+            for settlement in _refinance_settlements(refinance):
+                predecessor_key = loan_action_key(settlement["predecessor_source_key"])
+                predecessor = by_key.get(predecessor_key)
+                if predecessor is None:
+                    raise RuntimeError("client_office_transfer_missing_refinance_predecessor")
+                prefix = _event_prefix(predecessor, settlement["payoff_external_id"], include_event=False)
+                if any(event["date"] >= boundary for event in prefix):
+                    raise RuntimeError("client_office_transfer_refinance_crosses_boundary")
+                pretransfer_phase(predecessor, prefix, False)
+            prefix = _event_prefix(action, refinance["disbursement_external_id"], include_event=True)
+            if any(event["date"] >= boundary for event in prefix):
+                raise RuntimeError("client_office_transfer_refinance_crosses_boundary")
+            pretransfer_phase(action, prefix, False)
+            completed_successors.add(key)
+            del pending_successors[key]
+        for action in related_actions:
+            lifecycle = action.get("lifecycle") or {}
+            prefix = [event for event in lifecycle.get("events") or [] if event["date"] < boundary]
+            if not any(event["role"] == "disbursement" for event in prefix):
+                continue
+            pretransfer_phase(action, prefix, False)
+            adjustment = lifecycle.get("terminal_adjustment")
+            if (action.get("client_external_id") == transfer["client_external_id"]
+                    and adjustment is not None
+                    and adjustment["date"] < boundary
+                    and len(prefix) == len(lifecycle["events"])
+                    and lifecycle.get("cutover_insurance_charge") is None
+                    and lifecycle.get("recurring_insurance_charge") is None
+                    and not action.get("full_resync_insurance_guard")):
+                # A source-closed loan must be closed in Fineract before the
+                # native transfer checks its active-loan set. Finalization is
+                # safe here only after every frozen event has been replayed.
+                pretransfer_phase(action, prefix, True)
+        transfer_client(transfer)
+    outcomes: dict[str, tuple[int, bool]] = {}
+    for component in related_components:
+        outcomes.update(_replay_refinance_component(component, apply_phase))
+    return outcomes, related_keys
+
+
 def _loan_worker(
     settings: Settings,
     worker_local: threading.local,
@@ -6477,7 +7608,44 @@ def apply_loan_plan(
     plan, current_target = _loan_apply_guard(
         settings, state, contract, plan_id, production_confirmation
     )
-    actions = _selected_loan_actions(plan["document"]["actions"], only_keys)
+    document = plan["document"]
+    actions = _selected_loan_actions(document["actions"], only_keys)
+    transfer_clients = {event["client_external_id"] for event in document.get("client_office_transfers", [])}
+    if only_keys is not None:
+        selected_transfer_clients = {
+            action.get("client_external_id") for action in actions
+            if action.get("entity_type") == "loan" and action.get("client_external_id") in transfer_clients
+        }
+        if selected_transfer_clients:
+            cohort_keys = {
+                action["source_key"] for action in document["actions"]
+                if action.get("entity_type") == "loan"
+                and action.get("client_external_id") in selected_transfer_clients
+            }
+            actions = _selected_loan_actions(document["actions"],
+                                             {action["source_key"] for action in actions} | cohort_keys)
+        transfer_events = [event for event in document.get("client_office_transfers", [])
+                           if event["client_external_id"] in selected_transfer_clients]
+    else:
+        transfer_events = document.get("client_office_transfers", [])
+    cohort_client_keys = {event["client_external_id"] for event in transfer_events}
+    if transfer_events:
+        # Recheck the entire frozen transfer list even when a retry selects
+        # only one client's loan chain. The full-block source guard must see
+        # every planned client, then the selected subset can be replayed.
+        frozen_events = document.get("client_office_transfers", [])
+        actual_events = attach_pretransfer_loan_balances(
+            settings, plan_client_office_transfers(
+                settings, current_target["clients"],
+                {event["client_external_id"] for event in frozen_events},
+                require_all=document.get("scope", {}).get("mode") == "full-block",
+            ),
+        )
+        if actual_events != frozen_events:
+            raise RuntimeError("client_office_transfer_source_or_opening_date_changed_after_plan")
+        transfer_blockers = target_client_office_transfer_blockers(settings, transfer_events)
+        if transfer_blockers:
+            raise RuntimeError(f"client_office_transfer_target_changed_after_plan:{','.join(transfer_blockers)}")
     collateral_product_actions = [action for action in actions if action["entity_type"] == "collateral-product"]
     product_actions = [action for action in actions if action["entity_type"] == "product"]
     loan_actions = [action for action in actions if action["entity_type"] == "loan"]
@@ -6551,7 +7719,106 @@ def apply_loan_plan(
     loan_outcomes: dict[str, bool] = {}
     pending = {action["source_key"]: action for action in loan_actions}
     worker_local = threading.local()
-    for component in _refinance_components(loan_actions):
+    if transfer_events:
+        transfer_action_keys = {
+            action["source_key"] for action in loan_actions
+            if action.get("client_external_id") in cohort_client_keys
+        }
+        zero_write = {"unchanged-loan", "retained-loan"}
+        if transfer_action_keys and all(
+            pending[key]["action"] in zero_write for key in transfer_action_keys
+        ):
+            for event in transfer_events:
+                office_id, joining_date, proposals, acceptances, _ = (
+                    _native_client_office_transfer_snapshot(settings, event)
+                )
+                if (office_id != event["to_office_id"]
+                        or joining_date != event["effective_date"]
+                        or proposals != 1 or acceptances != 1):
+                    raise RuntimeError("retained_client_office_transfer_history_missing")
+                expected_ids = _expected_native_transfer_loan_ids(
+                    settings, event, verify_pretransfer_balance=False,
+                )
+                _verify_native_client_office_transfer_loans(settings, event, expected_ids)
+            for key in sorted(transfer_action_keys):
+                action = pending.pop(key)
+                state.record_item(run_id, key, action["action"], action["source_hash"],
+                                  "unchanged", action.get("target_id"))
+                counts["loans_retained" if action["action"] == "retained-loan"
+                       else "loans_unchanged"] += 1
+                loan_outcomes[key] = True
+            transfer_events = []
+    if transfer_events:
+        related_components = [
+            component for component in _refinance_components(loan_actions)
+            if any(action.get("client_external_id") in cohort_client_keys for action in component)
+        ]
+        related_keys = {
+            action["source_key"] for component in related_components for action in component
+        }
+        missing_products = any(
+            product_outcomes.get(action["product_action_key"]) is None
+            for key, action in pending.items() if key in related_keys
+        )
+        if missing_products:
+            for key in sorted(related_keys):
+                action = pending.pop(key)
+                state.record_item(run_id, key, action["action"], action["source_hash"],
+                                  "blocked", action.get("target_id"), "product_dependency_failed")
+                counts["loans_blocked"] += 1
+                loan_outcomes[key] = False
+        else:
+            def apply_transfer_phase(
+                action: dict[str, Any], events: list[dict[str, Any]], finalize: bool,
+            ) -> tuple[int, bool]:
+                return _loan_worker(
+                    settings, worker_local, gate, controls, action,
+                    int(product_outcomes[action["product_action_key"]]),
+                    collateral_product_id, run_id,
+                    events_override=events, finalize=finalize,
+                )
+
+            try:
+                cohort_results, completed_keys = _replay_client_office_transfer_timeline(
+                    loan_actions, transfer_events, apply_transfer_phase,
+                    lambda event: _apply_native_client_office_transfer(
+                        settings, api, event, gate, controls,
+                    ),
+                )
+            except Exception as exc:
+                failed_key = (
+                    exc.source_key
+                    if isinstance(exc, (LoanComponentApplyError, ClientOfficeTransferLoanMismatch))
+                    and exc.source_key in related_keys else min(related_keys)
+                )
+                detail = str(exc).splitlines()[0][:4000]
+                for key in sorted(related_keys):
+                    action = pending.pop(key)
+                    status = "failed" if key == failed_key else "blocked"
+                    state.record_item(run_id, key, action["action"], action["source_hash"],
+                                      status, action.get("target_id"),
+                                      detail if status == "failed" else "client_office_transfer_cohort_failed")
+                    counts[f"loans_{status}"] += 1
+                    loan_outcomes[key] = False
+            else:
+                for key in sorted(completed_keys):
+                    action = pending.pop(key)
+                    loan_id, recovered = cohort_results[key]
+                    state.save_mapping(
+                        settings.target.fingerprint, BLOCK, key, str(loan_id), action["source_hash"]
+                    )
+                    status = "unchanged" if action["action"] == "unchanged-loan" else (
+                        "recovered" if recovered else "succeeded"
+                    )
+                    state.record_item(run_id, key, action["action"], action["source_hash"],
+                                      status, str(loan_id))
+                    counts[f"loans_{status}"] += 1
+                    loan_outcomes[key] = True
+    for component in _refinance_components(list(pending.values())):
+        if all(action["action"] == "retained-loan" for action in component):
+            continue
+        if any(action["action"] == "retained-loan" for action in component):
+            raise RuntimeError("Carry-forward refinance component is no longer fully retained")
         if not _has_partial_refinance(component):
             continue
         if any(action["action"] == "quarantine-loan" for action in component):
@@ -6614,12 +7881,13 @@ def apply_loan_plan(
             ready: list[tuple[dict[str, Any], int]] = []
             progressed = False
             for key, action in list(pending.items()):
-                if action["action"] == "unchanged-loan":
+                if action["action"] in {"unchanged-loan", "retained-loan"}:
                     state.record_item(
                         run_id, key, action["action"], action["source_hash"],
                         "unchanged", action.get("target_id"),
                     )
-                    counts["loans_unchanged"] += 1
+                    counts["loans_retained" if action["action"] == "retained-loan"
+                           else "loans_unchanged"] += 1
                     loan_outcomes[key] = True
                     del pending[key]
                     progressed = True
@@ -6803,6 +8071,19 @@ def reconcile_loans(
             continue
         counts["loans"] += 1
         lifecycle = action["lifecycle"]
+        if lifecycle.get("source_maturity_pending"):
+            if int((loan.get("status") or {}).get("id") or -1) not in {100, 200}:
+                mismatches.append({"source_key": item["source_key"], "kind": "term_account",
+                                   "error": "source_maturity_pending_loan_has_accounting"})
+        else:
+            try:
+                _verify_loan_term_account_contract(
+                    loan, lifecycle,
+                    selected=int((loan.get("status") or {}).get("id") or -1) not in {100, 200},
+                )
+            except RuntimeError as exc:
+                mismatches.append({"source_key": item["source_key"], "kind": "term_account",
+                                   "error": str(exc)})
         expected_guarantors = lifecycle.get("guarantors") or []
         if expected_guarantors:
             desired_guarantors = Counter(int(row["client_id"]) for row in expected_guarantors)
@@ -7032,6 +8313,12 @@ def reconcile_loans(
                         "source_key": item["source_key"], "kind": "reversal_state",
                         "movement": event["source_movement_id"],
                     })
+                elif event["role"] == "repayment-reversal" and not _target_reversal_date_matches(original, event):
+                    mismatches.append({
+                        "source_key": item["source_key"], "kind": "reversal_effective_date",
+                        "movement": event["source_movement_id"], "source_date": event["date"],
+                        "target_date": original.get("reversedOnDate"),
+                    })
                 continue
             is_topup_disbursement = bool(
                 refinance and event["role"] == "disbursement"
@@ -7223,6 +8510,27 @@ def reconcile_loans(
             mismatches.append({
                 "source_key": item["source_key"], "kind": "journal_unbalanced",
                 "debits": format(debits, "f"), "credits": format(credits, "f"),
+            })
+
+    for transfer in plan["document"].get("client_office_transfers", []):
+        counts["client_office_transfers_expected"] += 1
+        try:
+            office_id, joining_date, proposals, acceptances, _ = (
+                _native_client_office_transfer_snapshot(settings, transfer)
+            )
+            if (office_id != transfer["to_office_id"]
+                    or joining_date != transfer["effective_date"]
+                    or proposals != 1 or acceptances != 1):
+                raise RuntimeError("native_client_office_transfer_history_mismatch")
+            expected_loan_ids = _expected_native_transfer_loan_ids(
+                settings, transfer, verify_pretransfer_balance=False,
+            )
+            _verify_native_client_office_transfer_loans(settings, transfer, expected_loan_ids)
+            counts["client_office_transfers_matched"] += 1
+        except RuntimeError as exc:
+            mismatches.append({
+                "source_key": f"client-office:{transfer['source_client_id']}:{transfer['observed_date']}",
+                "kind": str(exc).splitlines()[0],
             })
 
     ok = not mismatches and not any(row["status"] in {"failed", "blocked"} for row in failed_or_quarantined)
@@ -7531,15 +8839,20 @@ def inspect_loans(
                 (SELECT COUNT(*) FROM successor_counts WHERE successor_count>1)
                     AS ambiguous_successor_predecessor_count
         """)[0]
+        restructure_scope = " AND r.ID_CREDITO=?" if key is not None else ""
         restructure_population = select_rows(conn, f"""
             SELECT COUNT_BIG(*) AS tagged_schedule_rows,
-                   COUNT_BIG(DISTINCT ID_REESTRUCTURACION) AS restructure_snapshot_count,
-                   COUNT_BIG(DISTINCT ID_CREDITO) AS linked_loan_count,
-                   SUM(CASE WHEN ID_CREDITO IS NULL THEN 1 ELSE 0 END) AS archival_unlinked_rows,
-                   SUM(CASE WHEN ID_CREDITO IS NOT NULL THEN 1 ELSE 0 END) AS linked_schedule_rows
-            FROM [dbo].[{source['schedule_table']}]
-            WHERE ID_REESTRUCTURACION IS NOT NULL
-        """)[0]
+                   COUNT_BIG(DISTINCT p.ID_REESTRUCTURACION) AS restructure_snapshot_count,
+                   COUNT_BIG(DISTINCT r.ID_CREDITO) AS linked_loan_count,
+                   SUM(CASE WHEN p.ID_CREDITO IS NULL THEN 1 ELSE 0 END) AS archival_unlinked_rows,
+                   SUM(CASE WHEN p.ID_CREDITO IS NOT NULL THEN 1 ELSE 0 END) AS linked_schedule_rows,
+                   COUNT_BIG(DISTINCT CASE WHEN r.ID_CREDITO IS NULL
+                       THEN p.ID_REESTRUCTURACION END) AS unresolved_revision_count
+            FROM [dbo].[{source['schedule_table']}] p
+            LEFT JOIN [dbo].[{source['schedule_adjustment_table']}] r
+              ON r.ID_REESTRUCTURACION=p.ID_REESTRUCTURACION
+            WHERE p.ID_REESTRUCTURACION IS NOT NULL{restructure_scope}
+        """, (key,) if key is not None else ())[0]
         reversal_scope = "" if key is None else " AND m.ID_CREDITO=?"
         reversal_rows = select_rows(conn, f"""
             SELECT m.ID_CREDITO,m.ID_MOVIMIENTO_CARTERA,m.CODIGO_SISTEMA,m.ID_TRANSACCION,m.REVERSION,
@@ -7633,6 +8946,7 @@ def inspect_loans(
                 )
                 native_products = [dict(zip(columns, row)) for row in rows]
             required_permissions = {
+                "SOURCEEXACTPROPOSEANDACCEPTTRANSFER_CLIENT",
                 "SOURCEEXACTREPAYMENT_LOAN", "SOURCEEXACTGOODWILLCREDIT_LOAN",
                 "SOURCEEXACTTOPUPDISBURSE_LOAN", "SOURCEEXACTCOMPONENTREALLOCATION_LOAN",
                 "SOURCEEXACTREFINANCINGDISBURSE_LOAN",
@@ -7698,9 +9012,9 @@ def inspect_loans(
             },
             "restructure_population": {
                 **restructure_population,
-                "classification": "not_applicable_to_current_loan_portfolio"
-                if int(restructure_population.get("linked_loan_count") or 0) == 0
-                else "linked_restructure_requires_native_proof",
+                "classification": "historical_revisions_linked_via_revision_pending_import"
+                if int(restructure_population.get("linked_loan_count") or 0) > 0
+                else "no_resolved_revisions",
                 "future_linked_row_policy": "whole_loan_quarantine",
             },
             "reversal_pairing": reversal_pairing,

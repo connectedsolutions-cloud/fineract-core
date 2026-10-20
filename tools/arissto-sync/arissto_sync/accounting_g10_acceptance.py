@@ -24,7 +24,7 @@ from .connections import FineractApi, FineractError, postgres_connection
 from .state import State
 
 
-VERSION = "accounting-g10-canary-acceptance-v2"
+VERSION = "accounting-g10-canary-acceptance-v3"
 POSITIVE_KEYS = {
     "ordinary_multiline": "001:001:00028:0000000097",
     "both_agencies_and_cross_branch": "001:001:00052:0000005132",
@@ -34,7 +34,6 @@ POSITIVE_KEYS = {
     "annual_liquidation": "001:001:00041:0000003078",
 }
 NEGATIVE_KEYS = {
-    "status_2": "001:001:00071:0000013957",
     "empty": "001:001:00045:0000003217",
 }
 NORMALIZED_DATE_KEY = "001:002:00058:0000007509"
@@ -208,14 +207,15 @@ def prove_g10(settings: Settings, contract: AccountingContract, state: State, cu
             == {"SOURCE_JOURNAL_BACK_PERIOD", "SOURCE_JOURNAL_REFERENCE_DATE_MISMATCH"}
         ),
     }
-    expected_negative = {
-        NEGATIVE_KEYS["status_2"]: {"SOURCE_JOURNAL_EXCLUDED_FROM_LEDGER"},
-        NEGATIVE_KEYS["empty"]: {"SOURCE_JOURNAL_EMPTY"},
-    }
+    empty_action = actions[NEGATIVE_KEYS["empty"]]
     live_quarantines = {
-        key: {"passed": actions[key]["disposition"] == "QUARANTINED" and expected <= set(actions[key]["reason_codes"]),
-              "reason_codes": actions[key]["reason_codes"]}
-        for key, expected in expected_negative.items()
+        NEGATIVE_KEYS["empty"]: {
+            "passed": (empty_action["disposition"] in {"REFERENCE_ONLY", "UNCHANGED"}
+                       and bool((empty_action.get("payload") or {}).get("reference_only"))
+                       and not (empty_action.get("payload") or {}).get("lines")),
+            "disposition": empty_action["disposition"],
+            "reason_codes": empty_action["reason_codes"],
+        },
     }
     special = _target_special_checks(settings, sorted(set(POSITIVE_KEYS.values())), cutoff_date, native_reference)
     recovery = _recovery_result(state)

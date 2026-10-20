@@ -39,6 +39,7 @@ import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResultBuilder;
 import org.apache.fineract.infrastructure.core.exception.ErrorHandler;
+import org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRuleException;
 import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.infrastructure.event.business.domain.share.ShareAccountApproveBusinessEvent;
 import org.apache.fineract.infrastructure.event.business.domain.share.ShareAccountCreateBusinessEvent;
@@ -47,6 +48,8 @@ import org.apache.fineract.portfolio.account.service.AccountNumberGenerator;
 import org.apache.fineract.portfolio.accounts.constants.ShareAccountApiConstants;
 import org.apache.fineract.portfolio.note.domain.Note;
 import org.apache.fineract.portfolio.note.domain.NoteRepository;
+import org.apache.fineract.portfolio.paymentdetail.domain.PaymentDetail;
+import org.apache.fineract.portfolio.paymentdetail.domain.PaymentDetailAssembler;
 import org.apache.fineract.portfolio.shareaccounts.data.ShareAccountTransactionEnumData;
 import org.apache.fineract.portfolio.shareaccounts.domain.ShareAccount;
 import org.apache.fineract.portfolio.shareaccounts.domain.ShareAccountChargePaidBy;
@@ -79,13 +82,19 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
 
     private final BusinessEventNotifierService businessEventNotifierService;
 
+    private final ShareCertificateService shareCertificateService;
+
+    private final ShareAccountPaymentService shareAccountPaymentService;
+
+    private final PaymentDetailAssembler paymentDetailAssembler;
+
     @Override
     public CommandProcessingResult createShareAccount(JsonCommand jsonCommand) {
         try {
             ShareAccount account = this.accountDataSerializer.validateAndCreate(jsonCommand);
             this.shareAccountRepository.saveAndFlush(account);
             generateAccountNumber(account);
-            createJournalEntriesForShares(account, account.getPendingForApprovalSharePurchaseTransactions());
+            this.shareCertificateService.openFirstCertificate(account, jsonCommand);
 
             businessEventNotifierService.notifyPostBusinessEvent(new ShareAccountCreateBusinessEvent(account));
 
@@ -185,7 +194,6 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
             if (changes.containsKey("reversalIds")) {
                 ArrayList<Long> reversalIds = (ArrayList<Long>) changes.get("reversalIds");
                 this.journalEntryWritePlatformService.revertShareAccountJournalEntries(reversalIds, transactionDate);
-                createJournalEntriesForShares(account, account.getPendingForApprovalSharePurchaseTransactions());
                 changes.remove("reversalIds");
             }
             return new CommandProcessingResultBuilder() //
@@ -249,20 +257,16 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
                 }
             }
             Set<ShareAccountTransaction> transactions = account.getShareAccountTransactions();
-            Set<ShareAccountTransaction> journalTransactions = new HashSet<>();
             Long totalSubsribedShares = Long.valueOf(0);
 
             for (ShareAccountTransaction transaction : transactions) {
                 if (transaction.isActive() && transaction.isPurchasTransaction()) {
-                    journalTransactions.add(transaction);
                     totalSubsribedShares += transaction.getTotalShares();
                 }
             }
             ShareProduct shareProduct = account.getShareProduct();
             shareProduct.addSubscribedShares(totalSubsribedShares);
             this.shareProductRepository.save(shareProduct);
-
-            createJournalEntriesForShares(account, journalTransactions);
 
             businessEventNotifierService.notifyPostBusinessEvent(new ShareAccountApproveBusinessEvent(account));
 
@@ -292,14 +296,13 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
                 }
             }
             Set<ShareAccountTransaction> transactions = account.getShareAccountTransactions();
-            Set<ShareAccountTransaction> journalTransactions = new HashSet<>();
+            ArrayList<Long> journalEntryTransactions = new ArrayList<>();
             for (ShareAccountTransaction transaction : transactions) {
                 if (transaction.isActive() && !transaction.isChargeTransaction()) {
-                    journalTransactions.add(transaction);
+                    journalEntryTransactions.add(transaction.getId());
                 }
             }
-
-            createJournalEntriesForShares(account, journalTransactions);
+            this.journalEntryWritePlatformService.revertShareAccountJournalEntries(journalEntryTransactions, DateUtils.getBusinessLocalDate());
             return new CommandProcessingResultBuilder() //
                     .withCommandId(jsonCommand.commandId()) //
                     .withEntityId(accountId) //
@@ -335,7 +338,6 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
             }
             LocalDate transactionDate = DateUtils.getBusinessLocalDate();
             this.journalEntryWritePlatformService.revertShareAccountJournalEntries(journalEntryTransactions, transactionDate);
-            createJournalEntriesForShares(account, account.getPendingForApprovalSharePurchaseTransactions());
             return new CommandProcessingResultBuilder() //
                     .withCommandId(jsonCommand.commandId()) //
                     .withEntityId(accountId) //
@@ -501,6 +503,51 @@ public class ShareAccountWritePlatformServiceJpaRepositoryImpl implements ShareA
         } catch (final JpaSystemException | DataIntegrityViolationException dve) {
             handleDataIntegrityIssues(jsonCommand, dve.getMostSpecificCause(), dve);
             return CommandProcessingResult.empty();
+        }
+    }
+
+    @Override
+    public CommandProcessingResult markShareAccountPaid(Long accountId, JsonCommand jsonCommand) {
+        final PaymentDetail paymentDetail = this.paymentDetailAssembler.fetchPaymentDetail(jsonCommand.parsedJson().getAsJsonObject());
+        final LocalDate transactionDate = paymentDate(jsonCommand);
+        final CommandProcessingResult result = this.shareAccountPaymentService.recordChannelPayment(accountId, transactionDate, paymentDetail);
+        saveNote(accountId, jsonCommand);
+        final ShareAccount account = this.shareAccountRepository.findOneWithNotFoundDetection(accountId);
+        createJournalEntriesForShares(account, account.getChargeTransactions());
+        return result;
+    }
+
+    @Override
+    public CommandProcessingResult collectShareAccountCash(Long accountId, JsonCommand jsonCommand) {
+        final Long cashierId = jsonCommand.longValueOfParameterNamed("cashierId");
+        if (cashierId == null) {
+            throw new GeneralPlatformDomainRuleException("error.msg.share.account.cashier.required", "cashierId is required");
+        }
+        final LocalDate transactionDate = paymentDate(jsonCommand);
+        final CommandProcessingResult result = this.shareAccountPaymentService.recordCashierPayment(accountId, transactionDate, cashierId,
+                jsonCommand.stringValueOfParameterNamed("note"));
+        final ShareAccount account = this.shareAccountRepository.findOneWithNotFoundDetection(accountId);
+        createJournalEntriesForShares(account, account.getChargeTransactions());
+        return result;
+    }
+
+    @Override
+    public CommandProcessingResult undoShareAccountPayment(Long accountId, JsonCommand jsonCommand) {
+        final CommandProcessingResult result = this.shareAccountPaymentService.undoPayment(accountId, paymentDate(jsonCommand));
+        saveNote(accountId, jsonCommand);
+        return result;
+    }
+
+    private LocalDate paymentDate(final JsonCommand jsonCommand) {
+        final LocalDate transactionDate = jsonCommand.localDateValueOfParameterNamed("transactionDate");
+        return transactionDate == null ? DateUtils.getBusinessLocalDate() : transactionDate;
+    }
+
+    private void saveNote(final Long accountId, final JsonCommand jsonCommand) {
+        final String noteText = jsonCommand.stringValueOfParameterNamed("note");
+        if (StringUtils.isNotBlank(noteText)) {
+            final ShareAccount account = this.shareAccountRepository.findOneWithNotFoundDetection(accountId);
+            this.noteRepository.save(Note.shareNote(account, noteText));
         }
     }
 

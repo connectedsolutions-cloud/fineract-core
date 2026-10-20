@@ -30,8 +30,8 @@ public class TreasuryBankAccountService {
 
     @Transactional(readOnly = true)
     public TreasuryBankAccount get(Long id) {
-        return bankAccountRepository.findById(id)
-                .orElseThrow(() -> TreasuryMovementService.rule("error.msg.treasury.bank.not.found", "Treasury bank account was not found"));
+        return bankAccountRepository.findById(id).orElseThrow(
+                () -> TreasuryMovementService.rule("error.msg.treasury.bank.not.found", "Treasury bank account was not found"));
     }
 
     @Transactional
@@ -73,7 +73,8 @@ public class TreasuryBankAccountService {
         }
         if (externalReference != null) {
             if (externalReference.isBlank()) {
-                throw TreasuryMovementService.rule("error.msg.treasury.bank.account.number.required", "The bank account number is required");
+                throw TreasuryMovementService.rule("error.msg.treasury.bank.account.number.required",
+                        "The bank account number is required");
             }
             bank.setExternalAccountReference(externalReference.trim());
         }

@@ -275,6 +275,11 @@ public class DelinquencyWritePlatformServiceImpl implements DelinquencyWritePlat
                 loanDelinquencyData.getDelinquentDate(), loanDelinquencyData.getDelinquentDays(), loan);
         if (loanScheduleDelinquencyData.getOverdueDays() > 0) {
             applyDelinquencyTagToLoan(loanScheduleDelinquencyData, effectiveDelinquencyList);
+        } else if (loanScheduleDelinquencyData.getOverdueDays() == 0 && loan.isOpen() && loan.hasDelinquencyBucket()) {
+            delinquencyHelper.applyDelinquencyForLoan(loan, loan.getLoanProduct().getDelinquencyBucket(), 0);
+            if (loan.isEnableInstallmentLevelDelinquency()) {
+                cleanLoanInstallmentsDelinquencyTags(loan);
+            }
         } else {
             removeDelinquencyTagToLoan(loan);
         }

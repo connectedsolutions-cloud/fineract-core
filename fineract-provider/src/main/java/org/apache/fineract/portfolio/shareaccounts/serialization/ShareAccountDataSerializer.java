@@ -103,10 +103,10 @@ public class ShareAccountDataSerializer {
             Arrays.asList(ShareAccountApiConstants.locale_paramname, ShareAccountApiConstants.dateformat_paramname,
                     ShareAccountApiConstants.closeddate_paramname, ShareAccountApiConstants.note_paramname));
 
-    private static final Set<String> addtionalSharesParameters = new HashSet<>(Arrays.asList(ShareAccountApiConstants.locale_paramname,
-            ShareAccountApiConstants.requesteddate_paramname, ShareAccountApiConstants.requestedshares_paramname,
-            ShareAccountApiConstants.purchasedprice_paramname, ShareAccountApiConstants.paymenttypeid_paramname,
-            ShareAccountApiConstants.dateformat_paramname));
+    private static final Set<String> addtionalSharesParameters = new HashSet<>(
+            Arrays.asList(ShareAccountApiConstants.locale_paramname, ShareAccountApiConstants.requesteddate_paramname,
+                    ShareAccountApiConstants.requestedshares_paramname, ShareAccountApiConstants.purchasedprice_paramname,
+                    ShareAccountApiConstants.paymenttypeid_paramname, ShareAccountApiConstants.dateformat_paramname));
 
     @Autowired
     public ShareAccountDataSerializer(final PlatformSecurityContext platformSecurityContext, final FromJsonHelper fromApiJsonHelper,

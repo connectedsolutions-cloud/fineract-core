@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 
 from arissto_sync.carry_forward_estimate import estimate, estimate_from_state
+from arissto_sync.carry_forward_boundary import CarryForwardBoundary
 
 
 def loan(key, *, state="3", events=(), predecessor=None, balance="0.00"):
@@ -52,12 +53,14 @@ class CarryForwardEstimateTests(unittest.TestCase):
                 conn.executescript("""
                     CREATE TABLE plans (id TEXT, block TEXT, document TEXT);
                     CREATE TABLE runs (id TEXT, plan_id TEXT, status TEXT, started_at TEXT);
-                    CREATE TABLE reconciliations (run_id TEXT, ok INTEGER);
+                    CREATE TABLE reconciliations (run_id TEXT, ok INTEGER,
+                                                  result_hash TEXT, reconciled_at TEXT);
                     CREATE TABLE items (run_id TEXT, source_key TEXT, status TEXT);
                 """)
                 conn.execute("INSERT INTO plans VALUES (?,?,?)", ("plan", "loans", json.dumps(self.plan([loan(1)]))))
                 conn.execute("INSERT INTO runs VALUES (?,?,?,?)", ("run", "plan", "completed-with-quarantine", "2026-09-18"))
-                conn.execute("INSERT INTO reconciliations VALUES (?,?)", ("run", 1))
+                conn.execute("INSERT INTO reconciliations VALUES (?,?,?,?)",
+                             ("run", 1, "reconciliation-hash", "2026-09-18"))
                 conn.execute("INSERT INTO items VALUES (?,?,?)", ("run", "loan:1", "succeeded"))
             report = estimate_from_state(path, "2026-09-18")
             self.assertEqual(report["potential_closed_loans"], 1)
@@ -71,6 +74,15 @@ class CarryForwardEstimateTests(unittest.TestCase):
         scoped["scope"]["mode"] = "selected-keys"
         with self.assertRaisesRegex(ValueError, "full-block"):
             estimate(scoped, {"loan:1": "succeeded"}, "2026-09-18")
+
+    def test_each_run_selects_its_own_later_boundary_without_cob_gate(self):
+        first = CarryForwardBoundary.select("2026-10-06", "2026-10-06")
+        second = CarryForwardBoundary.select(first.fineract_starts, "2026-10-08")
+        self.assertEqual((first.arissto_through, first.fineract_starts),
+                         ("2026-10-06", "2026-10-07"))
+        self.assertEqual((second.old_arissto_through, second.arissto_through,
+                          second.fineract_starts),
+                         ("2026-10-06", "2026-10-08", "2026-10-09"))
 
 
 if __name__ == "__main__":

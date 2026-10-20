@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more
+     contributor license agreements. See the NOTICE file distributed with
+     this work for additional information regarding copyright ownership.
+     The ASF licenses this file to you under the Apache License, Version 2.0. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0406-1-use-native-comprobante-comments" author="credesal" dbms="postgresql">
+        <comment>Read voucher line narration and shared description from native Fineract journal comments.</comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+INSERT INTO stretchy_parameter (
+    parameter_name, parameter_variable, parameter_label,
+    "parameter_displayType", "parameter_FormatType", parameter_default,
+    parameter_sql
+)
+VALUES (
+    'officeIdMultiSelect', 'officeId', 'Office', 'multiselect', 'number',
+    'optional',
+    $officesql$select id, concat(substring('........................................', 1, ((LENGTH(hierarchy) - LENGTH(REPLACE(hierarchy, '.', '')) - 1) * 4)), name) as name from m_office where hierarchy like concat('${currentUserHierarchy}', '%') order by hierarchy$officesql$
+)
+ON CONFLICT (parameter_name) DO UPDATE
+SET parameter_variable = EXCLUDED.parameter_variable,
+    parameter_label = EXCLUDED.parameter_label,
+    "parameter_displayType" = EXCLUDED."parameter_displayType",
+    "parameter_FormatType" = EXCLUDED."parameter_FormatType",
+    parameter_default = EXCLUDED.parameter_default,
+    parameter_sql = EXCLUDED.parameter_sql;
+
+INSERT INTO stretchy_parameter (
+    parameter_name, parameter_variable, parameter_label,
+    "parameter_displayType", "parameter_FormatType", parameter_default
+)
+VALUES ('partidaNumberOptional', 'partidaNumber', 'Número de Partida', 'text', 'string', 'optional')
+ON CONFLICT (parameter_name) DO UPDATE
+SET parameter_variable = EXCLUDED.parameter_variable,
+    parameter_label = EXCLUDED.parameter_label,
+    "parameter_displayType" = EXCLUDED."parameter_displayType",
+    "parameter_FormatType" = EXCLUDED."parameter_FormatType",
+    parameter_default = EXCLUDED.parameter_default;
+
+INSERT INTO stretchy_parameter (
+    parameter_name, parameter_variable, parameter_label,
+    "parameter_displayType", "parameter_FormatType", parameter_default,
+    parameter_sql
+)
+VALUES (
+    'comprobanteAuxiliarMultiSelect', 'auxiliarCode', 'Auxiliar',
+    'multiselect', 'number', 'optional',
+    $auxiliarsql$
+    SELECT DISTINCT CAST(journal.source_module_code AS BIGINT) AS id,
+           CASE journal.source_module_code
+               WHEN '0' THEN 'PRINCIPAL'
+               WHEN '1' THEN 'CONTABILIDAD'
+               WHEN '3' THEN 'CAJA'
+               WHEN '4' THEN 'CREDITOS'
+               WHEN '5' THEN 'AHORROS-DEPOSITOS'
+               WHEN '12' THEN 'OPERACIONES INTERNAS'
+               WHEN '14' THEN 'COBRO MÓVIL'
+               WHEN '20' THEN 'BOVEDA'
+               WHEN '22' THEN 'INVERSIONES'
+               WHEN '25' THEN 'OPERACIONES CONTABLES'
+               ELSE 'SISTEMA ' || journal.source_module_code
+           END AS name
+      FROM credesal_arissto_gl_journal journal
+      JOIN m_office office
+        ON office.external_id = NULLIF(LTRIM(journal.source_branch_id, '0'), '')
+     WHERE office.hierarchy LIKE '${currentUserHierarchy}' || '%'
+       AND journal.source_module_code IS NOT NULL
+       AND journal.source_module_code ~ '^[0-9]+$'
+       AND journal.target_transaction_id IS NOT NULL
+     ORDER BY name
+    $auxiliarsql$
+)
+ON CONFLICT (parameter_name) DO UPDATE
+SET parameter_variable = EXCLUDED.parameter_variable,
+    parameter_label = EXCLUDED.parameter_label,
+    "parameter_displayType" = EXCLUDED."parameter_displayType",
+    "parameter_FormatType" = EXCLUDED."parameter_FormatType",
+    parameter_default = EXCLUDED.parameter_default,
+    parameter_sql = EXCLUDED.parameter_sql;
+
+INSERT INTO stretchy_report (
+    report_name, report_type, report_subtype, report_category, report_sql,
+    description, core_report, use_report, self_service_user_report
+)
+VALUES (
+    'Comprobante Contable', 'Table', 'VisualVoucher', 'Accounting',
+    $report$
+WITH requested_offices AS (
+    SELECT CAST(BTRIM(office_token) AS BIGINT) AS id
+      FROM unnest(string_to_array('${officeId}', ',')) AS office_token
+     WHERE BTRIM(office_token) ~ '^[0-9]+$'
+),
+requested_auxiliaries AS (
+    SELECT BTRIM(auxiliary_token) AS code
+      FROM unnest(string_to_array('${auxiliarCode}', ',')) AS auxiliary_token
+     WHERE BTRIM(auxiliary_token) ~ '^[0-9]+$'
+),
+selected_offices AS (
+    SELECT office_under.id,
+           office_under.external_id
+      FROM m_office office_under
+     WHERE office_under.hierarchy LIKE '${currentUserHierarchy}' || '%'
+       AND (
+           NOT EXISTS (SELECT 1 FROM requested_offices)
+           OR EXISTS (
+               SELECT 1
+                 FROM m_office selected_office
+                 JOIN requested_offices requested
+                   ON requested.id = selected_office.id
+                WHERE office_under.hierarchy LIKE selected_office.hierarchy || '%'
+           )
+       )
+),
+filtered_vouchers AS (
+    SELECT journal.*,
+           office.name AS office_name,
+           ROW_NUMBER() OVER (
+               ORDER BY journal.source_journal_date,
+                        journal.source_journal_number,
+                        journal.source_branch_id,
+                        journal.source_journal_id
+           ) AS voucher_sequence
+      FROM credesal_arissto_gl_journal journal
+      JOIN selected_offices selected_office
+        ON selected_office.external_id = NULLIF(LTRIM(journal.source_branch_id, '0'), '')
+      JOIN m_office office
+        ON office.id = selected_office.id
+     WHERE journal.source_journal_date BETWEEN CAST('${startDate}' AS DATE)
+                                           AND CAST('${endDate}' AS DATE)
+       AND (
+           NULLIF(BTRIM('${partidaNumber}'), '') IS NULL
+           OR journal.source_journal_number = BTRIM('${partidaNumber}')
+       )
+       AND (
+           NOT EXISTS (SELECT 1 FROM requested_auxiliaries)
+           OR journal.source_module_code IN (SELECT code FROM requested_auxiliaries)
+       )
+       AND journal.target_transaction_id IS NOT NULL
+),
+voucher_boundaries AS (
+    SELECT filtered_vouchers.*,
+           CASE
+               WHEN LAG(source_journal_date) OVER (ORDER BY voucher_sequence) IS DISTINCT FROM source_journal_date
+                 OR LAG(source_branch_id) OVER (ORDER BY voucher_sequence) IS DISTINCT FROM source_branch_id
+               THEN 1
+               ELSE 0
+           END AS starts_batch
+      FROM filtered_vouchers
+),
+sequenced_vouchers AS (
+    SELECT voucher_boundaries.*,
+           SUM(starts_batch) OVER (ORDER BY voucher_sequence) AS batch_sequence
+      FROM voucher_boundaries
+),
+voucher_descriptions AS (
+    SELECT voucher.id AS voucher_id,
+           CASE
+               WHEN COUNT(*) = COUNT(NULLIF(BTRIM(entry.description), ''))
+                AND COUNT(DISTINCT NULLIF(BTRIM(entry.description), '')) = 1
+               THEN MIN(BTRIM(entry.description))
+               ELSE NULL
+           END AS shared_description
+      FROM sequenced_vouchers voucher
+      JOIN credesal_arissto_gl_journal_line line
+        ON line.journal_provenance_id = voucher.id
+      JOIN acc_gl_journal_entry entry ON entry.id = line.target_journal_entry_id
+     GROUP BY voucher.id
+)
+SELECT CONCAT(voucher.source_journal_date, ':', voucher.batch_sequence) AS batch_key,
+       voucher.batch_sequence,
+       voucher.voucher_sequence,
+       voucher.source_journal_number AS voucher_number,
+       voucher.source_journal_date AS entry_date,
+       voucher.office_name,
+       CASE voucher.source_module_code
+           WHEN '0' THEN 'PRINCIPAL'
+           WHEN '1' THEN 'CONTABILIDAD'
+           WHEN '3' THEN 'CAJA'
+           WHEN '4' THEN 'CREDITOS'
+           WHEN '5' THEN 'AHORROS-DEPOSITOS'
+           WHEN '12' THEN 'OPERACIONES INTERNAS'
+           WHEN '14' THEN 'COBRO MÓVIL'
+           WHEN '20' THEN 'BOVEDA'
+           WHEN '22' THEN 'INVERSIONES'
+           WHEN '25' THEN 'OPERACIONES CONTABLES'
+           ELSE 'SISTEMA ' || COALESCE(voucher.source_module_code, 'SIN CÓDIGO')
+       END AS auxiliary_name,
+       CASE voucher.source_status
+           WHEN '3' THEN 'CERRADA'
+           ELSE 'ESTADO ' || voucher.source_status
+       END AS status_name,
+       LEFT(line.source_account_code, 3) AS group_code,
+       COALESCE(group_presentation.source_name, group_account.name, LEFT(line.source_account_code, 3)) AS group_name,
+       line.source_line_sequence AS line_sequence,
+       line.source_account_code AS gl_code,
+       COALESCE(account_presentation.source_name, account.name) AS gl_name,
+       COALESCE(
+           NULLIF(BTRIM(line.source_destination_branch_id), ''),
+           voucher.source_branch_id
+       ) AS source_branch_code,
+       COALESCE(NULLIF(BTRIM(entry.description), ''), '-') AS line_description,
+       line.source_debit_amount AS debit,
+       line.source_credit_amount AS credit,
+       COALESCE(
+           NULLIF(BTRIM(voucher.source_header_concept), ''),
+           voucher_descriptions.shared_description,
+           '-'
+       ) AS voucher_concept
+  FROM sequenced_vouchers voucher
+  JOIN credesal_arissto_gl_journal_line line
+    ON line.journal_provenance_id = voucher.id
+   AND line.target_journal_entry_id IS NOT NULL
+  JOIN acc_gl_journal_entry entry ON entry.id = line.target_journal_entry_id
+  LEFT JOIN voucher_descriptions ON voucher_descriptions.voucher_id = voucher.id
+  JOIN acc_gl_account account
+    ON account.id = line.target_gl_account_id
+  LEFT JOIN credesal_gl_account_presentation account_presentation
+    ON account_presentation.source_gl_code = line.source_account_code
+  LEFT JOIN acc_gl_account group_account
+    ON group_account.gl_code = LEFT(line.source_account_code, 3)
+  LEFT JOIN credesal_gl_account_presentation group_presentation
+    ON group_presentation.gl_account_id = group_account.id
+ ORDER BY voucher.batch_sequence,
+          voucher.voucher_sequence,
+          line.source_line_sequence
+$report$,
+    'Comprobante contable visual con partidas y asientos importados de Arissto.',
+    FALSE, TRUE, FALSE
+)
+ON CONFLICT (report_name) DO UPDATE
+SET report_type = EXCLUDED.report_type,
+    report_subtype = EXCLUDED.report_subtype,
+    report_category = EXCLUDED.report_category,
+    report_sql = EXCLUDED.report_sql,
+    description = EXCLUDED.description,
+    core_report = EXCLUDED.core_report,
+    use_report = EXCLUDED.use_report,
+    self_service_user_report = EXCLUDED.self_service_user_report;
+
+DELETE FROM stretchy_report_parameter
+ WHERE report_id = (SELECT id FROM stretchy_report WHERE report_name = 'Comprobante Contable');
+
+INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name)
+SELECT report.id, parameter.id, parameter.parameter_variable
+  FROM stretchy_report report
+  JOIN stretchy_parameter parameter ON parameter.parameter_name IN (
+      'officeIdMultiSelect', 'startDateSelect', 'endDateSelect',
+      'partidaNumberOptional', 'comprobanteAuxiliarMultiSelect'
+  )
+ WHERE report.report_name = 'Comprobante Contable';
+
+DO $validation$
+BEGIN
+    IF (
+        SELECT COUNT(*) FROM stretchy_report_parameter usage
+        JOIN stretchy_report report ON report.id = usage.report_id
+        WHERE report.report_name = 'Comprobante Contable'
+          AND usage.report_parameter_name IN ('officeId', 'startDate', 'endDate', 'partidaNumber', 'auxiliarCode')
+    ) <> 5 THEN
+        RAISE EXCEPTION 'Comprobante Contable requires officeId, startDate, endDate, partidaNumber, auxiliarCode parameters';
+    END IF;
+END
+$validation$;
+
+INSERT INTO m_permission (grouping, code, entity_name, action_name, can_maker_checker)
+SELECT 'report', 'READ_Comprobante Contable', 'Comprobante Contable', 'READ', FALSE
+ WHERE NOT EXISTS (SELECT 1 FROM m_permission WHERE code = 'READ_Comprobante Contable');
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

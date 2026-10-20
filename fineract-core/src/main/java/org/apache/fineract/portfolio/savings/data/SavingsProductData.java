@@ -152,21 +152,22 @@ public final class SavingsProductData implements Serializable {
     }
 
     public static SavingsProductData withCharges(final SavingsProductData product, final Collection<ChargeData> charges) {
-        return copyNumbering(product, new SavingsProductData(product.id, product.name, product.shortName, product.description, product.currency,
-                product.nominalAnnualInterestRate, product.interestCompoundingPeriodType, product.interestPostingPeriodType,
-                product.interestCalculationType, product.interestCalculationDaysInYearType, product.minRequiredOpeningBalance,
-                product.lockinPeriodFrequency, product.lockinPeriodFrequencyType, product.withdrawalFeeForTransfers, product.accountingRule,
-                product.accountingMappings, product.paymentChannelToFundSourceMappings, product.currencyOptions,
-                product.interestCompoundingPeriodTypeOptions, product.interestPostingPeriodTypeOptions,
-                product.interestCalculationTypeOptions, product.interestCalculationDaysInYearTypeOptions,
-                product.lockinPeriodFrequencyTypeOptions, product.withdrawalFeeTypeOptions, product.paymentTypeOptions,
-                product.accountingRuleOptions, product.accountingMappingOptions, charges, product.chargeOptions, product.penaltyOptions,
-                product.feeToIncomeAccountMappings, product.penaltyToIncomeAccountMappings, product.allowOverdraft, product.overdraftLimit,
-                product.minRequiredBalance, product.enforceMinRequiredBalance, product.maxAllowedLienLimit, product.lienAllowed,
-                product.minBalanceForInterestCalculation, product.nominalAnnualInterestRateOverdraft,
-                product.minOverdraftForInterestCalculation, product.withHoldTax, product.taxGroup, product.taxGroupOptions,
-                product.isDormancyTrackingActive, product.daysToInactive, product.daysToDormancy, product.daysToEscheat,
-                product.accountMappingForPayment));
+        return copyNumbering(product,
+                new SavingsProductData(product.id, product.name, product.shortName, product.description, product.currency,
+                        product.nominalAnnualInterestRate, product.interestCompoundingPeriodType, product.interestPostingPeriodType,
+                        product.interestCalculationType, product.interestCalculationDaysInYearType, product.minRequiredOpeningBalance,
+                        product.lockinPeriodFrequency, product.lockinPeriodFrequencyType, product.withdrawalFeeForTransfers,
+                        product.accountingRule, product.accountingMappings, product.paymentChannelToFundSourceMappings,
+                        product.currencyOptions, product.interestCompoundingPeriodTypeOptions, product.interestPostingPeriodTypeOptions,
+                        product.interestCalculationTypeOptions, product.interestCalculationDaysInYearTypeOptions,
+                        product.lockinPeriodFrequencyTypeOptions, product.withdrawalFeeTypeOptions, product.paymentTypeOptions,
+                        product.accountingRuleOptions, product.accountingMappingOptions, charges, product.chargeOptions,
+                        product.penaltyOptions, product.feeToIncomeAccountMappings, product.penaltyToIncomeAccountMappings,
+                        product.allowOverdraft, product.overdraftLimit, product.minRequiredBalance, product.enforceMinRequiredBalance,
+                        product.maxAllowedLienLimit, product.lienAllowed, product.minBalanceForInterestCalculation,
+                        product.nominalAnnualInterestRateOverdraft, product.minOverdraftForInterestCalculation, product.withHoldTax,
+                        product.taxGroup, product.taxGroupOptions, product.isDormancyTrackingActive, product.daysToInactive,
+                        product.daysToDormancy, product.daysToEscheat, product.accountMappingForPayment));
     }
 
     /**

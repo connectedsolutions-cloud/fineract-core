@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.accounting.closure.domain.GLClosure;
 import org.apache.fineract.accounting.closure.domain.GLClosureRepository;
 import org.apache.fineract.accounting.cutoff.AccountingCutoffConfiguration;
@@ -42,8 +43,10 @@ import org.apache.fineract.accounting.cutoff.AccountingPostingContext;
 import org.apache.fineract.accounting.cutoff.AccountingPostingOrigin;
 import org.apache.fineract.accounting.glaccount.domain.GLAccount;
 import org.apache.fineract.accounting.glaccount.domain.GLAccountRepository;
+import org.apache.fineract.accounting.journalentry.domain.GlVoucher;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntry;
 import org.apache.fineract.accounting.journalentry.domain.JournalEntryType;
+import org.apache.fineract.accounting.journalentry.service.GlVoucherWriteService;
 import org.apache.fineract.accounting.journalentry.service.JournalEntryPersistenceService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.organisation.monetary.domain.OrganisationCurrency;
@@ -73,6 +76,7 @@ public class HistoricalJournalImportServiceImpl implements HistoricalJournalImpo
     private final GLClosureRepository closureRepository;
     private final OrganisationCurrencyRepositoryWrapper currencyRepository;
     private final JournalEntryPersistenceService journalEntryPersistenceService;
+    private final GlVoucherWriteService glVoucherWriteService;
 
     @Override
     @Transactional
@@ -89,6 +93,14 @@ public class HistoricalJournalImportServiceImpl implements HistoricalJournalImpo
             return existingResult(request, existing);
         }
 
+        if (Boolean.TRUE.equals(request.referenceOnly())) {
+            validateReferenceOnly(request);
+            HistoricalJournalProvenance provenance = provenanceRepository.saveAndFlush(HistoricalJournalProvenance.reserve(request));
+            provenance.markReferenceOnly(request.refNum());
+            provenanceRepository.saveAndFlush(provenance);
+            return new HistoricalJournalImportResult(sourceKey(request), null, List.of(), false);
+        }
+
         OrganisationCurrency currency = currencyRepository.findOneWithNotFoundDetection(request.currency());
         if (!"USD".equals(request.currency()) || currency.toMonetaryCurrency().getDigitsAfterDecimal() != 2) {
             throw failure("currency.unsupported", "Historical journal import requires the enabled two-decimal USD currency");
@@ -97,8 +109,10 @@ public class HistoricalJournalImportServiceImpl implements HistoricalJournalImpo
         List<ValidatedLine> validatedLines = validateLines(request, user);
         String transactionId = transactionId(request);
         HistoricalJournalProvenance provenance = provenanceRepository.saveAndFlush(HistoricalJournalProvenance.reserve(request));
+        GlVoucher voucher = glVoucherWriteService.createHistorical(request.sourceModuleCode(), request.sourceHeaderConcept(),
+                request.sourceHeaderDescription(), String.valueOf(provenance.getId()), request.sourceJournalType());
         List<Long> journalEntryIds = postingContext.executeAs(AccountingPostingOrigin.ARISSTO_HISTORICAL_GL_IMPORT,
-                () -> persistLines(request, provenance, validatedLines, transactionId));
+                () -> persistLines(request, provenance, validatedLines, transactionId, voucher));
         provenance.markImported(transactionId, request.refNum());
         provenanceRepository.saveAndFlush(provenance);
         return new HistoricalJournalImportResult(sourceKey(request), transactionId, List.copyOf(journalEntryIds), false);
@@ -123,22 +137,42 @@ public class HistoricalJournalImportServiceImpl implements HistoricalJournalImpo
     }
 
     private List<Long> persistLines(HistoricalJournalImportRequest request, HistoricalJournalProvenance provenance,
-            List<ValidatedLine> lines, String transactionId) {
-        List<Long> ids = new ArrayList<>(lines.size());
+            List<ValidatedLine> lines, String transactionId, GlVoucher voucher) {
+        List<JournalEntry> entries = new ArrayList<>(lines.size());
         for (ValidatedLine line : lines) {
-            HistoricalJournalLineProvenance lineProvenance = lineProvenanceRepository
-                    .saveAndFlush(HistoricalJournalLineProvenance.reserve(provenance, line.request(), line.account(), line.office(),
-                            line.dimensions(), line.side().name(), line.side().getValue(), line.amount(), request.entryDate()));
-            JournalEntry journalEntry = JournalEntry.createNew(line.office(), null, line.account(), request.currency(), transactionId, true,
+            JournalEntry entry = JournalEntry.createNew(line.office(), null, line.account(), request.currency(), transactionId, true,
                     request.entryDate(), line.side(), line.amount().setScale(6, RoundingMode.UNNECESSARY), line.request().description(),
                     null, null, request.refNum(), null, null, null, null, line.dimensions());
-            cutoffPolicyService.assertJournalPersistenceAllowed(request.entryDate());
-            JournalEntry saved = journalEntryPersistenceService.saveAndFlush(journalEntry);
-            lineProvenance.markImported(saved);
-            lineProvenanceRepository.saveAndFlush(lineProvenance);
-            ids.add(saved.getId());
+            entry.setHeaderConcept(request.sourceHeaderConcept());
+            entry.setHeaderDescription(request.sourceHeaderDescription());
+            entry.setNativeCheckNumber(StringUtils.trimToNull(line.request().sourceDocumentReference()));
+            entry.setVoucher(voucher);
+            entries.add(entry);
         }
+        List<JournalEntry> saved = journalEntryPersistenceService.saveImportedJournal(entries);
+        List<HistoricalJournalLineProvenance> provenances = new ArrayList<>(lines.size());
+        List<Long> ids = new ArrayList<>(lines.size());
+        for (int index = 0; index < lines.size(); index++) {
+            ValidatedLine line = lines.get(index);
+            HistoricalJournalLineProvenance lineProvenance = HistoricalJournalLineProvenance.reserve(provenance, line.request(),
+                    line.account(), line.office(), line.dimensions(), line.side().name(), line.side().getValue(), line.amount(),
+                    request.entryDate());
+            lineProvenance.markImported(saved.get(index));
+            provenances.add(lineProvenance);
+            ids.add(saved.get(index).getId());
+        }
+        lineProvenanceRepository.saveAllAndFlush(provenances);
         return ids;
+    }
+
+    private void validateReferenceOnly(HistoricalJournalImportRequest request) {
+        if (!request.lines().isEmpty() || amount(request.debitTotal()).signum() != 0
+                || amount(request.creditTotal()).signum() != 0 || StringUtils.isBlank(request.sourceHeaderConcept())) {
+            throw failure("reference.only.invalid", "A reference-only journal requires no lines, zero totals and a source concept");
+        }
+        if (!"USD".equals(request.currency())) {
+            throw failure("currency.unsupported", "Historical journal references require USD");
+        }
     }
 
     private List<ValidatedLine> validateLines(HistoricalJournalImportRequest request, AppUser user) {
@@ -226,9 +260,6 @@ public class HistoricalJournalImportServiceImpl implements HistoricalJournalImpo
         if (!request.entryDate().isBefore(cutoff.getCutoffDate())) {
             throw failure("cutoff.violation", "Historical journal date must be strictly before the accounting cutoff");
         }
-        if (!"3".equals(request.sourceStatus())) {
-            throw failure("source.status.invalid", "Only populated and balanced source status 3 journals may be imported");
-        }
     }
 
     private void requireRequestShape(HistoricalJournalImportRequest request) {
@@ -263,8 +294,8 @@ public class HistoricalJournalImportServiceImpl implements HistoricalJournalImpo
         requireText(request.descriptionPolicyVersion(), "description.policy.version.required");
         requireText(request.sourceFingerprint(), "source.fingerprint.required");
         requireText(request.targetFingerprint(), "target.fingerprint.required");
-        if (request.lines() == null || request.lines().size() < 2) {
-            throw failure("journal.partial", "A complete journal requires at least two lines");
+        if (request.lines() == null || (!Boolean.TRUE.equals(request.referenceOnly()) && request.lines().size() < 2)) {
+            throw failure("journal.partial", "A posted journal requires at least two lines");
         }
         requireFieldHash("CNT_PARTIDAS.CONCEPTO", request.sourceHeaderConcept(), request.sourceHeaderConceptSha256());
         requireFieldHash("CNT_PARTIDAS.DESCRIPCION", request.sourceHeaderDescription(), request.sourceHeaderDescriptionSha256());
@@ -278,7 +309,9 @@ public class HistoricalJournalImportServiceImpl implements HistoricalJournalImpo
     }
 
     private HistoricalJournalImportResult existingResult(HistoricalJournalImportRequest request, HistoricalJournalProvenance existing) {
-        if (!existing.isImported() || !Objects.equals(existing.getSourceHash(), request.sourceHash())
+        boolean referenceOnly = Boolean.TRUE.equals(request.referenceOnly());
+        if (!(referenceOnly ? existing.isReferenceOnly() : existing.isImported())
+                || !Objects.equals(existing.getSourceHash(), request.sourceHash())
                 || !Objects.equals(existing.getPlannedHash(), request.plannedHash())) {
             throw failure("source.key.conflict", "The source journal key is already reserved with different or incomplete content");
         }
@@ -296,6 +329,10 @@ public class HistoricalJournalImportServiceImpl implements HistoricalJournalImpo
         requireFieldHash("acc_gl_journal_entry.description", line.description(), line.descriptionSha256());
         if (line.description() != null && line.description().length() > 500) {
             throw failure("description.too.long", "The native journal description exceeds 500 characters");
+        }
+        String checkNumber = StringUtils.trimToNull(line.sourceDocumentReference());
+        if (checkNumber != null && checkNumber.length() > 128) {
+            throw failure("check.number.too.long", "The native cheque number exceeds 128 characters");
         }
     }
 

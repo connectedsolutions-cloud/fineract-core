@@ -55,8 +55,8 @@ class LoanCollateralManagementWritePlatformServiceImplTest {
         clientCollateralRepository = mock(ClientCollateralManagementRepositoryWrapper.class);
         loanRepository = mock(LoanRepositoryWrapper.class);
         collateralDetailService = mock(CollateralDetailService.class);
-        service = new LoanCollateralManagementWritePlatformServiceImpl(loanCollateralRepository, clientCollateralRepository,
-                loanRepository, collateralDetailService);
+        service = new LoanCollateralManagementWritePlatformServiceImpl(loanCollateralRepository, clientCollateralRepository, loanRepository,
+                collateralDetailService);
 
         command = mock(JsonCommand.class);
         when(command.getLoanId()).thenReturn(20L);

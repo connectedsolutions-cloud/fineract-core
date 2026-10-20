@@ -24,7 +24,11 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
@@ -55,6 +59,7 @@ import org.apache.fineract.portfolio.group.exception.GroupNotActiveException;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepositoryWrapper;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanStatus;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanTransferAmounts;
 import org.apache.fineract.portfolio.loanaccount.service.LoanOfficerService;
 import org.apache.fineract.portfolio.loanaccount.service.LoanWritePlatformService;
 import org.apache.fineract.portfolio.note.service.NoteWritePlatformService;
@@ -252,15 +257,50 @@ public class TransferWritePlatformServiceJpaRepositoryImpl implements TransferWr
     @Transactional
     @Override
     public CommandProcessingResult proposeAndAcceptClientTransfer(final Long clientId, final JsonCommand jsonCommand) {
-        // validation
         this.transfersDataValidator.validateForProposeAndAcceptClientTransfer(jsonCommand.json());
+        return proposeAndAcceptClientTransfer(clientId, jsonCommand, null);
+    }
 
+    @Transactional
+    @Override
+    public CommandProcessingResult sourceExactProposeAndAcceptClientTransfer(final Long clientId, final JsonCommand jsonCommand) {
+        this.transfersDataValidator.validateForSourceExactClientTransfer(jsonCommand.json());
+        if (!jsonCommand.parameterExists(TransferApiConstants.loanTransferBalances)) {
+            throw new IllegalArgumentException("Source-exact client transfer requires loanTransferBalances");
+        }
+        final Map<Long, LoanTransferAmounts> balances = new HashMap<>();
+        for (final var element : jsonCommand.arrayOfParameterNamed(TransferApiConstants.loanTransferBalances)) {
+            final JsonObject item = element.getAsJsonObject();
+            final Long loanId = item.get("loanId").getAsLong();
+            final LoanTransferAmounts amount = new LoanTransferAmounts(item.get("amount").getAsBigDecimal(),
+                    item.get("principal").getAsBigDecimal(), item.get("interest").getAsBigDecimal(), item.get("fee").getAsBigDecimal(),
+                    item.get("penalty").getAsBigDecimal());
+            if (balances.putIfAbsent(loanId, amount) != null) {
+                throw new IllegalArgumentException("Duplicate source-exact loan transfer balance");
+            }
+        }
+        return proposeAndAcceptClientTransfer(clientId, jsonCommand, balances);
+    }
+
+    private CommandProcessingResult proposeAndAcceptClientTransfer(final Long clientId, final JsonCommand jsonCommand,
+            final Map<Long, LoanTransferAmounts> sourceBalances) {
         final Long destinationOfficeId = jsonCommand.longValueOfParameterNamed(TransferApiConstants.destinationOfficeIdParamName);
         final Office office = this.officeRepository.findOneWithNotFoundDetection(destinationOfficeId);
         final Client client = this.clientRepositoryWrapper.findOneWithNotFoundDetection(clientId, true);
-        handleClientTransferLifecycleEvent(client, office, TransferEventType.PROPOSAL, jsonCommand);
+        if (sourceBalances != null) {
+            final Set<Long> activeLoanIds = new HashSet<>();
+            for (final Loan loan : this.loanRepositoryWrapper.findLoanByClientId(client.getId())) {
+                if (loan.isDisbursed() && !loan.isClosed()) {
+                    activeLoanIds.add(loan.getId());
+                }
+            }
+            if (!activeLoanIds.equals(sourceBalances.keySet())) {
+                throw new IllegalArgumentException("Source-exact client transfer active loan set mismatch");
+            }
+        }
+        handleClientTransferLifecycleEvent(client, office, TransferEventType.PROPOSAL, jsonCommand, sourceBalances);
         this.clientRepositoryWrapper.saveAndFlush(client);
-        handleClientTransferLifecycleEvent(client, client.getTransferToOffice(), TransferEventType.ACCEPTANCE, jsonCommand);
+        handleClientTransferLifecycleEvent(client, client.getTransferToOffice(), TransferEventType.ACCEPTANCE, jsonCommand, sourceBalances);
         this.clientRepositoryWrapper.saveAndFlush(client);
 
         return new CommandProcessingResultBuilder() //
@@ -359,12 +399,20 @@ public class TransferWritePlatformServiceJpaRepositoryImpl implements TransferWr
 
     private void handleClientTransferLifecycleEvent(final Client client, final Office destinationOffice,
             final TransferEventType transferEventType, final JsonCommand jsonCommand) {
+        handleClientTransferLifecycleEvent(client, destinationOffice, transferEventType, jsonCommand, null);
+    }
+
+    private void handleClientTransferLifecycleEvent(final Client client, final Office destinationOffice,
+            final TransferEventType transferEventType, final JsonCommand jsonCommand,
+            final Map<Long, LoanTransferAmounts> sourceBalances) {
         /** Get destination loan officer if exists **/
         Staff staff = null;
         Group destinationGroup = null;
         final Long staffId = jsonCommand.longValueOfParameterNamed(TransferApiConstants.newStaffIdParamName);
         final Long destinationGroupId = jsonCommand.longValueOfParameterNamed(TransferApiConstants.destinationGroupIdParamName);
         final LocalDate transferDate = jsonCommand.localDateValueOfParameterNamed(TransferApiConstants.transferDate);
+        final LocalDate effectiveTransferDate = transferEventType.isAcceptance() ? client.getProposedTransferDate() : transferDate;
+        final Long fromOfficeId = client.getOffice().getId();
         if (staffId != null) {
             staff = this.staffRepositoryWrapper.findByOfficeHierarchyWithNotFoundDetection(staffId, destinationOffice.getHierarchy());
         }
@@ -382,11 +430,19 @@ public class TransferWritePlatformServiceJpaRepositoryImpl implements TransferWr
                 if (loan.isDisbursed() && !loan.isClosed()) {
                     switch (transferEventType) {
                         case ACCEPTANCE:
-                            this.loanWritePlatformService.acceptLoanTransfer(loan, loan.getLastUserTransactionDate(), destinationOffice,
-                                    staff);
+                            if (sourceBalances == null) {
+                                this.loanWritePlatformService.acceptLoanTransfer(loan, effectiveTransferDate, destinationOffice, staff);
+                            } else {
+                                this.loanWritePlatformService.acceptLoanTransfer(loan, effectiveTransferDate, destinationOffice, staff,
+                                        sourceBalances.get(loan.getId()));
+                            }
                         break;
                         case PROPOSAL:
-                            this.loanWritePlatformService.initiateLoanTransfer(loan, transferDate);
+                            if (sourceBalances == null) {
+                                this.loanWritePlatformService.initiateLoanTransfer(loan, transferDate);
+                            } else {
+                                this.loanWritePlatformService.initiateLoanTransfer(loan, transferDate, sourceBalances.get(loan.getId()));
+                            }
                         break;
                         case REJECTION:
                             this.loanWritePlatformService.rejectLoanTransfer(loan);
@@ -427,7 +483,7 @@ public class TransferWritePlatformServiceJpaRepositoryImpl implements TransferWr
                 client.setStatus(ClientStatus.ACTIVE.getValue());
                 client.updateTransferToOffice(null);
                 client.updateOffice(destinationOffice);
-                client.updateOfficeJoiningDate(client.getProposedTransferDate());
+                client.updateOfficeJoiningDate(effectiveTransferDate);
                 client.updateProposedTransferDate(null);
                 if (client.getGroups().size() == 1) {
                     if (destinationGroup == null) {
@@ -468,7 +524,7 @@ public class TransferWritePlatformServiceJpaRepositoryImpl implements TransferWr
 
         this.noteWritePlatformService.createAndPersistClientNote(client, jsonCommand);
         this.clientTransferDetailsRepositoryWrapper
-                .save(ClientTransferDetails.instance(client.getId(), client.getOffice().getId(), destinationOffice.getId(), transferDate,
+                .save(ClientTransferDetails.instance(client.getId(), fromOfficeId, destinationOffice.getId(), effectiveTransferDate,
                         transferEventType.getValue(), DateUtils.getBusinessLocalDate(), this.context.authenticatedUser().getId()));
     }
 

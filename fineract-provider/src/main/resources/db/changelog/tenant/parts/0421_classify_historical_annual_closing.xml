@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0421-1-classify-historical-annual-closing" author="credesal" dbms="postgresql">
+        <comment>Correct the 0414 annual-closing label and keep the income statement exclusion on native voucher metadata.</comment>
+        <sql splitStatements="false" stripComments="false"><![CDATA[
+UPDATE credesal_gl_voucher voucher
+   SET posting_category = 'CLOSING'
+ WHERE voucher.posting_category = 'OPENING'
+   AND EXISTS (
+       SELECT 1
+         FROM acc_gl_journal_entry journal
+         JOIN credesal_arissto_gl_journal_line source_line
+           ON source_line.target_journal_entry_id = journal.id
+         JOIN credesal_arissto_gl_journal provenance
+           ON provenance.id = source_line.journal_provenance_id
+        WHERE journal.voucher_id = voucher.id
+          AND provenance.source_journal_type = '003'
+   );
+
+UPDATE stretchy_report
+   SET report_sql = REPLACE(report_sql,
+       'opening_voucher.posting_category = ''OPENING''',
+       'opening_voucher.posting_category IN (''OPENING'',''CLOSING'')')
+ WHERE report_name = 'Estado de Resultados Consolidado'
+   AND report_sql LIKE '%opening_voucher.posting_category = ''OPENING''%';
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

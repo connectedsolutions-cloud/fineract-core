@@ -9,7 +9,7 @@ idempotency keys.
 
 | Source line | Native type | Proposed name | Short name | Numbering code | Default rate | Term |
 |---|---|---|---|---|---:|---|
-| `00001` | Savings | Credesal Ahorro a la Vista | `AVST` | `4V1` | 3.00% | none |
+| `00001` | Savings | Credesal Vista 00001 | `AVST` | `4V1` | 3.00% | none |
 | `00003` | Fixed deposit | Credesal DPF 30 días | `D030` | `5D1` | 3.00% | 30 days |
 | `00004` | Fixed deposit | Credesal DPF 60 días | `D060` | `5D2` | 4.00% | 60 days |
 | `00005` | Fixed deposit | Credesal DPF 90 días | `D090` | `5D3` | 4.00% | 90 days |
@@ -29,8 +29,8 @@ engine must not create those products until a code is approved.
 
 - Preserve `AHO_CUENTA_AHORRO.PORCENTAJE_INTERES` as the native account rate.
   It is negotiated state and may differ from or exceed the line default.
-- Calculate on daily balance. `VISTA` has a 50.00 opening/interest threshold;
-  DPF lines use 100.00.
+- Calculate on daily balance. `VISTA` has zero minimum opening, operating, and
+  interest-eligible balances; DPF lines use 100.00.
 - Arissto uses simple daily accrual until capitalization/payment; it does not
   compound the unposted provision every day. Do not configure these products
   with Fineract daily compounding.

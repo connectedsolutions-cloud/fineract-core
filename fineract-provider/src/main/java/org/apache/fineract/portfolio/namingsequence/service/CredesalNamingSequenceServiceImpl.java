@@ -72,8 +72,65 @@ public class CredesalNamingSequenceServiceImpl implements CredesalNamingSequence
 
     @Override
     @Transactional
+    public String allocateProvisionalShareCertificateNumber(final String reservationKey) {
+        return allocate(CredesalNamingNamespace.SHARE_CERTIFICATE_PROVISIONAL, "CP", reservationKey);
+    }
+
+    @Override
+    @Transactional
+    public ShareSerialAllocation allocateShareSerialRange(final String shareClass, final int quantity, final String reservationKey) {
+        final String prefix = shareSerialPrefix(shareClass);
+        if (StringUtils.isNotBlank(reservationKey)) {
+            lockAllocation(CredesalNamingNamespace.SHARE_SERIAL, "reservation", reservationKey);
+            final Optional<CredesalNamingReservation> existing = reservationRepository
+                    .findByNamespaceAndReservationKey(CredesalNamingNamespace.SHARE_SERIAL.name(), reservationKey);
+            if (existing.isPresent()) {
+                return ShareSerialAllocation.parse(existing.get().getAllocatedValue());
+            }
+        }
+        if (quantity < 1) {
+            throw new GeneralPlatformDomainRuleException("error.msg.credesal.naming.share.serial.quantity",
+                    "Share serial allocation requires a positive quantity.");
+        }
+        lockAllocation(CredesalNamingNamespace.SHARE_SERIAL, "sequence", prefix);
+        final CredesalNamingSequence sequence = lockOrCreate(CredesalNamingNamespace.SHARE_SERIAL, prefix);
+        long start = sequence.getLastOrdinal().longValue() + 1L;
+        long end = sequence.getLastOrdinal().longValue() + quantity;
+        final Long occupiedEnd = jdbcTemplate.queryForObject("""
+                select coalesce(max(share_serial_end), 0) from credesal_share_certificate
+                 where share_class_code = ? and share_serial_end >= ?
+                """, Long.class, shareClass, start);
+        if (occupiedEnd != null && occupiedEnd >= start) {
+            start = occupiedEnd + 1L;
+            end = occupiedEnd + quantity;
+        }
+        if (end > Integer.MAX_VALUE) {
+            throw new GeneralPlatformDomainRuleException("error.msg.credesal.naming.exhausted",
+                    "Share serial sequence exhausted for " + prefix + ".");
+        }
+        sequence.setLastOrdinal((int) end);
+        sequenceRepository.save(sequence);
+        final ShareSerialAllocation allocation = new ShareSerialAllocation(start, end);
+        if (StringUtils.isNotBlank(reservationKey)) {
+            reservationRepository.save(CredesalNamingReservation.create(CredesalNamingNamespace.SHARE_SERIAL.name(), reservationKey,
+                    allocation.reservationValue()));
+        }
+        return allocation;
+    }
+
+    @Override
+    @Transactional
     public String allocateVistaPassbookNumber(final String reservationKey) {
         return allocate(CredesalNamingNamespace.VISTA_PASSBOOK, "", reservationKey);
+    }
+
+    private static String shareSerialPrefix(final String shareClass) {
+        return switch (shareClass) {
+            case "1AC" -> "COMMON";
+            case "1AP" -> "PREFERRED";
+            default -> throw new GeneralPlatformDomainRuleException("error.msg.credesal.naming.share.serial.class",
+                    "Share serials require numbering code 1AC or 1AP.");
+        };
     }
 
     private Optional<String> allocateIfEligible(final CredesalNamingNamespace namespace, final Client client, final String numberingCode,
@@ -111,8 +168,8 @@ public class CredesalNamingSequenceServiceImpl implements CredesalNamingSequence
     private String allocate(final CredesalNamingNamespace namespace, final String prefix, final String reservationKey) {
         if (StringUtils.isNotBlank(reservationKey)) {
             lockAllocation(namespace, "reservation", reservationKey);
-            final Optional<CredesalNamingReservation> existing = reservationRepository
-                    .findByNamespaceAndReservationKey(namespace.name(), reservationKey);
+            final Optional<CredesalNamingReservation> existing = reservationRepository.findByNamespaceAndReservationKey(namespace.name(),
+                    reservationKey);
             if (existing.isPresent()) {
                 return existing.get().getAllocatedValue();
             }
@@ -147,7 +204,12 @@ public class CredesalNamingSequenceServiceImpl implements CredesalNamingSequence
         if (existing.isPresent()) {
             return existing.get();
         }
-        return sequenceRepository.saveAndFlush(CredesalNamingSequence.create(namespace.name(), prefix, seedOrdinal(namespace, prefix)));
+        if (namespace == CredesalNamingNamespace.SHARE_CERTIFICATE_PROVISIONAL || namespace == CredesalNamingNamespace.SHARE_SERIAL) {
+            throw new GeneralPlatformDomainRuleException("error.msg.credesal.naming.seed.missing",
+                    "Naming sequence " + namespace + " prefix " + prefix + " has not been seeded.");
+        }
+        final int seed = namespace == CredesalNamingNamespace.SHARE_CERTIFICATE ? 0 : seedOrdinal(namespace, prefix);
+        return sequenceRepository.saveAndFlush(CredesalNamingSequence.create(namespace.name(), prefix, seed));
     }
 
     private int seedOrdinal(final CredesalNamingNamespace namespace, final String prefix) {
@@ -180,9 +242,7 @@ public class CredesalNamingSequenceServiceImpl implements CredesalNamingSequence
         return switch (namespace) {
             case LOAN -> "select account_no from m_loan where account_no like ? and length(account_no) = ?";
             case SAVINGS -> "select account_no from m_savings_account where account_no like ? and length(account_no) = ?";
-            case SHARE_CERTIFICATE ->
-                "select certificate_number from credesal_share_certificate where certificate_number like ? and length(certificate_number) = ?";
-            case VISTA_PASSBOOK -> null;
+            case SHARE_CERTIFICATE, SHARE_CERTIFICATE_PROVISIONAL, SHARE_SERIAL, VISTA_PASSBOOK -> null;
         };
     }
 
@@ -191,7 +251,8 @@ public class CredesalNamingSequenceServiceImpl implements CredesalNamingSequence
             case LOAN -> "select count(1) from m_loan where account_no = ?";
             case SAVINGS -> "select count(1) from m_savings_account where account_no = ?";
             case SHARE_CERTIFICATE -> "select count(1) from credesal_share_certificate where certificate_number = ?";
-            case VISTA_PASSBOOK -> null;
+            case SHARE_CERTIFICATE_PROVISIONAL -> "select count(1) from credesal_share_certificate where provisional_number = ?";
+            case SHARE_SERIAL, VISTA_PASSBOOK -> null;
         };
     }
 }

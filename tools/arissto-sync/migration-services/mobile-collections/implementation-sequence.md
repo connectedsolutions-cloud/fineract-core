@@ -106,11 +106,12 @@ records:
 - 1,147 batches; and
 - 9,242 collection items.
 
-Four assignments and two routed accounts are quarantined because their source
-clients do not exist in the migrated target population. These six records use
-the reviewed `missing_target_client` quarantine and do not block unrelated
-metadata. A different quarantine reason or an unexpected production increase
-requires review.
+The earlier run recorded four assignment and two routed-account
+`missing_target_client` quarantines under an incorrect route-assignment join.
+They do not prove those source clients were absent. The 2026-10-07
+carry-forward repair corrected 961 wrong assignment links and created two
+previously quarantined assignments; all 1,010 current assignments reconcile.
+The general quarantine rule remains for a genuinely missing target client.
 
 At local acceptance time the target contained only a partial loan dependency
 population: 12 migrated loan identities and 115 migrated repayment identities.

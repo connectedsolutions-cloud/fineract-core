@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="0424-1-loan-portfolio-account-selection" author="credesal">
+        <comment>Persist the contractual dates, calendar-day term, reason, and GL account chosen for a loan.</comment>
+        <addColumn tableName="m_loan">
+            <column name="portfolio_account_gl_id" type="BIGINT"/>
+            <column name="portfolio_interest_receivable_gl_id" type="BIGINT"/>
+            <column name="portfolio_account_expected_disbursedon_date" type="DATE"/>
+            <column name="portfolio_account_expected_maturedon_date" type="DATE"/>
+            <column name="portfolio_account_term_days" type="INT"/>
+            <column name="portfolio_account_selection_reason" type="VARCHAR(80)"/>
+        </addColumn>
+        <addForeignKeyConstraint baseTableName="m_loan" baseColumnNames="portfolio_account_gl_id"
+                                 constraintName="fk_m_loan_portfolio_account_gl" referencedTableName="acc_gl_account"
+                                 referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="m_loan" baseColumnNames="portfolio_interest_receivable_gl_id"
+                                 constraintName="fk_m_loan_portfolio_interest_gl" referencedTableName="acc_gl_account"
+                                 referencedColumnNames="id"/>
+    </changeSet>
+</databaseChangeLog>

@@ -5,6 +5,9 @@ Last updated: 2026-09-17
 This note tracks the reviewed follow-up for the journal-integrity findings from
 sandbox workflow run `49f3500aa8bf42d9973caf131d4c2645`. The counts below are
 that run's baseline, not permanent source totals. Arissto remains read-only.
+The later status-independent contract supersedes the status-based quarantine
+positions below; this table is retained as a historical run snapshot. Current
+eligibility and reconciliation rules are in the accounting service contract.
 
 | Finding | Baseline | Current position | Next evidence needed |
 |---|---:|---|---|

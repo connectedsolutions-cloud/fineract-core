@@ -29,6 +29,8 @@ public enum JournalEntryJsonInputParams {
     OFFICE_ID("officeId"), //
     TRANSACTION_DATE("transactionDate"), //
     COMMENTS("comments"), //
+    AUXILIAR_CODE("auxiliarCode"), //
+    HEADER_CONCEPT("headerConcept"), //
     CREDITS("credits"), //
     DEBITS("debits"), //
     LOCALE("locale"), //

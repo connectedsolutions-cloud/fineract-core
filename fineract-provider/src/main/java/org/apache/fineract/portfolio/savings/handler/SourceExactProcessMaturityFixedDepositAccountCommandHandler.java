@@ -50,8 +50,8 @@ public class SourceExactProcessMaturityFixedDepositAccountCommandHandler impleme
             if (forceSourceMaturity) {
                 validateSourceMaturityEvidence(command, applyInstruction, postInterest);
             }
-            final Long reinvestedId = this.writePlatformService.updateMaturityDetails(accountId,
-                    DepositAccountType.FIXED_DEPOSIT, applyInstruction, postInterest, rolloverDate, forceSourceMaturity);
+            final Long reinvestedId = this.writePlatformService.updateMaturityDetails(accountId, DepositAccountType.FIXED_DEPOSIT,
+                    applyInstruction, postInterest, rolloverDate, forceSourceMaturity);
             final CommandProcessingResultBuilder result = new CommandProcessingResultBuilder().withEntityId(accountId)
                     .withSavingsId(accountId);
             if (reinvestedId != null) {

@@ -580,8 +580,7 @@ public class SavingsAccountReadPlatformServiceImpl implements SavingsAccountRead
                     savingsAccountData.setClientData(clientData);
                     savingsAccountData.setGroupGeneralData(groupGeneralData);
                     savingsAccountData.setSavingsProduct(savingsProductData);
-                    savingsAccountData.setStartInterestCalculationDate(
-                            JdbcSupport.getLocalDate(rs, "startInterestCalculationDate"));
+                    savingsAccountData.setStartInterestCalculationDate(JdbcSupport.getLocalDate(rs, "startInterestCalculationDate"));
 
                     savingsAccountData.setGlAccountIdForInterestReceivable(glAccountIdForInterestReceivable);
                     savingsAccountData.setGlAccountIdForOverdraftPorfolio(glAccountIdForOverdraftPorfolio);

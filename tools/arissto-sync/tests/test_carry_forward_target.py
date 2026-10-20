@@ -21,21 +21,25 @@ def cutoff():
 class CarryForwardTargetTests(unittest.TestCase):
     def test_clean_closed_only_local_seed_passes_target_preconditions(self):
         result = classify_target(target(), cutoff(),
-                                 {600: 30, 601: 1}, 0, 0, counts())
+                                 {600: 30, 601: 1}, 0, 0, counts(), phase="seed")
         self.assertTrue(result["target_preconditions_pass"])
         self.assertFalse(result["ready_for_reset"])
         self.assertEqual(result["seed_cutoff"], "2026-10-06")
 
-    def test_populated_tenant_fails_closed(self):
+    def test_populated_tenant_is_valid_input_but_not_a_seed(self):
         domain_counts = counts()
         domain_counts["acc_gl_journal_entry"] = 10
         domain_counts["m_savings_account"] = 2
-        result = classify_target(target(), cutoff(),
-                                 {300: 1, 600: 30}, 1, 1, domain_counts)
-        self.assertFalse(result["target_preconditions_pass"])
-        self.assertIn("nonclosed_loans_present", result["blockers"])
-        self.assertIn("loan_transactions_on_or_after_seed_cutoff", result["blockers"])
-        self.assertIn("nonempty_domain:acc_gl_journal_entry", result["blockers"])
+        populated = (target(), cutoff(), {300: 1, 600: 30}, 1, 1, domain_counts)
+        input_report = classify_target(*populated)
+        self.assertTrue(input_report["target_preconditions_pass"])
+        self.assertEqual(input_report["current_fineract_starts"], "2026-10-06")
+        self.assertEqual(input_report["loan_status_counts"], {"300": 1, "600": 30})
+        seed_report = classify_target(*populated, phase="seed")
+        self.assertFalse(seed_report["target_preconditions_pass"])
+        self.assertIn("nonclosed_loans_present", seed_report["blockers"])
+        self.assertIn("loan_transactions_on_or_after_seed_cutoff", seed_report["blockers"])
+        self.assertIn("nonempty_domain:acc_gl_journal_entry", seed_report["blockers"])
 
     def test_wrong_tenant_or_missing_core_table_fails_closed(self):
         domain_counts = counts()

@@ -1,6 +1,9 @@
 import unittest
+from contextlib import nullcontext
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from arissto_sync.native_shares import (
     NativeShareContract,
@@ -10,7 +13,8 @@ from arissto_sync.native_shares import (
 )
 from arissto_sync.native_share_engine import (
     _empty_vista_payload, _ensure_payment_types, _idempotency_key, _product_contracts, _product_payload,
-    account_external_id, native_share_execution_blockers, prerequisite_vista_external_id,
+    _persist_projection, account_external_id, extract_native_share_records, native_share_execution_blockers,
+    prerequisite_vista_external_id,
 )
 
 
@@ -18,6 +22,81 @@ CONFIG = Path(__file__).resolve().parents[1] / "config" / "native_share_capital.
 
 
 class NativeShareContractTests(unittest.TestCase):
+    def test_certificate_projection_uses_class_book_and_preserves_other_screen_fields(self):
+        contract = NativeShareContract.load(CONFIG)
+        source_certificate = {
+            "ID_CERTIFICADO": 17, "ID_ASOCIADO": 42, "ID_TIPO_ACCION": 2,
+            "ID_ESTADO_CERTIFICADO": 1, "ID_SUCURSAL": "001", "ID_LIBRO_ACCIONES": 1,
+            "ASSOCIATE_COMPANY_ID": "001", "ID_PROMOTOR": "00007",
+            "SOURCE_BOOK_NUMBER": "No. 1", "SOURCE_BOOK_DATE": "2020-09-01",
+            "NUMERO_CERTIFICADO": "000011AP01", "FECHA_CERTIFICADO": "2023-02-01",
+            "VALOR_ACCION": Decimal("5.00"), "NUMERO_ACCIONES": Decimal("10"),
+            "ACCIONES_SUSCRITAS": Decimal("10"), "ACCIONES_PAGADAS": Decimal("10"),
+            "SALDO_SUSCRITO": Decimal("50"), "SALDO_PAGADO": Decimal("50"),
+            "SALDO_ACCIONES": Decimal("50"), "SALDO_PIGNORADO": Decimal("0"),
+            "SALDO_BLOQUEADO": Decimal("0"), "SALDO_DISPONIBLE": Decimal("0"),
+            "ACCION_INI": "25", "ACCION_FIN": "34", "FOLIO": 0, "LINEA": 0,
+            "SERIE": "A", "IMPRESO": 0, "BLOQUEO": "N", "RESTRINGIDO": "N",
+        }
+        positions = [{"ID_ACCION": 9, "ID_ASOCIADO": 42, "ID_TIPO_ACCION": 2,
+                      "NUMERO_AFILIACION": "0000000042"}]
+        movements = [{"ID_ASOCIADO": 42, "ID_TIPO_ACCION": 2, "ID_EMPRESA": "001",
+                      "ID_SUCURSAL": "001", "ID_MOV_APORTACION": 5, "FECHA": "2023-02-01",
+                      "MONTO": Decimal("50"), "ID_TIPO_PAGO": 1}]
+
+        def rows(_conn, query, *_args):
+            if "FROM dbo.AFI_ACCION" in query:
+                return positions
+            if "FROM dbo.AFI_CERTIFICADO" in query:
+                return [source_certificate]
+            if "FROM dbo.AFI_LIBRO_ACCIONES" in query:
+                return [
+                    {"ID_LIBRO_ACCIONES": 1, "NUMERO_LIBRO": "No. 1", "FECHA": "2020-09-01"},
+                    {"ID_LIBRO_ACCIONES": 3, "NUMERO_LIBRO": "No. 2", "FECHA": "2020-09-01"},
+                ]
+            if "FROM dbo.MOV_APORTACIONES" in query:
+                return movements
+            raise AssertionError(query)
+
+        with patch("arissto_sync.native_share_engine.source_connection", return_value=nullcontext(object())), \
+             patch("arissto_sync.native_share_engine.select_rows", side_effect=rows):
+            record = extract_native_share_records(SimpleNamespace(source=None), contract)[0]
+        certificate = record["certificates"][0]
+        self.assertEqual(certificate["source_book_id"], 1)
+        self.assertEqual(certificate["source_book_number"], "No. 1")
+        self.assertEqual(certificate["book_id"], 2)
+        self.assertEqual(certificate["book_number"], "No. 2")
+        self.assertEqual(certificate["promoter_external_id"], "001:00007")
+        self.assertEqual((certificate["share_serial_start"], certificate["share_serial_end"]), (25, 34))
+        self.assertEqual(certificate["pledged_balance"], "0")
+
+        connection = Mock()
+        connection.execute.return_value.fetchall.return_value = [(71,)]
+        with patch("arissto_sync.native_share_engine._postgres_write_connection", return_value=nullcontext(connection)):
+            _persist_projection(SimpleNamespace(target=SimpleNamespace(pg_url="")), contract,
+                                "plan", "run", {"client_id": 11},
+                                {"share_type": "2", "certificates": [certificate], "events": []},
+                                13, 19, {})
+        insert = connection.execute.call_args_list[-1]
+        sql, values = insert.args
+        columns = sql.split("(", 1)[1].split(")", 1)[0].split(",")
+        saved = dict(zip(columns, values))
+        self.assertEqual({name: saved[name] for name in (
+            "certificate_number", "certificate_date", "represented_shares", "subscribed_shares",
+            "unit_price", "initial_share_number", "final_share_number", "share_serial_start",
+            "share_serial_end", "current_balance", "pledged_balance", "promoter_staff_id",
+            "book_id", "series", "book_number", "book_date", "folio", "line_number",
+        )}, {
+            "certificate_number": "000011AP01", "certificate_date": "2023-02-01",
+            "represented_shares": "10", "subscribed_shares": "10", "unit_price": "5.00",
+            "initial_share_number": "25", "final_share_number": "34",
+            "share_serial_start": 25, "share_serial_end": 34,
+            "current_balance": "50", "pledged_balance": "0", "promoter_staff_id": 71,
+            "book_id": 2, "series": "A", "book_number": "No. 2",
+            "book_date": "2020-09-01", "folio": 0, "line_number": 0,
+        })
+        self.assertNotIn("provisional_number", saved)
+
     def test_payment_type_bootstrap_creates_missing_cash_and_reuses_existing_channels(self):
         contract = NativeShareContract.load(CONFIG)
 
@@ -82,6 +161,8 @@ class NativeShareContractTests(unittest.TestCase):
         self.assertEqual(contract.raw["share_classes"]["1"]["approved_total_shares"], 6375)
         self.assertEqual(contract.raw["share_classes"]["1"]["numbering_code"], "1AC")
         self.assertEqual(contract.raw["share_classes"]["2"]["numbering_code"], "1AP")
+        self.assertEqual(contract.raw["share_classes"]["1"]["certificate_book_id"], 1)
+        self.assertEqual(contract.raw["share_classes"]["2"]["certificate_book_id"], 2)
         self.assertEqual(contract.raw["share_classes"]["1"]["approved_maximum_client_shares"], 375)
         self.assertEqual(contract.raw["share_classes"]["2"]["approved_total_shares"], 50000)
         self.assertEqual(contract.raw["share_classes"]["2"]["approved_maximum_client_shares"], 825)
@@ -234,6 +315,13 @@ class NativeShareContractTests(unittest.TestCase):
             ],
         })
         self.assertEqual(payload["externalId"], "arissto-share-common")
+        self.assertEqual(payload["name"], "Credesal Acciones Comunes")
+        preferred = _product_payload(_product_contracts(contract)["2"], {
+            "shareReferenceId": 10, "shareSuspenseId": 20, "incomeFromFeeAccountId": 30,
+            "shareEquityIds": {"1": 40, "2": 41},
+            "paymentChannelToFundSourceMappings": [],
+        })
+        self.assertEqual(preferred["name"], "Credesal Acciones Preferidas")
         self.assertEqual(payload["totalShares"], 6375)
         self.assertEqual(payload["maximumShares"], 375)
         self.assertEqual(payload["shareEquityId"], 40)

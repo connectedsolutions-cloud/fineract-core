@@ -50,10 +50,9 @@ public class ProcessMaturityFixedDepositAccountCommandHandler implements NewComm
         final LocalDate sourceRolloverDate = command.hasParameter(sourceRolloverDateParamName)
                 ? command.localDateValueOfParameterNamed(sourceRolloverDateParamName)
                 : null;
-        final Long reinvestedDepositId = this.writePlatformService.updateMaturityDetails(accountId,
-                DepositAccountType.FIXED_DEPOSIT, applyMaturityInstruction, postMaturityInterest, sourceRolloverDate);
-        final CommandProcessingResultBuilder result = new CommandProcessingResultBuilder().withEntityId(accountId)
-                .withSavingsId(accountId);
+        final Long reinvestedDepositId = this.writePlatformService.updateMaturityDetails(accountId, DepositAccountType.FIXED_DEPOSIT,
+                applyMaturityInstruction, postMaturityInterest, sourceRolloverDate);
+        final CommandProcessingResultBuilder result = new CommandProcessingResultBuilder().withEntityId(accountId).withSavingsId(accountId);
         if (reinvestedDepositId != null) {
             result.withSubEntityId(reinvestedDepositId).with(Map.of("reinvestedDepositId", reinvestedDepositId));
         }

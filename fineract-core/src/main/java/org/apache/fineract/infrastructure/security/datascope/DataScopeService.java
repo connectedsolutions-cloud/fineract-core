@@ -113,13 +113,13 @@ public class DataScopeService {
             sql.append(" or exists (select 1 from m_loan lx where lx.client_id = ").append(clientAlias)
                     .append(".id and lx.loan_officer_id = ?)");
             params.add(staffId);
-            sql.append(" or exists (select 1 from credesal_client_staff_assignment ca where ca.client_id = ").append(clientAlias)
-                    .append(".id and (ca.promoter_staff_id = ? or ca.account_executive_staff_id = ? or ca.collections_manager_staff_id = ?))");
+            sql.append(" or exists (select 1 from credesal_client_staff_assignment ca where ca.client_id = ").append(clientAlias).append(
+                    ".id and (ca.promoter_staff_id = ? or ca.account_executive_staff_id = ? or ca.collections_manager_staff_id = ?))");
             params.add(staffId);
             params.add(staffId);
             params.add(staffId);
-            sql.append(" or exists (select 1 from credesal_loan_staff_assignment la where la.client_id = ").append(clientAlias)
-                    .append(".id and (la.promoter_staff_id = ? or la.account_executive_staff_id = ? or la.collections_manager_staff_id = ?))");
+            sql.append(" or exists (select 1 from credesal_loan_staff_assignment la where la.client_id = ").append(clientAlias).append(
+                    ".id and (la.promoter_staff_id = ? or la.account_executive_staff_id = ? or la.collections_manager_staff_id = ?))");
             params.add(staffId);
             params.add(staffId);
             params.add(staffId);
@@ -157,13 +157,13 @@ public class DataScopeService {
             params.add(staffId);
             params.add(staffId);
             params.add(staffId);
-            sql.append(" or exists (select 1 from credesal_client_staff_assignment ca where ca.client_id = ").append(clientAlias)
-                    .append(".id and (ca.promoter_staff_id = ? or ca.account_executive_staff_id = ? or ca.collections_manager_staff_id = ?))");
+            sql.append(" or exists (select 1 from credesal_client_staff_assignment ca where ca.client_id = ").append(clientAlias).append(
+                    ".id and (ca.promoter_staff_id = ? or ca.account_executive_staff_id = ? or ca.collections_manager_staff_id = ?))");
             params.add(staffId);
             params.add(staffId);
             params.add(staffId);
-            sql.append(" or exists (select 1 from credesal_loan_staff_assignment la where la.loan_id = ").append(loanAlias)
-                    .append(".id and (la.promoter_staff_id = ? or la.account_executive_staff_id = ? or la.collections_manager_staff_id = ?))) ");
+            sql.append(" or exists (select 1 from credesal_loan_staff_assignment la where la.loan_id = ").append(loanAlias).append(
+                    ".id and (la.promoter_staff_id = ? or la.account_executive_staff_id = ? or la.collections_manager_staff_id = ?))) ");
             params.add(staffId);
             params.add(staffId);
             params.add(staffId);
@@ -385,9 +385,8 @@ public class DataScopeService {
                         .append(".staff_id = :").append(NAMED_STAFF_ID);
                 appendNamedClientStaffAssignment(sql, clientAlias);
                 sql.append(" or exists (select 1 from credesal_loan_staff_assignment la where la.loan_id = ").append(productAlias)
-                        .append(".id and (la.promoter_staff_id = :").append(NAMED_STAFF_ID)
-                        .append(" or la.account_executive_staff_id = :").append(NAMED_STAFF_ID)
-                        .append(" or la.collections_manager_staff_id = :").append(NAMED_STAFF_ID).append("))) ");
+                        .append(".id and (la.promoter_staff_id = :").append(NAMED_STAFF_ID).append(" or la.account_executive_staff_id = :")
+                        .append(NAMED_STAFF_ID).append(" or la.collections_manager_staff_id = :").append(NAMED_STAFF_ID).append("))) ");
             } else if ("savings".equals(kind)) {
                 sql.append(" and (").append(productAlias).append(".field_officer_id = :").append(NAMED_STAFF_ID).append(" or ")
                         .append(clientAlias).append(".gestor_id = :").append(NAMED_STAFF_ID).append(" or ").append(clientAlias)
@@ -432,20 +431,18 @@ public class DataScopeService {
 
     private void appendNamedClientStaffAssignment(final StringBuilder sql, final String clientAlias) {
         sql.append(" or exists (select 1 from credesal_client_staff_assignment ca where ca.client_id = ").append(clientAlias)
-                .append(".id and (ca.promoter_staff_id = :").append(NAMED_STAFF_ID)
-                .append(" or ca.account_executive_staff_id = :").append(NAMED_STAFF_ID)
-                .append(" or ca.collections_manager_staff_id = :").append(NAMED_STAFF_ID).append("))");
+                .append(".id and (ca.promoter_staff_id = :").append(NAMED_STAFF_ID).append(" or ca.account_executive_staff_id = :")
+                .append(NAMED_STAFF_ID).append(" or ca.collections_manager_staff_id = :").append(NAMED_STAFF_ID).append("))");
     }
 
     private boolean hasClientStaffAssignment(final Long clientId, final Long staffId) {
         if (clientId == null) {
             return false;
         }
-        final Integer hit = jdbcTemplate.queryForObject(
-                "select case when exists (select 1 from credesal_client_staff_assignment where client_id = ? "
+        final Integer hit = jdbcTemplate
+                .queryForObject("select case when exists (select 1 from credesal_client_staff_assignment where client_id = ? "
                         + "and (promoter_staff_id = ? or account_executive_staff_id = ? or collections_manager_staff_id = ?)) "
-                        + "then 1 else 0 end",
-                Integer.class, clientId, staffId, staffId, staffId);
+                        + "then 1 else 0 end", Integer.class, clientId, staffId, staffId, staffId);
         return hit != null && hit == 1;
     }
 
@@ -453,11 +450,10 @@ public class DataScopeService {
         if (loanId == null) {
             return false;
         }
-        final Integer hit = jdbcTemplate.queryForObject(
-                "select case when exists (select 1 from credesal_loan_staff_assignment where loan_id = ? "
+        final Integer hit = jdbcTemplate
+                .queryForObject("select case when exists (select 1 from credesal_loan_staff_assignment where loan_id = ? "
                         + "and (promoter_staff_id = ? or account_executive_staff_id = ? or collections_manager_staff_id = ?)) "
-                        + "then 1 else 0 end",
-                Integer.class, loanId, staffId, staffId, staffId);
+                        + "then 1 else 0 end", Integer.class, loanId, staffId, staffId, staffId);
         return hit != null && hit == 1;
     }
 

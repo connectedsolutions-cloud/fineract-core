@@ -41,8 +41,8 @@ public interface AccountTransfersWritePlatformService {
 
     void reverseTransfersWithFromAccountTransactions(Collection<Long> fromTransactionIds, PortfolioAccountType accountTypeId);
 
-    boolean reverseUniqueSavingsTransferAndInterestPosting(Long savingsAccountId, Long interestTransactionId,
-            LocalDate transactionDate, BigDecimal amount, boolean sourceAuthoritativeCleanup);
+    boolean reverseUniqueSavingsTransferAndInterestPosting(Long savingsAccountId, Long interestTransactionId, LocalDate transactionDate,
+            BigDecimal amount, boolean sourceAuthoritativeCleanup);
 
     boolean reverseUniqueSavingsTransfer(Long savingsAccountId, Long transactionId);
 
