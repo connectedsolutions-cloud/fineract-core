@@ -4208,7 +4208,7 @@ class LoanInspectionTests(unittest.TestCase):
                     "block": "loans", "target_fingerprint": "sandbox",
                     "source_fingerprint": "arissto", "contract_hash": self.contract.digest,
                     "document": {
-                        "component_alignment_plan_revision": 9, "final_metric_alignment_revision": 1,
+                        "component_alignment_plan_revision": 9, "final_metric_alignment_revision": 1, "accrual_control_revision": 1,
                         "source_observed_at": "2026-10-26T15:00:00Z",
                         "applicable": True, "product_writer_registered": True,
                         "loan_writer_registered": True, "collateral_writer_registered": True,
@@ -4248,7 +4248,7 @@ class LoanInspectionTests(unittest.TestCase):
             "block": "loans", "target_fingerprint": "sandbox", "source_fingerprint": "arissto",
             "contract_hash": self.contract.digest,
             "document": {
-                "component_alignment_plan_revision": 9, "final_metric_alignment_revision": 1,
+                "component_alignment_plan_revision": 9, "final_metric_alignment_revision": 1, "accrual_control_revision": 1,
                         "source_observed_at": "2026-10-26T15:00:00Z",
                 "applicable": True,
                 "product_writer_registered": True,
@@ -4972,6 +4972,7 @@ class LoanInspectionTests(unittest.TestCase):
             )),
             patch("arissto_sync.loans.extract_loan_lifecycle_rows", return_value={}),
             patch("arissto_sync.loans.extract_loan_mora_cutover_snapshots", return_value={}),
+            patch("arissto_sync.loans.extract_loan_freeze_events", return_value={}),
             patch("arissto_sync.loans.resolve_loan_product_target", return_value=target),
             patch("arissto_sync.loans.plan_client_office_transfers", return_value=[]),
             patch("arissto_sync.loans.target_client_office_transfer_blockers", return_value=[]),

@@ -1950,6 +1950,7 @@ def extract_loan_mora_cutover_snapshots(
             rows = select_rows(conn, f"""
                 WITH ranked AS (SELECT h.ID_CREDITO,h.SALDO_MORA,h.FECHA_ULTIMO_PAGOMOR,
                        h.INTERES_MORA_APROBADO,h.DIAS_MORA,h.SALDO_VENCIDO_CAPITAL,
+                       h.CRD_CONGELADO,h.FECHA_CONGELAMIENTO,
                        h.SALDO_INTERES,h.SALDO_PAGADO_CAPITAL,h.SALDO_PAGADO_INTERES,h.SALDO_PAGADO_SEGURO,h.SALDO_PAGADO_OTROS,h.MONTO_DESEMBOLSADO,h.SALDO_RECARGOS,
                        h.SALDO_SEGURO,h.SALDO_TOTAL,h.ID_ESTADO_CARTERA,
                        h.ID_CRD_HISTORICO_DIARIO,CAST(c.FECHA_OPERACION AS date) AS source_day,
@@ -1965,12 +1966,53 @@ def extract_loan_mora_cutover_snapshots(
     return snapshots
 
 
+def extract_loan_freeze_events(
+    settings: Settings, loans: list[dict[str, Any]], migration_cutover_date: str,
+) -> dict[int, list[dict[str, Any]]]:
+    """Find source freeze history that the loan writer cannot yet reproduce.
+
+    This is a plan guard, not a pause classifier. Restriction type 4 may affect
+    more than one component, so no native pause command is inferred here.
+    """
+    source_day = date.fromisoformat(migration_cutover_date) - timedelta(days=1)
+    loan_ids = sorted(int(row["ID_CREDITO"]) for row in loans)
+    events: dict[int, list[dict[str, Any]]] = {}
+    with source_connection(settings.source) as conn:
+        for offset in range(0, len(loan_ids), 900):
+            batch = loan_ids[offset:offset + 900]
+            if not batch:
+                continue
+            placeholders = ",".join("?" for _ in batch)
+            rows = select_rows(conn, f"""
+                SELECT c.ID_CREDITO,b.ID_BLOQUEO_CUENTA,b.BLOQUEO,b.FECHA,b.DT_CREO
+                FROM dbo.AFI_BLOQUEO_CUENTA b
+                JOIN dbo.CRD_CARTERA c
+                  ON LTRIM(RTRIM(b.NO_CUENTA))=LTRIM(RTRIM(c.NO_PRESTAMO))
+                WHERE b.TIPO_PRODUCTO='3' AND b.TIPO_RESTRICCION='4'
+                  AND CAST(b.FECHA AS date)<=?
+                  AND c.ID_CREDITO IN ({placeholders})
+                ORDER BY c.ID_CREDITO,b.FECHA,b.DT_CREO,b.ID_BLOQUEO_CUENTA
+            """, (source_day, *batch))
+            for row in rows:
+                loan_id = int(row["ID_CREDITO"])
+                events.setdefault(loan_id, []).append({
+                    "source_event_id": int(row["ID_BLOQUEO_CUENTA"]),
+                    "blocked": _clean(row["BLOQUEO"]) == "1",
+                    "effective_date": row["FECHA"].date().isoformat(),
+                    "recorded_at": row["DT_CREO"].isoformat(),
+                })
+    return events
+
+
 def attach_loan_cutover_source_evidence(
     settings: Settings, loans: list[dict[str, Any]], migration_cutover_date: str,
 ) -> None:
     snapshots = extract_loan_mora_cutover_snapshots(settings, loans, migration_cutover_date)
+    freeze_events = extract_loan_freeze_events(settings, loans, migration_cutover_date)
     for loan in loans:
         source_key = int(loan["ID_CREDITO"])
+        if source_key in freeze_events:
+            loan["_source_freeze_events"] = freeze_events[source_key]
         snapshot = snapshots.get(source_key)
         if snapshot is not None:
             loan["_mora_cutover_snapshot"] = snapshot
@@ -4242,6 +4284,31 @@ def _propagate_intrinsic_refinance_quarantines(
     return original_actions
 
 
+def _guard_unmapped_loan_events(
+    lifecycle_action: dict[str, Any], loan: dict[str, Any],
+) -> dict[str, Any]:
+    freeze_events = loan.get("_source_freeze_events") or []
+    if freeze_events:
+        lifecycle = lifecycle_action.get("lifecycle")
+        if lifecycle is None or lifecycle["expected"]["source_state"] != "1":
+            lifecycle_action["quarantine_reasons"] = sorted(set(
+                lifecycle_action["quarantine_reasons"]
+                + ["historical_source_freeze_terminal_unsupported"]
+            ))
+        else:
+            lifecycle["source_freeze_events"] = freeze_events
+            lifecycle_action["lifecycle_hash"] = _stable_hash(_loan_source_hash_view(lifecycle))
+    lifecycle = lifecycle_action.get("lifecycle")
+    if lifecycle is not None and lifecycle.get("migration_cutover_date") and lifecycle["expected"]["source_state"] == "1":
+        from .loan_accrual_controls import freeze as freeze_controls
+        try:
+            lifecycle["accrual_controls"] = freeze_controls(loan, lifecycle["migration_cutover_date"], freeze_events)
+            lifecycle_action["lifecycle_hash"] = _stable_hash(_loan_source_hash_view(lifecycle))
+        except ValueError as exc:
+            lifecycle_action["quarantine_reasons"] = sorted(set(lifecycle_action["quarantine_reasons"] + [str(exc)]))
+    return lifecycle_action
+
+
 def compose_loan_plan(
     settings: Settings,
     contract: LoanContract,
@@ -4401,6 +4468,7 @@ def compose_loan_plan(
             }
         if migration_cutover_date and lifecycle_action.get("lifecycle") and not lifecycle_action["lifecycle"].get("final_metric_alignment"):
             lifecycle_action["quarantine_reasons"].append("missing_final_metric_source_snapshot")
+        lifecycle_action = _guard_unmapped_loan_events(lifecycle_action, loan)
         # The source guard must describe Arissto, not the local-only proof
         # identity overlay applied to the frozen writer payload below.
         source_hash = _stable_hash({
@@ -4454,6 +4522,7 @@ def compose_loan_plan(
         "version": 1,
         "component_alignment_plan_revision": 9,
         "final_metric_alignment_revision": 1,
+        "accrual_control_revision": 1,
         "source_observed_at": datetime.now(timezone.utc).isoformat(),
         "block": BLOCK,
         "target_fingerprint": settings.target.fingerprint,
@@ -4717,6 +4786,7 @@ def _loan_apply_guard(
     document = plan["document"]
     if (document.get("component_alignment_plan_revision") != 9
             or document.get("final_metric_alignment_revision") != 1
+            or document.get("accrual_control_revision") != 1
             or not document.get("source_observed_at")):
         raise RuntimeError("loan_plan_predates_dated_component_and_event_guards")
     if "client_office_transfers" not in document:
@@ -6557,6 +6627,59 @@ def _refinance_fee_charge_external_id(settlement: dict[str, Any]) -> str | None:
     return str(fee_charges[0]["external_id"])
 
 
+def _ensure_source_exact_freeze_history(
+    api: FineractApi, loan: dict[str, Any], action: dict[str, Any], attempt_key: str | None,
+) -> dict[str, Any]:
+    """Install ordered source whole-loan restrictions after historical replay."""
+    source_events = (action["lifecycle"].get("source_freeze_events") or [])
+    if not source_events:
+        return loan
+    cutoff_date = action["lifecycle"].get("migration_cutover_date")
+    if not cutoff_date:
+        raise RuntimeError("loan_freeze_history_missing_cutover")
+    loan_id = int(loan["id"])
+    prefix = action["external_id"].split("ARISSTO:CRD:", 1)[0]
+    expected = [{
+        "external_id": f"{prefix}ARISSTO:AFI-BLOQUEO:{event['source_event_id']}",
+        "effective_date": event["effective_date"],
+        "action": "FREEZE" if event["blocked"] else "UNFREEZE",
+    } for event in source_events]
+
+    def read_history() -> list[dict[str, Any]]:
+        rows = _api_list(api.request("GET", f"loans/{loan_id}/freezehistory"))
+        return [{
+            "external_id": row.get("sourceEventExternalId"),
+            "effective_date": _iso_date(row.get("effectiveDate"), "freeze effectiveDate"),
+            "action": row.get("action"),
+        } for row in rows if row.get("action") in {"FREEZE", "UNFREEZE"}]
+
+    actual = read_history()
+    if actual == expected:
+        return loan
+    if actual:
+        raise RuntimeError("loan_source_freeze_history_conflict")
+    api.request("POST", f"loans/{loan_id}", {
+        "sourceSystem": SOURCE_SYSTEM,
+        "sourceLoanExternalId": action["external_id"],
+        "cutoffDate": cutoff_date,
+        "events": [{
+            "sourceEventId": event["source_event_id"],
+            "effectiveDate": event["effective_date"],
+            "blocked": event["blocked"],
+        } for event in source_events],
+        "dateFormat": "yyyy-MM-dd", "locale": "en",
+    }, query={"command": "sourceExactFreezeHistory"},
+        idempotency_key=_attempt_idempotency_key(
+            f"{action['external_id']}:freeze-history:{cutoff_date}", attempt_key,
+        ))
+    if read_history() != expected:
+        raise RuntimeError("loan_source_freeze_history_persisted_mismatch")
+    refreshed = _find_loan(api, action["external_id"])
+    if refreshed is None:
+        raise RuntimeError("loan_missing_after_source_freeze_history")
+    return refreshed
+
+
 def _apply_loan_lifecycle(
     api: FineractApi, action: dict[str, Any], product_id: int, attempt_key: str | None = None,
     collateral_product_id: int | None = None,
@@ -8123,6 +8246,12 @@ def apply_loan_plan(
                 native = _find_loan(final_api, action["external_id"])
                 if native is None:
                     raise RuntimeError("final_metric_loan_missing")
+                controls = action["lifecycle"].get("accrual_controls")
+                if controls:
+                    native = _ensure_source_exact_freeze_history(final_api, native, action, run_id)
+                    from .loan_accrual_controls import verify as verify_accrual_controls
+                    verify_accrual_controls(final_api, native, controls)
+                    counts["accrual_controls_reconciled"] += 1
                 result = align_final_metrics(final_api, int(native["id"]), action, document["source_observed_at"])
                 counts["metrics_reconciled"] += 1
                 counts["metrics_adjusted"] += int(result["changed"])
@@ -8221,6 +8350,14 @@ def reconcile_loans(
             continue
         counts["loans"] += 1
         lifecycle = action["lifecycle"]
+        if lifecycle.get("accrual_controls"):
+            from .loan_accrual_controls import verify as verify_accrual_controls
+            try:
+                verify_accrual_controls(api, loan, lifecycle["accrual_controls"])
+                counts["accrual_controls_reconciled"] += 1
+            except RuntimeError as exc:
+                mismatches.append({"source_key": item["source_key"], "kind": "accrual_control_state", "detail": str(exc),
+                    "classification": "blocking_cutover_operational_state"})
         if lifecycle.get("final_metric_alignment"):
             from .loan_metric_alignment import amounts as metric_amounts
             frozen = lifecycle["final_metric_alignment"]
@@ -8468,6 +8605,26 @@ def reconcile_loans(
                 else "blocking_schedule_mismatch"
             )
             (variances if reviewed_schedule_exception else mismatches).append(difference)
+
+        freeze_events = lifecycle.get("source_freeze_events") or []
+        if freeze_events:
+            prefix = action["external_id"].split("ARISSTO:CRD:", 1)[0]
+            expected_freeze_history = [{
+                "sourceEventExternalId": f"{prefix}ARISSTO:AFI-BLOQUEO:{row['source_event_id']}",
+                "effectiveDate": row["effective_date"],
+                "action": "FREEZE" if row["blocked"] else "UNFREEZE",
+            } for row in freeze_events]
+            target_freeze_history = [{
+                "sourceEventExternalId": row.get("sourceEventExternalId"),
+                "effectiveDate": _iso_date(row.get("effectiveDate"), "freeze effectiveDate"),
+                "action": row.get("action"),
+            } for row in _api_list(api.request("GET", f"loans/{loan['id']}/freezehistory"))
+                if row.get("action") in {"FREEZE", "UNFREEZE"}]
+            if target_freeze_history != expected_freeze_history:
+                mismatches.append({
+                    "source_key": item["source_key"], "kind": "source_freeze_history",
+                    "classification": "blocking_cutover_operational_history",
+                })
 
         refinance = lifecycle.get("refinance")
         for event in lifecycle["events"]:

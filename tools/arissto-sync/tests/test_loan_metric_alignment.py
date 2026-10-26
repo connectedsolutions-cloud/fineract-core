@@ -78,6 +78,7 @@ class FinalMetricTests(unittest.TestCase):
         for key in (1,2):
             action=self.action(); action.update(source_key=f'loan:{key}',entity_type='loan',entity_source_key=str(key),
                 action='create-loan',depends_on=['product:00001'],product_action_key='product:00001',source_hash=f'h{key}',target_id=None,external_id=f'ARISSTO:CRD:{key}')
+            action["lifecycle"]["accrual_controls"]={"ordinaryInterestPaused":False,"moraPaused":False,"fineractStarts":"2026-10-20"}
             loans.append(action)
         plan={'id':'p','document':{'actions':[product,*loans],'final_metric_alignment_revision':1,'source_observed_at':'2026-10-26T15:00:00Z'}}
         settings=SimpleNamespace(target=SimpleNamespace(fingerprint='target'));state=MagicMock();state.start_run.return_value='run'
@@ -87,6 +88,7 @@ class FinalMetricTests(unittest.TestCase):
             barrier.wait(timeout=3);log.append('history:'+action['entity_source_key']);return int(action['entity_source_key']),False
         def metrics(api,lid,action,observed):
             self.assertEqual(sum(e.startswith('history:') for e in log),2)
+            self.assertIn('controls:'+str(lid),log)
             log.append('metrics:'+str(lid));return {'changed':True}
         with patch('arissto_sync.loans._loan_apply_guard',return_value=(plan,{'products':{'00001':None},'crosswalks':{}})), \
              patch('arissto_sync.loans.FineractApi'), \
@@ -94,6 +96,7 @@ class FinalMetricTests(unittest.TestCase):
              patch('arissto_sync.loans._upsert_loan_product_crosswalk'), \
              patch('arissto_sync.loans._apply_loan_lifecycle',side_effect=history), \
              patch('arissto_sync.loans._find_loan',side_effect=lambda api,external:{'id':int(external.rsplit(':',1)[1])}), \
+             patch('arissto_sync.loan_accrual_controls.verify',side_effect=lambda api,native,controls: log.append('controls:'+str(native['id']))), \
              patch('arissto_sync.loan_metric_alignment.align',side_effect=metrics):
             _,counts=apply_loan_plan(settings,state,fixture.contract,'p',controls=LoanApplyControls(workers=2,pause_seconds=0,recovery_attempts=1))
         self.assertEqual(counts['metrics_reconciled'],2)

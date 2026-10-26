@@ -934,6 +934,15 @@ public class CommandWrapperBuilder {
         return this;
     }
 
+    public CommandWrapperBuilder importSourceExactFreezeHistory(final Long loanId) {
+        this.actionName = "SOURCEEXACTFREEZEHISTORY";
+        this.entityName = "LOAN";
+        this.entityId = null;
+        this.loanId = loanId;
+        this.href = "/loans/" + loanId + "?command=sourceExactFreezeHistory";
+        return this;
+    }
+
     public CommandWrapperBuilder freezeLoan(final Long loanId) {
         this.actionName = "FREEZE";
         this.entityName = "LOAN";

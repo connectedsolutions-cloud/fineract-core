@@ -19,6 +19,11 @@ owns definitions and source evidence. The
 owns the scope. This document owns the service step and method requirements. Versioned
 Liquibase and backend sources own definitive schema and persistence behavior.
 
+The accompanying [accrual-control contract](loan-accrual-controls.md) covers
+ordinary-interest and mora pause/resume state. The final pass verifies those
+controls before correcting monetary targets; monetary equality does not prove
+correct accrual state.
+
 ## Execution sequence
 
 1. Complete the current loan creation, source schedule installation, historical
@@ -141,7 +146,7 @@ processor, loan transaction creator or business-event notifier.
 ### Sync integration and source completeness
 
 Loan plans now carry `component_alignment_plan_revision=9`,
-`final_metric_alignment_revision=1`, a plan-level `source_observed_at`, and a
+`final_metric_alignment_revision=1`, `accrual_control_revision=1`, a plan-level `source_observed_at`, and a
 per-loan frozen target/definition descriptor. Older plans must be regenerated.
 Preflight requires the versioned alignment table and native schedule marker.
 

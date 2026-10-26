@@ -21,6 +21,11 @@ or reversals. Loan plan revision 9 freezes all eight targets; the final
 coordinator runs after all loan workers and dependency operations, and native
 read-back determines completion. Local canary evidence is in the linked guide.
 
+The [accrual-control contract](loan-accrual-controls.md) documents pause/resume
+methods, verified source whole-loan freeze history, and the native state checks
+that precede final amount reconciliation. The approved source control pauses/resumes interest and mora together; it is
+not inferred from balances.
+
 ## Stable identity
 
 ```text
