@@ -11,7 +11,7 @@ from collections import Counter, defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_DOWN
 from pathlib import Path
 from typing import Any
@@ -210,6 +210,8 @@ REQUIRED_TARGET_COLUMNS = {
         "loan_id", "source_submitted_on", "source_approved_on", "source_resolution_on",
         "source_disbursed_on", "effective_approved_on", "classification", "created_at", "updated_at",
     },
+    "credesal_loan_metric_alignment": {"loan_id", "request_id", "payload_hash", "source_through_date", "before_json", "target_json", "after_json"},
+    "m_loan_repayment_schedule": {"loan_id", "migration_metric_baseline"},
     "credesal_loan_product_map": {
         "id", "source_system", "source_key", "source_hash", "contract_hash", "loan_product_id",
         "arissto_company_id", "arissto_line_id", "mapping_status", "created_at", "updated_at",
@@ -1927,6 +1929,56 @@ def extract_loan_lifecycle_rows(
             result[new_id]["refinance_incoming"].append(row)
     _classify_voided_refinance_attempts(loans, result)
     return result
+
+
+def extract_loan_mora_cutover_snapshots(
+    settings: Settings, loans: list[dict[str, Any]], migration_cutover_date: str,
+) -> dict[int, dict[str, Any]]:
+    """Freeze the latest committed Arissto snapshot on S = first Fineract day minus one.
+
+    Current CRD_CARTERA balances cannot stand in for an earlier source day.
+    """
+    source_day = date.fromisoformat(migration_cutover_date) - timedelta(days=1)
+    loan_ids = sorted(int(row["ID_CREDITO"]) for row in loans)
+    snapshots: dict[int, dict[str, Any]] = {}
+    with source_connection(settings.source) as conn:
+        for offset in range(0, len(loan_ids), 900):
+            batch = loan_ids[offset:offset + 900]
+            if not batch:
+                continue
+            placeholders = ",".join("?" for _ in batch)
+            rows = select_rows(conn, f"""
+                WITH ranked AS (SELECT h.ID_CREDITO,h.SALDO_MORA,h.FECHA_ULTIMO_PAGOMOR,
+                       h.INTERES_MORA_APROBADO,h.DIAS_MORA,h.SALDO_VENCIDO_CAPITAL,
+                       h.SALDO_INTERES,h.SALDO_PAGADO_CAPITAL,h.SALDO_PAGADO_INTERES,h.SALDO_PAGADO_SEGURO,h.SALDO_PAGADO_OTROS,h.MONTO_DESEMBOLSADO,h.SALDO_RECARGOS,
+                       h.SALDO_SEGURO,h.SALDO_TOTAL,h.ID_ESTADO_CARTERA,
+                       h.ID_CRD_HISTORICO_DIARIO,CAST(c.FECHA_OPERACION AS date) AS source_day,
+                       ROW_NUMBER() OVER (PARTITION BY h.ID_CREDITO ORDER BY c.FECHA_OPERACION DESC,h.ID_CRD_HISTORICO_DIARIO DESC) AS source_rank
+                FROM dbo.CRD_HISTORICO_DIARIO h
+                JOIN dbo.CIERRE_DIARIO c ON c.ID_CIERRE_DIARIO=h.ID_CIERRE_DIARIO
+                WHERE CAST(c.FECHA_OPERACION AS date)<=?
+                  AND h.ID_CREDITO IN ({placeholders})
+                 ) SELECT * FROM ranked WHERE source_rank=1
+            """, (source_day, *batch))
+            for row in rows:
+                snapshots.setdefault(int(row["ID_CREDITO"]), row)
+    return snapshots
+
+
+def attach_loan_cutover_source_evidence(
+    settings: Settings, loans: list[dict[str, Any]], migration_cutover_date: str,
+) -> None:
+    snapshots = extract_loan_mora_cutover_snapshots(settings, loans, migration_cutover_date)
+    for loan in loans:
+        source_key = int(loan["ID_CREDITO"])
+        snapshot = snapshots.get(source_key)
+        if snapshot is not None:
+            loan["_mora_cutover_snapshot"] = snapshot
+            if (_clean(loan.get("source_state")) == "1" and _iso_date(snapshot.get("source_day"), "source close")
+                    != (date.fromisoformat(migration_cutover_date) - timedelta(days=1)).isoformat()):
+                loan["_mora_cutover_snapshot_missing"] = True
+        elif _clean(loan.get("source_state")) == "1":
+            loan["_mora_cutover_snapshot_missing"] = True
 
 
 def _api_list(value: Any) -> list[dict[str, Any]]:
@@ -3957,6 +4009,7 @@ def _build_loan_lifecycle_action(
         reviewed_schedule_exception or reviewed_reference_only_schedule
         or unordered_source_schedule
     )
+    mora_snapshot = loan.get("_mora_cutover_snapshot") or loan
     lifecycle = {
         "application_payload": application_payload,
         "contractual_maturity_date": contractual_maturity_date,
@@ -4020,25 +4073,40 @@ def _build_loan_lifecycle_action(
         "migration_cutover_date": migration_cutover_date,
         "closed_stale_insurance_residue_policy": closed_stale_insurance_residue_policy,
         "expected": {
-            "source_state": _clean(loan.get("source_state")),
-            # SALDO_CAPITAL mirrors capital paid for active loans; ULTIMO_SALDO is the
-            # remaining principal.  SALDO_TOTAL adds current interest/fees/penalties.
-            "principal_balance": format(_amount(loan.get("ULTIMO_SALDO")), "f"),
-            "interest_balance": format(
-                _amount(loan.get("SALDO_INTERES")) + _amount(loan.get("SALDO_INTERES_PENDIENTE")), "f"
+            "source_state": _clean(mora_snapshot.get("ID_ESTADO_CARTERA", loan.get("source_state"))),
+            # Historical SALDO_CAPITAL is paid capital, not outstanding. Derive
+            # outstanding from the loan's disbursement and the dated paid counter.
+            "principal_balance": format(
+                _amount(mora_snapshot.get("MONTO_DESEMBOLSADO", loan.get("MONTO_DESEMBOLSADO"))) - _amount(mora_snapshot["SALDO_PAGADO_CAPITAL"])
+                if mora_snapshot.get("SALDO_PAGADO_CAPITAL") is not None
+                else _amount(loan.get("ULTIMO_SALDO")), "f"
             ),
-            "penalty_balance": format(_amount(loan.get("SALDO_MORA")) + _amount(loan.get("SALDO_RECARGOS")), "f"),
+            # SALDO_INTERES already includes the pending-interest bucket.
+            # Adding SALDO_INTERES_PENDIENTE would count it twice.
+            "interest_balance": format(
+                _amount(mora_snapshot.get("SALDO_INTERES", loan.get("SALDO_INTERES"))), "f"
+            ),
+            "due_principal_balance": (
+                format(_amount(mora_snapshot["SALDO_VENCIDO_CAPITAL"]), "f")
+                if loan.get("_mora_cutover_snapshot") else None
+            ),
+            "penalty_balance": format(
+                _amount(mora_snapshot.get("SALDO_MORA", loan.get("SALDO_MORA")))
+                + _amount(mora_snapshot.get("SALDO_RECARGOS", loan.get("SALDO_RECARGOS"))), "f"
+            ),
             "fee_balance": (
                 closed_stale_insurance_residue_policy["native_fee_balance"]
                 if closed_stale_insurance_residue_policy is not None
-                else format(_amount(loan.get("SALDO_SEGURO")), "f")
+                else format(_amount(mora_snapshot.get("SALDO_SEGURO", loan.get("SALDO_SEGURO"))), "f")
             ),
-            "total_outstanding": format(_amount(loan.get("SALDO_TOTAL")), "f"),
+            "total_outstanding": format(_amount(mora_snapshot.get("SALDO_TOTAL", loan.get("SALDO_TOTAL"))), "f"),
         },
         "reversal_pairing": {key: pairing[key] for key in (
             "pair_count", "repayment_pair_count", "disbursement_pair_count", "issues"
         )},
     }
+    from .loan_metric_alignment import freeze as freeze_final_metrics
+    lifecycle["final_metric_alignment"] = freeze_final_metrics(loan, lifecycle["expected"], target["resources"], migration_cutover_date, events)
     if refinance_quote_date_policy is not None and application_payload.get("isTopup"):
         application_payload["sourceExactRefinancingQuoteDate"] = effective_disbursement_date
         lifecycle["approval_payload"]["sourceExactRefinancingQuoteDate"] = effective_disbursement_date
@@ -4331,6 +4399,8 @@ def compose_loan_plan(
                 "quarantine_reasons": ["missing_frozen_source_lifecycle"] if source_lifecycles is not None else [],
                 "client_external_id": _clean(loan.get("client_source_key")), "staff_external_id": None,
             }
+        if migration_cutover_date and lifecycle_action.get("lifecycle") and not lifecycle_action["lifecycle"].get("final_metric_alignment"):
+            lifecycle_action["quarantine_reasons"].append("missing_final_metric_source_snapshot")
         # The source guard must describe Arissto, not the local-only proof
         # identity overlay applied to the frozen writer payload below.
         source_hash = _stable_hash({
@@ -4382,7 +4452,9 @@ def compose_loan_plan(
     blockers = sorted(set(readiness_blockers or []) | set(conflicts))
     return {
         "version": 1,
-        "component_alignment_plan_revision": 8,
+        "component_alignment_plan_revision": 9,
+        "final_metric_alignment_revision": 1,
+        "source_observed_at": datetime.now(timezone.utc).isoformat(),
         "block": BLOCK,
         "target_fingerprint": settings.target.fingerprint,
         "source_fingerprint": source_fingerprint(settings.source),
@@ -4419,6 +4491,8 @@ def build_loan_plan(
             raise ValueError("Loan proof namespace must match [a-z0-9][a-z0-9-]{0,23}")
     inspections = _plan_scope_inspections(settings, contract, source_keys)
     loans, source_products = extract_loan_plan_rows(settings, contract, source_keys)
+    if migration_cutover_date:
+        attach_loan_cutover_source_evidence(settings, loans, migration_cutover_date)
     source_lifecycles = extract_loan_lifecycle_rows(settings, contract, loans)
     target = resolve_loan_product_target(settings, contract, source_products, loans, source_lifecycles)
     blockers = sorted({
@@ -4641,7 +4715,9 @@ def _loan_apply_guard(
     if settings.target.name == "prod" and production_confirmation != settings.target.fingerprint:
         raise RuntimeError(f"Production apply requires --confirm-production {settings.target.fingerprint}")
     document = plan["document"]
-    if document.get("component_alignment_plan_revision") != 8:
+    if (document.get("component_alignment_plan_revision") != 9
+            or document.get("final_metric_alignment_revision") != 1
+            or not document.get("source_observed_at")):
         raise RuntimeError("loan_plan_predates_dated_component_and_event_guards")
     if "client_office_transfers" not in document:
         raise RuntimeError("loan_plan_predates_client_office_transfer_chronology")
@@ -4697,6 +4773,8 @@ def _loan_apply_guard(
         raise RuntimeError("Loans destination schema changed after planning")
 
     loans, source_products = extract_loan_plan_rows(settings, contract, requested)
+    if document.get("migration_cutover_date"):
+        attach_loan_cutover_source_evidence(settings, loans, document["migration_cutover_date"])
     source_lifecycles = extract_loan_lifecycle_rows(settings, contract, loans)
     target = resolve_loan_product_target(settings, contract, source_products, loans, source_lifecycles)
     products_by_line = {_clean(row["line_id"]): row for row in source_products}
@@ -7016,7 +7094,8 @@ def _apply_loan_lifecycle(
             attempt_key,
         )
 
-    loan = _rebase_full_resync_cutover_insurance(api, loan, action, attempt_key)
+    if not lifecycle.get("final_metric_alignment"):
+        loan = _rebase_full_resync_cutover_insurance(api, loan, action, attempt_key)
 
     recurring_charge = lifecycle.get("recurring_insurance_charge")
     if recurring_charge is not None:
@@ -8032,6 +8111,29 @@ def apply_loan_plan(
                 unresolved = ",".join(sorted(pending)[:10])
                 raise RuntimeError(f"loan_dependency_graph_cannot_progress:{unresolved}")
 
+    if document.get("final_metric_alignment_revision") == 1:
+        from .loan_metric_alignment import align as align_final_metrics
+        final_api = FineractApi(settings.target)
+        for action in loan_actions:
+            key = action["source_key"]
+            if loan_outcomes.get(key) is not True:
+                continue
+            previous = next((row for row in state.run_items(run_id) if row["source_key"] == key), None)
+            try:
+                native = _find_loan(final_api, action["external_id"])
+                if native is None:
+                    raise RuntimeError("final_metric_loan_missing")
+                result = align_final_metrics(final_api, int(native["id"]), action, document["source_observed_at"])
+                counts["metrics_reconciled"] += 1
+                counts["metrics_adjusted"] += int(result["changed"])
+            except Exception as exc:
+                if previous and previous["status"] in {"succeeded", "recovered", "unchanged", "retained"}:
+                    counts["loans_" + previous["status"]] -= 1
+                counts["loans_failed"] += 1
+                loan_outcomes[key] = False
+                state.record_item(run_id, key, action["action"], action["source_hash"], "failed",
+                    previous.get("target_id") if previous else None, "final_metrics:" + str(exc).splitlines()[0][:3900])
+
     run_status = "completed-with-errors" if counts["collateral_products_failed"] or counts["products_failed"] or counts["loans_failed"] else (
         "completed-with-quarantine" if counts["loans_quarantined"] else "completed"
     )
@@ -8119,6 +8221,17 @@ def reconcile_loans(
             continue
         counts["loans"] += 1
         lifecycle = action["lifecycle"]
+        if lifecycle.get("final_metric_alignment"):
+            from .loan_metric_alignment import amounts as metric_amounts
+            frozen = lifecycle["final_metric_alignment"]
+            observed = api.request("GET", f"loans/{int(loan['id'])}/migration-metrics", query={
+                k: frozen[k] for k in ("cutoffDate", "insuranceChargeId", "recurringInsuranceChargeId")})
+            actual_metrics = metric_amounts(observed["metrics"])
+            target_metrics = metric_amounts(frozen["targets"])
+            for metric in target_metrics:
+                if actual_metrics[metric] != target_metrics[metric]:
+                    mismatches.append({"source_key": item["source_key"], "kind": "final_metric:" + metric,
+                        "source": target_metrics[metric], "target": actual_metrics[metric]})
         if lifecycle.get("source_maturity_pending"):
             if int((loan.get("status") or {}).get("id") or -1) not in {100, 200}:
                 mismatches.append({"source_key": item["source_key"], "kind": "term_account",

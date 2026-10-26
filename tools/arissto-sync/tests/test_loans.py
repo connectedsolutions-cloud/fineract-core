@@ -2655,6 +2655,9 @@ class LoanInspectionTests(unittest.TestCase):
 
     def test_local_proof_namespace_isolates_loan_and_every_transaction_identity(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
+        loan["_mora_cutover_snapshot"] = {"SALDO_PAGADO_CAPITAL": "8.00", "SALDO_PAGADO_INTERES": "1.90",
+            "SALDO_PAGADO_SEGURO": "0.10", "SALDO_VENCIDO_CAPITAL": "0", "SALDO_MORA": "0", "SALDO_RECARGOS": "0",
+            "MONTO_DESEMBOLSADO": "350", "SALDO_INTERES": "1.90", "SALDO_SEGURO": "0.10"}
         source_product = self.product("00010", "001", "M-MICROCREDITO MULTIDESTINO")
         target.update({
             "products": {"00010": self.api_product(payload)},
@@ -4205,7 +4208,8 @@ class LoanInspectionTests(unittest.TestCase):
                     "block": "loans", "target_fingerprint": "sandbox",
                     "source_fingerprint": "arissto", "contract_hash": self.contract.digest,
                     "document": {
-                        "component_alignment_plan_revision": 8,
+                        "component_alignment_plan_revision": 9, "final_metric_alignment_revision": 1,
+                        "source_observed_at": "2026-10-26T15:00:00Z",
                         "applicable": True, "product_writer_registered": True,
                         "loan_writer_registered": True, "collateral_writer_registered": True,
                         "schema_signature": "source-schema",
@@ -4219,6 +4223,7 @@ class LoanInspectionTests(unittest.TestCase):
                     patch("arissto_sync.loans._plan_scope_inspections", return_value=[inspection]),
                     patch("arissto_sync.loans.extract_loan_plan_rows", return_value=([loan], [source_product])),
                     patch("arissto_sync.loans.extract_loan_lifecycle_rows", return_value={346: {}}),
+                    patch("arissto_sync.loans.attach_loan_cutover_source_evidence"),
                     patch("arissto_sync.loans.resolve_loan_product_target", return_value={"resources": {}}),
                     patch("arissto_sync.loans.build_loan_product_payload", return_value={}),
                     patch("arissto_sync.loans._build_loan_lifecycle_action", return_value={
@@ -4243,7 +4248,8 @@ class LoanInspectionTests(unittest.TestCase):
             "block": "loans", "target_fingerprint": "sandbox", "source_fingerprint": "arissto",
             "contract_hash": self.contract.digest,
             "document": {
-                "component_alignment_plan_revision": 8,
+                "component_alignment_plan_revision": 9, "final_metric_alignment_revision": 1,
+                        "source_observed_at": "2026-10-26T15:00:00Z",
                 "applicable": True,
                 "product_writer_registered": True,
                 "loan_writer_registered": True,
@@ -4965,6 +4971,7 @@ class LoanInspectionTests(unittest.TestCase):
                 [self.loan(24, "00001"), self.loan(25, "00001")], [source_product],
             )),
             patch("arissto_sync.loans.extract_loan_lifecycle_rows", return_value={}),
+            patch("arissto_sync.loans.extract_loan_mora_cutover_snapshots", return_value={}),
             patch("arissto_sync.loans.resolve_loan_product_target", return_value=target),
             patch("arissto_sync.loans.plan_client_office_transfers", return_value=[]),
             patch("arissto_sync.loans.target_client_office_transfer_blockers", return_value=[]),

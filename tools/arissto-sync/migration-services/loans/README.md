@@ -13,6 +13,14 @@ in [loan-reconciliation.md](loan-reconciliation.md).
 Historical adjustment canaries and the October 17 source/native baseline are
 tracked in [loan-history-canaries.md](loan-history-canaries.md).
 
+The implemented [final loan metric reconciliation step](loan-metric-final-alignment.md)
+runs after all existing operations affecting each loan, compares the frozen
+source targets, applies GL-free metric corrections and verifies the final set.
+Its approved scope does not require corrections to survive later recalculation
+or reversals. Loan plan revision 9 freezes all eight targets; the final
+coordinator runs after all loan workers and dependency operations, and native
+read-back determines completion. Local canary evidence is in the linked guide.
+
 ## Stable identity
 
 ```text

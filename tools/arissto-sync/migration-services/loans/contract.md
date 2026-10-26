@@ -9,6 +9,16 @@ charges and restructuring history, and reconcile native loan events and
 balances. Loan sync does not create accounting journal items; the separate
 accounting workflow owns GL posting and reconciliation.
 
+**Final step (implemented locally, 2026-10-26):** after all existing operations affecting a
+loan finish, compare the critical source/native metrics, invoke the appropriate
+GL-free correction for each difference, and verify the full final set. The
+[final metric reconciliation requirements](loan-metric-final-alignment.md)
+own this new step and its method contracts. Corrections are not required to
+survive later recalculation, reversals or replay; rerunning earlier work
+requires a new final pass. Loan plan revision 9 freezes the eight targets and
+runs the grouped native correction after all dependency operations. The step
+does not change interest-recalculation activation.
+
 The service includes only originated rows in `CRD_CARTERA`. Under reviewed
 scope decision [`SCOPE-001`](../scope-decisions.md#scope-001--standalone-credit-applications),
 standalone applications in `CRD_SOLICITUD_CREDITO` without a portfolio row are

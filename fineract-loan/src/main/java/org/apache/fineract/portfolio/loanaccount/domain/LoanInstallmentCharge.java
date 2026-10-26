@@ -92,6 +92,15 @@ public class LoanInstallmentCharge extends AbstractPersistableCustom<Long> imple
         this.amountWrittenOff = null;
     }
 
+    /** Final migration correction only; does not post a payment or reprocess history. */
+    public void alignMigrationAmounts(final BigDecimal paidAmount, final BigDecimal outstanding) {
+        this.amountPaid = paidAmount;
+        this.amountOutstanding = outstanding;
+        this.amount = MathUtil.nullToZero(paidAmount).add(MathUtil.nullToZero(outstanding)).add(MathUtil.nullToZero(this.amountWaived))
+                .add(MathUtil.nullToZero(this.amountWrittenOff));
+        this.paid = outstanding.signum() == 0;
+    }
+
     public void copyFrom(final LoanInstallmentCharge loanChargePerInstallment) {
         this.amount = loanChargePerInstallment.amount;
         this.installment = loanChargePerInstallment.installment;
