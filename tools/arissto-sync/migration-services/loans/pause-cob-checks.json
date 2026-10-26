@@ -1,0 +1,130 @@
+{
+  "status": "failed",
+  "scope": "Source-control/final-baseline/native COB probe on existing isolated proof loans; full fresh sync replay was blocked before apply",
+  "Arissto through": "2026-10-19",
+  "Fineract starts": "2026-10-20",
+  "target": "local sandbox",
+  "target_fingerprint": "b9f6834b66790744",
+  "observations": [
+    {
+      "source_loan_id": 1572,
+      "native_loan_id": 2715,
+      "interest_recalculation_enabled": false,
+      "opening_interest": 12.35,
+      "opening_mora": 0.0,
+      "daily": [
+        {
+          "day": "2026-10-20",
+          "interest": 86.59,
+          "mora": 0.2,
+          "closed": [
+            2026,
+            10,
+            20
+          ]
+        },
+        {
+          "day": "2026-10-21",
+          "interest": 86.39,
+          "mora": 0.2,
+          "closed": [
+            2026,
+            10,
+            21
+          ]
+        }
+      ],
+      "original_transactions_changed": 0,
+      "original_transaction_ids_changed": [],
+      "all_completed_frozen_days_stable": null
+    },
+    {
+      "source_loan_id": 1826,
+      "native_loan_id": 2716,
+      "interest_recalculation_enabled": false,
+      "opening_interest": 54.04,
+      "opening_mora": 0.34,
+      "daily": [
+        {
+          "day": "2026-10-20",
+          "interest": 54.04,
+          "mora": 0.34,
+          "closed": [
+            2026,
+            10,
+            20
+          ]
+        },
+        {
+          "day": "2026-10-21",
+          "interest": 54.04,
+          "mora": 0.34,
+          "closed": [
+            2026,
+            10,
+            21
+          ]
+        },
+        {
+          "day": "2026-10-22",
+          "interest": 54.04,
+          "mora": 0.34,
+          "closed": [
+            2026,
+            10,
+            22
+          ]
+        },
+        {
+          "day": "2026-10-23",
+          "interest": 54.04,
+          "mora": 0.34,
+          "closed": [
+            2026,
+            10,
+            23
+          ]
+        },
+        {
+          "day": "2026-10-24",
+          "interest": 54.04,
+          "mora": 0.34,
+          "closed": [
+            2026,
+            10,
+            24
+          ]
+        },
+        {
+          "day": "2026-10-25",
+          "interest": 54.04,
+          "mora": 0.34,
+          "closed": [
+            2026,
+            10,
+            25
+          ]
+        }
+      ],
+      "original_transactions_changed": 0,
+      "original_transaction_ids_changed": [],
+      "all_completed_frozen_days_stable": true
+    }
+  ],
+  "first_failed_cob_day": "2026-10-22",
+  "failure": "LoanChargeAdjustmentException: adjustment exceeds available charge amount 0.000000",
+  "failed_native_loan_id": 2715,
+  "source_resume_day_1572": "2026-04-22",
+  "source_freeze_day_1826": "2026-05-30",
+  "source_resume_day_1826": null,
+  "resume_boundary_without_catchup_verified": false,
+  "fresh_sync_plan_id": "c5d982e9e67c47a5bd35cf2ffdf1edb9",
+  "fresh_sync_blockers": [
+    "product:00010:external_id_product_contract_differs",
+    "loan:1572:source_events_after_fineract_accounting_boundary"
+  ],
+  "date_control_setting_restored": true,
+  "native_business_date_rows_remain_saved_but_disabled": true,
+  "fresh_sync_apply_performed": false,
+  "tenant_reset_performed": false
+}

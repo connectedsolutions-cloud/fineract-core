@@ -1,5 +1,11 @@
 # Loan accrual controls at handoff
 
+**Live COB follow-up — 2026-10-26:** [the two-loan canary](pause-cob-canary.md)
+passed six frozen days on source 1826 but found a post-baseline interest jump
+and a mora adjustment failure on source 1572. Resume-boundary/no-catch-up
+acceptance and a fresh recalculation-enabled replay remain unverified. The
+point-in-time and unit checks below do not establish safe continued operation.
+
 The eight monetary targets and accrual controls are separate. Loan migration
 must preserve both ordinary-interest and mora paused/running state, effective
 dates and source identity. An amount correction never substitutes for a pause,

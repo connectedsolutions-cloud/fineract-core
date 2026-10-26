@@ -26,6 +26,11 @@ methods, verified source whole-loan freeze history, and the native state checks
 that precede final amount reconciliation. The approved source control pauses/resumes interest and mora together; it is
 not inferred from balances.
 
+The [live pause/COB follow-up](pause-cob-canary.md) records failed continuation
+acceptance: frozen source 1826 stayed stable for six days; resumed source 1572
+had an interest discontinuity and then a mora adjustment failure. A fresh replay
+with recalculation enabled and a true resume-boundary test remain required.
+
 ## Stable identity
 
 ```text
