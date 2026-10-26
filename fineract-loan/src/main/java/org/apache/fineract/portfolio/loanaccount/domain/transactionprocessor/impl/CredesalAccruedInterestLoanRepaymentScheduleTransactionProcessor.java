@@ -64,6 +64,12 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
     @Override
     protected Money processTransaction(final LoanTransaction loanTransaction, final MonetaryCurrency currency,
             final List<LoanRepaymentScheduleInstallment> installments, final Set<LoanCharge> charges, final Money amountToProcess) {
+        return processTransaction(loanTransaction, currency, installments, charges, amountToProcess, false);
+    }
+
+    private Money processTransaction(final LoanTransaction loanTransaction, final MonetaryCurrency currency,
+            final List<LoanRepaymentScheduleInstallment> installments, final Set<LoanCharge> charges, final Money amountToProcess,
+            final boolean temporaryRecalculationSchedule) {
         accruedInterestCalculator.calculateAndApply(loanTransaction, currency, installments);
         if (loanTransaction.isSourceExactComponentReallocation()) {
             return processSourceExactComponentReallocation(loanTransaction, currency, installments);
@@ -71,9 +77,25 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
         if (loanTransaction.isSourceExactAllocation()) {
             materializeSourceExactPostDueInterest(loanTransaction, currency, installments);
             materializeSourceExactDeclaredCharges(loanTransaction, currency, installments);
-            return processSourceExactRepayment(loanTransaction, currency, installments, charges);
+            return processSourceExactRepayment(loanTransaction, currency, installments, charges, temporaryRecalculationSchedule);
         }
         return super.processTransaction(loanTransaction, currency, installments, charges, amountToProcess);
+    }
+
+    @Override
+    public Money handleRepaymentScheduleForInterestRecalculation(final List<LoanTransaction> transactionsPostDisbursement,
+            final MonetaryCurrency currency, final List<LoanRepaymentScheduleInstallment> installments, final Set<LoanCharge> loanCharges) {
+        Money unprocessed = Money.zero(currency);
+        for (final LoanTransaction transaction : transactionsPostDisbursement) {
+            if (transaction.isRepaymentLikeType() || transaction.isInterestWaiver() || transaction.isRecoveryRepayment()) {
+                transaction.resetDerivedComponents();
+            }
+            final Money remainder = processTransaction(transaction, currency, installments, loanCharges, null, true);
+            if (!transaction.isInterestWaiver()) {
+                unprocessed = remainder;
+            }
+        }
+        return unprocessed;
     }
 
     @Override
@@ -188,7 +210,8 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
     }
 
     private Money processSourceExactRepayment(final LoanTransaction loanTransaction, final MonetaryCurrency currency,
-            final List<LoanRepaymentScheduleInstallment> installments, final Set<LoanCharge> charges) {
+            final List<LoanRepaymentScheduleInstallment> installments, final Set<LoanCharge> charges,
+            final boolean temporaryRecalculationSchedule) {
         final LocalDate transactionDate = loanTransaction.getTransactionDate();
         Money principalRemaining = loanTransaction.getSourceExactPrincipalPortion(currency);
         Money interestRemaining = loanTransaction.getSourceExactInterestPortion(currency);
@@ -215,13 +238,15 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
 
         loanTransaction.updateLoanTransactionToRepaymentScheduleMappings(transactionMappings);
         settleSourceExactFeeCharge(loanTransaction, currency, charges);
-        if (principalRemaining.isGreaterThanZero() || interestRemaining.isGreaterThanZero() || feeRemaining.isGreaterThanZero()
-                || penaltyRemaining.isGreaterThanZero()) {
+        // A schedule prefix cannot yet represent early principal. Return only that component to the native
+        // recalculation generator; final posting must still represent the entire frozen source allocation.
+        if ((!temporaryRecalculationSchedule && principalRemaining.isGreaterThanZero()) || interestRemaining.isGreaterThanZero()
+                || feeRemaining.isGreaterThanZero() || penaltyRemaining.isGreaterThanZero()) {
             throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.allocation.not.representable",
                     "The source-exact repayment allocation cannot be represented by the loan schedule. Remaining principal: %s, interest: %s, fees: %s, penalties: %s",
                     principalRemaining.getAmount(), interestRemaining.getAmount(), feeRemaining.getAmount(), penaltyRemaining.getAmount());
         }
-        return Money.zero(currency);
+        return principalRemaining;
     }
 
     private void settleSourceExactFeeCharge(final LoanTransaction loanTransaction, final MonetaryCurrency currency,

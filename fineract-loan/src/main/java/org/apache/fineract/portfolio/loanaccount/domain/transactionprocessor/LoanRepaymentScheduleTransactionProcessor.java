@@ -57,6 +57,16 @@ public interface LoanRepaymentScheduleTransactionProcessor {
             List<LoanRepaymentScheduleInstallment> installments, Set<LoanCharge> loanCharges);
 
     /**
+     * Applies transactions to the temporary schedule prefix being built during interest recalculation. An unprocessed
+     * principal amount can be returned for the generator to apply as an early payment. Final loan settlement continues
+     * to use the ordinary processing entry points.
+     */
+    default Money handleRepaymentScheduleForInterestRecalculation(List<LoanTransaction> transactionsPostDisbursement,
+            MonetaryCurrency currency, List<LoanRepaymentScheduleInstallment> installments, Set<LoanCharge> loanCharges) {
+        return handleRepaymentSchedule(transactionsPostDisbursement, currency, installments, loanCharges);
+    }
+
+    /**
      * Used in interest recalculation to introduce new interest only installment.
      */
     boolean isInterestFirstRepaymentScheduleTransactionProcessor();

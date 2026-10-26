@@ -57,6 +57,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
@@ -353,6 +355,80 @@ class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest {
         assertMoney("0.00", installment.getPenaltyChargesCharged(CURRENCY));
         assertMoney("0.00", installment.getFeeChargesPaid(CURRENCY));
         assertMoney("0.00", installment.getPenaltyChargesPaid(CURRENCY));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "0.34", "10.39", "0.30", "0.01" })
+    void recalculationReturnsEarlyPrincipalBeyondTheTemporaryInstallment(final String earlyPrincipal) {
+        final BigDecimal scheduledPrincipal = new BigDecimal("5.79");
+        final BigDecimal interest = new BigDecimal("3.87");
+        final BigDecimal requestedPrincipal = scheduledPrincipal.add(new BigDecimal(earlyPrincipal));
+        final LoanRepaymentScheduleInstallment prefix = installment(scheduledPrincipal, interest);
+        final LoanTransaction repayment = repayment(DUE_DATE, requestedPrincipal.add(interest));
+        repayment.markAsSourceExactAllocation(
+                new SourceExactRepaymentAllocation(requestedPrincipal, interest, BigDecimal.ZERO, BigDecimal.ZERO));
+
+        final Money remainder = processor.handleRepaymentScheduleForInterestRecalculation(List.of(repayment), CURRENCY, List.of(prefix),
+                new HashSet<>());
+
+        assertMoney(earlyPrincipal, remainder);
+        assertMoney("5.79", repayment.getPrincipalPortion(CURRENCY));
+        assertMoney("3.87", repayment.getInterestPortion(CURRENCY));
+        assertMoney(requestedPrincipal.toPlainString(), repayment.getSourceExactPrincipalPortion(CURRENCY));
+        assertEquals(1, repayment.getLoanTransactionToRepaymentScheduleMappings().size());
+    }
+
+    @Test
+    void finalReplayPreservesTheWholeSourceAllocationAfterAProvisionalEarlyPayment() {
+        final LoanTransaction repayment = repayment(DUE_DATE, new BigDecimal("10.00"));
+        repayment.markAsSourceExactAllocation(
+                new SourceExactRepaymentAllocation(new BigDecimal("6.13"), new BigDecimal("3.87"), BigDecimal.ZERO, BigDecimal.ZERO));
+        final Money provisional = processor.handleRepaymentScheduleForInterestRecalculation(List.of(repayment), CURRENCY,
+                List.of(installment(new BigDecimal("5.79"), new BigDecimal("3.87"))), new HashSet<>());
+        assertMoney("0.34", provisional);
+        final LoanRepaymentScheduleInstallment first = installment(new BigDecimal("5.79"), new BigDecimal("3.87"));
+        final LoanRepaymentScheduleInstallment second = installment(2, DUE_DATE, DUE_DATE.plusDays(1), new BigDecimal("6.00"),
+                new BigDecimal("3.00"), BigDecimal.ZERO);
+
+        final Money finalRemainder = processor.handleRepaymentSchedule(List.of(repayment), CURRENCY, List.of(first, second),
+                new HashSet<>());
+
+        assertMoney("0.00", finalRemainder);
+        assertMoney("6.13", repayment.getPrincipalPortion(CURRENCY));
+        assertMoney("3.87", repayment.getInterestPortion(CURRENCY));
+        assertMoney("0.34", second.getPrincipalCompleted(CURRENCY));
+        assertEquals(2, repayment.getLoanTransactionToRepaymentScheduleMappings().size());
+    }
+
+    @Test
+    void finalPostingStillRejectsAnUnrepresentedPrincipalRemainder() {
+        final LoanTransaction repayment = repayment(DUE_DATE, new BigDecimal("10.00"));
+        repayment.markAsSourceExactAllocation(
+                new SourceExactRepaymentAllocation(new BigDecimal("6.13"), new BigDecimal("3.87"), BigDecimal.ZERO, BigDecimal.ZERO));
+
+        assertThrows(RuntimeException.class, () -> processor.handleRepaymentSchedule(List.of(repayment), CURRENCY,
+                List.of(installment(new BigDecimal("5.79"), new BigDecimal("3.87"))), new HashSet<>()));
+    }
+
+    @Test
+    void recalculationDoesNotConvertMissingInterestIntoEarlyPrincipal() {
+        final LoanTransaction repayment = repayment(DUE_DATE, new BigDecimal("10.00"));
+        repayment.markAsSourceExactAllocation(
+                new SourceExactRepaymentAllocation(new BigDecimal("6.00"), new BigDecimal("4.00"), BigDecimal.ZERO, BigDecimal.ZERO));
+
+        assertThrows(RuntimeException.class, () -> processor.handleRepaymentScheduleForInterestRecalculation(List.of(repayment), CURRENCY,
+                List.of(installment(new BigDecimal("5.00"), new BigDecimal("3.00"))), new HashSet<>()));
+    }
+
+    @Test
+    void recalculationDoesNotConvertMissingFeesOrPenaltiesIntoEarlyPrincipal() {
+        for (final boolean fee : List.of(true, false)) {
+            final LoanTransaction repayment = repayment(DUE_DATE, new BigDecimal("10.01"));
+            repayment.markAsSourceExactAllocation(new SourceExactRepaymentAllocation(new BigDecimal("6.13"), new BigDecimal("3.87"),
+                    fee ? new BigDecimal("0.01") : BigDecimal.ZERO, fee ? BigDecimal.ZERO : new BigDecimal("0.01")));
+            assertThrows(RuntimeException.class, () -> processor.handleRepaymentScheduleForInterestRecalculation(List.of(repayment),
+                    CURRENCY, List.of(installment(new BigDecimal("5.79"), new BigDecimal("3.87"))), new HashSet<>()));
+        }
     }
 
     @Test

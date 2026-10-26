@@ -545,8 +545,8 @@ public abstract class AbstractCumulativeLoanScheduleGenerator implements LoanSch
                     // applies the transaction as per transaction strategy
                     // on scheduled installments to identify the
                     // unprocessed(early payment ) amounts
-                    Money unprocessed = loanRepaymentScheduleTransactionProcessor.handleRepaymentSchedule(currentTransactions, currency,
-                            scheduleParams.getInstallments(), loanCharges);
+                    Money unprocessed = loanRepaymentScheduleTransactionProcessor.handleRepaymentScheduleForInterestRecalculation(
+                            currentTransactions, currency, scheduleParams.getInstallments(), loanCharges);
 
                     if (unprocessed.isGreaterThanZero()) {
                         scheduleParams.reduceOutstandingBalance(unprocessed);
@@ -846,7 +846,8 @@ public abstract class AbstractCumulativeLoanScheduleGenerator implements LoanSch
                         // on scheduled installments to identify the
                         // unprocessed(early payment ) amounts
                         Money unprocessed = scheduleParams.getLoanRepaymentScheduleTransactionProcessor()
-                                .handleRepaymentSchedule(currentTransactions, currency, scheduleParams.getInstallments(), loanCharges);
+                                .handleRepaymentScheduleForInterestRecalculation(currentTransactions, currency,
+                                        scheduleParams.getInstallments(), loanCharges);
                         if (unprocessed.isGreaterThanZero()) {
 
                             if (loanApplicationTerms.getPreClosureInterestCalculationStrategy().calculateTillRestFrequencyEnabled()) {
@@ -891,7 +892,8 @@ public abstract class AbstractCumulativeLoanScheduleGenerator implements LoanSch
                         if (DateUtils.isBefore(applicableDate, scheduledDueDate)) {
                             List<LoanTransaction> currentTransactions = createCurrentTransactionList(detail);
                             Money unprocessed = scheduleParams.getLoanRepaymentScheduleTransactionProcessor()
-                                    .handleRepaymentSchedule(currentTransactions, currency, scheduleParams.getInstallments(), loanCharges);
+                                    .handleRepaymentScheduleForInterestRecalculation(currentTransactions, currency,
+                                            scheduleParams.getInstallments(), loanCharges);
                             Money arrears = fetchArrears(loanApplicationTerms, currency, detail.getTransaction());
                             if (unprocessed.isGreaterThanZero()) {
                                 updateMapWithAmount(scheduleParams.getPrincipalPortionMap(), unprocessed, applicableDate);
@@ -1450,8 +1452,8 @@ public abstract class AbstractCumulativeLoanScheduleGenerator implements LoanSch
                     startDate = transactionDate;
                     additionalPeriodsStartDate = startDate;
                 }
-                loanRepaymentScheduleTransactionProcessor.handleRepaymentSchedule(currentTransactions, currency, params.getInstallments(),
-                        loanCharges);
+                loanRepaymentScheduleTransactionProcessor.handleRepaymentScheduleForInterestRecalculation(currentTransactions, currency,
+                        params.getInstallments(), loanCharges);
                 updateLatePaidAmountsToPrincipalMap(detail.getTransaction(), loanApplicationTerms, currency, holidayDetailDTO, lastRestDate,
                         params);
                 updateLatePaymentsToMap(loanApplicationTerms, holidayDetailDTO, currency, params.getLatePaymentMap(), currentDate,
@@ -2614,7 +2616,7 @@ public abstract class AbstractCumulativeLoanScheduleGenerator implements LoanSch
                 // applies the transaction as per transaction strategy
                 // on scheduled installments to identify the
                 // unprocessed(early payment ) amounts
-                loanRepaymentScheduleTransactionProcessor.handleRepaymentSchedule(currentTransactions, currency,
+                loanRepaymentScheduleTransactionProcessor.handleRepaymentScheduleForInterestRecalculation(currentTransactions, currency,
                         newRepaymentScheduleInstallments, loanCharges);
 
                 // Identifies totalEarlyPayment and early paid amount with this

@@ -1,0 +1,212 @@
+{
+  "plan_id": "2ad55240b3247d9d36ceb12852d5146c9aca0670a197fc3f01541d5c4aef1f10",
+  "target": "local sandbox",
+  "Arissto through": "2026-10-19",
+  "Fineract starts": "2026-10-20",
+  "products": [
+    {
+      "variant": "off",
+      "id": 3,
+      "accountingRule": {
+        "id": 1,
+        "code": "accountingRuleType.none",
+        "value": "NONE"
+      },
+      "charges": 0,
+      "recalculation": false,
+      "recalculation_details": null
+    },
+    {
+      "variant": "on",
+      "id": 4,
+      "accountingRule": {
+        "id": 1,
+        "code": "accountingRuleType.none",
+        "value": "NONE"
+      },
+      "charges": 0,
+      "recalculation": true,
+      "recalculation_details": {
+        "id": 1,
+        "productId": 4,
+        "interestRecalculationCompoundingType": {
+          "id": 0,
+          "code": "interestRecalculationCompoundingMethod.none",
+          "value": "None"
+        },
+        "rescheduleStrategyType": {
+          "id": 1,
+          "code": "loanRescheduleStrategyMethod.reschedule.next.repayments",
+          "value": "Reschedule next repayments"
+        },
+        "recalculationRestFrequencyType": {
+          "id": 2,
+          "code": "interestRecalculationFrequencyType.daily",
+          "value": "Daily"
+        },
+        "recalculationRestFrequencyInterval": 1,
+        "isArrearsBasedOnOriginalSchedule": true,
+        "isCompoundingToBePostedAsTransaction": false,
+        "preClosureInterestCalculationStrategy": {
+          "id": 1,
+          "code": "loanPreClosureInterestCalculationStrategy.tillPreClosureDate",
+          "value": "Till Pre-Close Date"
+        },
+        "allowCompoundingOnEod": false,
+        "disallowInterestCalculationOnPastDue": false
+      }
+    }
+  ],
+  "checks": [
+    {
+      "loan_id": 2754,
+      "source_key": "2612",
+      "variant": "off",
+      "enabled_as_planned": true,
+      "replayed_repayments": 9,
+      "source_exact_repayments": 9,
+      "charges": 0,
+      "waiver_absent": true,
+      "linked_gl_rows": 0,
+      "daily_snapshots": 25,
+      "complete": true,
+      "exact_daily_interest_matches": 2,
+      "principal_matches_all_observed_days": true
+    },
+    {
+      "loan_id": 2755,
+      "source_key": "2612",
+      "variant": "on",
+      "enabled_as_planned": true,
+      "replayed_repayments": 0,
+      "source_exact_repayments": 0,
+      "charges": 0,
+      "waiver_absent": true,
+      "linked_gl_rows": 0,
+      "daily_snapshots": 1,
+      "complete": false,
+      "exact_daily_interest_matches": 1,
+      "principal_matches_all_observed_days": true
+    },
+    {
+      "loan_id": 2756,
+      "source_key": "2647",
+      "variant": "off",
+      "enabled_as_planned": true,
+      "replayed_repayments": 7,
+      "source_exact_repayments": 7,
+      "charges": 0,
+      "waiver_absent": true,
+      "linked_gl_rows": 0,
+      "daily_snapshots": 20,
+      "complete": true,
+      "exact_daily_interest_matches": 1,
+      "principal_matches_all_observed_days": true
+    },
+    {
+      "loan_id": 2757,
+      "source_key": "2647",
+      "variant": "on",
+      "enabled_as_planned": true,
+      "replayed_repayments": 7,
+      "source_exact_repayments": 7,
+      "charges": 0,
+      "waiver_absent": true,
+      "linked_gl_rows": 0,
+      "daily_snapshots": 20,
+      "complete": true,
+      "exact_daily_interest_matches": 7,
+      "principal_matches_all_observed_days": true
+    },
+    {
+      "loan_id": 2758,
+      "source_key": "2581",
+      "variant": "off",
+      "enabled_as_planned": true,
+      "replayed_repayments": 10,
+      "source_exact_repayments": 10,
+      "charges": 0,
+      "waiver_absent": true,
+      "linked_gl_rows": 0,
+      "daily_snapshots": 29,
+      "complete": true,
+      "exact_daily_interest_matches": 0,
+      "principal_matches_all_observed_days": true
+    },
+    {
+      "loan_id": 2759,
+      "source_key": "2581",
+      "variant": "on",
+      "enabled_as_planned": true,
+      "replayed_repayments": 0,
+      "source_exact_repayments": 0,
+      "charges": 0,
+      "waiver_absent": true,
+      "linked_gl_rows": 0,
+      "daily_snapshots": 0,
+      "complete": false,
+      "exact_daily_interest_matches": 0,
+      "principal_matches_all_observed_days": true
+    },
+    {
+      "loan_id": 2760,
+      "source_key": "2597",
+      "variant": "off",
+      "enabled_as_planned": true,
+      "replayed_repayments": 7,
+      "source_exact_repayments": 7,
+      "charges": 0,
+      "waiver_absent": true,
+      "linked_gl_rows": 0,
+      "daily_snapshots": 27,
+      "complete": true,
+      "exact_daily_interest_matches": 4,
+      "principal_matches_all_observed_days": true
+    },
+    {
+      "loan_id": 2761,
+      "source_key": "2597",
+      "variant": "on",
+      "enabled_as_planned": true,
+      "replayed_repayments": 0,
+      "source_exact_repayments": 0,
+      "charges": 0,
+      "waiver_absent": true,
+      "linked_gl_rows": 0,
+      "daily_snapshots": 1,
+      "complete": false,
+      "exact_daily_interest_matches": 1,
+      "principal_matches_all_observed_days": true
+    },
+    {
+      "loan_id": 2762,
+      "source_key": "2593",
+      "variant": "off",
+      "enabled_as_planned": true,
+      "replayed_repayments": 21,
+      "source_exact_repayments": 21,
+      "charges": 0,
+      "waiver_absent": true,
+      "linked_gl_rows": 0,
+      "daily_snapshots": 27,
+      "complete": true,
+      "exact_daily_interest_matches": 4,
+      "principal_matches_all_observed_days": true
+    },
+    {
+      "loan_id": 2763,
+      "source_key": "2593",
+      "variant": "on",
+      "enabled_as_planned": true,
+      "replayed_repayments": 0,
+      "source_exact_repayments": 0,
+      "charges": 0,
+      "waiver_absent": true,
+      "linked_gl_rows": 0,
+      "daily_snapshots": 1,
+      "complete": false,
+      "exact_daily_interest_matches": 1,
+      "principal_matches_all_observed_days": true
+    }
+  ]
+}
