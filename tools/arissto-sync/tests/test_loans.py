@@ -1,3 +1,4 @@
+import copy
 import json
 import tempfile
 import threading
@@ -27,9 +28,12 @@ from arissto_sync.loans import (
     _ensure_existing_loan_collateral_attachments,
     _ensure_recurring_insurance_charge,
     _ensure_source_exact_guarantors,
+    _ensure_source_exact_pending_schedule,
+    _ensure_source_exact_active_schedule,
+    _ensure_source_exact_initial_manual_schedule,
     _ensure_pending_native_creation_override,
     _ensure_source_exact_accrual_catchup,
-    _ensure_source_exact_active_schedule,
+    _validate_existing_loan,
     _ensure_source_exact_resync_schedule,
     _ensure_source_insurance_charges,
     _verify_historical_insurance_charge_settlement,
@@ -852,6 +856,10 @@ class LoanInspectionTests(unittest.TestCase):
         term_guard = patch("arissto_sync.loans._verify_loan_term_account_contract")
         self.term_guard = term_guard.start()
         self.addCleanup(term_guard.stop)
+        for name in ("_align_loan_expected_maturity", "_ensure_loan_term_account_selection"):
+            guard = patch("arissto_sync.loans." + name, side_effect=lambda api, loan, *_: loan)
+            guard.start()
+            self.addCleanup(guard.stop)
 
     def test_contract_and_source_key_are_strict(self):
         self.assertEqual(canonical_source_key(" 123 "), 123)
@@ -918,6 +926,14 @@ class LoanInspectionTests(unittest.TestCase):
             "interestCalculationPeriodType", "accountingRule", "daysInMonthType", "daysInYearType",
         ):
             response[field] = {"id": payload[field]}
+        response["interestRecalculationData"] = {
+            "interestRecalculationCompoundingType": {"id": payload["interestRecalculationCompoundingMethod"]},
+            "rescheduleStrategyType": {"id": payload["rescheduleStrategyMethod"]},
+            "recalculationRestFrequencyType": {"id": payload["recalculationRestFrequencyType"]},
+            "recalculationRestFrequencyInterval": payload["recalculationRestFrequencyInterval"],
+            "preClosureInterestCalculationStrategy": {"id": payload["preClosureInterestCalculationStrategy"]},
+            "isArrearsBasedOnOriginalSchedule": payload["isArrearsBasedOnOriginalSchedule"],
+        }
         response["loanScheduleType"] = {"code": payload["loanScheduleType"]}
         response["loanScheduleProcessingType"] = {"code": payload["loanScheduleProcessingType"]}
         response["accountingMappings"] = {
@@ -2670,6 +2686,8 @@ class LoanInspectionTests(unittest.TestCase):
                 source_lifecycles={2068: lifecycle},
             )
         self.assertEqual(action["source_hash"], canonical_plan["actions"][1]["source_hash"])
+        self.assertEqual(canonical_plan["actions"][1]["action"], "recover-loan")
+        self.assertEqual(canonical_plan["actions"][1]["lifecycle"]["interest_recalculation_policy"], "daily-native-v1")
 
     def test_proof_namespace_covers_reversal_and_refinance_identifiers(self):
         lifecycle = {
@@ -3628,8 +3646,8 @@ class LoanInspectionTests(unittest.TestCase):
         lifecycle["application"]["FECHA_APROBADO"] = "2026-07-01"
         lifecycle["application"]["FECHA_RESOLUCION"] = "2026-07-02"
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
-        action = {"external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
-        pending = {"id": 55, "loanProductId": 90, "clientId": 900, "principal": 350,
+        action = {"entity_source_key": "2068", "external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
+        pending = {"id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
                    "status": {"id": 100}, "transactions": [],
                    "repaymentSchedule": self.calculated_schedule(built["lifecycle"])}
         approved = {**pending, "status": {"id": 200}}
@@ -3704,6 +3722,7 @@ class LoanInspectionTests(unittest.TestCase):
         built["lifecycle"]["cutover_insurance_charge"]["amount"] = "0.10"
         action = {
             "action": "recover-loan",
+            "entity_source_key": "2068",
             "external_id": "ARISSTO:CRD:2068",
             "full_resync_insurance_guard": {
                 "policy": "source-snapshot-rebase-v1",
@@ -3714,7 +3733,7 @@ class LoanInspectionTests(unittest.TestCase):
         cutover_external_id = built["lifecycle"]["cutover_insurance_charge"]["external_id"]
         disbursement = built["lifecycle"]["events"][0]
         active = {
-            "id": 55, "loanProductId": 90, "clientId": 900, "principal": 350,
+            "id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
             "status": {"id": 300},
             "charges": [{
                 "id": 99, "externalId": cutover_external_id,
@@ -3821,14 +3840,14 @@ class LoanInspectionTests(unittest.TestCase):
             "terminal_adjustment": None,
             "migration_cutover_date": "2026-09-16",
         })
-        action = {"external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
+        action = {"entity_source_key": "2068", "external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
         original_transaction = {
             "id": 1,
             "externalId": disbursement["external_id"],
             "amount": 350,
         }
         active = {
-            "id": 55, "loanProductId": 90, "clientId": 900, "principal": 350,
+            "id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
             "status": {"id": 300}, "charges": [],
             "repaymentSchedule": self.calculated_schedule(built["lifecycle"]),
             "transactions": [original_transaction],
@@ -3839,7 +3858,7 @@ class LoanInspectionTests(unittest.TestCase):
             "transactions": [{**original_transaction, "reversed": True}],
         }
         api = MagicMock()
-        api.request.side_effect = [active, active, {}, approved]
+        api.request.side_effect = [active, active, {}, approved, approved]
 
         with (
             patch("arissto_sync.loans._find_loan", return_value=active),
@@ -3850,7 +3869,7 @@ class LoanInspectionTests(unittest.TestCase):
 
         self.assertEqual((loan_id, recovered), (55, True))
         commands = [call.kwargs.get("query", {}).get("command") for call in api.request.call_args_list]
-        self.assertEqual(commands, [None, None, "sourceExactUndoDisbursal", None])
+        self.assertEqual(commands, [None, None, "sourceExactUndoDisbursal", None, None])
         catchup.assert_not_called()
 
     def test_lifecycle_writer_restores_missing_charge_for_existing_repayment(self):
@@ -3858,9 +3877,9 @@ class LoanInspectionTests(unittest.TestCase):
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
         built["lifecycle"]["cutover_insurance_charge"] = None
         built["lifecycle"]["recurring_insurance_charge"] = None
-        action = {"external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
+        action = {"entity_source_key": "2068", "external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
         active = {
-            "id": 55, "loanProductId": 90, "clientId": 900, "principal": 350,
+            "id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
             "status": {"id": 300}, "charges": [],
             "repaymentSchedule": self.calculated_schedule(built["lifecycle"]),
             "transactions": [
@@ -3900,9 +3919,9 @@ class LoanInspectionTests(unittest.TestCase):
         built["lifecycle"]["cutover_insurance_charge"] = None
         built["lifecycle"]["recurring_insurance_charge"] = None
         built["lifecycle"]["terminal_adjustment"] = None
-        action = {"external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
+        action = {"entity_source_key": "2068", "external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
         active = {
-            "id": 55, "loanProductId": 90, "clientId": 900, "principal": 350,
+            "id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
             "status": {"id": 300}, "charges": [], "transactions": [],
             "repaymentSchedule": self.calculated_schedule(built["lifecycle"]),
         }
@@ -3936,14 +3955,14 @@ class LoanInspectionTests(unittest.TestCase):
         built["lifecycle"]["cutover_insurance_charge"] = None
         built["lifecycle"]["recurring_insurance_charge"] = None
         built["lifecycle"]["events"] = []
-        action = {"external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
+        action = {"entity_source_key": "2068", "external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
         calculated = self.calculated_schedule(built["lifecycle"])
         calculated["periods"][0]["interestDue"] = "12.01"
         calculated["totalInterestCharged"] = Decimal("18.01")
         api = MagicMock()
         exact = self.calculated_schedule(built["lifecycle"])
         pending_drift = {
-            "id": 55, "loanProductId": 90, "clientId": 900, "principal": 350,
+            "id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
             "status": {"id": 100}, "transactions": [], "repaymentSchedule": calculated,
         }
         pending_exact = {**pending_drift, "repaymentSchedule": exact}
@@ -3975,7 +3994,7 @@ class LoanInspectionTests(unittest.TestCase):
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
         action = {"external_id": "ARISSTO:CRD:301", "lifecycle": built["lifecycle"]}
         stale = {
-            "id": 275, "loanProductId": 90, "clientId": 900, "principal": 350,
+            "id": 275, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
             "interestRatePerPeriod": 30, "status": {"id": 100},
         }
         rebased = {**stale, "interestRatePerPeriod": 5}
@@ -4015,7 +4034,7 @@ class LoanInspectionTests(unittest.TestCase):
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
         action = {"external_id": "ARISSTO:CRD:1441", "lifecycle": built["lifecycle"]}
         stale = {
-            "id": 275, "loanProductId": 90, "clientId": 900, "principal": 350,
+            "id": 275, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
             "fixedEmiAmount": "205.29", "status": {"id": 100},
         }
 
@@ -4038,7 +4057,7 @@ class LoanInspectionTests(unittest.TestCase):
         action = {"external_id": "ARISSTO:CRD:2243", "lifecycle": built["lifecycle"]}
         predecessor = {"id": 342, "clientId": 900}
         pending = {
-            "id": 55, "loanProductId": 90, "clientId": 900, "principal": 350,
+            "id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
             "status": {"id": 100}, "transactions": [],
             "repaymentSchedule": self.calculated_schedule(built["lifecycle"]),
         }
@@ -4091,7 +4110,7 @@ class LoanInspectionTests(unittest.TestCase):
         full = {"id": 31, "clientId": 900}
         partial = {"id": 44, "clientId": 900}
         pending = {
-            "id": 55, "loanProductId": 90, "clientId": 900, "principal": 350,
+            "id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
             "status": {"id": 100}, "transactions": [],
             "repaymentSchedule": self.calculated_schedule(built["lifecycle"]),
         }
@@ -4117,11 +4136,12 @@ class LoanInspectionTests(unittest.TestCase):
     def test_lifecycle_writer_rejects_recovered_schedule_drift_before_continuing(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
-        action = {"external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
+        built["lifecycle"].pop("interest_recalculation_policy", None)
+        action = {"entity_source_key": "2068", "external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
         calculated = self.calculated_schedule(built["lifecycle"])
         calculated["periods"][0]["dueDate"] = [2026, 6, 27]
         existing = {
-            "id": 55, "loanProductId": 90, "clientId": 900, "principal": 350,
+            "id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
             "status": {"id": 300}, "transactions": [], "repaymentSchedule": calculated,
         }
         api = MagicMock()
@@ -4138,7 +4158,7 @@ class LoanInspectionTests(unittest.TestCase):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
         built["lifecycle"].pop("schedule_writer")
-        action = {"external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
+        action = {"entity_source_key": "2068", "external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
 
         with self.assertRaisesRegex(
             RuntimeError, "loan_plan_predates_source_exact_schedule_writer",
@@ -4185,6 +4205,7 @@ class LoanInspectionTests(unittest.TestCase):
                     "block": "loans", "target_fingerprint": "sandbox",
                     "source_fingerprint": "arissto", "contract_hash": self.contract.digest,
                     "document": {
+                        "component_alignment_plan_revision": 8,
                         "applicable": True, "product_writer_registered": True,
                         "loan_writer_registered": True, "collateral_writer_registered": True,
                         "schema_signature": "source-schema",
@@ -4222,6 +4243,7 @@ class LoanInspectionTests(unittest.TestCase):
             "block": "loans", "target_fingerprint": "sandbox", "source_fingerprint": "arissto",
             "contract_hash": self.contract.digest,
             "document": {
+                "component_alignment_plan_revision": 8,
                 "applicable": True,
                 "product_writer_registered": True,
                 "loan_writer_registered": True,
@@ -4257,8 +4279,8 @@ class LoanInspectionTests(unittest.TestCase):
             built["lifecycle"]["terminal_adjustment"]["external_id"],
             "ARISSTO:CRD-CUTOVER:2068",
         )
-        action = {"external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
-        pending = {"id": 55, "loanProductId": 90, "clientId": 900, "principal": 350,
+        action = {"entity_source_key": "2068", "external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
+        pending = {"id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
                    "status": {"id": 100}, "transactions": [],
                    "repaymentSchedule": self.calculated_schedule(built["lifecycle"])}
         approved = {**pending, "status": {"id": 200}}
@@ -4547,6 +4569,7 @@ class LoanInspectionTests(unittest.TestCase):
             row for row in accrued_interest_drift["variances"]
             if row["kind"] == "interest_balance"
         )
+        self.assertEqual(interest_variance["classification"], "native_interest_recalculation_variance")
         self.assertEqual(interest_variance["source"], "1.90")
         self.assertEqual(interest_variance["target"], "1.80")
         self.assertEqual(interest_variance["target_components"], {
@@ -4666,8 +4689,8 @@ class LoanInspectionTests(unittest.TestCase):
             patch("arissto_sync.loans._find_loan", return_value=target_loan),
         ):
             schedule_date_drift = reconcile_loans(settings, state, self.contract, "run")
-        self.assertFalse(schedule_date_drift["ok"])
-        self.assertIn("schedule_due_date", {row["kind"] for row in schedule_date_drift["mismatches"]})
+        self.assertTrue(schedule_date_drift["ok"])
+        self.assertIn("schedule_due_date", {row["kind"] for row in schedule_date_drift["variances"]})
         target_loan["repaymentSchedule"]["periods"][0]["dueDate"] = [2026, 6, 26]
 
         target_loan["repaymentSchedule"]["periods"][0]["principalDue"] = 174.99
@@ -4676,9 +4699,9 @@ class LoanInspectionTests(unittest.TestCase):
             patch("arissto_sync.loans._find_loan", return_value=target_loan),
         ):
             installment_amount_drift = reconcile_loans(settings, state, self.contract, "run")
-        self.assertFalse(installment_amount_drift["ok"])
+        self.assertTrue(installment_amount_drift["ok"])
         self.assertIn(
-            "schedule_principal", {row["kind"] for row in installment_amount_drift["mismatches"]}
+            "schedule_principal", {row["kind"] for row in installment_amount_drift["variances"]}
         )
         target_loan["repaymentSchedule"]["periods"][0]["principalDue"] = 175
 
@@ -4706,7 +4729,7 @@ class LoanInspectionTests(unittest.TestCase):
         exception = next(
             row for row in reviewed_exception["variances"] if row["kind"] == "schedule_due_date"
         )
-        self.assertEqual(exception["classification"], "reviewed_manual_adjustment_schedule_variance")
+        self.assertEqual(exception["classification"], "native_recalculated_schedule_variance")
         built["lifecycle"]["schedule_reconciliation_policy"] = "exact-source-schedule"
         target_loan["repaymentSchedule"]["periods"][0]["dueDate"] = [2026, 6, 26]
 
@@ -4843,6 +4866,50 @@ class LoanInspectionTests(unittest.TestCase):
         self.assertEqual(plan["actions"][1]["action"], "create-loan")
         self.assertEqual(plan["actions"][1]["depends_on"], ["product:00001"])
         self.assertEqual(plan["scope"]["required_product_lines"], ["00001"])
+
+    def test_recalculated_active_retry_keeps_native_schedule(self):
+        api = MagicMock()
+        loan = {"id": 9, "status": {"id": 300}, "isInterestRecalculationEnabled": True,
+                "repaymentSchedule": {"periods": []}}
+        action = {"lifecycle": {"interest_recalculation_policy": "daily-native-v1", "schedule": [
+            {"number": 1, "due_date": "2026-10-01", "principal": "10", "interest": "1"}]}}
+        self.assertIs(_ensure_source_exact_pending_schedule(api, loan, action, None), loan)
+        api.request.assert_not_called()
+        api.add_loan_schedule_variations.assert_not_called()
+
+    def test_serviced_recalculated_retry_does_not_reinstall_active_schedule(self):
+        api = MagicMock()
+        loan = {"id": 9, "status": {"id": 300}, "isInterestRecalculationEnabled": True,
+                "transactions": [{"id": 10, "type": {"id": 2}}]}
+        action = {"lifecycle": {"interest_recalculation_policy": "daily-native-v1"}}
+        for writer in (_ensure_source_exact_active_schedule, _ensure_source_exact_initial_manual_schedule):
+            self.assertIs(writer(api, loan, action, None), loan)
+        api.request.assert_not_called()
+
+    def test_new_policy_never_silently_reuses_a_non_recalculating_loan(self):
+        action = {"lifecycle": {"interest_recalculation_policy": "daily-native-v1",
+                  "application_payload": {"clientId": 900, "principal": "350"}}}
+        loan = {"loanProductId": 90, "clientId": 900, "principal": "350",
+                "isInterestRecalculationEnabled": False}
+        with self.assertRaisesRegex(RuntimeError, "interest_recalculation"):
+            _validate_existing_loan(loan, action, 90)
+        loan["isInterestRecalculationEnabled"] = True
+        _validate_existing_loan(loan, action, 90)
+
+    def test_recalculation_product_drift_is_blocking(self):
+        payload = build_loan_product_payload(self.contract,
+            self.product("00001", "002", "C-CONSUMO MULTIDESTINOS"), self.target_resources())
+        self.assertTrue(payload["isInterestRecalculationEnabled"])
+        for field, value in (("rescheduleStrategyType", {"id": 2}),
+                             ("recalculationRestFrequencyType", {"id": 3}),
+                             ("interestRecalculationCompoundingType", {"id": 1}),
+                             ("isArrearsBasedOnOriginalSchedule", False)):
+            response = self.api_product(payload)
+            response["interestRecalculationData"][field] = value
+            self.assertTrue(loan_product_conflicts(payload, response), field)
+        response = self.api_product(payload)
+        response["isInterestRecalculationEnabled"] = False
+        self.assertTrue(loan_product_conflicts(payload, response))
 
     def test_consolidation_plan_depends_on_every_predecessor(self):
         settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target"), source=SimpleNamespace())

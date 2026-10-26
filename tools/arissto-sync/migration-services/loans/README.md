@@ -506,3 +506,24 @@ must not create and immediately pay a second historical charge. Any ambiguous
 delta, missing cutover charge, target balance below source, or already-posted
 transaction owned by a different charge fails closed before the checkpoint can
 advance.
+
+
+### Recalculation default for the next cycle
+
+All newly created sync products and their loans enable daily interest
+recalculation without compounding, including loans created for historical
+repayment replay. Insurance remains enabled. The [activation contract](interest-recalculation-default.md)
+defines the settings, compatibility checks, retry behavior and evidence.
+The 2026-10-26 user decision separates this feature from future metric alignment:
+exact Arissto/Fineract interest or derived-schedule parity is not an activation gate.
+The old blanket active-loan alignment quarantine is removed. No cycle was launched
+as part of this change; create a new reviewed plan for the next cycle.
+
+### Historical ordinary-interest recalculation experiment
+
+See the [paired sandbox canary](interest-recalculation-canary.md) for the
+2026-10-26 test of five source loans with recalculation off/on and insurance
+disabled. The provisional source-exact replay compatibility fix lets all ten
+proof histories complete; only one on proof has exact handoff interest. The
+result does not establish general source parity. The later approved activation
+policy above supersedes the experiment's former parity prerequisite.

@@ -1221,11 +1221,17 @@ contract; an insurance rebase is not permission to post Arissto GL on or after
 Fineract's first owned date. The command audit records the prior and source
 outstanding amounts so accounting differences remain visible for review.
 
-Fineract's general interest-recalculation configuration remains incompatible
-with the dynamic `PERCENT_OF_OUTSTANDING_PRINCIPAL` installment charge and is
-not enabled for this contract. The reviewed transaction strategy provides the
-required post-due daily interest behavior without enabling that incompatible
-schedule-recalculation mode. A local posted lifecycle for source loan `2068`
+The sync now enables daily general interest recalculation on all newly created
+native products and loans, with no compounding and the reschedule-next-repayments
+strategy. The opening-outstanding-principal installment insurance charge remains
+enabled: its schedule-based calculation is supported during recalculation, and
+the obsolete loan-application validation restriction has been removed. Other
+percentage-charge restrictions remain in force. Historical insurance is still
+imported through its existing exact-charge path, and recurring insurance starts
+at the frozen Fineract boundary; it must not be applied retroactively to Arissto
+history. See [the activation contract](interest-recalculation-default.md).
+Exact source interest or derived-schedule parity is not an activation requirement;
+metric alignment is separate future work. A local posted lifecycle for source loan `2068`
 proved the combined behavior: a `$40.00` payment one day after the first due
 date allocated `$0.21` insurance, `$12.89` interest, and `$26.90` principal,
 matching the source movement exactly. Repayment and disbursement reversal left

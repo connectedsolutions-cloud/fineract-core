@@ -1,0 +1,56 @@
+{
+  "target": "local sandbox",
+  "fingerprint": "b9f6834b66790744",
+  "application_loan": 2764,
+  "cutover_replay_loan": 2765,
+  "source_loan_ids": [
+    "2612",
+    "2647"
+  ],
+  "linked_gl_rows": 0,
+  "recalculation_enabled": true,
+  "replayed_payments": 7,
+  "fee_differences": 0,
+  "reverse_replay_insurance_stable": true,
+  "metric_parity_gate": false,
+  "loan_sync_tests": {
+    "tests": 229,
+    "failures": 0
+  },
+  "remaining_schedule_and_loan_tests": {
+    "tests": 244,
+    "failures": 0
+  },
+  "java_tests": {
+    "tests": 52,
+    "failures": 0
+  },
+  "mifos_tests": {
+    "tests": 2,
+    "failures": 0
+  },
+  "technical_activation_validated": true,
+  "composed_cycle_launched": false,
+  "portfolio_metric_alignment_validated": false,
+  "separate_trial_failure": {
+    "loan_id": 2764,
+    "scenario": "insurance retroactively applied from origination, then unchanged historical allocation",
+    "remaining_interest": "0.10",
+    "replay_completed": false,
+    "application_creation_passed": true
+  },
+  "broader_suite": {
+    "tests": 843,
+    "remaining_unrelated_failures": [
+      "native creation override expected keys omit existing 2482",
+      "vista minimum balance expected 50 rather than configured 0",
+      "workflow service count expected 16 rather than 18",
+      "native-share dependency expectation omits employees"
+    ],
+    "failures": 4
+  },
+  "focused_commit_snapshot_tests": {
+    "tests": 228,
+    "failures": 0
+  }
+}

@@ -438,7 +438,7 @@ class SourceExactRemainingScheduleTests(unittest.TestCase):
         lifecycle["cutover_insurance_charge"] = None
         lifecycle["recurring_insurance_charge"] = None
         pending = {
-            "id": 55, "loanProductId": 90, "clientId": 900, "principal": 350,
+            "id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
             "status": {"id": 100}, "transactions": [],
             "repaymentSchedule": self.fixture.calculated_schedule(lifecycle),
         }
@@ -447,7 +447,7 @@ class SourceExactRemainingScheduleTests(unittest.TestCase):
                   "transactions": [{"type": {"id": 1}}]}
         api = MagicMock()
         api.calculate_loan_schedule.return_value = self.fixture.calculated_schedule(lifecycle)
-        api.request.side_effect = [{"resourceId": 55}, {}, approved, {}, active]
+        api.request.side_effect = [{"resourceId": 55}, {}, approved, {}, active, active]
         action = {"external_id": "ARISSTO:CRD:2068", "lifecycle": lifecycle}
         with (
             patch("arissto_sync.loans._find_loan", side_effect=[None, pending]),
@@ -479,7 +479,7 @@ class SourceExactRemainingScheduleTests(unittest.TestCase):
         lifecycle["application_payload"]["expectedDisbursementDate"] = contractual_date
         lifecycle["approval_payload"]["expectedDisbursementDate"] = contractual_date
         pending = {
-            "id": 55, "loanProductId": 90, "clientId": 900, "principal": 350,
+            "id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
             "status": {"id": 100}, "transactions": [],
             "repaymentSchedule": self.fixture.calculated_schedule(lifecycle),
         }
@@ -488,7 +488,7 @@ class SourceExactRemainingScheduleTests(unittest.TestCase):
                   "transactions": [{"type": {"id": 1}}]}
         api = MagicMock()
         api.calculate_loan_schedule.return_value = self.fixture.calculated_schedule(lifecycle)
-        api.request.side_effect = [{"resourceId": 55}, {}, approved, {}, active]
+        api.request.side_effect = [{"resourceId": 55}, {}, approved, {}, active, active]
         action = {"external_id": "ARISSTO:CRD:date-drift", "lifecycle": lifecycle}
         with (
             patch("arissto_sync.loans._find_loan", side_effect=[None, pending]),

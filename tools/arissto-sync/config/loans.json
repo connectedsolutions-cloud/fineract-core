@@ -73,6 +73,15 @@
     "reuse_unowned_products": false,
     "crosswalk_write_timing": "after-native-product-create",
     "creation_scope": "reviewed-lines-required-by-selected-loans",
+    "interest_recalculation": {
+      "isInterestRecalculationEnabled": true,
+      "interestRecalculationCompoundingMethod": 0,
+      "rescheduleStrategyMethod": 1,
+      "recalculationRestFrequencyType": 2,
+      "recalculationRestFrequencyInterval": 1,
+      "preClosureInterestCalculationStrategy": 1,
+      "isArrearsBasedOnOriginalSchedule": true
+    },
     "accounting_type": "accrual-periodic",
     "transaction_strategy": "credesal-accrued-interest-first-strategy",
     "source_term_policy": "loan-level-approved-terms-override-line-defaults",

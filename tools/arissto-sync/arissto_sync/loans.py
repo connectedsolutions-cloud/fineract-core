@@ -35,6 +35,15 @@ DEFAULT_LOAN_WORKERS = 2
 DEFAULT_FINERACT_PAUSE_SECONDS = 30.0
 DEFAULT_FINERACT_RECOVERY_ATTEMPTS = 3
 MAX_LOAN_WORKERS = 4
+NATIVE_INTEREST_RECALCULATION = {
+    "isInterestRecalculationEnabled": True,
+    "interestRecalculationCompoundingMethod": 0,
+    "rescheduleStrategyMethod": 1,
+    "recalculationRestFrequencyType": 2,
+    "recalculationRestFrequencyInterval": 1,
+    "preClosureInterestCalculationStrategy": 1,
+    "isArrearsBasedOnOriginalSchedule": True,
+}
 TRANSIENT_FINERACT_STATUSES = {429, 500, 502, 503, 504}
 CLOSED_REFINANCE_HISTORICAL_SCHEDULE_LOANS = (
     281, 283, 284, 285, 286, 315, 331, 632, 634, 635,
@@ -311,6 +320,8 @@ class LoanContract:
         if collateral_contract.get("undercovered_loan_policy") not in {"allow", "quarantine-loan"}:
             raise ValueError("Collateral undercoverage policy must be reviewed")
         product_contract = value["product_contract"]
+        if product_contract.get("interest_recalculation") != NATIVE_INTEREST_RECALCULATION:
+            raise ValueError("Loans require daily interest recalculation without compounding")
         if product_contract.get("target_baseline") != "empty-business-data":
             raise ValueError("Loans product planning must assume an empty business-data target")
         if product_contract.get("product_ownership") != "loans-service-creates-native-products":
@@ -760,7 +771,7 @@ def build_loan_product_payload(
         "accountingRule": 3,
         "daysInMonthType": 1,
         "daysInYearType": 1,
-        "isInterestRecalculationEnabled": False,
+        **contract.raw["product_contract"]["interest_recalculation"],
         "syncExpectedWithDisbursementDate": False,
         "loanScheduleType": "CUMULATIVE",
         "loanScheduleProcessingType": "HORIZONTAL",
@@ -849,6 +860,17 @@ def loan_product_contract_view(value: dict[str, Any], *, planned: bool) -> dict[
         view[name] = _enum_id(value.get(name))
     view["transactionProcessingStrategyCode"] = value.get("transactionProcessingStrategyCode")
     view["isInterestRecalculationEnabled"] = bool(value.get("isInterestRecalculationEnabled", False))
+    if view["isInterestRecalculationEnabled"]:
+        recalculation = value if planned else (value.get("interestRecalculationData") or {})
+        for request_name, response_name in (
+            ("interestRecalculationCompoundingMethod", "interestRecalculationCompoundingType"),
+            ("rescheduleStrategyMethod", "rescheduleStrategyType"),
+            ("recalculationRestFrequencyType", "recalculationRestFrequencyType"),
+            ("preClosureInterestCalculationStrategy", "preClosureInterestCalculationStrategy"),
+        ):
+            view[request_name] = _enum_id(recalculation.get(request_name if planned else response_name))
+        view["recalculationRestFrequencyInterval"] = recalculation.get("recalculationRestFrequencyInterval")
+        view["isArrearsBasedOnOriginalSchedule"] = bool(recalculation.get("isArrearsBasedOnOriginalSchedule", False))
     view["syncExpectedWithDisbursementDate"] = bool(value.get("syncExpectedWithDisbursementDate", False))
     view["canUseForTopup"] = bool(value.get("canUseForTopup", False))
     view["canDefineInstallmentAmount"] = bool(value.get("canDefineInstallmentAmount", False))
@@ -3960,6 +3982,7 @@ def _build_loan_lifecycle_action(
         "schedule": effective_schedule,
         "source_schedule_provenance": source_schedule_provenance,
         "same_day_terminal_aggregation": same_day_terminal_aggregation,
+        "interest_recalculation_policy": "daily-native-v1",
         "schedule_reconciliation_policy": (
             "reviewed-manual-adjustment" if reviewed_schedule_exception
             else "historical-reference-only" if reviewed_reference_only_schedule
@@ -4359,6 +4382,7 @@ def compose_loan_plan(
     blockers = sorted(set(readiness_blockers or []) | set(conflicts))
     return {
         "version": 1,
+        "component_alignment_plan_revision": 8,
         "block": BLOCK,
         "target_fingerprint": settings.target.fingerprint,
         "source_fingerprint": source_fingerprint(settings.source),
@@ -4617,6 +4641,8 @@ def _loan_apply_guard(
     if settings.target.name == "prod" and production_confirmation != settings.target.fingerprint:
         raise RuntimeError(f"Production apply requires --confirm-production {settings.target.fingerprint}")
     document = plan["document"]
+    if document.get("component_alignment_plan_revision") != 8:
+        raise RuntimeError("loan_plan_predates_dated_component_and_event_guards")
     if "client_office_transfers" not in document:
         raise RuntimeError("loan_plan_predates_client_office_transfer_chronology")
     retention = document.get("carry_forward_retention")
@@ -5854,6 +5880,11 @@ def _ensure_source_exact_pending_schedule(
     if not differences:
         return loan
     status = int((loan.get("status") or {}).get("id") or -1)
+    # After disbursement, replay legitimately regenerates the native schedule.
+    # A retry must never overwrite that result with the original source plan.
+    if (status in {300, 600, 601, 602, 700} and lifecycle.get("interest_recalculation_policy") == "daily-native-v1"
+            and loan.get("isInterestRecalculationEnabled") is True):
+        return loan
     guard = action.get("full_resync_schedule_guard")
     if status == 300 and guard and guard.get("policy") == "replace-and-reprocess-v1":
         return _ensure_source_exact_resync_schedule(api, loan, action, attempt_key)
@@ -5894,10 +5925,22 @@ def _ensure_source_exact_pending_schedule(
     return refreshed
 
 
+def _has_native_recalculated_history(loan: dict[str, Any], lifecycle: dict[str, Any]) -> bool:
+    if (lifecycle.get("interest_recalculation_policy") != "daily-native-v1"
+            or loan.get("isInterestRecalculationEnabled") is not True):
+        return False
+    source_events = {event["external_id"] for event in lifecycle.get("events", [])
+                     if event.get("role") != "disbursement"}
+    return any(row.get("externalId") in source_events or _enum_id(row.get("type")) == 2
+               for row in _loan_transactions(loan))
+
+
 def _ensure_source_exact_active_schedule(
     api: FineractApi, loan: dict[str, Any], action: dict[str, Any], attempt_key: str | None,
 ) -> dict[str, Any]:
     lifecycle = action["lifecycle"]
+    if _has_native_recalculated_history(loan, lifecycle):
+        return loan
     source_schedule = lifecycle.get("schedule") or []
     differences = _loan_schedule_differences(source_schedule, loan.get("repaymentSchedule") or {})
     if not differences:
@@ -5964,6 +6007,8 @@ def _ensure_source_exact_initial_manual_schedule(
 ) -> dict[str, Any]:
     """Replace an unserviced native schedule with exact source components."""
     lifecycle = action["lifecycle"]
+    if _has_native_recalculated_history(loan, lifecycle):
+        return loan
     expected = _source_exact_expected_schedule(lifecycle)
     current = loan.get("repaymentSchedule") or {}
     if not _loan_schedule_differences(expected, current):
@@ -6095,6 +6140,9 @@ def _validate_existing_loan(
 ) -> None:
     payload = action["lifecycle"]["application_payload"]
     conflicts = []
+    if (action["lifecycle"].get("interest_recalculation_policy") == "daily-native-v1"
+            and loan.get("isInterestRecalculationEnabled") is not True):
+        conflicts.append("interest_recalculation")
     if int(loan.get("loanProductId") or (loan.get("loanProduct") or {}).get("id") or -1) != int(product_id):
         conflicts.append("product")
     if int(loan.get("clientId") or (loan.get("client") or {}).get("id") or -1) != int(payload["clientId"]):
@@ -8248,7 +8296,9 @@ def reconcile_loans(
                     "kind": "interest_balance",
                     "source": format(source_accrued_interest, "f"),
                     "target": format(target_accrued_interest, "f"),
-                    "classification": "native_schedule_component_variance",
+                    "classification": ("native_interest_recalculation_variance"
+                        if lifecycle.get("interest_recalculation_policy") == "daily-native-v1"
+                        else "native_schedule_component_variance"),
                     "target_components": {
                         field: format(_amount(summary.get(field)), "f")
                         for field in accrued_interest_fields
@@ -8287,14 +8337,16 @@ def reconcile_loans(
         source_schedule = _source_exact_expected_schedule(lifecycle)
         schedule_differences = _loan_schedule_differences(source_schedule, repayment_schedule)
         schedule_reconciliation_policy = lifecycle.get("schedule_reconciliation_policy")
-        reviewed_schedule_exception = schedule_reconciliation_policy in {
+        native_recalculation = lifecycle.get("interest_recalculation_policy") == "daily-native-v1"
+        reviewed_schedule_exception = native_recalculation or schedule_reconciliation_policy in {
             "reviewed-manual-adjustment", "historical-reference-only",
             "unordered-source-schedule-dates",
         }
         for difference in schedule_differences:
             difference["source_key"] = item["source_key"]
             difference["classification"] = (
-                "historical_reference_only_schedule_variance"
+                "native_recalculated_schedule_variance" if native_recalculation
+                else "historical_reference_only_schedule_variance"
                 if schedule_reconciliation_policy == "historical-reference-only"
                 else "unordered_source_schedule_date_variance"
                 if schedule_reconciliation_policy == "unordered-source-schedule-dates"
