@@ -431,7 +431,6 @@ public final class LoanChargeApiJsonValidator {
             String errorcode = null;
             switch (chargeCalculationType) {
                 case PERCENT_OF_AMOUNT:
-                case PERCENT_OF_OUTSTANDING_PRINCIPAL:
                     if (chargeTime.isInstalmentFee()) {
                         errorcode = "installment." + LoanApiConstants.LOAN_CHARGE_CAN_NOT_BE_ADDED_WITH_PRINCIPAL_CALCULATION_TYPE;
 
