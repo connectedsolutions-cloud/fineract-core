@@ -375,6 +375,15 @@ each run uses a new bounded API idempotency key so a cached failed command does
 not prevent a reviewed retry. Production retains the standard exact-fingerprint
 confirmation guard.
 
+When a source repayment is already present, recovery validates its exact amount,
+date and allocation without provisioning its event penalty or insurance charges.
+Inactive historical charges can be absent from the active loan response. Final
+historical insurance settlement checks still retrieve hidden charges by exact
+external ID and reject missing, unpaid or mismatched rows. A payment that still
+needs posting must provision its charges first. See the
+[LS-29 recovery evidence](loan-sync-updates-progress-oct27.md#ls-29-repair-and-four-loan-recovery--october-27).
+
+
 The controlled local Gate 4 canary used plan
 `9dbddd1712b54ef4bfd131e56db9d925`. Recovery run
 `1836284067904252ac7be797213203a1` created/recovered native loan `31`, replayed

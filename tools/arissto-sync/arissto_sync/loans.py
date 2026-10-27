@@ -7504,7 +7504,12 @@ def _apply_loan_lifecycle(
             # Creating persistent charge rows for it would leave those charges active and outstanding after the
             # transaction reversal, manufacturing a balance that does not exist in Arissto.
             source_reversed = bool(event.get("source_reversed"))
-            if not source_reversed and _amount(event["allocation"]["penalty"]) > 0:
+            # Charges are prerequisites for posting, not for recovering a
+            # source repayment already present on this loan. Native processing
+            # can leave its historical charge inactive (and absent from this
+            # API collection). Recreating it would manufacture a new obligation.
+            # Existing repayments still pass amount/date/allocation checks below.
+            if existing_transaction is None and not source_reversed and _amount(event["allocation"]["penalty"]) > 0:
                 loan = _ensure_source_penalty_charge(api, loan, event, attempt_key)
             fee_charge_external_id = None
             if not source_reversed and _amount(event["allocation"]["fee"]) > 0:
@@ -7521,7 +7526,10 @@ def _apply_loan_lifecycle(
                             f"full_resync_cutover_insurance_charge_missing:{fee_charge_external_id}"
                         )
                 else:
-                    loan = _ensure_source_insurance_charges(api, loan, event, attempt_key)
+                    if existing_transaction is None:
+                        loan = _ensure_source_insurance_charges(api, loan, event, attempt_key)
+                    # Recovery still validates the declared identity/amount here
+                    # and the paid historical charge at lifecycle finalization.
                     fee_charges = event.get("historical_insurance_charges") or []
                     if len(fee_charges) != 1:
                         raise RuntimeError(f"source_exact_fee_charge_identity_ambiguous:{event['external_id']}")

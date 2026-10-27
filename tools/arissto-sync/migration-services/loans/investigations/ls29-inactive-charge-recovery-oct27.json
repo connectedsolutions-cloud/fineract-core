@@ -1,0 +1,408 @@
+{
+  "issue": "LS-29",
+  "conclusion": "Already posted source repayments must be verified without provisioning their historical penalty or insurance charges. Hidden paid insurance is still retrieved and settlement-verified. Four-loan recovery officially reconciled.",
+  "mode": "bounded resumed loan-block recovery in existing cycle",
+  "cycle": "sandbox-2026-10-26-full-clean-a",
+  "target": "local:sandbox:fineract_sandbox",
+  "fingerprint": "b9f6834b66790744",
+  "source_through_date": "2026-10-26",
+  "fineract_starts": "2026-10-27",
+  "plan_id": "46b49222cc9e488ca7a4f553f27af5f9",
+  "run_id": "0837cac1d1b4496fac6f22e06c90035a",
+  "run_status": "completed",
+  "retry_roots": [
+    "loan:921"
+  ],
+  "loan_keys": [
+    "loan:101",
+    "loan:283",
+    "loan:553",
+    "loan:921"
+  ],
+  "setup_keys": [
+    "product:00010"
+  ],
+  "runtime_controls": {
+    "workers": 2,
+    "pause_seconds": 30.0,
+    "recovery_attempts": 3
+  },
+  "apply_counts": {
+    "unchanged": 1,
+    "loans_recovered": 4,
+    "metrics_reconciled": 4,
+    "metrics_adjusted": 0,
+    "accrual_controls_reconciled": 1
+  },
+  "tests": {
+    "focused_python_tests": 310,
+    "new_regression_methods": 14,
+    "result": "passed",
+    "original_penalty_recreation_red_subcases": 9,
+    "subsequent_insurance_recreation_red_subcases": 8,
+    "checks": [
+      "existing penalty and insurance payments for all three payment roles",
+      "charge and transaction immutability",
+      "amount/date/component drift and duplicate transaction rejection",
+      "missing/unpaid/wrong amount/wrong identity historical insurance settlement rejection",
+      "new repayments still require penalty and insurance provisioning"
+    ]
+  },
+  "root_evidence": {
+    "issue": "LS-29",
+    "plan_id": "46b49222cc9e488ca7a4f553f27af5f9",
+    "source_movement_id": "0000021121",
+    "charge_id": 5056,
+    "charge_visible_in_loan_collection": false,
+    "charge_direct_lookup": {
+      "active": null,
+      "amount": 1.31,
+      "amountPaid": 0.0,
+      "amountOutstanding": 1.31,
+      "paid": false
+    },
+    "existing_repayment": {
+      "id": 24898,
+      "externalId": "ARISSTO:CRD-MOV:0000021121",
+      "date": [
+        2026,
+        5,
+        29
+      ],
+      "amount": 40.0,
+      "principalPortion": 22.7,
+      "interestPortion": 15.67,
+      "feeChargesPortion": 0.32,
+      "penaltyChargesPortion": 1.31,
+      "reversed": null
+    },
+    "repayment_exact_date_amount_and_allocation": true,
+    "charge_paid_by_count": 0,
+    "transaction_penalty_charge_paid_by": [],
+    "read_only_target_unchanged": true
+  },
+  "inactive_charge_physical_state": {
+    "id": 5056,
+    "active": false,
+    "amount": "1.310000",
+    "paid": "0.000000",
+    "outstanding": "1.310000",
+    "due_date": "2026-05-29"
+  },
+  "hidden_insurance": [
+    {
+      "source_movement": "0000021121",
+      "expected": "0.32",
+      "external_id": "ARISSTO:CRD-INS:200330:0000021121:0020",
+      "persisted": [
+        "5057",
+        "False",
+        "0.320000",
+        "0.320000",
+        "0.000000"
+      ]
+    }
+  ],
+  "first_stopped_attempt": {
+    "run_id": "4c66b2d8fc934078af7be038ab94e0c3",
+    "status": "completed-with-errors",
+    "reconciliation_ok": false,
+    "counts": {
+      "unchanged": 1,
+      "loans_blocked": 3,
+      "loans_failed": 1
+    },
+    "remaining_error": "Penalty-only correction advanced to the same inactive insurance provisioning failure for movement0000021121. No automatic financial correction or reset; tested insurance correction before a new attempt.",
+    "outside_scope_unchanged": true,
+    "excluded_payment_absent": true
+  },
+  "official_reconciliation": {
+    "persisted": true,
+    "ok": true,
+    "counts": {
+      "loans": 4,
+      "staff_assignments": 4,
+      "mora_terms": 4,
+      "accrual_controls_reconciled": 1,
+      "products": 1,
+      "client_office_transfers_expected": 1,
+      "client_office_transfers_matched": 1
+    },
+    "blocking_mismatch_count": 0,
+    "variance_count": 28,
+    "variance_groups": [
+      {
+        "kind": "schedule_due_date",
+        "classification": "native_recalculated_schedule_variance",
+        "count": 5
+      },
+      {
+        "kind": "schedule_installment_count",
+        "classification": "native_recalculated_schedule_variance",
+        "count": 4
+      },
+      {
+        "kind": "schedule_installment_number",
+        "classification": "native_recalculated_schedule_variance",
+        "count": 5
+      },
+      {
+        "kind": "schedule_interest",
+        "classification": "native_recalculated_schedule_variance",
+        "count": 5
+      },
+      {
+        "kind": "schedule_interest_total",
+        "classification": "native_recalculated_schedule_variance",
+        "count": 4
+      },
+      {
+        "kind": "schedule_principal",
+        "classification": "native_recalculated_schedule_variance",
+        "count": 5
+      }
+    ]
+  },
+  "loan_results": [
+    {
+      "source_key": "loan:101",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1,
+      "native_status": 600,
+      "planned_event_count": 6,
+      "represented_event_count": 6,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:283",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1144,
+      "native_status": 600,
+      "planned_event_count": 8,
+      "represented_event_count": 8,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:553",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1145,
+      "native_status": 600,
+      "planned_event_count": 9,
+      "represented_event_count": 9,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:921",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1146,
+      "native_status": 300,
+      "planned_event_count": 23,
+      "represented_event_count": 23,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    }
+  ],
+  "historical_charge_and_repayment_preservation": {
+    "before": {
+      "m_loan_charge": [
+        {
+          "id": 5040,
+          "sha256": "819bbfed96086f7e92e94ba3fc81775f36f2c508e2dbdd4d85a9505fc5aae3ad"
+        },
+        {
+          "id": 5055,
+          "sha256": "f196f652294accbf433b6349211040941939af98b23ca033ef5d322ab010608a"
+        },
+        {
+          "id": 5056,
+          "sha256": "f162f6c2d406e351304369617833548f98e4d41436d703dbbed0492a5885c06d"
+        },
+        {
+          "id": 5057,
+          "sha256": "df54d647da639015b8adba262ac2622d8b50df9286cb5fae3789eafa367f5f37"
+        }
+      ],
+      "m_loan_transaction": [
+        {
+          "id": 24898,
+          "sha256": "1adc731823aafb4fe394da71c83e4cc79e1697ce0520b3a98dbe69557c1a365f"
+        }
+      ],
+      "charge_5056": {
+        "id": 5056,
+        "active": false,
+        "amount": "1.310000",
+        "paid": "0.000000",
+        "outstanding": "1.310000",
+        "due_date": "2026-05-29"
+      }
+    },
+    "after": {
+      "m_loan_charge": [
+        {
+          "id": 5040,
+          "sha256": "819bbfed96086f7e92e94ba3fc81775f36f2c508e2dbdd4d85a9505fc5aae3ad"
+        },
+        {
+          "id": 5055,
+          "sha256": "f196f652294accbf433b6349211040941939af98b23ca033ef5d322ab010608a"
+        },
+        {
+          "id": 5056,
+          "sha256": "f162f6c2d406e351304369617833548f98e4d41436d703dbbed0492a5885c06d"
+        },
+        {
+          "id": 5057,
+          "sha256": "df54d647da639015b8adba262ac2622d8b50df9286cb5fae3789eafa367f5f37"
+        }
+      ],
+      "m_loan_transaction": [
+        {
+          "id": 24898,
+          "sha256": "1adc731823aafb4fe394da71c83e4cc79e1697ce0520b3a98dbe69557c1a365f"
+        }
+      ],
+      "charge_5056": {
+        "id": 5056,
+        "active": false,
+        "amount": "1.310000",
+        "paid": "0.000000",
+        "outstanding": "1.310000",
+        "due_date": "2026-05-29"
+      }
+    },
+    "identical": true
+  },
+  "payment_exclusion": {
+    "source_movement_id": "0000034318",
+    "excluded_from_frozen_921_history": true,
+    "target_any_namespace_count": 0,
+    "scoped_transactions_on_or_after_fineract_start": 0
+  },
+  "preservation": {
+    "plan_unchanged": true,
+    "outside_scope_unchanged": true,
+    "outside_before": {
+      "loans": {
+        "rows": 1163,
+        "sha256": "95229f0f4751c75547423dae1dac7c051e1ece446ebd6030de092b782b12eb33"
+      },
+      "transactions": {
+        "rows": 25199,
+        "sha256": "f6787bab1939bc844169585485b45404f1c77137e0ccc5e42696dc87f812c229"
+      },
+      "schedules": {
+        "rows": 21583,
+        "sha256": "5dc992753753af6718e7bd312dcb3775f29791d4c6d82f97c6bad21f2a1a6a02"
+      },
+      "charges": {
+        "rows": 5174,
+        "sha256": "cf44ccc5b3e68faa290ad16447fdaf1ed1920ab4e74c2fd3dd0538eda504d42b"
+      },
+      "clients": {
+        "rows": 1070,
+        "sha256": "66e7a59e11fb3fa1ddb4426e1e60f9fe88f0a1f6f7a7d78103c67661cce40e56"
+      },
+      "products": {
+        "rows": 2,
+        "sha256": "9c06ba686fce342d9ff6dbcc9f674504bb91e5989b5b8355aede4fa4a77a57d8"
+      },
+      "journals": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "m_loan_charge_paid_by": {
+        "rows": 10336,
+        "sha256": "a93fcc3ce422eacccfd68fe49ee7c181663cf237ba0a78274e9de5d4eeb0716c"
+      },
+      "m_loan_transaction_repayment_schedule_mapping": {
+        "rows": 26657,
+        "sha256": "a96edf1570cca0b932ad451906a50c54acebea7ff305066ae6c15577fd5d946e"
+      }
+    },
+    "outside_after": {
+      "loans": {
+        "rows": 1163,
+        "sha256": "95229f0f4751c75547423dae1dac7c051e1ece446ebd6030de092b782b12eb33"
+      },
+      "transactions": {
+        "rows": 25199,
+        "sha256": "f6787bab1939bc844169585485b45404f1c77137e0ccc5e42696dc87f812c229"
+      },
+      "schedules": {
+        "rows": 21583,
+        "sha256": "5dc992753753af6718e7bd312dcb3775f29791d4c6d82f97c6bad21f2a1a6a02"
+      },
+      "charges": {
+        "rows": 5174,
+        "sha256": "cf44ccc5b3e68faa290ad16447fdaf1ed1920ab4e74c2fd3dd0538eda504d42b"
+      },
+      "clients": {
+        "rows": 1070,
+        "sha256": "66e7a59e11fb3fa1ddb4426e1e60f9fe88f0a1f6f7a7d78103c67661cce40e56"
+      },
+      "products": {
+        "rows": 2,
+        "sha256": "9c06ba686fce342d9ff6dbcc9f674504bb91e5989b5b8355aede4fa4a77a57d8"
+      },
+      "journals": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "m_loan_charge_paid_by": {
+        "rows": 10336,
+        "sha256": "a93fcc3ce422eacccfd68fe49ee7c181663cf237ba0a78274e9de5d4eeb0716c"
+      },
+      "m_loan_transaction_repayment_schedule_mapping": {
+        "rows": 26657,
+        "sha256": "a96edf1570cca0b932ad451906a50c54acebea7ff305066ae6c15577fd5d946e"
+      }
+    },
+    "global_counts_before": [
+      1167,
+      25273,
+      0
+    ],
+    "global_counts_after": [
+      1167,
+      25273,
+      0
+    ],
+    "count_order": [
+      "loans",
+      "loan_transactions",
+      "gl_entries"
+    ],
+    "duplicate_source_transaction_ids": [],
+    "transfer_history_count": 2,
+    "native_921_transfer_pair_count": 2,
+    "parent_workflow_status": "interrupted",
+    "scheduler_paused": true,
+    "active_accounting_boundary_verified_unchanged": true,
+    "read_only_final_verification_unchanged": true,
+    "reset": false,
+    "new_cycle": false,
+    "backend_reload": false,
+    "broader_workflow_resume": false
+  },
+  "acceptance_limit": "Four-loan recovery only. Prior 34-loan run keeps its historical failed reconciliation; loan773 interest allocation and LS-30 prior outside-row finding remain separate. No charge ownership rows or balances were repaired or manufactured; the historical cause of inactive/unpaid penalty5056 remains outside this idempotency fix."
+}

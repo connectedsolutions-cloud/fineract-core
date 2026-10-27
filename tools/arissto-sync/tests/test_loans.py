@@ -3920,7 +3920,7 @@ class LoanInspectionTests(unittest.TestCase):
         self.assertEqual(commands, [None, None, "sourceExactUndoDisbursal", None, None])
         catchup.assert_not_called()
 
-    def test_lifecycle_writer_restores_missing_charge_for_existing_repayment(self):
+    def test_lifecycle_writer_verifies_hidden_paid_charge_for_existing_repayment(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
         built["lifecycle"]["cutover_insurance_charge"] = None
@@ -3946,7 +3946,7 @@ class LoanInspectionTests(unittest.TestCase):
             "amountOutstanding": 0,
         }]}
         api = MagicMock()
-        api.request.side_effect = [active, active]
+        api.request.side_effect = [active, active, restored["charges"][0]]
 
         with (
             patch("arissto_sync.loans._find_loan", return_value=active),
@@ -3956,8 +3956,9 @@ class LoanInspectionTests(unittest.TestCase):
             loan_id, recovered = _apply_loan_lifecycle(api, action, 90)
 
         self.assertEqual((loan_id, recovered), (55, True))
-        ensure_charge.assert_called_once()
-        self.assertEqual(ensure_charge.call_args.args[2]["external_id"], "ARISSTO:CRD-MOV:101")
+        ensure_charge.assert_not_called()
+        self.assertEqual(api.request.call_args.args[:2],
+                         ("GET", "loans/55/charges/external-id/ARISSTO:CRD-INS:7001:101:0001"))
 
     def test_lifecycle_writer_does_not_persist_charges_for_reversed_source_repayment(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
