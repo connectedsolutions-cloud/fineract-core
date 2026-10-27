@@ -24,7 +24,7 @@ Counts are observations from this attempt. Representative loans use Arissto `loa
 | LS-04 | Source-exact allocation leaves principal and penalties. | 7 failures; `loan:1398`, `loan:1828`, `loan:1889`. | **Open — mixed cohort.** | Separate provisional principal handling from penalty representability. |
 | LS-05 | Source-exact allocation leaves interest only. | 6 failures: `loan:936`, `loan:938`, `loan:964`, `loan:971`, `loan:972`, `loan:983`. | **Open — separate interest cohort.** These are not the six terminal-closure cases. | Capture interest availability and exact transaction/schedule chronology. |
 | LS-06 | First frozen repayment precedes first frozen contractual due date; strongly associated with LS-01/02. | 47/66 combined LS-01/02 cases: 25/42 and 22/24; example `loan:10`. Comparison: 4/967 recorded succeeded loans. | **Discovery — association verified, causality unproven.** Overlaps LS-01/02. | Trace actual failing event and reversals; compare temporary prefix with full schedule. Interrupted execution order limits cohort interpretation. |
-| LS-07 | Refinancing creation fails; preview path can flush an installment with null `loan_id`. | 8 create failures: `loan:103`, `loan:125`, `loan:139`, `loan:159`, `loan:172`, `loan:1784`, `loan:200`, `loan:283`. Constraint confirmed for 283 and 1784; remaining six generic HTTP 500s are candidates. | **Fix committed — live payoff and schedule previews passed 8/8; persisted predecessor state unchanged. Full replay blocked by recovery scope guards.** Six original HTTP 500s remain individually uncorrelated. | Resolve LS-24/25 and the scoped office-transfer restriction, then verify actual creation/disbursement/replay and reconcile all eight successors. |
+| LS-07 | Refinancing creation fails; preview path can flush an installment with null `loan_id`. | 8 create failures: `loan:103`, `loan:125`, `loan:139`, `loan:159`, `loan:172`, `loan:1784`, `loan:200`, `loan:283`. Constraint confirmed for 283 and 1784; remaining six generic HTTP 500s are candidates. | **Fix committed — live payoff and schedule previews passed 8/8; persisted predecessor state unchanged. Full replay blocked by recovery scope guards.** Six original HTTP 500s remain individually uncorrelated. | LS-24 selection is fixed; resolve the scoped office-transfer restriction and LS-25 source-drift gate before actual creation/disbursement/replay and reconciliation. |
 | LS-08 | EMI must exceed interest during transaction replay / schedule regeneration. | 9 failures: `loan:177`, `loan:300`, `loan:459`, `loan:516`, `loan:555`, `loan:771`, `loan:780`, `loan:781`, `loan:865`. Eight have planned terminal adjustments. | **Open — cohort identified.** Terminal-adjustment association does not establish the failing event. | Capture failing event and regenerated installment interest before changing amounts. |
 | LS-09 | Fully paid, inactive historical insurance charge omitted from active charge collection causes false missing-charge refusal. | 6 failures: `loan:61`, `loan:372`, `loan:379`, `loan:651`, `loan:661`, `loan:815`. | **Fix committed; read-only verifier passed all six; workflow recovery pending.** Original process predated fix. | Load repaired code in an authorized recovery and require complete loan reconciliation. Commit/change evidence below. |
 | LS-10 | Exactly one-cent terminal adjustment skipped by writer, leaving loan open. | 6 failures: `loan:1909`, `loan:2024`, `loan:2051`, `loan:2462`, `loan:2511`, `loan:2513`. | **Fix committed; regression tests reported passed; runtime recovery pending.** | Verify adjustment identity, exact amount, closed status and full reconciliation under repaired process. |
@@ -41,7 +41,7 @@ Counts are observations from this attempt. Representative loans use Arissto `loa
 | LS-21 | Parent and child status/summary disagree after interruption and earlier recovery. | One workflow: 11 latest completed services, one interrupted loan step, six blocked services; parent summary still says 10 completed / two failed. Loan child remains stored as `running`. | **Open — reporting inconsistency verified in preserved state.** | Recompute effective latest-attempt summary and consistently expose interrupted children. |
 | LS-22 | Planned actions lack recorded outcomes; target creation differs from completed replay. | 1,293 of 2,752 planned actions have no item record. 970 succeeded items include three setup actions, leaving 967 succeeded loans; supplied target check reports 1,143 created loans. | **Open — incomplete outcome evidence.** Missing record does not prove no target write. | Reconcile stable target identities, transaction prefixes and mappings before retry; preserve original evidence. |
 | LS-23 | Final metric alignment and first native COB cannot establish a complete handoff while replay/downstream financial services are incomplete. | Cycle-wide; final alignment not reached, six downstream services blocked, no first native COB recorded. | **Blocked — awaiting complete financial replay and reconciliation.** | Complete required services and opening metric reconciliation before first native COB. Do not mask incomplete replay with corrections. |
-| LS-24 | Scoped retry selection can promote healthy product prerequisites into explicit fan-out roots when adding office-transfer cohort members. | Eight requested successors plus prerequisites select 17 loans initially; recomputation would select 2,735 loans. Transfer cohort includes `loan:101`, `loan:283`, `loan:553`, `loan:921`. No expanded apply ran. | **Open — selection behavior reproduced without target writes.** | Preserve originally requested loan roots separately from prerequisites during cohort closure; test exact bounded write scope before recovery. |
+| LS-24 | Scoped retry selection can promote healthy product prerequisites into explicit fan-out roots when adding office-transfer cohort members. | Eight requested successors plus prerequisites select 17 loans initially; recomputation would select 2,735 loans. Transfer cohort includes `loan:101`, `loan:283`, `loan:553`, `loan:921`. No expanded apply ran. | **Fixed — 248 tests passed; frozen-plan audit selects 19 loans and one product instead of 2,735 loans. No replay performed.** | Use the bounded selector in the next reviewed recovery; scoped office-transfer planning restriction and LS-25 source-drift gate remain unchanged. |
 | LS-25 | Original full-portfolio frozen-plan guard now detects newly inapplicable source evidence. | First observed blocker: `loan:1613`, with `missing_final_metric_source_snapshot` and `source_events_after_fineract_accounting_boundary`. Selected 34-loan LS-07 graph has unchanged source hashes. | **Guard active — broad recovery blocked.** This is evidence to review, not approval to bypass the guard or move the boundary. | Review source drift and an eligible same-cycle recovery plan; keep Arissto through October 26 / Fineract starts October 27. |
 
 ## LS-07 investigation — why this appeared after recent changes
@@ -238,6 +238,66 @@ an explicitly bounded eligible plan and resolution of the separate scope/source
 issues. This verification does not relax frozen-source, accounting or allocation
 guards and does not establish that historical staff activity was absent.
 
+## LS-24 repair and scope verification — October 27
+
+The retry selector now retains its original explicit roots and computes one
+closure over dependencies and mandatory office-transfer cohorts. A product or
+collateral product added as a prerequisite never becomes a new fan-out root.
+Cohort members can introduce new predecessors or another transfer cohort; the
+same closure continues until all required members are present. Results retain
+the original plan order and action objects, without modifying the plan or caller
+selection. An explicitly selected failed product still includes its dependent
+loans, preserving the existing product-retry contract.
+
+`apply_loan_plan` invokes that selector once with the frozen transfer events.
+It no longer feeds the expanded prerequisite set back into the selector as
+explicit roots. Its preflight/source/target apply guard and subsequent transfer
+source/balance checks remain in place.
+
+| Preserved eight-loan selection | Before | After |
+|---|---:|---:|
+| Requested successor loans | 8 | 8 |
+| Selected loans after dependency/cohort closure | 2,735 | **19** |
+| Setup actions included | 2 | **1** (`product:00010`) |
+| Total selected actions | 2,737 | **20** |
+
+The corrected 19 comprise the original eight successors, **nine required
+ancestors**, and two additional mandatory transfer-cohort members
+(`loan:553`, `loan:921`). Unrelated borrowers sharing the product are excluded;
+the collateral product is also excluded because this bounded set does not
+require it. The original full plan remains unchanged.
+
+Verification evidence:
+[read-only frozen-plan scope checks](investigations/ls24-retry-scope-oct27.json).
+The audit reads existing plan `8098f714e10b4363934545537026a714` in cycle
+`sandbox-2026-10-26-full-clean-a`; it neither rebuilds that plan nor connects to
+Arissto or Fineract. Its selected keys exactly reconcile to the expected 19-loan
+set, every prerequisite is included, and plan ordering is preserved.
+
+The original apply-path regression fails against the pre-fix functions because
+it selects unrelated product siblings. It passes after the repair. Eight new
+scope tests cover the actual apply selection entry path, healthy product and
+collateral prerequisites, explicitly failed product roots, nested transfer
+cohorts, deep dependencies, input/order preservation, and empty/full/unknown
+selections. Together with the existing loan and final-metric suites,
+**248 tests passed**:
+
+```bash
+.venv/bin/python -m unittest tests.test_loan_retry_scope tests.test_loans tests.test_loan_metric_alignment -v
+```
+
+Implementation: [retry selector and apply entry point](../../arissto_sync/loans.py).
+Tests: [scope regressions](../../tests/test_loan_retry_scope.py).
+The repair commit and all affected selection identities are indexed in the
+[durable change tracker](change-log.md), with selected loans distinguished from
+unrelated loans excluded by the repair. These are selection outcomes, not
+financial migration outcomes.
+
+No reset, backend reload, resume, loan creation, financial replay or accounting
+boundary change was performed for LS-24. The scoped office-transfer planning
+restriction and LS-25 source-drift gate are separate and remain unchanged.
+LS-07's actual creation/disbursement/replay acceptance is still pending.
+
 ## Existing fix evidence
 
 These are baseline observations from the operator investigation, not new test executions for this document.
@@ -263,6 +323,7 @@ Append findings with their issue ID. Record a new cycle/run explicitly rather th
 | 2026-10-27 | LS-07 | Traced newly enabled recalculation branch to persistent transaction remapping onto temporary installments; identified activation commit and acceptance coverage gap. | Git diff/blame, frozen successor/predecessor relationships and retained ORM flush stack; detailed LS-07 investigation above. | Mechanism diagnosed; isolated off/on reproduction, per-case HTTP 500 correlation and repair remain pending. |
 | 2026-10-27 | LS-07 | Reproduced off-pass/on-null-loan-ID failure with real EclipseLink flush; isolated preview state and preserved pending caller changes. | Repair `349ca8ad3f2ad6b7c513efb96252e7b4712e7ebd`; durable change 29; [sanitized checks](investigations/ls07-preview-isolation-oct27.json); 55 tests passed. | Fixed in code and verified on synthetic records; original portfolio recovery and separate staff/source-drift evidence remain pending. |
 | 2026-10-27 | LS-07, LS-24, LS-25 | Guarded backend reload and 16 non-posting live checks passed across all eight pairs; target hashes/counts unchanged. Scoped recovery remains non-applicable; broad retry would expand to 2,735 loans and full-plan guard detects loan:1613 source changes. | [Live sandbox evidence](investigations/ls07-sandbox-verification-oct27.json); scoped plan `6fa82232f72748a5833e2d28bc3c0d5a`; durable change 29. | Live preview verification complete; original successor creation/disbursement/replay and reconciliation pending. |
+| 2026-10-27 | LS-24 | Preserved explicit retry roots through joint dependency/transfer-cohort closure; removed the second selector invocation that promoted healthy product prerequisites. | [Scope checks](investigations/ls24-retry-scope-oct27.json); pre-fix mocked apply regression reproduced; 248 tests passed; frozen plan selects exactly 19 loans plus one product. | Selection fixed and verified without reset or replay; office-transfer planning restriction and LS-25 source-drift gate unchanged. |
 
 ### Template for the next annotation
 

@@ -1,0 +1,107 @@
+{
+  "issue": "LS-24",
+  "verified_on": "2026-10-27",
+  "verification": "Read-only selector audit of the existing frozen plan; no source/target connection, apply, resume, reset or backend reload.",
+  "cycle": "sandbox-2026-10-26-full-clean-a",
+  "plan_id": "8098f714e10b4363934545537026a714",
+  "plan_document_sha256": "d41f22411e94d6ffa49795aa8a8b41eaff69182db07d90d3e480509dbcca1946",
+  "plan_unchanged": true,
+  "requested_roots": [
+    "loan:103",
+    "loan:125",
+    "loan:139",
+    "loan:159",
+    "loan:172",
+    "loan:1784",
+    "loan:200",
+    "loan:283"
+  ],
+  "original_dependency_closure_loan_count": 17,
+  "before": {
+    "selected_loan_count": 2735,
+    "selected_action_count": 2737
+  },
+  "after": {
+    "selected_loan_count": 19,
+    "selected_action_count": 20,
+    "requested_loan_count": 8,
+    "required_ancestor_loan_count": 9,
+    "additional_required_transfer_cohort_loans": [
+      "loan:553",
+      "loan:921"
+    ],
+    "selected_loan_keys": [
+      "loan:14",
+      "loan:25",
+      "loan:29",
+      "loan:30",
+      "loan:34",
+      "loan:43",
+      "loan:101",
+      "loan:103",
+      "loan:125",
+      "loan:139",
+      "loan:159",
+      "loan:172",
+      "loan:200",
+      "loan:283",
+      "loan:553",
+      "loan:921",
+      "loan:1178",
+      "loan:1482",
+      "loan:1784"
+    ],
+    "setup_action_keys": [
+      "product:00010"
+    ],
+    "selected_action_keys": [
+      "product:00010",
+      "loan:14",
+      "loan:25",
+      "loan:29",
+      "loan:30",
+      "loan:34",
+      "loan:43",
+      "loan:101",
+      "loan:103",
+      "loan:125",
+      "loan:139",
+      "loan:159",
+      "loan:172",
+      "loan:200",
+      "loan:283",
+      "loan:553",
+      "loan:921",
+      "loan:1178",
+      "loan:1482",
+      "loan:1784"
+    ],
+    "all_prerequisites_included": true,
+    "plan_order_preserved": true
+  },
+  "tests": {
+    "command": ".venv/bin/python -m unittest tests.test_loan_retry_scope tests.test_loans tests.test_loan_metric_alignment -v",
+    "total": 248,
+    "new_scope_tests": 8,
+    "result": "passed"
+  },
+  "remaining_gates": [
+    "Existing scoped office-transfer planning restriction remains unchanged.",
+    "Original full-plan source-drift guard for loan:1613 remains unchanged.",
+    "This read-only audit does not authorize or establish successful financial replay."
+  ],
+  "pre_fix_apply_regression": {
+    "test": "LoanRetryScopeTests.test_apply_keeps_original_roots_when_it_adds_a_transfer_cohort",
+    "result": "failed as expected on the pre-fix functions",
+    "observed": "Unrelated loan:4, loan:5 and product:00001 were selected.",
+    "scope": "Pure/mocked apply path, stopped before constructing API or starting a run."
+  },
+  "safety": {
+    "reset": false,
+    "resume": false,
+    "target_apply": false,
+    "source_connection": false,
+    "target_connection": false,
+    "accounting_boundary_changed": false
+  }
+}

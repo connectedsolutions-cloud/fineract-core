@@ -5143,7 +5143,9 @@ def _loan_apply_guard(
 
 def _selected_loan_actions(
     actions: list[dict[str, Any]], only_keys: set[str] | None,
+    *, client_office_transfers: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
+    """Close original retry roots over prerequisites and indivisible transfer cohorts."""
     if only_keys is None:
         return actions
     by_key = {action["source_key"]: action for action in actions}
@@ -5162,18 +5164,29 @@ def _selected_loan_actions(
         action["source_key"] for action in actions
         if selected_products.intersection(action.get("depends_on", []))
     )
-    # Include the full prerequisite closure. Refinance chains may be several
-    # loans deep; selecting only the immediate predecessor makes that
-    # predecessor appear to have an unmet dependency and blocks the entire
-    # retry before any failed loan is attempted.
+    # Keep roots distinct from discovered prerequisites. Re-selecting the
+    # expanded set would promote healthy products to explicit fan-out roots.
+    # A cohort can introduce a predecessor from another transfer client, so
+    # close both relationships together until no required action is added.
+    transfer_clients = {
+        event["client_external_id"] for event in client_office_transfers or []
+    }
     changed = True
     while changed:
-        changed = False
+        previous = set(selected)
         for key in list(selected):
-            dependencies = set(by_key[key].get("depends_on", []))
-            if not dependencies.issubset(selected):
-                selected.update(dependencies)
-                changed = True
+            selected.update(by_key[key].get("depends_on", []))
+        selected_transfer_clients = {
+            by_key[key].get("client_external_id") for key in selected
+            if by_key[key]["entity_type"] == "loan"
+            and by_key[key].get("client_external_id") in transfer_clients
+        }
+        selected.update(
+            action["source_key"] for action in actions
+            if action["entity_type"] == "loan"
+            and action.get("client_external_id") in selected_transfer_clients
+        )
+        changed = selected != previous
     return [action for action in actions if action["source_key"] in selected]
 
 
@@ -8215,21 +8228,16 @@ def apply_loan_plan(
         settings, state, contract, plan_id, production_confirmation
     )
     document = plan["document"]
-    actions = _selected_loan_actions(document["actions"], only_keys)
+    actions = _selected_loan_actions(
+        document["actions"], only_keys,
+        client_office_transfers=document.get("client_office_transfers", []),
+    )
     transfer_clients = {event["client_external_id"] for event in document.get("client_office_transfers", [])}
     if only_keys is not None:
         selected_transfer_clients = {
             action.get("client_external_id") for action in actions
             if action.get("entity_type") == "loan" and action.get("client_external_id") in transfer_clients
         }
-        if selected_transfer_clients:
-            cohort_keys = {
-                action["source_key"] for action in document["actions"]
-                if action.get("entity_type") == "loan"
-                and action.get("client_external_id") in selected_transfer_clients
-            }
-            actions = _selected_loan_actions(document["actions"],
-                                             {action["source_key"] for action in actions} | cohort_keys)
         transfer_events = [event for event in document.get("client_office_transfers", [])
                            if event["client_external_id"] in selected_transfer_clients]
     else:
