@@ -18,12 +18,12 @@ Counts are observations from this attempt. Representative loans use Arissto `loa
 
 | ID | Observed issue / pattern | Impact and representative loans | Status | Next evidence or completion check |
 |---|---|---|---|---|
-| LS-01 | Source-exact allocation leaves principal and interest unrepresented; 10, 1036 and 1040 hit empty pre-first-due recalculation prefixes. | 42 baseline failures; 10, 1036 and 1040 recovered. Their required 1253/1544 successors also completed; remaining 39 baseline cases unverified. | **Fixed and reconciled for 10, 1036 and 1040 using the existing LS-05 repair.** Latest four-loan cohort: 86 Java tests, 38/38 non-reversal events + 2 reversals, 32/32 metrics. | Recorded explicit adjustments and nonblocking schedule/comparison variances below; investigate remaining baseline cases individually. |
+| LS-01 | Mixed principal/interest allocation failures contain empty pre-first-due and nonempty first-due cases; completing the first payment does not guarantee the remaining lifecycle. | 42 baseline failures. Prior 3 + current 24 have full event/metric checks; 15 histories remain unresolved. Existing fix passed all 28 eligible original empty-prefix payments in this attempt; two more such roots are source-quarantined. | **Partially recovered — 194 tests passed; current 65-loan attempt is NOT accepted (49 successful/recovered, 8 failed, 8 blocked).** | Per-loan classification below: LS-32 first-due guards, LS-33 source drift, LS-34 later insurance-fee allocation, LS-35 reversal chronology; preserve existing strict guards. |
 | LS-02 | Source-exact allocation leaves principal, interest and fees unrepresented. | 24 failures; `loan:1024`, `loan:1117`, `loan:1180`. | **Open — cohort identified.** | Trace schedule availability and named fee-charge materialization independently. |
-| LS-03 | Source-exact penalty allocation can fail on temporary recalculation prefixes; paid transaction copies can also lack historical charge ownership. | 72 baseline failures remain individually unverified. Loan 921 reproduced unpaid 0.26 and historical paid 0.15 cases. | **Fixed for demonstrated cases — 61 tests passed; loan 921 and its four-loan cohort recovered and officially reconciled.** | Apply the proven pattern to the remaining baseline cases without assuming a common cause or declaring portfolio recovery. |
+| LS-03 | Source-exact penalty allocation can fail on temporary recalculation prefixes; paid transaction copies can also lack historical charge ownership. | 72 baseline failures remain individually unverified. Loan 921 reproduced unpaid 0.26 and historical paid 0.15 cases; dependency 565 now stops on a separate 0.48 penalty remainder with a real unpaid named charge. | **Fixed for demonstrated cases — 61 tests passed; loan 921 and its four-loan cohort recovered and officially reconciled.** | Trace 565’s actual temporary/final schedule path and charge ownership before changing anything; the 921 canary does not establish portfolio recovery. |
 | LS-04 | Source-exact allocation leaves principal and penalties. | 7 failures; `loan:1398`, `loan:1828`, `loan:1889`. | **Open — mixed cohort.** | Separate provisional principal handling from penalty representability. |
 | LS-05 | Source-exact allocation leaves interest only; 773 fails before the first contractual due date on an empty recalculation prefix. | Loan 773: September 24, 2024 interest-only payment 1.10, first contractual due October 20. Six baseline cases (936, 938, 964, 971, 972, 983) remain individually unverified. | **Fixed for 773 — 77 Java tests passed; 54/54 events, 8/8 metrics and continuation readiness verified.** | Bounded 34-loan attempt recovered 31; three separate cutover-insurance refusals are now LS-31. Do not declare the six baseline cases recovered. |
-| LS-06 | First frozen repayment precedes first frozen contractual due date; strongly associated with LS-01/02. | 47/66 combined LS-01/02 cases: 25/42 and 22/24; example `loan:10`. Comparison: 4/967 recorded succeeded loans. | **Discovery — association verified; empty-prefix cause confirmed for 10, 1036 and 1040.** Other cases remain unverified; overlaps LS-01/02. | Trace actual failing event and reversals; compare temporary prefix with full schedule. Interrupted execution order limits cohort interpretation. |
+| LS-06 | First frozen repayment precedes first frozen contractual due date; strongly associated with LS-01/02. | Initial heuristic: 47/66 combined LS-01/02 cases: 25/42 and 22/24; example `loan:10`. Comparison: 4/967 recorded succeeded loans. | **Discovery — now traced across LS-01.** Original mixed payments pass for all 28 eligible pre-first-due roots in the remaining batch; nine first-due cases differ. Other groups remain unverified. | Trace actual failing event and reversals; compare temporary prefix with full schedule. Interrupted execution order limits cohort interpretation. |
 | LS-07 | Refinancing creation fails; preview path can flush an installment with null `loan_id`. | 8 create failures: `loan:103`, `loan:125`, `loan:139`, `loan:159`, `loan:172`, `loan:1784`, `loan:200`, `loan:283`. Constraint confirmed for 283 and 1784; remaining six generic HTTP 500s are candidates. | **Fix committed — live payoff and schedule previews passed 8/8; persisted predecessor state unchanged. All eight original successors are recovered and officially reconciled in the LS-31 34-loan follow-up.** Six original HTTP 500s remain individually uncorrelated. | LS-24 selection and LS-26 office-transfer planning are fixed. LS-03 recovery now reconciles 283’s native creation/disbursement/closure with the complete four-loan cohort; LS-27 now verifies its complete 34-loan closure; the LS-31 follow-up now accepts the complete 34-loan group. Historical failures and the six original generic-500 attribution caveats remain; whole-workflow recovery is separate. |
 | LS-08 | EMI must exceed interest during transaction replay / schedule regeneration. | 9 failures: `loan:177`, `loan:300`, `loan:459`, `loan:516`, `loan:555`, `loan:771`, `loan:780`, `loan:781`, `loan:865`. Eight have planned terminal adjustments. | **Open — cohort identified.** Terminal-adjustment association does not establish the failing event. | Capture failing event and regenerated installment interest before changing amounts. |
 | LS-09 | Fully paid, inactive historical insurance charge omitted from active charge collection causes false missing-charge refusal. | 6 failures: `loan:61`, `loan:372`, `loan:379`, `loan:651`, `loan:661`, `loan:815`. | **Fix committed; read-only verifier passed all six; workflow recovery pending.** Original process predated fix. | Load repaired code in an authorized recovery and require complete loan reconciliation. Commit/change evidence below. |
@@ -47,8 +47,12 @@ Counts are observations from this attempt. Representative loans use Arissto `loa
 | LS-27 | Dependency-only retry omits successors whose disbursements create selected loans’ native refinancing payoffs. | Original eight roots select exactly 34 loans and one product; all 35 actions received outcomes. | **Recovered — officially reconciled.** LS-31 follow-up run `68b2c701797546849a349bdda2cf52ac`: all 34 recovered, zero failed/blocked, 336/336 events and 272/272 metric targets match. | Preserve this bounded acceptance and October 27 exclusion. Prior failed attempts remain historical; full portfolio/workflow readiness remains separate. LS-30’s counter effect is now classified as expected native behavior. |
 | LS-28 | Historical reconstruction for 921 preserves the original snapshot and excludes the October 27 payment. | Completed recovery: `loan:101` → native 1, `loan:283` → 1144, `loan:553` → 1145, `loan:921` → 1146. | **Recovered — officially reconciled.** All source event identities and 32/32 metric targets match; October 27 payment absent. | LS-29 follow-up again recovers/reconciles all four: 46/46 events, 32/32 metric targets and continuation readiness; historical reconstruction and payment exclusion remain verified. |
 | LS-29 | Existing repayment recovery tries to provision historical penalty/insurance charges omitted from the active loan charge collection. | Loan 921, May 29 movement `0000021121`: inactive penalty 5056 (1.31) and fully paid inactive insurance 5057 (0.32). Blocks 101/283/553 as one transfer cohort. | **Fixed — 310 tests passed; all four loans recovered and officially reconciled.** Existing repayments are checked without charge provisioning; strict insurance settlement checks remain. | Run `0837cac1d1b4496fac6f22e06c90035a`: 46/46 events and 32/32 metrics match, no duplicate or post-boundary transactions. Historical charges/repayment and outside-scope hashes unchanged. Details below. |
-| LS-30 | Historical disbursement updates a later same-client/product loan’s native sequence counter outside selected financial writer actions. | Loan 125 inserted between 43 and 383: current product counters 1/2/3; 383 / native 261 is the expected later neighbor. Overall borrower cycles are disabled and `loan_counter` stays null. | **Expected native behavior confirmed — no runtime fix needed.** 15 Java tests passed; command 40939 starts 19.57 ms before 383’s change, with no direct command/replay on 383. | Keep counter 3. Future audits must capture per-row preimages and verify only predicted counter/audit deltas; original complete column diff remains unavailable. Current accepted cohort still reconciles read-only. |
+| LS-30 | Historical disbursement updates a later same-client/product loan’s native sequence counter outside selected financial writer actions. | Loan 125 inserted between 43 and 383: current product counters 1/2/3; 383 / native 261 is the expected later neighbor. Overall borrower cycles are disabled and `loan_counter` stays null.  Latest bounded retry: 2026 counter 2→3 after historical loan 1999; all noncounter fields match. | **Expected native behavior confirmed — no runtime fix needed.** 15 Java tests passed; command 40939 starts 19.57 ms before 383’s change, with no direct command/replay on 383. | Keep counter 3. Future audits must capture per-row preimages and verify only predicted counter/audit deltas; original complete column diff remains unavailable. Current accepted cohort still reconciles read-only. |
 | LS-31 | Recovery expects the original cutover insurance charge to retain an obligation already moved to the approved final-metric baseline. | 172 (12.54), 360 (7.82), 515 (6.45); original charge is zero and canonical INS baseline carries the balance. | **Fixed — 325 tests passed; complete 34-loan cohort recovered and officially reconciled.** Prior alignment, full metrics and charge identity/balance proof permit read-only recovery. | Run `68b2c701797546849a349bdda2cf52ac`: zero metric adjustments, unchanged charge/transaction rows and counts. Drift or missing proof remains blocking; no insurance obligation recreated. |
+| LS-32 | Nonempty first-due recalculation prefixes leave source interest unrepresented; the empty-prefix fix does not cover this path. | 331, 901, 903, 904, 907, 916, 924, 928, 939. Eight frozen-calendar refusals reproduced; 331’s native prefix leaves principal 3.25 / interest 5.43. | **Open — nine root histories unresolved.** Eight were excluded from replay; 331 was retried and retained its original failure despite sufficient frozen-calendar interest capacity. | Characterize native first-due recalculation, not just source-calendar capacity; retain strict final allocation and managed-charge isolation. |
+| LS-33 | Current source refinance/payment history crosses the frozen accounting boundary or lacks a complete source-through metric snapshot. | Root 18’s chain through 2541; root 2435 and new successor 2763. October 27 movements 34336, 34340, 34341 and 34394 stay excluded. | **Blocked by source history — existing quarantines retained; no target replay of these chains.** | Require approved historical reconstruction/snapshot proof; preserve Arissto through October 26 and Fineract starts October 27. |
+| LS-34 | A later pre-first-due repayment includes insurance fees that the schedule cannot represent, although the exact named source charge exists. | Roots 575 (0.11), 1330 (0.14), 1743 (1.19); dependencies 1187 (0.44), 1883 (0.59). All five named charges remain unpaid with zero paid-by links. | **Open — original empty-prefix P/I payments passed; later fee-bearing events refused.** | Trace the actual provisional/final fee representation and prove safe charge coverage; do not waive charges, forge ownership or relax the fee guard. |
+| LS-35 | Historical reversal of an earlier repayment hits the native last-transaction-date guard after later repayments have been posted. | Root 2519: September 9/11/12 payments posted; the first September 17 reversal targets September 9 and fails against last user transaction September 12. | **Open — original LS-01 payment now represented; reversal batch incomplete.** | Test safe same-day reversal ordering and later-target-activity protection. Native validation uses the original transaction date; no date shift or blanket bypass. |
 
 ## LS-07 investigation — why this appeared after recent changes
 
@@ -1295,3 +1299,145 @@ completed only as required dependencies. The parent portfolio workflow remains
 incomplete.
 
 Evidence: [1036/1040 bounded recovery](investigations/ls01-loans-1036-1040-recovery-oct27.json).
+
+
+## Remaining 39 LS-01 roots — investigation and partial bounded retry
+
+The existing LS-05 fix remains unchanged. Direct tracing against the original
+frozen plan identifies **30 mixed payments before the first frozen contractual
+due**, and **nine first-due capacity cases**. This compares the matched failing
+payment and native prefix, rather than treating the earlier LS-06 population
+heuristic as proof of a shared cause. The first-due source/native distinction
+matters: loan 331’s frozen first interest row is 32.55, while its native prefix
+has 27.12; source-calendar capacity alone did not fix actual replay.
+
+The new frozen-data regression class exercises **108 cases**: 30 empty-prefix
+successes with missing-proof and strict-final negative controls (90), nine exact
+native first-due remainders, eight frozen-calendar first-due refusals, and one
+isolated 331 frozen-calendar capacity comparison. Together with the existing
+allocation and managed-state suites, **194 unique tests passed**; scoped
+Spotless passed. First-due unit fixtures omit fees to isolate the P/I guard;
+actual replay retains full fee/penalty ownership checks. No production code,
+charge-coverage policy or backend runtime was changed or reloaded.
+
+The original 39-root closure contained 97 loans. Fresh source extraction also
+found required successor 2763 after the boundary and unselected reviewed voided
+attempt 2723, yielding a **99-loan plan inventory**, not 99 authorized writes.
+The eight diagnosed first-due roots have a separate 24-loan dependency closure.
+The initially eligible 31-root/73-loan group lost two complete chains to current
+source quarantines: 18→…→2541 and 2435→2763. The executed selection was therefore
+**29 roots plus 36 required dependencies = 65 loans**. Every selected lifecycle
+matches the original frozen plan. Quarantines, new source topology and excluded
+roots were reviewed before execution; no dependency or date guard was bypassed.
+
+| Control/result | Evidence |
+| --- | --- |
+| Mode/target | Bounded resumed loan-block recovery in existing cycle `sandbox-2026-10-26-full-clean-a`; local `sandbox` / `fineract_sandbox`, fingerprint `b9f6834b66790744`. No reset, new cycle or parent-workflow resume. |
+| Accounting dates | **Arissto through 2026-10-26; Fineract starts 2026-10-27**. Both remain unchanged. |
+| Immutable plan and selection | `6d9e4c03eb714e7ea590e75b72789c80`; explicit 29-root selector closes to exactly 65 loans and three unchanged setup actions. Standard full source/target apply guard passed before writes. |
+| Completed attempt | `2a77b6166a764a4299045875b0b63c5a`; **completed-with-errors**: 24 recovered roots, 25 created dependencies, 8 failed loans, 8 blocked dependencies. |
+| Official reconciliation | **`ok=false` — cohort NOT accepted.** Failed/blocked count 16, zero blocking mismatch entries among compared successes, 1,543 nonblocking variances. Zero mismatch entries alone do not establish acceptance. |
+| Successful loan checks | All 49 successful/recovered loans have full event/metric checks: **550/550 non-reversal events + 8 reversals**, **392/392 metrics**, continuation ready; 15 active-loan accrual controls reconciled. |
+| Remaining event coverage | Entire selected plan freezes 756 events (744 non-reversal, 12 reversals); 587 non-reversal events are currently represented across successful and partial loans. Failed/blocked histories are incomplete. |
+| Alignment/adjustment qualifications | Writer reports 49 metric reconciliations and 44 metric-adjustment operations. Official report retains 30 applied adjustment annotations out of 62 adjustment records, including explicit refinance/cutover bridges. This is not replay-only or full-future-schedule parity. |
+| Outside financial preservation | All 1,140 outside loan IDs and every captured noncounter business field preserved; outside transactions, schedules, charges, paid-by/mapping rows, clients, products and GL hashes match. |
+| Expected counter metadata | Source 2026/native 933 product counter **2→3** after inserting historical source 1999/native 1178, dated May 26, 2026. Exact before/after row hashes and unchanged noncounter hashes prove only permitted counter/audit metadata changed; native borrower-cycle flags remain false. No counter restore or financial replay of 2026. |
+| Payment exclusion | Movement **0000034318** remains absent across namespaces; newly observed October 27 movements **34336, 34340, 34341 and 34394** are also absent. Globally zero native transactions dated on/after October 27. |
+| Final controls | Scheduler paused, parent workflow interrupted, plan/cutoff unchanged. Read-only verification/failure tracing changed no captured core table hashes. Global totals: 1,197 loans, 26,821 loan transactions, zero GL entries. |
+
+The outside-counter row above is LS-30 behavior, not an unexplained outside
+financial mutation. Its exhaustive noncounter hashes were captured before this
+attempt. The preserved outside rows include earlier accepted loan 10, the
+1036/1040 cohort, the 34-loan cohort, and all excluded first-due/source-quarantined
+loans.
+
+### Root outcomes — all 39 investigated
+
+**24 root histories now have full event/metric checks.** Four more original
+LS-01 payments passed before later failures; nine first-due cases and two source
+chains remain unresolved. Thus the original 42-loan group has 27 histories with
+full checks (three earlier, 24 here) and **15 unresolved histories**. The current
+65-loan attempt remains unaccepted as a whole.
+
+| Root loan | Existing empty-prefix fix / observed outcome | Progress status |
+| --- | --- | --- |
+| 1059 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 1084 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 1270 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 1330 | Original mixed payment represented; later early insurance-fee allocation refused. | Partial; LS-34 open. |
+| 1458 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 15 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 1671 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 1743 | Original mixed payment represented; later early insurance-fee allocation refused. | Partial; LS-34 open. |
+| 1781 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 18 | Same-fix unit case, but required chain contains after-boundary source history. | Not retried; LS-33 quarantine retained. |
+| 1942 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 1957 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 2396 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 2430 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 2435 | Same-fix unit case, but required chain contains after-boundary source history. | Not retried; LS-33 quarantine retained. |
+| 2519 | Original mixed payment represented; September 17 reversal of the September 9 payment refused. | Partial; LS-35 open. |
+| 2586 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 2588 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 2653 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 2704 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 2705 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 2706 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 3 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 331 | Native first-due prefix still leaves principal 3.25 / interest 5.43; source calendar capacity was insufficient as an integration proof. | Retried; LS-32 open. |
+| 400 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 575 | Original mixed payment represented; later early insurance-fee allocation refused. | Partial; LS-34 open. |
+| 653 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 677 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 680 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 894 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 9 | Original mixed payment represented; all source events and 8/8 metrics verified. | Full loan checks verified; cohort run still unaccepted. |
+| 901 | Distinct nonempty first-due prefix; frozen-calendar guard refusal reproduced. | Not retried; LS-32 open. |
+| 903 | Distinct nonempty first-due prefix; frozen-calendar guard refusal reproduced. | Not retried; LS-32 open. |
+| 904 | Distinct nonempty first-due prefix; frozen-calendar guard refusal reproduced. | Not retried; LS-32 open. |
+| 907 | Distinct nonempty first-due prefix; frozen-calendar guard refusal reproduced. | Not retried; LS-32 open. |
+| 916 | Distinct nonempty first-due prefix; frozen-calendar guard refusal reproduced. | Not retried; LS-32 open. |
+| 924 | Distinct nonempty first-due prefix; frozen-calendar guard refusal reproduced. | Not retried; LS-32 open. |
+| 928 | Distinct nonempty first-due prefix; frozen-calendar guard refusal reproduced. | Not retried; LS-32 open. |
+| 939 | Distinct nonempty first-due prefix; frozen-calendar guard refusal reproduced. | Not retried; LS-32 open. |
+
+
+### Follow-up blockers and retained partial state
+
+- **LS-32:** 331 reproduces its original principal 3.25 / interest 5.43 remainder;
+  901, 903, 904, 907, 916, 924, 928 and 939 were not retried because tests show
+  the same first-due guard remains. The 331 positive capacity test intentionally
+  does not claim native replay success.
+- **LS-33:** 18 is held by its quarantined chain through 2541 (October 27 payment
+  34394 and missing complete metric snapshot). Loan 2435 has October 27 payment
+  34336 and payoff 34340 into successor 2763, disbursed via 34341; remaining
+  schedule signature and source-through snapshot proofs fail. These chains were
+  left untouched; no historical reconstruction was invented.
+- **LS-34:** 575 stops May 16, 2024 on fee **0.11** before first due May 18;
+  1330 stops August 4, 2025 on fee **0.14** before August 7; 1743 stops March 16,
+  2026 on fee **1.19** before September 27. Dependencies 1187 (**0.44**) and 1883
+  (**0.59**) stop at analogous early fee-bearing payments. Their exact named
+  charges exist, remain unpaid, and have zero paid-by ownership rows. This
+  identifies fee representability as the next investigation; no broad fee
+  deferral or managed-charge mutation was added.
+- **LS-03 follow-up:** dependency 565 stops October 17, 2024 with **0.48 penalty**
+  remaining. Named charge 5467 exists, outstanding 0.48 and zero paid-by rows.
+  The proven 921 canary does not establish the cause/stage of this separate
+  refusal; temporary versus final schedule and charge ownership need tracing.
+- **LS-35:** loan 2519’s September 9, 11 and 12 payments are represented, but the
+  first September 17 reversal targets September 9 while later repayments remain.
+  `LoanAdjustmentServiceImpl` validates **the original transaction date** against
+  the last user transaction date; the native refusal names September 12.
+  Safe same-day reversal ordering and later-target-activity guards require a
+  separate test/repair; source reversal dates were not shifted.
+
+The eight attempt failures are **331, 565, 575, 1187, 1330, 1743, 1883, 2519**.
+The eight dependency blocks are **601, 622, 708, 818, 1014, 1416, 1780, 2540**.
+Successfully posted source events remain in place. Failed loans retain partial
+histories and their provisioned unpaid charges, including 331’s prior 0.33
+insurance charge; all seven inspected failed-event charges have **zero paid-by
+links**. No manual charge waiver, reactivation, ownership fabrication or reset was used
+to force acceptance. Do not treat these partial loans or the
+parent portfolio as ready for handoff.
+
+Evidence: [remaining LS-01 investigation and retry](investigations/ls01-remaining-cohort-investigation-retry-oct27.json).

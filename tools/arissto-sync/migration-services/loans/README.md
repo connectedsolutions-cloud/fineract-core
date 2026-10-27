@@ -631,3 +631,11 @@ disabled. The provisional source-exact replay compatibility fix lets all ten
 proof histories complete; only one on proof has exact handoff interest. The
 result does not establish general source parity. The later approved activation
 policy above supersedes the experiment's former parity prerequisite.
+
+
+The [remaining LS-01 investigation](loan-sync-updates-progress-oct27.md#remaining-39-ls-01-roots--investigation-and-partial-bounded-retry)
+traces all 39 remaining baseline roots. The empty-prefix fix passes 28 eligible
+original mixed payments, while first-due capacity, early insurance-fee allocation,
+source-boundary chains and reversal chronology remain separately guarded.
+The 65-loan attempt is not accepted: 49 loan checks pass and 16 loans fail or
+remain dependency-blocked. No additional runtime patch or reset was performed.
