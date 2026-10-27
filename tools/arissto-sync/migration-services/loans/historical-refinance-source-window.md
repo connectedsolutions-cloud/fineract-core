@@ -96,8 +96,9 @@ Evidence: [LS-28 sandbox checks](investigations/ls28-historical-refinance-projec
   restart occurred. No Arissto or target financial records were changed.
 
 This verifies reconstruction and plan readiness for a bounded same-cycle retry.
-**Native creation/disbursement, transfer replay and financial reconciliation
-remain unexecuted.** Recheck current source/target guards before using the new
+**At this planning stage, native creation/disbursement, transfer replay and
+financial reconciliation had not run.** The completed recovery is recorded
+below. Recheck current source/target guards before using the new
 plan; test evidence does not freeze future source commits. The separate LS-27
 payoff-closure issue for the original eight-root/19-loan recovery remains open.
 
@@ -114,3 +115,13 @@ cohort's final metrics have not been aligned over the incomplete history.
 This is LS-03, separate from historical reconstruction. Preserve the partial
 target state and investigate the allocation before the next same-cycle retry.
 No reset, source write or broader workflow resume occurred.
+
+## Completed recovery after the penalty fix
+
+The subsequent [LS-03 repair and recovery](penalty-recalculation-recovery.md)
+completed run `a352b996b7ce4fd295270bac38568108` using the same plan and cycle.
+Official reconciliation passed for all four loans, all 23 loan-921 events and
+all 32 metric targets match. Both demonstrated penalty-prefix cases now have
+real-charge/owned-payment backing, with strict final posting preserved.
+October 27 payment `0000034318` remains absent, and no reset or wider workflow
+resume occurred. The earlier failed run remains preserved as history.

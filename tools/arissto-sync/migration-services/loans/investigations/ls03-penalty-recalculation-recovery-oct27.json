@@ -1,0 +1,1090 @@
+{
+  "issue": "LS-03",
+  "conclusion": "Temporary recalculation defers only penalties backed by real due unpaid charges or by the same persisted source transaction\u2019s paid-charge ownership. Final posting remains strict. Four-loan recovery officially reconciled.",
+  "initial_charge": {
+    "charge": {
+      "id": 5040,
+      "loan_id": 1146,
+      "external_id": "ARISSTO:CRD-MOV:0000012748:PENALTY",
+      "is_active": true,
+      "is_penalty": true,
+      "charge_time_enum": 2,
+      "due_for_collection_as_of_date": "2025-08-25",
+      "amount": 0.26,
+      "amount_paid_derived": 0.0,
+      "amount_waived_derived": null,
+      "amount_writtenoff_derived": null,
+      "amount_outstanding_derived": 0.26
+    },
+    "schedule_penalties": [
+      {
+        "number": 9,
+        "from": "2025-08-23",
+        "due": "2025-09-23",
+        "charged": "0.260000",
+        "paid": null
+      }
+    ]
+  },
+  "paid_charge_case": [
+    {
+      "charge_external_id": "ARISSTO:CRD-MOV:0000018697:PENALTY",
+      "active": true,
+      "paid": true,
+      "due": "2026-03-31",
+      "amount": "0.150000",
+      "paid_amount": "0.150000",
+      "outstanding": "0.000000",
+      "paid_by_transaction": "ARISSTO:CRD-MOV:0000018697",
+      "ownership_amount": "0.150000"
+    },
+    {
+      "charge_external_id": "ARISSTO:CRD-MOV:0000021121:PENALTY",
+      "active": true,
+      "paid": false,
+      "due": "2026-05-29",
+      "amount": "1.310000",
+      "paid_amount": "0.000000",
+      "outstanding": "1.310000",
+      "paid_by_transaction": null,
+      "ownership_amount": null
+    }
+  ],
+  "intermediate_attempt": {
+    "run_id": "af75dd61e08d48d687a94b484ae81b4b",
+    "status": "completed-with-errors",
+    "reconciliation_ok": false,
+    "represented_921_events": 19,
+    "first_missing_event": {
+      "movement": "0000021121",
+      "date": "2026-05-29",
+      "role": "repayment",
+      "penalty_component": "1.31",
+      "penalty_charge_external_id": "ARISSTO:CRD-MOV:0000021121:PENALTY"
+    },
+    "remaining_penalty": "0.15",
+    "excluded_payment_absent": true,
+    "outside_scope_unchanged": true
+  },
+  "regression_tests": {
+    "total": 61,
+    "new_test_invocations": 17,
+    "suites": [
+      {
+        "name": "org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest",
+        "tests": "39",
+        "timestamp": "2026-10-27T18:55:11.471Z"
+      },
+      {
+        "name": "org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.SourceExactPenaltyRecalculationTest",
+        "tests": "17",
+        "timestamp": "2026-10-27T18:54:57.925Z"
+      },
+      {
+        "name": "org.apache.fineract.portfolio.loanaccount.service.CumulativePrepaymentIsolationTest",
+        "tests": "5",
+        "timestamp": "2026-10-27T18:55:27.678Z"
+      }
+    ],
+    "original_unpaid_case_red": {
+      "tests": 11,
+      "failures": 2,
+      "reason": "Expected domain-rule allocation failure in both positive scenarios."
+    },
+    "paid_copy_case_red": {
+      "tests": 17,
+      "failures": 1,
+      "reason": "Property-only recalculation copy cannot see its persisted original paid-charge ownership."
+    },
+    "format_check": "passed"
+  },
+  "guarded_reloads": [
+    {
+      "issue": "LS-03",
+      "cycle": "sandbox-2026-10-26-full-clean-a",
+      "target": "local:sandbox:fineract_sandbox",
+      "workflow_queued": false,
+      "reset": false,
+      "source_through_date": "2026-10-26",
+      "fineract_starts": "2026-10-27",
+      "before": {
+        "m_loan": {
+          "rows": 1146,
+          "sha256": "7bdc15af9e6f4436c4cd49dd2e37a46b9dae49cb47aab4ddb7a5dd26c0ad0738"
+        },
+        "m_loan_transaction": {
+          "rows": 24888,
+          "sha256": "83aa43c60dfeac40662cc351814aade3331396085302bf3d680f78aea9305b71"
+        },
+        "m_loan_repayment_schedule": {
+          "rows": 21305,
+          "sha256": "88971b0266889706b6fa2417b87cfa0a2d603f9d60a72997df3c7199d7f0ea2b"
+        },
+        "m_loan_charge": {
+          "rows": 5040,
+          "sha256": "b33113e06fd98e95b4f192cd6e9c9ec7ba2bf261b95403f6db713ae01711cd82"
+        },
+        "m_loan_transaction_repayment_schedule_mapping": {
+          "rows": 26188,
+          "sha256": "aea63d6245513212fd8c911fccb17afcd68a242729bc5859cbdf84d076799f1b"
+        },
+        "m_loan_charge_paid_by": {
+          "rows": 10164,
+          "sha256": "6010a4b296e6936d60ac7d2687fc93779b35c9bc75c88c7460263782bb47907a"
+        },
+        "m_client": {
+          "rows": 1071,
+          "sha256": "c5bf7b2ffc849c08fe8856dcb7fcb7099cda77ef087c02a779b00cad264969ea"
+        },
+        "m_client_transfer_details": {
+          "rows": 2,
+          "sha256": "aac768fab956ed9487f7bd6cc40ca8693babebf4b730b2d470ec24372dbdc4ce"
+        },
+        "acc_gl_journal_entry": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "liquibase_before": 2103,
+      "reload_seconds": 76.1,
+      "after": {
+        "m_loan": {
+          "rows": 1146,
+          "sha256": "7bdc15af9e6f4436c4cd49dd2e37a46b9dae49cb47aab4ddb7a5dd26c0ad0738"
+        },
+        "m_loan_transaction": {
+          "rows": 24888,
+          "sha256": "83aa43c60dfeac40662cc351814aade3331396085302bf3d680f78aea9305b71"
+        },
+        "m_loan_repayment_schedule": {
+          "rows": 21305,
+          "sha256": "88971b0266889706b6fa2417b87cfa0a2d603f9d60a72997df3c7199d7f0ea2b"
+        },
+        "m_loan_charge": {
+          "rows": 5040,
+          "sha256": "b33113e06fd98e95b4f192cd6e9c9ec7ba2bf261b95403f6db713ae01711cd82"
+        },
+        "m_loan_transaction_repayment_schedule_mapping": {
+          "rows": 26188,
+          "sha256": "aea63d6245513212fd8c911fccb17afcd68a242729bc5859cbdf84d076799f1b"
+        },
+        "m_loan_charge_paid_by": {
+          "rows": 10164,
+          "sha256": "6010a4b296e6936d60ac7d2687fc93779b35c9bc75c88c7460263782bb47907a"
+        },
+        "m_client": {
+          "rows": 1071,
+          "sha256": "c5bf7b2ffc849c08fe8856dcb7fcb7099cda77ef087c02a779b00cad264969ea"
+        },
+        "m_client_transfer_details": {
+          "rows": 2,
+          "sha256": "aac768fab956ed9487f7bd6cc40ca8693babebf4b730b2d470ec24372dbdc4ce"
+        },
+        "acc_gl_journal_entry": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "liquibase_after": 2103,
+      "target_hashes_unchanged": true,
+      "processor_source_sha256": "237913c7e8030dd074655b2dfd70610de820ad2782da00b8866c9a03b9cf7c63"
+    },
+    {
+      "issue": "LS-03",
+      "cycle": "sandbox-2026-10-26-full-clean-a",
+      "target": "local:sandbox:fineract_sandbox",
+      "workflow_queued": false,
+      "reset": false,
+      "source_through_date": "2026-10-26",
+      "fineract_starts": "2026-10-27",
+      "before": {
+        "m_loan": {
+          "rows": 1146,
+          "sha256": "417413c7e7d7349e43bf6650695083d364d8bcf6dbe13ffc7592c85a87ebe6a6"
+        },
+        "m_loan_transaction": {
+          "rows": 24897,
+          "sha256": "6cabc29add41150273d0c214380bad8c7dfb191cbbc922a4ee3fe1aafe8d86ae"
+        },
+        "m_loan_repayment_schedule": {
+          "rows": 21308,
+          "sha256": "44441d839b2d8b527feea601b4996fec35f4f43b7df5856a1bde59c2fde66243"
+        },
+        "m_loan_charge": {
+          "rows": 5057,
+          "sha256": "124c0d204bca8c95f1782ff72cb798b06f9973e8755ca213fc0b84affb94b979"
+        },
+        "m_loan_transaction_repayment_schedule_mapping": {
+          "rows": 26219,
+          "sha256": "42b8864dc57bc6b9954f8cc524520069ed4886606bc8798873269d6e75822acb"
+        },
+        "m_loan_charge_paid_by": {
+          "rows": 10180,
+          "sha256": "f3f3b9db5a53280895a114900390a149b8b97052fb956abf72b977439bd838eb"
+        },
+        "m_client": {
+          "rows": 1071,
+          "sha256": "c5bf7b2ffc849c08fe8856dcb7fcb7099cda77ef087c02a779b00cad264969ea"
+        },
+        "m_client_transfer_details": {
+          "rows": 2,
+          "sha256": "aac768fab956ed9487f7bd6cc40ca8693babebf4b730b2d470ec24372dbdc4ce"
+        },
+        "acc_gl_journal_entry": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "liquibase_before": 2103,
+      "reload_seconds": 74.55,
+      "after": {
+        "m_loan": {
+          "rows": 1146,
+          "sha256": "417413c7e7d7349e43bf6650695083d364d8bcf6dbe13ffc7592c85a87ebe6a6"
+        },
+        "m_loan_transaction": {
+          "rows": 24897,
+          "sha256": "6cabc29add41150273d0c214380bad8c7dfb191cbbc922a4ee3fe1aafe8d86ae"
+        },
+        "m_loan_repayment_schedule": {
+          "rows": 21308,
+          "sha256": "44441d839b2d8b527feea601b4996fec35f4f43b7df5856a1bde59c2fde66243"
+        },
+        "m_loan_charge": {
+          "rows": 5057,
+          "sha256": "124c0d204bca8c95f1782ff72cb798b06f9973e8755ca213fc0b84affb94b979"
+        },
+        "m_loan_transaction_repayment_schedule_mapping": {
+          "rows": 26219,
+          "sha256": "42b8864dc57bc6b9954f8cc524520069ed4886606bc8798873269d6e75822acb"
+        },
+        "m_loan_charge_paid_by": {
+          "rows": 10180,
+          "sha256": "f3f3b9db5a53280895a114900390a149b8b97052fb956abf72b977439bd838eb"
+        },
+        "m_client": {
+          "rows": 1071,
+          "sha256": "c5bf7b2ffc849c08fe8856dcb7fcb7099cda77ef087c02a779b00cad264969ea"
+        },
+        "m_client_transfer_details": {
+          "rows": 2,
+          "sha256": "aac768fab956ed9487f7bd6cc40ca8693babebf4b730b2d470ec24372dbdc4ce"
+        },
+        "acc_gl_journal_entry": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "liquibase_after": 2103,
+      "target_hashes_unchanged": true,
+      "processor_source_sha256": "668dd8b9936b584f0c787176f6de3b430959948cb152f2bba228aa3e888a5b22"
+    }
+  ],
+  "successful_retry": {
+    "mode": "bounded resumed loan-block recovery in existing cycle",
+    "cycle": "sandbox-2026-10-26-full-clean-a",
+    "plan_id": "46b49222cc9e488ca7a4f553f27af5f9",
+    "target": "local:sandbox:fineract_sandbox",
+    "fingerprint": "b9f6834b66790744",
+    "source_through_date": "2026-10-26",
+    "fineract_starts": "2026-10-27",
+    "loan_keys": [
+      "loan:101",
+      "loan:283",
+      "loan:553",
+      "loan:921"
+    ],
+    "setup_keys": [
+      "product:00010"
+    ],
+    "loan_controls": {
+      "workers": 2,
+      "pause_seconds": 30.0,
+      "recovery_attempts": 3
+    },
+    "review_before": {
+      "outside_scope": {
+        "loans": {
+          "rows": 1142,
+          "sha256": "cecad9f5756adbc895434b179154b0f264e935227ad4556ba58fec0bb42ac2ee"
+        },
+        "transactions": {
+          "rows": 24844,
+          "sha256": "7a608be45cea5e19440cdf8681cfc2b334a9292afa3cbfacfb4a9b153b9232b0"
+        },
+        "schedules": {
+          "rows": 21270,
+          "sha256": "9a4d58c58072869788fff9e57a82b75f85ba8c21bcca8a0c9ed501e3bd7857e1"
+        },
+        "charges": {
+          "rows": 5009,
+          "sha256": "f567260a802d5d3ca1f79e5ec31a27df07eea8741cdd371ff89374c3487801e4"
+        },
+        "clients": {
+          "rows": 1070,
+          "sha256": "66e7a59e11fb3fa1ddb4426e1e60f9fe88f0a1f6f7a7d78103c67661cce40e56"
+        },
+        "products": {
+          "rows": 2,
+          "sha256": "9c06ba686fce342d9ff6dbcc9f674504bb91e5989b5b8355aede4fa4a77a57d8"
+        },
+        "journals": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "global_counts": [
+        1146,
+        24897,
+        0
+      ],
+      "scoped_loans": [
+        {
+          "external_id": "ARISSTO:CRD:101",
+          "target_id": 1,
+          "status": 600,
+          "office_id": 2
+        },
+        {
+          "external_id": "ARISSTO:CRD:283",
+          "target_id": 1144,
+          "status": 600,
+          "office_id": 2
+        },
+        {
+          "external_id": "ARISSTO:CRD:553",
+          "target_id": 1145,
+          "status": 600,
+          "office_id": 2
+        },
+        {
+          "external_id": "ARISSTO:CRD:921",
+          "target_id": 1146,
+          "status": 300,
+          "office_id": 2
+        }
+      ],
+      "excluded_payment_transaction_count": 0,
+      "scoped_post_boundary_transactions": 0,
+      "transfer_history_count": 2
+    },
+    "previous_run_id": "af75dd61e08d48d687a94b484ae81b4b",
+    "retry_roots": [
+      "loan:921"
+    ],
+    "before": {
+      "outside_scope": {
+        "loans": {
+          "rows": 1142,
+          "sha256": "cecad9f5756adbc895434b179154b0f264e935227ad4556ba58fec0bb42ac2ee"
+        },
+        "transactions": {
+          "rows": 24844,
+          "sha256": "7a608be45cea5e19440cdf8681cfc2b334a9292afa3cbfacfb4a9b153b9232b0"
+        },
+        "schedules": {
+          "rows": 21270,
+          "sha256": "9a4d58c58072869788fff9e57a82b75f85ba8c21bcca8a0c9ed501e3bd7857e1"
+        },
+        "charges": {
+          "rows": 5009,
+          "sha256": "f567260a802d5d3ca1f79e5ec31a27df07eea8741cdd371ff89374c3487801e4"
+        },
+        "clients": {
+          "rows": 1070,
+          "sha256": "66e7a59e11fb3fa1ddb4426e1e60f9fe88f0a1f6f7a7d78103c67661cce40e56"
+        },
+        "products": {
+          "rows": 2,
+          "sha256": "9c06ba686fce342d9ff6dbcc9f674504bb91e5989b5b8355aede4fa4a77a57d8"
+        },
+        "journals": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "global_counts": [
+        1146,
+        24897,
+        0
+      ],
+      "scoped_loans": [
+        {
+          "external_id": "ARISSTO:CRD:101",
+          "target_id": 1,
+          "status": 600,
+          "office_id": 2
+        },
+        {
+          "external_id": "ARISSTO:CRD:283",
+          "target_id": 1144,
+          "status": 600,
+          "office_id": 2
+        },
+        {
+          "external_id": "ARISSTO:CRD:553",
+          "target_id": 1145,
+          "status": 600,
+          "office_id": 2
+        },
+        {
+          "external_id": "ARISSTO:CRD:921",
+          "target_id": 1146,
+          "status": 300,
+          "office_id": 2
+        }
+      ],
+      "excluded_payment_transaction_count": 0,
+      "scoped_post_boundary_transactions": 0,
+      "transfer_history_count": 2
+    },
+    "run_id": "a352b996b7ce4fd295270bac38568108",
+    "apply_counts": {
+      "unchanged": 1,
+      "loans_recovered": 4,
+      "metrics_reconciled": 4,
+      "metrics_adjusted": 4,
+      "accrual_controls_reconciled": 1
+    },
+    "run_status": "completed",
+    "reconciliation_ok": true,
+    "reconciliation_counts": {
+      "loans": 4,
+      "staff_assignments": 4,
+      "mora_terms": 4,
+      "accrual_controls_reconciled": 1,
+      "products": 1,
+      "client_office_transfers_expected": 1,
+      "client_office_transfers_matched": 1
+    },
+    "compact_reconciliation": {
+      "run_id": "a352b996b7ce4fd295270bac38568108",
+      "ok": true,
+      "counts": {
+        "loans": 4,
+        "staff_assignments": 4,
+        "mora_terms": 4,
+        "accrual_controls_reconciled": 1,
+        "products": 1,
+        "client_office_transfers_expected": 1,
+        "client_office_transfers_matched": 1
+      },
+      "blocking_mismatch_count": 0,
+      "blocking_affected_source_key_count": 0,
+      "blocking_affected_source_keys": [],
+      "mismatch_groups": [],
+      "variance_count": 28,
+      "variance_groups": [
+        {
+          "kind": "schedule_due_date",
+          "classification": "native_recalculated_schedule_variance",
+          "count": 5,
+          "affected_source_key_count": 4,
+          "affected_source_keys": [
+            "loan:101",
+            "loan:283",
+            "loan:553",
+            "loan:921"
+          ],
+          "samples": [
+            {
+              "source_key": "loan:101",
+              "kind": "schedule_due_date",
+              "installment": 1,
+              "classification": "native_recalculated_schedule_variance"
+            },
+            {
+              "source_key": "loan:283",
+              "kind": "schedule_due_date",
+              "installment": 1,
+              "classification": "native_recalculated_schedule_variance"
+            },
+            {
+              "source_key": "loan:553",
+              "kind": "schedule_due_date",
+              "installment": 1,
+              "classification": "native_recalculated_schedule_variance"
+            }
+          ]
+        },
+        {
+          "kind": "schedule_installment_count",
+          "classification": "native_recalculated_schedule_variance",
+          "count": 4,
+          "affected_source_key_count": 4,
+          "affected_source_keys": [
+            "loan:101",
+            "loan:283",
+            "loan:553",
+            "loan:921"
+          ],
+          "samples": [
+            {
+              "source_key": "loan:101",
+              "kind": "schedule_installment_count",
+              "classification": "native_recalculated_schedule_variance"
+            },
+            {
+              "source_key": "loan:283",
+              "kind": "schedule_installment_count",
+              "classification": "native_recalculated_schedule_variance"
+            },
+            {
+              "source_key": "loan:553",
+              "kind": "schedule_installment_count",
+              "classification": "native_recalculated_schedule_variance"
+            }
+          ]
+        },
+        {
+          "kind": "schedule_installment_number",
+          "classification": "native_recalculated_schedule_variance",
+          "count": 5,
+          "affected_source_key_count": 4,
+          "affected_source_keys": [
+            "loan:101",
+            "loan:283",
+            "loan:553",
+            "loan:921"
+          ],
+          "samples": [
+            {
+              "source_key": "loan:101",
+              "kind": "schedule_installment_number",
+              "installment": 1,
+              "classification": "native_recalculated_schedule_variance"
+            },
+            {
+              "source_key": "loan:283",
+              "kind": "schedule_installment_number",
+              "installment": 1,
+              "classification": "native_recalculated_schedule_variance"
+            },
+            {
+              "source_key": "loan:553",
+              "kind": "schedule_installment_number",
+              "installment": 1,
+              "classification": "native_recalculated_schedule_variance"
+            }
+          ]
+        },
+        {
+          "kind": "schedule_interest",
+          "classification": "native_recalculated_schedule_variance",
+          "count": 5,
+          "affected_source_key_count": 4,
+          "affected_source_keys": [
+            "loan:101",
+            "loan:283",
+            "loan:553",
+            "loan:921"
+          ],
+          "samples": [
+            {
+              "source_key": "loan:101",
+              "kind": "schedule_interest",
+              "installment": 1,
+              "classification": "native_recalculated_schedule_variance"
+            },
+            {
+              "source_key": "loan:283",
+              "kind": "schedule_interest",
+              "installment": 1,
+              "classification": "native_recalculated_schedule_variance"
+            },
+            {
+              "source_key": "loan:553",
+              "kind": "schedule_interest",
+              "installment": 1,
+              "classification": "native_recalculated_schedule_variance"
+            }
+          ]
+        },
+        {
+          "kind": "schedule_interest_total",
+          "classification": "native_recalculated_schedule_variance",
+          "count": 4,
+          "affected_source_key_count": 4,
+          "affected_source_keys": [
+            "loan:101",
+            "loan:283",
+            "loan:553",
+            "loan:921"
+          ],
+          "samples": [
+            {
+              "source_key": "loan:101",
+              "kind": "schedule_interest_total",
+              "classification": "native_recalculated_schedule_variance"
+            },
+            {
+              "source_key": "loan:283",
+              "kind": "schedule_interest_total",
+              "classification": "native_recalculated_schedule_variance"
+            },
+            {
+              "source_key": "loan:553",
+              "kind": "schedule_interest_total",
+              "classification": "native_recalculated_schedule_variance"
+            }
+          ]
+        },
+        {
+          "kind": "schedule_principal",
+          "classification": "native_recalculated_schedule_variance",
+          "count": 5,
+          "affected_source_key_count": 4,
+          "affected_source_keys": [
+            "loan:101",
+            "loan:283",
+            "loan:553",
+            "loan:921"
+          ],
+          "samples": [
+            {
+              "source_key": "loan:101",
+              "kind": "schedule_principal",
+              "installment": 1,
+              "classification": "native_recalculated_schedule_variance"
+            },
+            {
+              "source_key": "loan:283",
+              "kind": "schedule_principal",
+              "installment": 1,
+              "classification": "native_recalculated_schedule_variance"
+            },
+            {
+              "source_key": "loan:553",
+              "kind": "schedule_principal",
+              "installment": 1,
+              "classification": "native_recalculated_schedule_variance"
+            }
+          ]
+        }
+      ],
+      "failed_or_quarantined_count": 0,
+      "failed_or_quarantined_groups": [],
+      "adjustments": [
+        {
+          "source_key": "loan:101",
+          "applied": true,
+          "phase": "dated_prepayment_quote",
+          "classification": "native_fineract_topup_with_source_exact_component_bridge"
+        },
+        {
+          "source_key": "loan:101",
+          "applied": false,
+          "phase": "post_topup_residual",
+          "classification": "native_fineract_topup_with_source_exact_component_bridge"
+        },
+        {
+          "source_key": "loan:283",
+          "applied": true,
+          "phase": "dated_prepayment_quote",
+          "classification": "native_fineract_topup_with_source_exact_component_bridge"
+        },
+        {
+          "source_key": "loan:283",
+          "applied": false,
+          "phase": "post_topup_residual",
+          "classification": "native_fineract_topup_with_source_exact_component_bridge"
+        },
+        {
+          "source_key": "loan:553",
+          "applied": true,
+          "phase": "dated_prepayment_quote",
+          "classification": "native_fineract_topup_with_source_exact_component_bridge"
+        },
+        {
+          "source_key": "loan:553",
+          "applied": false,
+          "phase": "post_topup_residual",
+          "classification": "native_fineract_topup_with_source_exact_component_bridge"
+        }
+      ]
+    },
+    "run_items": [
+      {
+        "source_key": "loan:101",
+        "action": "recover-loan",
+        "status": "recovered",
+        "target_id": "1",
+        "error_code": null
+      },
+      {
+        "source_key": "loan:283",
+        "action": "create-loan",
+        "status": "recovered",
+        "target_id": "1144",
+        "error_code": null
+      },
+      {
+        "source_key": "loan:553",
+        "action": "create-loan",
+        "status": "recovered",
+        "target_id": "1145",
+        "error_code": null
+      },
+      {
+        "source_key": "loan:921",
+        "action": "create-loan",
+        "status": "recovered",
+        "target_id": "1146",
+        "error_code": null
+      },
+      {
+        "source_key": "product:00010",
+        "action": "unchanged-product",
+        "status": "unchanged",
+        "target_id": "2",
+        "error_code": null
+      }
+    ],
+    "after": {
+      "outside_scope": {
+        "loans": {
+          "rows": 1142,
+          "sha256": "cecad9f5756adbc895434b179154b0f264e935227ad4556ba58fec0bb42ac2ee"
+        },
+        "transactions": {
+          "rows": 24844,
+          "sha256": "7a608be45cea5e19440cdf8681cfc2b334a9292afa3cbfacfb4a9b153b9232b0"
+        },
+        "schedules": {
+          "rows": 21270,
+          "sha256": "9a4d58c58072869788fff9e57a82b75f85ba8c21bcca8a0c9ed501e3bd7857e1"
+        },
+        "charges": {
+          "rows": 5009,
+          "sha256": "f567260a802d5d3ca1f79e5ec31a27df07eea8741cdd371ff89374c3487801e4"
+        },
+        "clients": {
+          "rows": 1070,
+          "sha256": "66e7a59e11fb3fa1ddb4426e1e60f9fe88f0a1f6f7a7d78103c67661cce40e56"
+        },
+        "products": {
+          "rows": 2,
+          "sha256": "9c06ba686fce342d9ff6dbcc9f674504bb91e5989b5b8355aede4fa4a77a57d8"
+        },
+        "journals": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "global_counts": [
+        1146,
+        24918,
+        0
+      ],
+      "scoped_loans": [
+        {
+          "external_id": "ARISSTO:CRD:101",
+          "target_id": 1,
+          "status": 600,
+          "office_id": 2
+        },
+        {
+          "external_id": "ARISSTO:CRD:283",
+          "target_id": 1144,
+          "status": 600,
+          "office_id": 2
+        },
+        {
+          "external_id": "ARISSTO:CRD:553",
+          "target_id": 1145,
+          "status": 600,
+          "office_id": 2
+        },
+        {
+          "external_id": "ARISSTO:CRD:921",
+          "target_id": 1146,
+          "status": 300,
+          "office_id": 2
+        }
+      ],
+      "excluded_payment_transaction_count": 0,
+      "scoped_post_boundary_transactions": 0,
+      "transfer_history_count": 2
+    },
+    "outside_scope_unchanged": true,
+    "excluded_payment_absent": true,
+    "no_post_boundary_scoped_transactions": true,
+    "scheduler_after": {
+      "active": false
+    },
+    "parent_workflow_status_after": "interrupted",
+    "plan_unchanged": true
+  },
+  "independent_verification": {
+    "run_id": "a352b996b7ce4fd295270bac38568108",
+    "loan_results": [
+      {
+        "source_key": "loan:101",
+        "target_id": 1,
+        "status": 600,
+        "planned_event_count": 6,
+        "represented_event_count": 6,
+        "metric_match_count": 8,
+        "continuation_ready": true
+      },
+      {
+        "source_key": "loan:283",
+        "target_id": 1144,
+        "status": 600,
+        "planned_event_count": 8,
+        "represented_event_count": 8,
+        "metric_match_count": 8,
+        "continuation_ready": true
+      },
+      {
+        "source_key": "loan:553",
+        "target_id": 1145,
+        "status": 600,
+        "planned_event_count": 9,
+        "represented_event_count": 9,
+        "metric_match_count": 8,
+        "continuation_ready": true
+      },
+      {
+        "source_key": "loan:921",
+        "target_id": 1146,
+        "status": 300,
+        "planned_event_count": 23,
+        "represented_event_count": 23,
+        "metric_match_count": 8,
+        "continuation_ready": true,
+        "fixed_payment": {
+          "source_movement": "0000012748",
+          "native_transaction_id": 24889,
+          "penalty_portion": "0.26"
+        }
+      }
+    ],
+    "penalty_charge_ownership": [
+      {
+        "source_movement": "0000012748",
+        "charge_id": 5040,
+        "fully_paid": true,
+        "outstanding_zero": true,
+        "repayment_paid_by_row_count": 1,
+        "distinct_owner_count": 1,
+        "ownership_amount_matches_paid": true,
+        "correct_source_owner": true
+      },
+      {
+        "source_movement": "0000018697",
+        "charge_id": 5055,
+        "fully_paid": true,
+        "outstanding_zero": true,
+        "repayment_paid_by_row_count": 1,
+        "distinct_owner_count": 1,
+        "ownership_amount_matches_paid": true,
+        "correct_source_owner": true
+      }
+    ],
+    "excluded_payment_any_namespace_count": 0,
+    "transfer_pair_count": 2,
+    "full_before": {
+      "m_loan": {
+        "rows": 1146,
+        "sha256": "f8346107f15fbd23992832d5df619b2484072b356530f3c0af561639f703a6d0"
+      },
+      "m_loan_transaction": {
+        "rows": 24918,
+        "sha256": "2bcbecb0936ac50b8d87085a94c323d665e4ca6a1537fcf615e1021c19d0fb16"
+      },
+      "m_loan_repayment_schedule": {
+        "rows": 21311,
+        "sha256": "5dfb80f26e6e3cd2ba30dcbab783a9666829cfcfc7a786010a8571be81fdc4e5"
+      },
+      "m_loan_charge": {
+        "rows": 5065,
+        "sha256": "273e7dd17c117e2b5581717e3621f27edde0515eab8801dca8666c51477423ca"
+      },
+      "m_loan_transaction_repayment_schedule_mapping": {
+        "rows": 26226,
+        "sha256": "4c2d149d4fcdb3c9a5ed7925ce52608ad1f4cadb865b3225656561ac6994795b"
+      },
+      "m_loan_charge_paid_by": {
+        "rows": 10211,
+        "sha256": "5a99ae5f6a9adbd1b0d43d6c379dcc1b5783313ccd03194409ce840b2d57705f"
+      },
+      "m_client": {
+        "rows": 1071,
+        "sha256": "c5bf7b2ffc849c08fe8856dcb7fcb7099cda77ef087c02a779b00cad264969ea"
+      },
+      "m_client_transfer_details": {
+        "rows": 2,
+        "sha256": "aac768fab956ed9487f7bd6cc40ca8693babebf4b730b2d470ec24372dbdc4ce"
+      },
+      "acc_gl_journal_entry": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    },
+    "full_after": {
+      "m_loan": {
+        "rows": 1146,
+        "sha256": "f8346107f15fbd23992832d5df619b2484072b356530f3c0af561639f703a6d0"
+      },
+      "m_loan_transaction": {
+        "rows": 24918,
+        "sha256": "2bcbecb0936ac50b8d87085a94c323d665e4ca6a1537fcf615e1021c19d0fb16"
+      },
+      "m_loan_repayment_schedule": {
+        "rows": 21311,
+        "sha256": "5dfb80f26e6e3cd2ba30dcbab783a9666829cfcfc7a786010a8571be81fdc4e5"
+      },
+      "m_loan_charge": {
+        "rows": 5065,
+        "sha256": "273e7dd17c117e2b5581717e3621f27edde0515eab8801dca8666c51477423ca"
+      },
+      "m_loan_transaction_repayment_schedule_mapping": {
+        "rows": 26226,
+        "sha256": "4c2d149d4fcdb3c9a5ed7925ce52608ad1f4cadb865b3225656561ac6994795b"
+      },
+      "m_loan_charge_paid_by": {
+        "rows": 10211,
+        "sha256": "5a99ae5f6a9adbd1b0d43d6c379dcc1b5783313ccd03194409ce840b2d57705f"
+      },
+      "m_client": {
+        "rows": 1071,
+        "sha256": "c5bf7b2ffc849c08fe8856dcb7fcb7099cda77ef087c02a779b00cad264969ea"
+      },
+      "m_client_transfer_details": {
+        "rows": 2,
+        "sha256": "aac768fab956ed9487f7bd6cc40ca8693babebf4b730b2d470ec24372dbdc4ce"
+      },
+      "acc_gl_journal_entry": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    },
+    "read_only_verification_target_unchanged": true,
+    "after": {
+      "outside_scope": {
+        "loans": {
+          "rows": 1142,
+          "sha256": "cecad9f5756adbc895434b179154b0f264e935227ad4556ba58fec0bb42ac2ee"
+        },
+        "transactions": {
+          "rows": 24844,
+          "sha256": "7a608be45cea5e19440cdf8681cfc2b334a9292afa3cbfacfb4a9b153b9232b0"
+        },
+        "schedules": {
+          "rows": 21270,
+          "sha256": "9a4d58c58072869788fff9e57a82b75f85ba8c21bcca8a0c9ed501e3bd7857e1"
+        },
+        "charges": {
+          "rows": 5009,
+          "sha256": "f567260a802d5d3ca1f79e5ec31a27df07eea8741cdd371ff89374c3487801e4"
+        },
+        "clients": {
+          "rows": 1070,
+          "sha256": "66e7a59e11fb3fa1ddb4426e1e60f9fe88f0a1f6f7a7d78103c67661cce40e56"
+        },
+        "products": {
+          "rows": 2,
+          "sha256": "9c06ba686fce342d9ff6dbcc9f674504bb91e5989b5b8355aede4fa4a77a57d8"
+        },
+        "journals": {
+          "rows": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "global_counts": [
+        1146,
+        24918,
+        0
+      ],
+      "scoped_loans": [
+        {
+          "external_id": "ARISSTO:CRD:101",
+          "target_id": 1,
+          "status": 600,
+          "office_id": 2
+        },
+        {
+          "external_id": "ARISSTO:CRD:283",
+          "target_id": 1144,
+          "status": 600,
+          "office_id": 2
+        },
+        {
+          "external_id": "ARISSTO:CRD:553",
+          "target_id": 1145,
+          "status": 600,
+          "office_id": 2
+        },
+        {
+          "external_id": "ARISSTO:CRD:921",
+          "target_id": 1146,
+          "status": 300,
+          "office_id": 2
+        }
+      ],
+      "excluded_payment_transaction_count": 0,
+      "scoped_post_boundary_transactions": 0,
+      "transfer_history_count": 2
+    },
+    "official_reconciliation_ok": true
+  },
+  "cash_vs_accrual_ownership": [
+    {
+      "charge": "ARISSTO:CRD-MOV:0000012748:PENALTY",
+      "charge_id": 5040,
+      "paid": "0.260000",
+      "outstanding": "0.000000",
+      "transaction_id": 24889,
+      "owner": "ARISSTO:CRD-MOV:0000012748",
+      "type": 2,
+      "reversed": false,
+      "ownership_amount": "0.260000"
+    },
+    {
+      "charge": "ARISSTO:CRD-MOV:0000012748:PENALTY",
+      "charge_id": 5040,
+      "paid": "0.260000",
+      "outstanding": "0.000000",
+      "transaction_id": 24904,
+      "owner": null,
+      "type": 10,
+      "reversed": false,
+      "ownership_amount": "0.260000"
+    },
+    {
+      "charge": "ARISSTO:CRD-MOV:0000018697:PENALTY",
+      "charge_id": 5055,
+      "paid": "0.150000",
+      "outstanding": "0.000000",
+      "transaction_id": 24897,
+      "owner": "ARISSTO:CRD-MOV:0000018697",
+      "type": 2,
+      "reversed": false,
+      "ownership_amount": "0.150000"
+    },
+    {
+      "charge": "ARISSTO:CRD-MOV:0000018697:PENALTY",
+      "charge_id": 5055,
+      "paid": "0.150000",
+      "outstanding": "0.000000",
+      "transaction_id": 24909,
+      "owner": null,
+      "type": 10,
+      "reversed": false,
+      "ownership_amount": "0.150000"
+    }
+  ],
+  "ui_inspection": {
+    "transaction_penalty_display": "mifos-core/src/app/loans/loans-view/transactions-tab/transactions-tab.component.html:128 binds penaltyChargesPortion",
+    "summary_display": "mifos-core/src/app/loans/loans-view/general-tab/general-tab.component.ts:219 binds penaltyChargesPaid",
+    "api_contract_changed": false,
+    "ui_changes_needed": false,
+    "browser_validation_performed": false
+  },
+  "no_reset": true,
+  "parent_workflow_resumed": false,
+  "scope_limit": "Only the four-loan cohort is recovered. Other baseline LS-03 loans, LS-27 wider payoff closure and whole-workflow reconciliation remain unverified.",
+  "arissto_writes": false,
+  "final_source_matches_loaded_fix": true
+}

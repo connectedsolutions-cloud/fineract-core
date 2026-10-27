@@ -20,17 +20,17 @@ Counts are observations from this attempt. Representative loans use Arissto `loa
 |---|---|---|---|---|
 | LS-01 | Source-exact allocation leaves principal and interest unrepresented. | 42 failures; `loan:10`, `loan:1036`, `loan:1040`. | **Open — cohort identified.** Temporary schedule availability is a hypothesis requiring per-event tracing. | Reproduce first failing event; identify provisional recalculation versus final posting and available installments. |
 | LS-02 | Source-exact allocation leaves principal, interest and fees unrepresented. | 24 failures; `loan:1024`, `loan:1117`, `loan:1180`. | **Open — cohort identified.** | Trace schedule availability and named fee-charge materialization independently. |
-| LS-03 | Source-exact allocation leaves penalties only. | 72 baseline failures; current bounded retry also confirms `loan:921`; `loan:100`, `loan:1011`, `loan:102`. | **Open — reproduced in live bounded recovery.** Loan 921 rejects historical repayment `0000012748` (2025-08-25) with 0.26 penalty unrepresented; root cause remains unresolved. | Verify penalty charge identity, charged/paid amounts, active visibility and recalculation behavior. |
+| LS-03 | Source-exact penalty allocation can fail on temporary recalculation prefixes; paid transaction copies can also lack historical charge ownership. | 72 baseline failures remain individually unverified. Loan 921 reproduced unpaid 0.26 and historical paid 0.15 cases. | **Fixed for demonstrated cases — 61 tests passed; loan 921 and its four-loan cohort recovered and officially reconciled.** | Apply the proven pattern to the remaining baseline cases without assuming a common cause or declaring portfolio recovery. |
 | LS-04 | Source-exact allocation leaves principal and penalties. | 7 failures; `loan:1398`, `loan:1828`, `loan:1889`. | **Open — mixed cohort.** | Separate provisional principal handling from penalty representability. |
 | LS-05 | Source-exact allocation leaves interest only. | 6 failures: `loan:936`, `loan:938`, `loan:964`, `loan:971`, `loan:972`, `loan:983`. | **Open — separate interest cohort.** These are not the six terminal-closure cases. | Capture interest availability and exact transaction/schedule chronology. |
 | LS-06 | First frozen repayment precedes first frozen contractual due date; strongly associated with LS-01/02. | 47/66 combined LS-01/02 cases: 25/42 and 22/24; example `loan:10`. Comparison: 4/967 recorded succeeded loans. | **Discovery — association verified, causality unproven.** Overlaps LS-01/02. | Trace actual failing event and reversals; compare temporary prefix with full schedule. Interrupted execution order limits cohort interpretation. |
-| LS-07 | Refinancing creation fails; preview path can flush an installment with null `loan_id`. | 8 create failures: `loan:103`, `loan:125`, `loan:139`, `loan:159`, `loan:172`, `loan:1784`, `loan:200`, `loan:283`. Constraint confirmed for 283 and 1784; remaining six generic HTTP 500s are candidates. | **Fix committed — live payoff and schedule previews passed 8/8; persisted predecessor state unchanged. Full replay pending complete refinancing recovery (LS-27).** Six original HTTP 500s remain individually uncorrelated. | LS-24 selection and LS-26 office-transfer planning are fixed. LS-28 executed the four-loan plan: 283 was created/disbursed and closed, while recovery stopped on 921’s LS-03 penalty failure; the original eight-root recovery still needs LS-27 payoff closure and actual replay/reconciliation. |
+| LS-07 | Refinancing creation fails; preview path can flush an installment with null `loan_id`. | 8 create failures: `loan:103`, `loan:125`, `loan:139`, `loan:159`, `loan:172`, `loan:1784`, `loan:200`, `loan:283`. Constraint confirmed for 283 and 1784; remaining six generic HTTP 500s are candidates. | **Fix committed — live payoff and schedule previews passed 8/8; persisted predecessor state unchanged. Full replay pending complete refinancing recovery (LS-27).** Six original HTTP 500s remain individually uncorrelated. | LS-24 selection and LS-26 office-transfer planning are fixed. LS-03 recovery now reconciles 283’s native creation/disbursement/closure with the complete four-loan cohort; the original eight-root recovery still needs LS-27 payoff closure and actual replay/reconciliation. |
 | LS-08 | EMI must exceed interest during transaction replay / schedule regeneration. | 9 failures: `loan:177`, `loan:300`, `loan:459`, `loan:516`, `loan:555`, `loan:771`, `loan:780`, `loan:781`, `loan:865`. Eight have planned terminal adjustments. | **Open — cohort identified.** Terminal-adjustment association does not establish the failing event. | Capture failing event and regenerated installment interest before changing amounts. |
 | LS-09 | Fully paid, inactive historical insurance charge omitted from active charge collection causes false missing-charge refusal. | 6 failures: `loan:61`, `loan:372`, `loan:379`, `loan:651`, `loan:661`, `loan:815`. | **Fix committed; read-only verifier passed all six; workflow recovery pending.** Original process predated fix. | Load repaired code in an authorized recovery and require complete loan reconciliation. Commit/change evidence below. |
 | LS-10 | Exactly one-cent terminal adjustment skipped by writer, leaving loan open. | 6 failures: `loan:1909`, `loan:2024`, `loan:2051`, `loan:2462`, `loan:2511`, `loan:2513`. | **Fix committed; regression tests reported passed; runtime recovery pending.** | Verify adjustment identity, exact amount, closed status and full reconciliation under repaired process. |
 | LS-11 | Target maturity differs from frozen contractual maturity, potentially changing short-/long-term accounting classification. | 1 observed failure: `loan:999`; expected 2031-01-30 versus target 2025-12-28. | **Open — blocked by term-account guard.** | Trace schedule/creation overrides; preserve contractual dates and verify accounting class. |
 | LS-12 | Loan dependencies propagate upstream failures. | 118 blocked loans; examples `loan:1014`, `loan:1017`, `loan:1038`. Failed ancestor `loan:894` has nine blocked descendants; `loan:18` has six. | **Blocked — all 118 trace to recorded failed ancestors.** Consequences, not 118 independent defects. | Link each blocked loan to causal root; verify dependency completion during authorized recovery. Descendant counts per root may overlap. |
-| LS-13 | One office-transfer cohort failure blocks related loans. | 17 baseline blocked loans; new four-loan run blocks 101/283/553 behind failed 921; `loan:101`, `loan:115`, `loan:1274`. | **Blocked — cohort propagation confirmed after partial native writes.** | Retain actual root failure and verify the complete office-transfer timeline. |
+| LS-13 | One office-transfer cohort failure blocks related loans. | 17 baseline blocked loans; the current 101/283/553 cohort had been blocked behind 921. | **Current four-loan cohort recovered and reconciled.** Broader baseline propagation remains under review. | Preserve the actual root error; source-921 LS-03 recovery resolved the current cohort, with one accepted transfer and no duplicate history. |
 | LS-14 | Partial refinancing-component failure blocks sibling component members. | 8 blocked loans; `loan:1178`, `loan:1482`, `loan:1897`. | **Blocked — component-level propagation identified.** | Repair root and reconcile the entire refinancing component. |
 | LS-15 | Final-metric snapshot exists but insurance and surcharge targets are null. | 13 quarantined loans; `loan:5`, `loan:7`, `loan:21`, `loan:1262`, `loan:1562`. | **Quarantined — incomplete source evidence.** Missing values were not replaced with zero. | Establish complete, approved source targets; preserve quarantine until evidence is sufficient. |
 | LS-16 | Other frozen quarantine reasons include historical freeze/terminal support, mora/schedule mismatch, remaining-schedule signature mismatch and reviewed omissions; refinancing propagates quarantine. | 165 quarantined loans total, including LS-15; 115 have chain-propagation reasons, 50 do not. Examples of named roots: `loan:1513`, `loan:26`, `loan:2427`. | **Quarantined / reviewed no-write policy — classify each reason separately.** Not every quarantine is an implementation bug. | Distinguish unsupported behavior, source errors and intentional reviewed omissions. There are 200 reason occurrences across 165 loans; counts overlap. |
@@ -45,7 +45,7 @@ Counts are observations from this attempt. Representative loans use Arissto `loa
 | LS-25 | Frozen-plan validation detects source changes after planning; scoped loan 921 gained an October 27 repayment. | Original full-plan blocker: `loan:1613` (separate). For 921, movement `0000034318` increases 23 frozen events to 24; the prior 23 are unchanged. Before LS-28, current-source planning quarantined `loan:101`, `loan:283`, `loan:553`, `loan:921` through the refinancing cohort. | **921 diagnosed — genuine source drift; guard is correct. 280 tests passed; no runtime fix needed.** The recorded payment creation is about 79 seconds after the scoped plan observation. LS-28 now provides a verified bounded reconstruction plan for 921; actual replay remains pending. | Preserve Arissto through October 26 / Fineract starts October 27. Use the new LS-28 plan for the complete four-loan 921 chain; unsupported refinance histories still block. LS-27 and the separate 1613 evidence remain open. |
 | LS-26 | Planner unconditionally rejects scoped loans with client office transfers, even with the full transfer cohort. | The 19-loan retry includes cohort `loan:101`, `loan:283`, `loan:553`, `loan:921`; source extraction freezes a 34-loan refinancing graph. | **Fixed — complete cohort proof, 272 tests passed, same-cycle planner accepts the cohort. LS-28 now clears the historical projection gate for the complete 921 chain. No replay.** | Recheck frozen cohort inventory before writes; incomplete/changed cohorts remain blocked. The original eight-root recovery remains subject to LS-27; LS-28 verifies the complete four-loan 921 chain. |
 | LS-27 | Dependency-only retry omits successor actions that create selected loans' native refinancing payoffs. | Five missing payoff links: `103 → 308`, `139 → 515`, `159 → 360`, `200 → 433`, `1784 → 2402`. All five successors and payoffs are absent in the sandbox. | **Open — confirmed by frozen events and read-only target lookup.** The 19-loan selection is not a complete financial recovery. | Review and freeze complete payoff/successor closure within the bounded 34-loan graph, including later descendants; validate selection before any financial replay. Do not broaden to the portfolio. |
-| LS-28 | Historical reconstruction for 921 preserves the original snapshot and excludes the October 27 payment. | Actual bounded recovery: `loan:101` → native 1, `loan:283` → 1144, `loan:553` → 1145, `loan:921` → 1146. | **Implemented; live retry partially applied — reconciliation unsuccessful on LS-03.** Three predecessors closed; office transfer matched; 921 has 10/23 historical events represented. October 27 payment absent. | Investigate the 0.26 penalty allocation on historical movement `0000012748`, then recover the entire four-loan cohort and verify final metrics/reconciliation. No reset or penalty bypass. |
+| LS-28 | Historical reconstruction for 921 preserves the original snapshot and excludes the October 27 payment. | Completed recovery: `loan:101` → native 1, `loan:283` → 1144, `loan:553` → 1145, `loan:921` → 1146. | **Recovered — officially reconciled.** All source event identities and 32/32 metric targets match; October 27 payment absent. | Maintain this same-cycle acceptance; LS-27 wider payoff closure and the full workflow remain separate. |
 
 ## LS-07 investigation — why this appeared after recent changes
 
@@ -599,6 +599,58 @@ and the broader parent workflow remains interrupted. No reset, new cycle,
 backend restart, broader workflow resume, Arissto write or runtime-code change
 occurred. The partial target state is preserved for the next bounded recovery.
 
+## LS-03 fix and completed four-loan recovery — October 27
+
+**Recovered and officially reconciled:** 101, 283, 553 and 921. The initial
+0.26 failure and the paid 0.15 replay case were both temporary-schedule
+representability defects, not changes to the source amounts.
+
+Implementation and policy: [penalty recalculation recovery](penalty-recalculation-recovery.md).
+Evidence: [regression, reload and reconciliation results](investigations/ls03-penalty-recalculation-recovery-oct27.json).
+
+A temporary schedule can end before the real charge's installment exists.
+Only source-exact penalties backed by eligible same-loan due charges, or by
+that same persisted payment's historical paid ownership, may wait for the
+full schedule. Penalties never become early principal. The helper reads
+ownership without modifying the original transaction/charge rows or attaching
+them to its property-only copy. Final posting still requires and settles the
+complete declared penalty. Missing, future, foreign, waived, ambiguous or
+insufficient backing remains blocked. **61 focused Java tests and scoped
+formatting checks passed**, including strict final-posting and ORM-isolation
+regressions. Existing Mifos penalty field bindings remain compatible.
+
+| Recovery check | Verified result |
+|---|---|
+| Preserved scope | Exactly 101, 283, 553, 921 plus unchanged `product:00010`; failed root 921 expands only to this dependency/transfer cohort |
+| Preserved cycle | `sandbox-2026-10-26-full-clean-a`, local `sandbox` / `fineract_sandbox` |
+| Boundary | **Arissto through 2026-10-26; Fineract starts 2026-10-27**, unchanged |
+| Immutable plan | `46b49222cc9e488ca7a4f553f27af5f9`, unchanged |
+| Successful retry | `a352b996b7ce4fd295270bac38568108` — completed; four recovered loans, no failed/quarantined loans |
+| Official reconciliation | `ok: true`, zero blocking mismatches; 28 existing nonblocking native schedule variances |
+| Source event identities | 101: 6/6; 283: 8/8; 553: 9/9; 921: **23/23** |
+| Final metrics | **32/32** match; each loan reports `continuationReady=true` |
+| Target states | 101/1, 283/1144 and 553/1145 closed (600); 921/1146 active (300) |
+| Penalty ownership | 0.26 and 0.15 charges fully paid, zero outstanding, one correct cash-repayment owner each; separate native accrual links are not duplicate cash |
+| Excluded payment | `0000034318` absent in all namespaces; no scoped transaction dated October 27 or later |
+| Transfer | Existing proposal/acceptance and 921 type-12/type-13 pair reused; no duplicates |
+
+The first tested fix advanced 921 to 19/23 events in intermediate run
+`af75dd61e08d48d687a94b484ae81b4b`. Its 0.15 remainder exposed a property-only
+copy of an already-paid March 31 payment (`0000018697`). The final extension
+requires the unique persisted unreversed original's external ID, date,
+declared penalty and own paid-by links; another transaction's ownership cannot
+be used. The intermediate failure and earlier failed run are retained as
+historical evidence. No failed run was rewritten as successful.
+
+The guarded backend reloads preserved all compared rows and Liquibase counts.
+The final retry reused the three previously created loans: total loans remain
+**1,146**, transactions progressed 24,888 → 24,897 → **24,918**, and GL journals
+remain **zero**. Outside-scope row hashes match throughout, and independent
+read-back did not modify target rows. Scheduler stays paused; parent workflow
+stays interrupted. There was **no reset, replacement cycle, tenant migration,
+Arissto write or broader workflow resume**. LS-27 and untested baseline LS-03
+loans remain open. This resolves the requested four-loan recovery only.
+
 ## Existing fix evidence
 
 These are baseline observations from the operator investigation, not new test executions for this document.
@@ -633,6 +685,8 @@ Append findings with their issue ID. Record a new cycle/run explicitly rather th
 | 2026-10-27 | LS-28, LS-25 (921) | Added source-proven historical same-owner refinance projection. Original 921 lifecycle and eight metrics preserved; October 27 payment excluded. Four-loan scoped plan/apply guard pass; 287 tests passed; target hashes unchanged. | [Projection evidence](investigations/ls28-historical-refinance-projection-oct27.json); plan `46b49222cc9e488ca7a4f553f27af5f9`; commit indexed in durable tracker. | Reconstruction and bounded planning verified; native replay/reconciliation pending. No reset. |
 
 | 2026-10-27 | LS-28, LS-03, LS-13 | Executed exact four-loan plan once. Created 283/553/921, closed predecessors and matched office transfer; stopped on 921 movement `0000012748` with 0.26 penalty unrepresented. Official reconciliation unsuccessful. | [Live retry evidence](investigations/ls28-bounded-retry-results-oct27.json); run `bac2eee7a4744cc8ba3f7c0a12d895f4`; native IDs 1/1144/1145/1146. | Partial state retained; October 27 payment absent; outside-scope hashes unchanged. Investigate LS-03 before another recovery. No reset. |
+
+| 2026-10-27 | LS-03, LS-13, LS-28 | Fixed temporary penalty prefixes using real due-charge coverage and exact historical paid ownership. 61 tests passed; four-loan retry completed and official reconciliation passed; 921 has 23/23 events, all 32 metric targets match. | [Complete recovery evidence](investigations/ls03-penalty-recalculation-recovery-oct27.json); run `a352b996b7ce4fd295270bac38568108`; commit indexed in durable tracker. | Current cohort recovered; October 27 payment excluded; no reset, duplicate loan/transfer, outside-scope change or broader workflow resume. Other baseline cases remain unverified. |
 
 ### Template for the next annotation
 

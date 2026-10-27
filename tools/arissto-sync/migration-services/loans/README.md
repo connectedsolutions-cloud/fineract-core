@@ -44,7 +44,12 @@ loan-block acceptance; no whole-tenant reset or composed workflow was run.
 The [historical refinance source-window contract](historical-refinance-source-window.md)
 adds a source-proven single same-owner historical top-up projection before later
 ordinary payments. The loan 921 same-cycle plan preserves its original lifecycle
-and excludes the October 27 payment; financial replay acceptance remains pending.
+and excludes the October 27 payment; the four-loan recovery is now reconciled
+as recorded below.
+
+The [penalty recalculation recovery](penalty-recalculation-recovery.md) records
+the source-exact temporary-prefix fix and completed same-cycle reconciliation
+for loans 101, 283, 553 and 921, keeping the October 27 payment excluded.
 
 ## Stable identity
 

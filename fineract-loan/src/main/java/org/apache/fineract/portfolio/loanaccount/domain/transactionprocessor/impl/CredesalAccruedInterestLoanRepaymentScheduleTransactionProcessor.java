@@ -27,6 +27,7 @@ import org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRu
 import org.apache.fineract.infrastructure.core.service.ExternalIdFactory;
 import org.apache.fineract.organisation.monetary.domain.MonetaryCurrency;
 import org.apache.fineract.organisation.monetary.domain.Money;
+import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanCharge;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanChargePaidBy;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallment;
@@ -240,13 +241,77 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
         settleSourceExactFeeCharge(loanTransaction, currency, charges);
         // A schedule prefix cannot yet represent early principal. Return only that component to the native
         // recalculation generator; final posting must still represent the entire frozen source allocation.
+        // A non-due-date recalculation can stop before the installment holding a real penalty charge.
+        // Leave that charge untouched and defer its schedule allocation to final posting. It must never
+        // become early principal, nor may a declared amount without due charge coverage pass this guard.
+        final boolean penaltyCanWaitForFullSchedule = temporaryRecalculationSchedule && penaltyRemaining.isGreaterThanZero()
+                && hasDuePenaltyChargeCoverage(loanTransaction, currency, charges);
         if ((!temporaryRecalculationSchedule && principalRemaining.isGreaterThanZero()) || interestRemaining.isGreaterThanZero()
-                || feeRemaining.isGreaterThanZero() || penaltyRemaining.isGreaterThanZero()) {
+                || feeRemaining.isGreaterThanZero() || (penaltyRemaining.isGreaterThanZero() && !penaltyCanWaitForFullSchedule)) {
             throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.allocation.not.representable",
                     "The source-exact repayment allocation cannot be represented by the loan schedule. Remaining principal: %s, interest: %s, fees: %s, penalties: %s",
                     principalRemaining.getAmount(), interestRemaining.getAmount(), feeRemaining.getAmount(), penaltyRemaining.getAmount());
         }
         return principalRemaining;
+    }
+
+    private boolean hasDuePenaltyChargeCoverage(final LoanTransaction transaction, final MonetaryCurrency currency,
+            final Set<LoanCharge> charges) {
+        final Loan loan = transaction.getLoan();
+        if (loan == null) {
+            return false;
+        }
+        // Recalculation uses property-only transaction copies: paid-by rows stay on the original.
+        // Read its persisted ownership without attaching or changing those managed rows on the copy.
+        LoanTransaction original = null;
+        if (transaction.getExternalId() != null && !transaction.getExternalId().isEmpty()) {
+            for (final LoanTransaction candidate : loan.getLoanTransactions()) {
+                if (candidate.getId() != null && candidate.isNotReversed() && candidate.isSourceExactAllocation()
+                        && transaction.getExternalId().equals(candidate.getExternalId())
+                        && transaction.getTransactionDate().equals(candidate.getTransactionDate())
+                        && transaction.getSourceExactPenaltyChargesPortion(currency)
+                                .isEqualTo(candidate.getSourceExactPenaltyChargesPortion(currency))) {
+                    if (original != null) {
+                        return false;
+                    }
+                    original = candidate;
+                }
+            }
+        }
+        final Set<LoanCharge> allCharges = new HashSet<>(charges);
+        if (original != null) {
+            for (final LoanChargePaidBy paidBy : original.getLoanChargesPaid()) {
+                if (paidBy.getLoanTransaction() == original && paidBy.getLoanCharge() != null) {
+                    allCharges.add(paidBy.getLoanCharge());
+                }
+            }
+        }
+        Money covered = Money.zero(currency);
+        for (final LoanCharge charge : allCharges) {
+            if (!charge.isPenaltyCharge() || charge.isWaived() || charge.isDueAtDisbursement() || charge.isInstalmentFee()
+                    || charge.getDueLocalDate() == null || charge.getDueLocalDate().isAfter(transaction.getTransactionDate())) {
+                continue;
+            }
+            if (charge.getLoan() != loan
+                    && (loan.getId() == null || charge.getLoan() == null || !loan.getId().equals(charge.getLoan().getId()))) {
+                continue;
+            }
+            if (charge.isActive() && !charge.isPaid()) {
+                final Money outstanding = charge.getAmountOutstanding(currency);
+                if (outstanding != null && outstanding.isGreaterThanZero()) {
+                    covered = covered.plus(outstanding);
+                }
+            }
+            if (original != null) {
+                for (final LoanChargePaidBy paidBy : original.getLoanChargesPaid()) {
+                    if (paidBy.getLoanTransaction() == original && charge.equals(paidBy.getLoanCharge()) && paidBy.getAmount() != null
+                            && paidBy.getAmount().signum() > 0) {
+                        covered = covered.plus(paidBy.getAmount());
+                    }
+                }
+            }
+        }
+        return !transaction.getSourceExactPenaltyChargesPortion(currency).isGreaterThan(covered);
     }
 
     private void settleSourceExactFeeCharge(final LoanTransaction loanTransaction, final MonetaryCurrency currency,
