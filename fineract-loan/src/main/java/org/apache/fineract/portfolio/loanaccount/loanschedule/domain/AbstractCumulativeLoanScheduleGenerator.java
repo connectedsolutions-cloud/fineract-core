@@ -21,6 +21,8 @@ package org.apache.fineract.portfolio.loanaccount.loanschedule.domain;
 import static org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleProcessingWrapper.isAfterPeriod;
 import static org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleProcessingWrapper.isBeforePeriod;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -65,12 +67,17 @@ import org.apache.fineract.portfolio.loanaccount.loanschedule.exception.MultiDis
 import org.apache.fineract.portfolio.loanaccount.loanschedule.exception.MultiDisbursementOutstandingAmoutException;
 import org.apache.fineract.portfolio.loanaccount.loanschedule.exception.ScheduleDateException;
 import org.apache.fineract.portfolio.loanproduct.domain.RepaymentStartDateType;
+import org.eclipse.persistence.jpa.JpaEntityManager;
+import org.eclipse.persistence.sessions.CopyGroup;
 
 @RequiredArgsConstructor
 public abstract class AbstractCumulativeLoanScheduleGenerator implements LoanScheduleGenerator {
 
     private final LoanTransactionRepository loanTransactionRepository;
     private final CurrencyMapper currencyMapper;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Override
     public LoanScheduleModel generate(final MathContext mc, final LoanApplicationTerms loanApplicationTerms,
@@ -2824,12 +2831,32 @@ public abstract class AbstractCumulativeLoanScheduleGenerator implements LoanSch
             calculateTill = getNextRestScheduleDate(onDate.minusDays(1), loanApplicationTerms, holidayDetailDTO);
         }
 
-        LoanScheduleDTO loanScheduleDTO = rescheduleNextInstallments(mc, loanApplicationTerms, loan, holidayDetailDTO,
+        // A payoff quote must never reprocess managed transactions or charges. In a refinancing write
+        // transaction their changed mappings otherwise cascade-persist temporary installments on flush.
+        final List<LoanTransaction> originalTransactions = loanTransactionRepository.findNonReversedTransactionsForReprocessingByLoan(loan);
+        final var copySession = entityManager.unwrap(JpaEntityManager.class).getActiveSession();
+        final CopyGroup copies = new CopyGroup();
+        copies.cascadePrivateParts();
+        final Loan previewLoan = (Loan) copySession.copy(loan, copies);
+        // Reuse the same identity map so transaction -> loan, charge and installment backrefs remain
+        // inside the snapshot, including inactive historical charges referenced by source-exact replay.
+        final List<LoanTransaction> previewTransactions = originalTransactions.stream()
+                .map(transaction -> (LoanTransaction) copySession.copy(transaction, copies)).toList();
+        // Private-part copying may encounter a non-owned cross-reference before its target is copied
+        // (for example charge-paid-by -> transaction). Rebind those links after all copies exist.
+        for (Object original : copies.getCopies().keySet().toArray()) {
+            final Object snapshot = copies.getCopies().get(original);
+            for (var mapping : copySession.getDescriptor(original).getMappings()) {
+                if (mapping.isForeignReferenceMapping()) {
+                    mapping.buildCopy(snapshot, original, copies);
+                }
+            }
+        }
+        LoanScheduleDTO loanScheduleDTO = rescheduleNextInstallments(mc, loanApplicationTerms, previewLoan, holidayDetailDTO,
                 loanRepaymentScheduleTransactionProcessor, onDate, calculateTill);
-        final List<LoanTransaction> loanTransactions = loanTransactionRepository.findNonReversedTransactionsForReprocessingByLoan(loan);
 
         loanRepaymentScheduleTransactionProcessor.reprocessLoanTransactions(loanApplicationTerms.getExpectedDisbursementDate(),
-                loanTransactions, currency, loanScheduleDTO.getInstallments(), loan.getActiveCharges());
+                previewTransactions, currency, loanScheduleDTO.getInstallments(), previewLoan.getActiveCharges());
         Money totalPrincipal = Money.zero(currency);
         Money totalInterest = Money.zero(currency);
         Money feeCharges = Money.zero(currency);

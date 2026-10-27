@@ -222,5 +222,6 @@ dependencies {
         exclude group: 'javax.activation'
         exclude group: 'org.skyscreamer'
     }
+    testRuntimeOnly 'com.h2database:h2'
     testImplementation ('org.mockito:mockito-inline')
 }

@@ -1,0 +1,84 @@
+{
+  "issue": "LS-07",
+  "recorded_on": "2026-10-27",
+  "scope": "Synthetic isolated H2 persistence model with actual Fineract domain entities, payoff-service dispatch, transaction processor and EclipseLink flush; schedule-generation output stubbed to isolate persistence behavior.",
+  "connections_to_arissto_or_tenant": false,
+  "staff_activity_in_reproduction": false,
+  "before_repair": [
+    {
+      "test": "preview preserves persistent state with recalculation=false",
+      "passed": true,
+      "sqlstate": null,
+      "failure": null
+    },
+    {
+      "test": "preview preserves persistent state with recalculation=true",
+      "passed": false,
+      "sqlstate": "23502",
+      "failure": "null loan_id on temporary installment insert"
+    }
+  ],
+  "after_repair": {
+    "tests": 55,
+    "failures": 0,
+    "errors": 0,
+    "suites": [
+      {
+        "suite": "org.apache.fineract.portfolio.loanaccount.service.CumulativePrepaymentIsolationTest",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0
+      },
+      {
+        "suite": "org.apache.fineract.portfolio.loanaccount.serialization.SourceExactRefinancingQuoteDateTest",
+        "tests": 4,
+        "failures": 0,
+        "errors": 0
+      },
+      {
+        "suite": "org.apache.fineract.portfolio.loanaccount.service.SourceExactHistoricalRefinancingTargetGuardTest",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0
+      },
+      {
+        "suite": "org.apache.fineract.portfolio.loanaccount.service.LoanTransactionProcessingServiceImplTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0
+      },
+      {
+        "suite": "org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest",
+        "tests": 39,
+        "failures": 0,
+        "errors": 0
+      },
+      {
+        "suite": "org.apache.fineract.portfolio.loanaccount.handler.SourceExactHistoricalRefinancingDisburseLoanCommandHandlerTest",
+        "tests": 2,
+        "failures": 0,
+        "errors": 0
+      }
+    ],
+    "assertions": [
+      "recalculation off and on return expected principal/interest and flush without changing original mapping/installment/charge state",
+      "repeated preview is non-mutating",
+      "charge-paid-by links reference snapshot transaction and charge objects",
+      "failed schedule preview leaves originals unchanged",
+      "pending caller charge/payment state remains pending and commits exactly as supplied",
+      "unrepresentable source-exact penalty allocation still fails without leaking state"
+    ]
+  },
+  "safety_boundaries": [
+    "No interrupted cycle, immutable plan, source-through boundary or target loan was changed.",
+    "No source hash check, ownership check or source-exact component check was weakened.",
+    "No entity manager clear/detach/restore and no suppression of normal write-transaction flush.",
+    "No whole-workflow recovery or deployment performed."
+  ],
+  "remaining": [
+    "Load and verify repaired backend in a separately reviewed sandbox recovery.",
+    "Reconcile the eight original successor loans; individual correlation remains needed for the six generic HTTP 500 responses.",
+    "Staff/source changes during the historical run remain an independent unverified possibility; synthetic reproduction proves they are not required for the preview defect.",
+    "Full endpoint/portfolio behavior and performance are not established by the synthetic schedule fixture."
+  ]
+}
