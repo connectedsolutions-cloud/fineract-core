@@ -5691,6 +5691,7 @@ def _ensure_source_insurance_charges(
 def _verify_historical_insurance_charge_settlement(
     loan: dict[str, Any], lifecycle: dict[str, Any],
     cutover_settlement_event_ids: set[str] | None = None,
+    api: FineractApi | None = None,
 ) -> None:
     """Prove each synthetic source-payment fee landed on its declared charge.
 
@@ -5711,6 +5712,16 @@ def _verify_historical_insurance_charge_settlement(
         for expected in event.get("historical_insurance_charges") or []:
             external_id = expected["external_id"]
             actual = charges.get(external_id)
+            if actual is None and api is not None:
+                # The loan's charge collection contains active rows only. A paid
+                # historical charge can be inactive after native recalculation.
+                try:
+                    actual = api.request("GET", f"loans/{int(loan['id'])}/charges/external-id/{external_id}")
+                except FineractError as exc:
+                    if exc.status_code != 404:
+                        raise
+                if actual is not None and actual.get("externalId") != external_id:
+                    raise RuntimeError(f"historical_insurance_charge_identity_mismatch:{external_id}")
             if actual is None:
                 raise RuntimeError(f"historical_insurance_charge_missing:{external_id}")
             if _amount(actual.get("amount")) != _amount(expected["amount"]):
@@ -7557,7 +7568,7 @@ def _apply_loan_lifecycle(
         loan = _ensure_recurring_insurance_charge(api, loan, recurring_charge, attempt_key)
 
     _verify_historical_insurance_charge_settlement(
-        loan, lifecycle, cutover_settlement_event_ids,
+        loan, lifecycle, cutover_settlement_event_ids, api=api,
     )
 
     adjustment = lifecycle.get("terminal_adjustment")

@@ -385,6 +385,30 @@ class LoanInspectionTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "historical_insurance_charge_missing"):
             _verify_historical_insurance_charge_settlement(wrong_charge, lifecycle)
 
+    def test_historical_insurance_settlement_reads_inactive_charge_by_exact_identity(self):
+        external_id = "ARISSTO:CRD-INS:7:101:1"
+        lifecycle = {"events": [{"role": "repayment", "historical_insurance_charges": [{
+            "external_id": external_id, "amount": "0.72",
+        }]}]}
+        loan = {"id": 55, "charges": []}
+        api = MagicMock()
+        api.request.return_value = {"externalId": external_id, "amount": "0.72", "amountOutstanding": "0.00"}
+        _verify_historical_insurance_charge_settlement(loan, lifecycle, api=api)
+        api.request.assert_called_once_with("GET", f"loans/55/charges/external-id/{external_id}")
+        api.request.return_value["amountOutstanding"] = "0.01"
+        with self.assertRaisesRegex(RuntimeError, "historical_insurance_charge_not_settled"):
+            _verify_historical_insurance_charge_settlement(loan, lifecycle, api=api)
+        api.request.return_value["externalId"] = "wrong-charge"
+        with self.assertRaisesRegex(RuntimeError, "historical_insurance_charge_identity_mismatch"):
+            _verify_historical_insurance_charge_settlement(loan, lifecycle, api=api)
+        from arissto_sync.connections import FineractError
+        api.request.side_effect = FineractError("not found", 404)
+        with self.assertRaisesRegex(RuntimeError, "historical_insurance_charge_missing"):
+            _verify_historical_insurance_charge_settlement(loan, lifecycle, api=api)
+        api.request.side_effect = FineractError("unavailable", 503)
+        with self.assertRaisesRegex(FineractError, "unavailable"):
+            _verify_historical_insurance_charge_settlement(loan, lifecycle, api=api)
+
     def test_historical_insurance_settlement_ignores_reversal_event_charge_metadata(self):
         lifecycle = {"events": [{
             "role": "repayment-reversal",
