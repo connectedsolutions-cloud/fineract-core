@@ -42,7 +42,7 @@ Counts are observations from this attempt. Representative loans use Arissto `loa
 | LS-22 | Planned actions lack recorded outcomes; target creation differs from completed replay. | 1,293 of 2,752 planned actions have no item record. 970 succeeded items include three setup actions, leaving 967 succeeded loans; supplied target check reports 1,143 created loans. | **Open — incomplete outcome evidence.** Missing record does not prove no target write. | Reconcile stable target identities, transaction prefixes and mappings before retry; preserve original evidence. |
 | LS-23 | Final metric alignment and first native COB cannot establish a complete handoff while replay/downstream financial services are incomplete. | Cycle-wide; final alignment not reached, six downstream services blocked, no first native COB recorded. | **Blocked — awaiting complete financial replay and reconciliation.** | Complete required services and opening metric reconciliation before first native COB. Do not mask incomplete replay with corrections. |
 | LS-24 | Scoped retry selection can promote healthy product prerequisites into explicit fan-out roots when adding office-transfer cohort members. | Eight requested successors plus prerequisites select 17 loans initially; recomputation would select 2,735 loans. Transfer cohort includes `loan:101`, `loan:283`, `loan:553`, `loan:921`. No expanded apply ran. | **Fixed — 248 tests passed; frozen-plan audit selects 19 loans and one product instead of 2,735 loans. No replay performed.** | Keep the bounded selector; LS-26 now permits complete scoped transfer cohorts. Review LS-25 on 921 and LS-27 financial successor dependencies before operational recovery. |
-| LS-25 | Original full-portfolio frozen-plan guard now detects newly inapplicable source evidence. | First observed blocker: `loan:1613`, with `missing_final_metric_source_snapshot` and `source_events_after_fineract_accounting_boundary`. All 34 LS-07 graph source hashes matched at planning; subsequent new-plan apply validation blocks `loan:921` with `source_events_after_fineract_accounting_boundary`. | **Guard active — original full plan and new scoped recovery blocked.** This is evidence to review, not approval to bypass the guard or move the boundary. | Review source drift and an eligible same-cycle recovery plan; keep Arissto through October 26 / Fineract starts October 27. |
+| LS-25 | Frozen-plan validation detects source changes after planning; scoped loan 921 gained an October 27 repayment. | Original full-plan blocker: `loan:1613` (separate). For 921, movement `0000034318` increases 23 frozen events to 24; the prior 23 are unchanged. Current-source planning quarantines `loan:101`, `loan:283`, `loan:553`, `loan:921` through the refinancing cohort. | **921 diagnosed — genuine source drift; guard is correct. 280 tests passed; no runtime fix needed.** The recorded payment creation is about 79 seconds after the scoped plan observation. Recovery remains blocked. | Preserve Arissto through October 26 / Fineract starts October 27. A reviewed temporal reconstruction for refinanced loans is needed to retain that boundary safely; the existing projection excludes refinance relationships. LS-27 and the separate 1613 evidence remain open. |
 | LS-26 | Planner unconditionally rejects scoped loans with client office transfers, even with the full transfer cohort. | The 19-loan retry includes cohort `loan:101`, `loan:283`, `loan:553`, `loan:921`; source extraction freezes a 34-loan refinancing graph. | **Fixed — complete cohort proof, 272 tests passed, same-cycle planner accepts the cohort. Existing source guard then blocks loan:921 (LS-25). No replay.** | Recheck frozen cohort inventory before writes; incomplete/changed cohorts remain blocked. Financial recovery remains subject to LS-27. |
 | LS-27 | Dependency-only retry omits successor actions that create selected loans' native refinancing payoffs. | Five missing payoff links: `103 → 308`, `139 → 515`, `159 → 360`, `200 → 433`, `1784 → 2402`. All five successors and payoffs are absent in the sandbox. | **Open — confirmed by frozen events and read-only target lookup.** The 19-loan selection is not a complete financial recovery. | Review and freeze complete payoff/successor closure within the bounded 34-loan graph, including later descendants; validate selection before any financial replay. Do not broaden to the portfolio. |
 
@@ -380,10 +380,100 @@ on 921 also remains blocking. Before running a recovery, review complete
 successor/payoff closure (including further descendants) inside the
 bounded 34-loan graph and test the resulting write selection. This turn does
 not change LS-24 selection or authorize silently applying all 34 loans.
-The timing or exact cause of the new 921 source-boundary observation has not
-been established; the unchanged hashes describe the planning read, not a later
-source watermark. Do not attribute this to staff edits without further evidence.
+At the LS-26 verification, the timing of the 921 source-boundary observation
+was unresolved. The LS-25 follow-up below confirms an added source repayment
+after the planning read; the actor and transaction commit time remain unknown.
 LS-07 creation/disbursement and financial reconciliation remain pending.
+
+## LS-25 loan 921 boundary investigation — October 27
+
+**Conclusion: genuine source drift, not inconsistent planning logic. No runtime
+fix is warranted.** The accounting-boundary guard prevents importing a later
+source payment under an earlier frozen plan.
+
+[Read-only source and sandbox evidence](investigations/ls25-loan-921-source-drift-oct27.json).
+
+| Observation | Evidence |
+|---|---|
+| Frozen ownership boundary | **Arissto through 2026-10-26; Fineract starts 2026-10-27.** Unchanged throughout the investigation. |
+| Original and LS-26 scoped snapshots | Both freeze 23 events for `loan:921` and source hash `16ad13f2167132d726cc421dd55b0ed5fd3369652e16bb072a783522b8b715a7`. |
+| Added source record | `CRD_MOVIMIENTOS_CARTERA.ID_MOVIMIENTO_CARTERA=0000034318`, ordinary repayment (`4:00001`), not marked reversed; `FECHA_OPERACION=2026-10-27`. |
+| Recorded timing | Scoped plan observed at `2026-10-27T17:33:57.166901Z`; movement `DT_CREO=2026-10-27 17:35:16.500000`. SQL Server's clock reports UTC; the reported creation is about **79 seconds later**. `DT_CREO` is not a transaction commit watermark. |
+| Prior source history | Current 24 events comprise the exact same 23 pre-boundary events plus the one October 27 repayment. The pre-boundary event-stream hashes match. |
+| Scope of source change | Only `loan:921` has a changed source hash among the same 34 source loan actions. Current hash: `a74187dcae4aa7ba5dc4dc19edc8af1460456047551d9bdb9359f1c38bf1d0ae`. |
+
+The preserved original loan plan and scoped plan
+`3e9d8024d1504f3eabfe8498f5a049fb` describe the earlier source read. Their
+clean 921 disposition was correct for that evidence. The later apply guard
+reread Arissto and found the additional event. Recorded creation timing is
+consistent with a payment entered between planning and validation; no source
+actor identity or exact commit time was established. This does not identify
+whether staff or an automatic process entered it.
+
+### Why the existing source-day projection cannot admit this loan
+
+The loan is active both currently and in its exact October 26 daily snapshot,
+but its historical incoming refinance link is **553 → 921**, dated
+**2024-12-20**. The conservative projection in
+[loan_source_window.py](../../arissto_sync/loan_source_window.py) requires no
+incoming or outgoing refinancing relationships. That exclusion alone prevents
+using the ordinary-payment projection for 921. Its source counts remain
+`{movements: 1}` after the projection step, and
+`_guard_unmapped_loan_events` correctly adds
+`source_events_after_fineract_accounting_boundary`.
+
+The same source snapshot was traced through attachment of cutoff evidence,
+source-window projection, target resolution and lifecycle rebuilding. None
+of those stages removes the count or changes the source header/history.
+The original 23 events do not permit silently dropping the later event:
+temporal reconstruction for refinancing is outside the approved projection.
+The lifecycle-only post-boundary hash fallback also returns **false** for the
+actual old/new pair; it does not establish equivalence for this drift.
+Eligibility failures are checked before that fallback and cannot be overridden
+by it. The existing [source-window contract](loan-flow-cob-acceptance.md)
+remains unchanged.
+
+### Planner/apply consistency and tests
+
+A new immutable loan plan, `52571d0c0209402ab20d7cde2a24950e`, was saved in the
+same preserved cycle `sandbox-2026-10-26-full-clean-a` against local `sandbox` /
+`fineract_sandbox` (fingerprint `b9f6834b66790744`). The original eight roots
+still extract the bounded 34-loan graph and select 19 loans plus one product.
+With current source evidence, the planner now:
+
+- Quarantines 921 for the post-boundary repayment and propagates the refinancing
+  quarantine to **101, 283 and 553**.
+- Retains the complete transfer cohort proof and declares the plan
+  **non-applicable**, with `transfer_client_has_quarantined_loan`.
+- Freezes 9 recover, 21 create and 4 quarantine loan actions, plus one unchanged
+  product. No action was executed.
+
+The read-only apply guard rejects that new plan as non-applicable. Thus fresh
+planning and apply validation agree on the current evidence. The difference
+from the prior plan is the source payment, not divergent planner behavior.
+
+Four regression tests cover unchanged refinancing evidence, rejection of a new
+boundary-day repayment before API construction/run creation, rejection of a
+pre-boundary edit, and the distinction between ordinary-loan projection and
+unsupported incoming/outgoing refinance history. They use a single synthetic
+source snapshot and exercise the real projection, eligibility and hash guards.
+**280 focused tests passed**, including existing source-window, office-transfer,
+retry-scope, loan and final-metric suites. No runtime code was changed.
+
+Complete before/after target row hashes match for loans, transactions,
+schedules, charges, transaction mappings, charge ownership, clients, transfer
+history and GL journals. Counts remain **1,143 loans**, **24,850 loan
+transactions**, and **zero GL journals**. The workflow remains interrupted,
+the scheduler paused and the active accounting boundary unchanged. No Arissto
+writes, target writes, reset, replacement cycle, apply, resume, backend restart
+or financial replay occurred. Only the diagnostic local plan, tests and
+investigation/tracker artifacts were added.
+
+**Recovery remains blocked.** Keeping this cycle and its boundary requires an
+explicitly reviewed temporal reconstruction for refinanced source loans;
+rebuilding a plan alone does not resolve the unsupported history. Keep 921 in
+its mandatory transfer cohort and preserve the source payment. LS-27 successor/
+payoff closure and the separate full-plan 1613 evidence remain unresolved.
 
 ## Existing fix evidence
 
@@ -413,6 +503,8 @@ Append findings with their issue ID. Record a new cycle/run explicitly rather th
 | 2026-10-27 | LS-24 | Preserved explicit retry roots through joint dependency/transfer-cohort closure; removed the second selector invocation that promoted healthy product prerequisites. | [Scope checks](investigations/ls24-retry-scope-oct27.json); pre-fix mocked apply regression reproduced; 248 tests passed; frozen plan selects exactly 19 loans plus one product. | Selection fixed and verified without reset or replay; office-transfer planning restriction and LS-25 source-drift gate unchanged. |
 
 | 2026-10-27 | LS-26, LS-27 | Replaced blanket scoped-transfer ban with frozen full-client loan inventory and apply-time completeness/drift checks. 272 tests passed; same-cycle planner accepts the cohort; read-only apply guard then blocks loan:921 on source boundary evidence; target hashes unchanged. Five absent successor/payoff links discovered outside the 19-loan selection. | [Planning and target evidence](investigations/ls26-scoped-office-transfer-planning-oct27.json); new loan plan `3e9d8024d1504f3eabfe8498f5a049fb`; commit indexed in the durable change tracker. | Office-transfer planning fixed; source boundary guard (LS-25, 921) and complete financial scope (LS-27) remain blocking. No reset or replay. |
+
+| 2026-10-27 | LS-25 (921) | Confirmed added October 27 repayment `0000034318`; recorded creation follows scoped planning by about 79 seconds. Prior 23 events unchanged; only 921 source hash changes. Current-source planning and validation both block the unsupported refinanced-loan history. | [Drift evidence](investigations/ls25-loan-921-source-drift-oct27.json); non-applicable plan `52571d0c0209402ab20d7cde2a24950e`; 280 tests passed; diagnosis/test commit indexed in durable tracker. | No planning bug or runtime change; no reset/replay. Review temporal refinance reconstruction before recovery; LS-27 remains open. |
 
 ### Template for the next annotation
 

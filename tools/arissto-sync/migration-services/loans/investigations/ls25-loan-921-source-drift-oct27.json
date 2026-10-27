@@ -1,0 +1,476 @@
+{
+  "issue": "LS-25",
+  "loan": "loan:921",
+  "conclusion": "Confirmed source drift, not a planning inconsistency. Preserve boundary guard; no runtime fix needed.",
+  "investigation": {
+    "loan": "loan:921",
+    "fineract_starts": "2026-10-27",
+    "source_through_date": "2026-10-26",
+    "frozen": {
+      "8098f714e10b4363934545537026a714": {
+        "source_hash": "16ad13f2167132d726cc421dd55b0ed5fd3369652e16bb072a783522b8b715a7",
+        "source_window": null,
+        "post_cutover_source_event_counts": null,
+        "quarantine_reasons": [],
+        "action": "create-loan"
+      },
+      "3e9d8024d1504f3eabfe8498f5a049fb": {
+        "source_hash": "16ad13f2167132d726cc421dd55b0ed5fd3369652e16bb072a783522b8b715a7",
+        "source_window": null,
+        "post_cutover_source_event_counts": null,
+        "quarantine_reasons": [],
+        "action": "create-loan"
+      }
+    },
+    "stages": [
+      {
+        "stage": "raw attached evidence",
+        "header_hash": "571668d64663e01858db4e4f1693a9177d98bf2a91bcd4c37d3e9ce545828775",
+        "history_hash": "c71e167a55677f58a592e1820dd48b900b3e26b005d86f68888c0d054aa5b5c3",
+        "post_cutover_event_counts": {
+          "movements": 1
+        },
+        "bounded_source_window": null,
+        "source_state": "1",
+        "snapshot_state": "1",
+        "snapshot_day": "2026-10-26",
+        "later_movement_count": 1,
+        "prior_movement_count": 23,
+        "later_dates": [
+          "2026-10-27"
+        ],
+        "refinance_incoming_count": 1,
+        "refinance_outgoing_count": 0,
+        "adjustment_count": 0
+      },
+      {
+        "stage": "bounded source evidence",
+        "header_hash": "571668d64663e01858db4e4f1693a9177d98bf2a91bcd4c37d3e9ce545828775",
+        "history_hash": "c71e167a55677f58a592e1820dd48b900b3e26b005d86f68888c0d054aa5b5c3",
+        "post_cutover_event_counts": {
+          "movements": 1
+        },
+        "bounded_source_window": null,
+        "source_state": "1",
+        "snapshot_state": "1",
+        "snapshot_day": "2026-10-26",
+        "later_movement_count": 1,
+        "prior_movement_count": 23,
+        "later_dates": [
+          "2026-10-27"
+        ],
+        "refinance_incoming_count": 1,
+        "refinance_outgoing_count": 0,
+        "adjustment_count": 0
+      },
+      {
+        "stage": "after resolving target",
+        "header_hash": "571668d64663e01858db4e4f1693a9177d98bf2a91bcd4c37d3e9ce545828775",
+        "history_hash": "c71e167a55677f58a592e1820dd48b900b3e26b005d86f68888c0d054aa5b5c3",
+        "post_cutover_event_counts": {
+          "movements": 1
+        },
+        "bounded_source_window": null,
+        "source_state": "1",
+        "snapshot_state": "1",
+        "snapshot_day": "2026-10-26",
+        "later_movement_count": 1,
+        "prior_movement_count": 23,
+        "later_dates": [
+          "2026-10-27"
+        ],
+        "refinance_incoming_count": 1,
+        "refinance_outgoing_count": 0,
+        "adjustment_count": 0
+      },
+      {
+        "stage": "after guard rebuild",
+        "header_hash": "571668d64663e01858db4e4f1693a9177d98bf2a91bcd4c37d3e9ce545828775",
+        "history_hash": "c71e167a55677f58a592e1820dd48b900b3e26b005d86f68888c0d054aa5b5c3",
+        "post_cutover_event_counts": {
+          "movements": 1
+        },
+        "bounded_source_window": null,
+        "source_state": "1",
+        "snapshot_state": "1",
+        "snapshot_day": "2026-10-26",
+        "later_movement_count": 1,
+        "prior_movement_count": 23,
+        "later_dates": [
+          "2026-10-27"
+        ],
+        "refinance_incoming_count": 1,
+        "refinance_outgoing_count": 0,
+        "adjustment_count": 0
+      }
+    ],
+    "rebuilt_reasons": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "rebuilt_source_hash": "a74187dcae4aa7ba5dc4dc19edc8af1460456047551d9bdb9359f1c38bf1d0ae",
+    "hash_matches_frozen": {
+      "8098f714e10b4363934545537026a714": false,
+      "3e9d8024d1504f3eabfe8498f5a049fb": false
+    },
+    "rebuilt_source_window": null,
+    "plan_observed_at": {
+      "8098f714e10b4363934545537026a714": "2026-10-27T01:57:25.373123+00:00",
+      "3e9d8024d1504f3eabfe8498f5a049fb": "2026-10-27T17:33:57.166901+00:00"
+    },
+    "later_movement_audit": [
+      {
+        "ID_MOVIMIENTO_CARTERA": "0000034318",
+        "FECHA_OPERACION": "2026-10-27 00:00:00",
+        "DT_CREO": "2026-10-27 17:35:16.500000",
+        "DT_MOVIMIENTO": "None",
+        "CODIGO_SISTEMA": "4",
+        "ID_TRANSACCION": "00001",
+        "REVERSION": "None"
+      }
+    ],
+    "event_comparison": {
+      "8098f714e10b4363934545537026a714": {
+        "frozen_count": 23,
+        "rebuilt_count": 24,
+        "new_movement_keys": [
+          "0000034318"
+        ],
+        "frozen_cutover": "2026-10-27",
+        "frozen_has_refinance": true
+      },
+      "3e9d8024d1504f3eabfe8498f5a049fb": {
+        "frozen_count": 23,
+        "rebuilt_count": 24,
+        "new_movement_keys": [
+          "0000034318"
+        ],
+        "frozen_cutover": "2026-10-27",
+        "frozen_has_refinance": true
+      }
+    },
+    "hash_without_count_evidence_matches_frozen": {
+      "8098f714e10b4363934545537026a714": false,
+      "3e9d8024d1504f3eabfe8498f5a049fb": false
+    }
+  },
+  "source_comparison": {
+    "pre_boundary_event_stream_unchanged": true,
+    "frozen_pre_boundary_event_count": 23,
+    "current_pre_boundary_event_count": 23,
+    "current_total_event_count": 24,
+    "source_clock": {
+      "source_clock": "2026-10-27T17:45:11.7318976Z",
+      "source_utc_clock": "2026-10-27T17:45:11.7318976",
+      "source_local_clock": "2026-10-27T17:45:11.7318976"
+    },
+    "refinance_incoming_links": [
+      {
+        "old_credit_id": "553",
+        "new_credit_id": "921",
+        "payoff_date": "2024-12-20 00:00:00"
+      }
+    ],
+    "legacy_lifecycle_hash_fallback_would_match": false,
+    "guard_priority": "Quarantine reason drift is checked before the lifecycle-only hash fallback; unsupported temporal refinancing histories remain blocked."
+  },
+  "reported_creation_after_plan_seconds": 79.333099,
+  "audit_timestamp_caveat": "DT_CREO is the recorded creation time, not a transaction commit watermark. Current SQL Server local clock reports UTC. No actor identity was inspected or attributed.",
+  "current_source_plan_verification": {
+    "issue": "LS-25 loan:921",
+    "cycle": "sandbox-2026-10-26-full-clean-a",
+    "parent_loan_plan_id": "8098f714e10b4363934545537026a714",
+    "target": "local:sandbox:fineract_sandbox",
+    "fingerprint": "b9f6834b66790744",
+    "source_through_date": "2026-10-26",
+    "fineract_starts": "2026-10-27",
+    "scope": "read-only target/source verification and new immutable local loan plan; no apply, resume, reset, new cycle or restart",
+    "workflow_status_before": "interrupted",
+    "scheduler_paused": {
+      "active": false
+    },
+    "before": {
+      "m_loan": {
+        "rows": 1143,
+        "sha256": "955f9de9f62fe934a89201af478a7b5f40f70649abb0699b6b1485c3e6720d05"
+      },
+      "m_loan_transaction": {
+        "rows": 24850,
+        "sha256": "cae6a715f413895c71c09a51a88238e7b44a3a2cd574e2d6f91834b86fd15219"
+      },
+      "m_loan_repayment_schedule": {
+        "rows": 21276,
+        "sha256": "3e4accb281606902e1eb6e3adc94a374a4d16d765e0a8673578f607f0adcdd6e"
+      },
+      "m_loan_charge": {
+        "rows": 5013,
+        "sha256": "d02cd78ca8c3b8406991fdf77430cc4861967e6eb90b89621e55ea5f7a5d5164"
+      },
+      "m_loan_transaction_repayment_schedule_mapping": {
+        "rows": 26116,
+        "sha256": "7b906c268a8aecf73d7ee76688454298a16c9e18b44e36c96300a3ca62a69984"
+      },
+      "m_loan_charge_paid_by": {
+        "rows": 10110,
+        "sha256": "aa5173272024a8497ac385641fc48dbb5be0894387c4186daf5f2081d259ddcf"
+      },
+      "m_client": {
+        "rows": 1071,
+        "sha256": "f90827fae9f023f55ab92ce7988e9ae1f5e420e98a27cebcd9b442377abe304c"
+      },
+      "m_client_transfer_details": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "acc_gl_journal_entry": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    },
+    "plan_id": "52571d0c0209402ab20d7cde2a24950e",
+    "applicable": false,
+    "readiness_blockers": [
+      "transfer_client_has_quarantined_loan"
+    ],
+    "counts": {
+      "unchanged-product": 1,
+      "recover-loan": 9,
+      "create-loan": 21,
+      "quarantine-loan": 4
+    },
+    "scope_metadata": {
+      "mode": "explicit-source-keys",
+      "requested_source_keys": [
+        "103",
+        "125",
+        "139",
+        "159",
+        "172",
+        "1784",
+        "200",
+        "283"
+      ],
+      "loan_count": 34,
+      "required_product_lines": [
+        "00010"
+      ],
+      "proof_namespace": null
+    },
+    "source_context_loan_keys": [
+      "loan:14",
+      "loan:25",
+      "loan:29",
+      "loan:30",
+      "loan:34",
+      "loan:43",
+      "loan:101",
+      "loan:103",
+      "loan:125",
+      "loan:139",
+      "loan:159",
+      "loan:172",
+      "loan:200",
+      "loan:283",
+      "loan:308",
+      "loan:360",
+      "loan:407",
+      "loan:433",
+      "loan:515",
+      "loan:553",
+      "loan:580",
+      "loan:644",
+      "loan:711",
+      "loan:773",
+      "loan:921",
+      "loan:1178",
+      "loan:1482",
+      "loan:1784",
+      "loan:1897",
+      "loan:1962",
+      "loan:2055",
+      "loan:2165",
+      "loan:2265",
+      "loan:2402"
+    ],
+    "changed_source_hashes": [
+      "loan:921"
+    ],
+    "transfer_cohorts": [
+      {
+        "source_loan_keys": [
+          "loan:101",
+          "loan:283",
+          "loan:553",
+          "loan:921"
+        ]
+      }
+    ],
+    "transfer_events": [
+      {
+        "effective_date": "2025-04-01",
+        "active_source_loan_keys": [
+          "loan:921"
+        ]
+      }
+    ],
+    "selected_loan_keys": [
+      "loan:14",
+      "loan:25",
+      "loan:29",
+      "loan:30",
+      "loan:34",
+      "loan:43",
+      "loan:101",
+      "loan:103",
+      "loan:125",
+      "loan:139",
+      "loan:159",
+      "loan:172",
+      "loan:200",
+      "loan:283",
+      "loan:553",
+      "loan:921",
+      "loan:1178",
+      "loan:1482",
+      "loan:1784"
+    ],
+    "selected_setup_keys": [
+      "product:00010"
+    ],
+    "apply_guard": "blocked",
+    "apply_guard_error": "Loans plan is not applicable",
+    "omitted_refinance_successor_actions": [
+      {
+        "successor_source_key": "loan:308",
+        "selected_predecessor_keys": [
+          "loan:103"
+        ]
+      },
+      {
+        "successor_source_key": "loan:360",
+        "selected_predecessor_keys": [
+          "loan:159"
+        ]
+      },
+      {
+        "successor_source_key": "loan:433",
+        "selected_predecessor_keys": [
+          "loan:200"
+        ]
+      },
+      {
+        "successor_source_key": "loan:515",
+        "selected_predecessor_keys": [
+          "loan:139"
+        ]
+      },
+      {
+        "successor_source_key": "loan:2402",
+        "selected_predecessor_keys": [
+          "loan:1784"
+        ]
+      }
+    ],
+    "after": {
+      "m_loan": {
+        "rows": 1143,
+        "sha256": "955f9de9f62fe934a89201af478a7b5f40f70649abb0699b6b1485c3e6720d05"
+      },
+      "m_loan_transaction": {
+        "rows": 24850,
+        "sha256": "cae6a715f413895c71c09a51a88238e7b44a3a2cd574e2d6f91834b86fd15219"
+      },
+      "m_loan_repayment_schedule": {
+        "rows": 21276,
+        "sha256": "3e4accb281606902e1eb6e3adc94a374a4d16d765e0a8673578f607f0adcdd6e"
+      },
+      "m_loan_charge": {
+        "rows": 5013,
+        "sha256": "d02cd78ca8c3b8406991fdf77430cc4861967e6eb90b89621e55ea5f7a5d5164"
+      },
+      "m_loan_transaction_repayment_schedule_mapping": {
+        "rows": 26116,
+        "sha256": "7b906c268a8aecf73d7ee76688454298a16c9e18b44e36c96300a3ca62a69984"
+      },
+      "m_loan_charge_paid_by": {
+        "rows": 10110,
+        "sha256": "aa5173272024a8497ac385641fc48dbb5be0894387c4186daf5f2081d259ddcf"
+      },
+      "m_client": {
+        "rows": 1071,
+        "sha256": "f90827fae9f023f55ab92ce7988e9ae1f5e420e98a27cebcd9b442377abe304c"
+      },
+      "m_client_transfer_details": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "acc_gl_journal_entry": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    },
+    "target_state_unchanged": true,
+    "workflow_status_after": "interrupted",
+    "loan_921_disposition": {
+      "action": "quarantine-loan",
+      "quarantine_reasons": [
+        "source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:921:source_events_after_fineract_accounting_boundary"
+      ],
+      "post_cutover_source_event_counts": {
+        "movements": 1
+      },
+      "source_hash": "a74187dcae4aa7ba5dc4dc19edc8af1460456047551d9bdb9359f1c38bf1d0ae"
+    }
+  },
+  "quarantined_refinance_cohort": [
+    {
+      "source_key": "loan:101",
+      "target_id": 1,
+      "quarantine_reasons": [
+        "refinance_chain_quarantined:loan:921:source_events_after_fineract_accounting_boundary"
+      ],
+      "post_cutover_source_event_counts": null
+    },
+    {
+      "source_key": "loan:283",
+      "target_id": null,
+      "quarantine_reasons": [
+        "refinance_chain_quarantined:loan:921:source_events_after_fineract_accounting_boundary"
+      ],
+      "post_cutover_source_event_counts": null
+    },
+    {
+      "source_key": "loan:553",
+      "target_id": null,
+      "quarantine_reasons": [
+        "refinance_chain_quarantined:loan:921:source_events_after_fineract_accounting_boundary"
+      ],
+      "post_cutover_source_event_counts": null
+    },
+    {
+      "source_key": "loan:921",
+      "target_id": null,
+      "quarantine_reasons": [
+        "source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:921:source_events_after_fineract_accounting_boundary"
+      ],
+      "post_cutover_source_event_counts": {
+        "movements": 1
+      }
+    }
+  ],
+  "tests": {
+    "new_tests": 4,
+    "total_tests": 280,
+    "result": "passed",
+    "command": ".venv/bin/python -m unittest tests.test_loan_boundary_source_drift tests.test_loan_source_window tests.test_scoped_office_transfer_planning tests.test_client_office_transfers tests.test_client_office_transfer_replay tests.test_loan_retry_scope tests.test_loans tests.test_loan_metric_alignment"
+  },
+  "runtime_change": "none; existing source-window contract excludes refinancing relationships, and eligibility failure is preserved",
+  "recovery_remaining": [
+    "Approved temporal reconstruction for the refinanced loan is not implemented; do not delete the source payment, move the cutoff, bypass quarantine or skip a mandatory transfer-cohort member.",
+    "LS-27 missing successor/payoff closure remains separate."
+  ],
+  "target_mutation": false,
+  "financial_replay": false,
+  "reset": false
+}
