@@ -21,7 +21,9 @@ import requests
 from .arissto import IDENTIFIER, select_rows, source_connection, source_fingerprint
 from .config import Settings, SourceConfig
 from .client_office_transfers import (attach_pretransfer_loan_balances, plan_client_office_transfers,
-                                      target_client_office_transfer_blockers)
+                                      target_client_office_transfer_blockers,
+                                      extract_client_office_transfer_cohorts,
+                                      client_office_transfer_cohort_blockers)
 from .connections import FineractApi, FineractError, postgres_connection, postgres_schema
 from .delinquency_prerequisite import ensure_standard_loan_product_bucket
 from .engine import datatable_api_payload
@@ -4730,7 +4732,13 @@ def build_loan_plan(
     transfer_clients = {event["client_external_id"] for event in document.get("client_office_transfers", [])}
     transfer_counts = Counter(event["client_external_id"] for event in document["client_office_transfers"])
     if document["client_office_transfers"] and source_keys:
-        document["readiness_blockers"].append("scoped_loan_plan_cannot_replay_client_office_transfers")
+        document["client_office_transfer_cohorts"] = extract_client_office_transfer_cohorts(
+            settings, document["client_office_transfers"],
+        )
+        document["readiness_blockers"].extend(client_office_transfer_cohort_blockers(
+            document["client_office_transfers"], document["client_office_transfer_cohorts"],
+            document["actions"],
+        ))
     if any(count != 1 for count in transfer_counts.values()):
         document["readiness_blockers"].append("multiple_client_office_transfers_need_review")
     for action in document["actions"]:
@@ -4956,6 +4964,17 @@ def _loan_apply_guard(
                 raise RuntimeError(f"Carry-forward loan mapping changed: {action['source_key']}")
     if not document.get("applicable"):
         raise RuntimeError("Loans plan is not applicable")
+    if document.get("client_office_transfers") and document.get("scope", {}).get("mode") != "full-block":
+        frozen_cohorts = document.get("client_office_transfer_cohorts")
+        if frozen_cohorts is None:
+            raise RuntimeError("scoped_loan_plan_predates_client_office_transfer_cohort_proof")
+        actual_cohorts = extract_client_office_transfer_cohorts(settings, document["client_office_transfers"])
+        if actual_cohorts != frozen_cohorts:
+            raise RuntimeError("client_office_transfer_cohort_changed_after_plan")
+        if client_office_transfer_cohort_blockers(
+            document["client_office_transfers"], frozen_cohorts, document["actions"],
+        ):
+            raise RuntimeError("scoped_client_office_transfer_cohort_incomplete")
     if not document.get("product_writer_registered"):
         raise RuntimeError("Loans plan predates the Gate 4 product writer; create a new plan")
     if not document.get("loan_writer_registered"):

@@ -258,3 +258,56 @@ def attach_pretransfer_loan_balances(settings: Any, events: list[dict[str, Any]]
                     })
             enriched.append({**event, "active_source_loans": active})
     return enriched
+
+
+def extract_client_office_transfer_cohorts(
+    settings: Any, events: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Read the whole source loan inventory, including closed/zero-balance loans.
+
+    Active pre-transfer balances alone cannot prove a client's replay cohort is
+    complete. Keep this proof separate from event payloads so historical full
+    plans retain their frozen event shape.
+    """
+    from .arissto import source_connection
+
+    if not events:
+        return []
+    clients = {event["client_external_id"]: int(event["source_client_id"]) for event in events}
+    cohorts = []
+    with source_connection(settings.source) as conn:
+        for client_key, source_client_id in sorted(clients.items()):
+            rows = select_rows(conn, """
+                SELECT l.ID_CREDITO AS source_loan_id
+                FROM dbo.AFI_SOCIO s
+                JOIN dbo.CRD_CARTERA l
+                  ON l.ID_EMPRESA=s.ID_EMPRESA
+                 AND l.ID_SUCURSAL_SOCIO=s.ID_SUCURSAL
+                 AND l.ID_SOCIO=s.ID_SOCIO
+                WHERE s.ID_ASOCIADO=?
+                ORDER BY l.ID_CREDITO
+            """, (source_client_id,))
+            cohorts.append({
+                "client_external_id": client_key,
+                "source_loan_keys": sorted({f"loan:{int(row['source_loan_id'])}" for row in rows}),
+            })
+    return cohorts
+
+
+def client_office_transfer_cohort_blockers(
+    events: list[dict[str, Any]], cohorts: list[dict[str, Any]],
+    actions: list[dict[str, Any]],
+) -> list[str]:
+    """Require every cohort loan as an action owned by the transferring client."""
+    blockers = set()
+    by_client = {cohort["client_external_id"]: set(cohort["source_loan_keys"]) for cohort in cohorts}
+    for event in events:
+        client_key = event["client_external_id"]
+        expected = by_client.get(client_key, set())
+        planned = {action["source_key"] for action in actions
+                   if action.get("entity_type") == "loan"
+                   and action.get("client_external_id") == client_key}
+        active = {f"loan:{int(row['source_loan_id'])}" for row in event.get("active_source_loans", [])}
+        if not expected or planned != expected or not active <= expected:
+            blockers.add("scoped_client_office_transfer_cohort_incomplete")
+    return sorted(blockers)

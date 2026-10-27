@@ -1,0 +1,296 @@
+{
+  "issue": "LS-26",
+  "cycle": "sandbox-2026-10-26-full-clean-a",
+  "parent_loan_plan_id": "8098f714e10b4363934545537026a714",
+  "target": "local:sandbox:fineract_sandbox",
+  "fingerprint": "b9f6834b66790744",
+  "source_through_date": "2026-10-26",
+  "fineract_starts": "2026-10-27",
+  "scope": "read-only target/source verification and new immutable local loan plan; no apply, resume, reset, new cycle or restart",
+  "workflow_status_before": "interrupted",
+  "scheduler_paused": {
+    "active": false
+  },
+  "before": {
+    "m_loan": {
+      "rows": 1143,
+      "sha256": "955f9de9f62fe934a89201af478a7b5f40f70649abb0699b6b1485c3e6720d05"
+    },
+    "m_loan_transaction": {
+      "rows": 24850,
+      "sha256": "cae6a715f413895c71c09a51a88238e7b44a3a2cd574e2d6f91834b86fd15219"
+    },
+    "m_loan_repayment_schedule": {
+      "rows": 21276,
+      "sha256": "3e4accb281606902e1eb6e3adc94a374a4d16d765e0a8673578f607f0adcdd6e"
+    },
+    "m_loan_charge": {
+      "rows": 5013,
+      "sha256": "d02cd78ca8c3b8406991fdf77430cc4861967e6eb90b89621e55ea5f7a5d5164"
+    },
+    "m_loan_transaction_repayment_schedule_mapping": {
+      "rows": 26116,
+      "sha256": "7b906c268a8aecf73d7ee76688454298a16c9e18b44e36c96300a3ca62a69984"
+    },
+    "m_loan_charge_paid_by": {
+      "rows": 10110,
+      "sha256": "aa5173272024a8497ac385641fc48dbb5be0894387c4186daf5f2081d259ddcf"
+    },
+    "m_client": {
+      "rows": 1071,
+      "sha256": "f90827fae9f023f55ab92ce7988e9ae1f5e420e98a27cebcd9b442377abe304c"
+    },
+    "m_client_transfer_details": {
+      "rows": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "acc_gl_journal_entry": {
+      "rows": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    }
+  },
+  "plan_id": "3e9d8024d1504f3eabfe8498f5a049fb",
+  "applicable": true,
+  "readiness_blockers": [],
+  "counts": {
+    "unchanged-product": 1,
+    "recover-loan": 10,
+    "create-loan": 24
+  },
+  "scope_metadata": {
+    "mode": "explicit-source-keys",
+    "requested_source_keys": [
+      "101",
+      "103",
+      "1178",
+      "125",
+      "139",
+      "14",
+      "1482",
+      "159",
+      "172",
+      "1784",
+      "200",
+      "25",
+      "283",
+      "29",
+      "30",
+      "34",
+      "43",
+      "553",
+      "921"
+    ],
+    "loan_count": 34,
+    "required_product_lines": [
+      "00010"
+    ],
+    "proof_namespace": null
+  },
+  "source_context_loan_keys": [
+    "loan:14",
+    "loan:25",
+    "loan:29",
+    "loan:30",
+    "loan:34",
+    "loan:43",
+    "loan:101",
+    "loan:103",
+    "loan:125",
+    "loan:139",
+    "loan:159",
+    "loan:172",
+    "loan:200",
+    "loan:283",
+    "loan:308",
+    "loan:360",
+    "loan:407",
+    "loan:433",
+    "loan:515",
+    "loan:553",
+    "loan:580",
+    "loan:644",
+    "loan:711",
+    "loan:773",
+    "loan:921",
+    "loan:1178",
+    "loan:1482",
+    "loan:1784",
+    "loan:1897",
+    "loan:1962",
+    "loan:2055",
+    "loan:2165",
+    "loan:2265",
+    "loan:2402"
+  ],
+  "changed_source_hashes": [],
+  "transfer_cohorts": [
+    {
+      "source_loan_keys": [
+        "loan:101",
+        "loan:283",
+        "loan:553",
+        "loan:921"
+      ]
+    }
+  ],
+  "transfer_events": [
+    {
+      "effective_date": "2025-04-01",
+      "active_source_loan_keys": [
+        "loan:921"
+      ]
+    }
+  ],
+  "selected_loan_keys": [
+    "loan:14",
+    "loan:25",
+    "loan:29",
+    "loan:30",
+    "loan:34",
+    "loan:43",
+    "loan:101",
+    "loan:103",
+    "loan:125",
+    "loan:139",
+    "loan:159",
+    "loan:172",
+    "loan:200",
+    "loan:283",
+    "loan:553",
+    "loan:921",
+    "loan:1178",
+    "loan:1482",
+    "loan:1784"
+  ],
+  "selected_setup_keys": [
+    "product:00010"
+  ],
+  "apply_guard": "blocked",
+  "apply_guard_error": "Loan target or source became inapplicable after planning:loan:921:source_events_after_fineract_accounting_boundary",
+  "omitted_refinance_successor_actions": [
+    {
+      "successor_source_key": "loan:308",
+      "selected_predecessor_keys": [
+        "loan:103"
+      ]
+    },
+    {
+      "successor_source_key": "loan:360",
+      "selected_predecessor_keys": [
+        "loan:159"
+      ]
+    },
+    {
+      "successor_source_key": "loan:433",
+      "selected_predecessor_keys": [
+        "loan:200"
+      ]
+    },
+    {
+      "successor_source_key": "loan:515",
+      "selected_predecessor_keys": [
+        "loan:139"
+      ]
+    },
+    {
+      "successor_source_key": "loan:2402",
+      "selected_predecessor_keys": [
+        "loan:1784"
+      ]
+    }
+  ],
+  "after": {
+    "m_loan": {
+      "rows": 1143,
+      "sha256": "955f9de9f62fe934a89201af478a7b5f40f70649abb0699b6b1485c3e6720d05"
+    },
+    "m_loan_transaction": {
+      "rows": 24850,
+      "sha256": "cae6a715f413895c71c09a51a88238e7b44a3a2cd574e2d6f91834b86fd15219"
+    },
+    "m_loan_repayment_schedule": {
+      "rows": 21276,
+      "sha256": "3e4accb281606902e1eb6e3adc94a374a4d16d765e0a8673578f607f0adcdd6e"
+    },
+    "m_loan_charge": {
+      "rows": 5013,
+      "sha256": "d02cd78ca8c3b8406991fdf77430cc4861967e6eb90b89621e55ea5f7a5d5164"
+    },
+    "m_loan_transaction_repayment_schedule_mapping": {
+      "rows": 26116,
+      "sha256": "7b906c268a8aecf73d7ee76688454298a16c9e18b44e36c96300a3ca62a69984"
+    },
+    "m_loan_charge_paid_by": {
+      "rows": 10110,
+      "sha256": "aa5173272024a8497ac385641fc48dbb5be0894387c4186daf5f2081d259ddcf"
+    },
+    "m_client": {
+      "rows": 1071,
+      "sha256": "f90827fae9f023f55ab92ce7988e9ae1f5e420e98a27cebcd9b442377abe304c"
+    },
+    "m_client_transfer_details": {
+      "rows": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "acc_gl_journal_entry": {
+      "rows": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    }
+  },
+  "target_state_unchanged": true,
+  "workflow_status_after": "interrupted",
+  "investigation": {
+    "blanket_restriction_introduced_in": "15c5e2c3f8fe00cb3ede322b66679480e95c65db",
+    "cause": "Planner rejects any explicit source scope with a transfer, even when the entire client loan cohort is present; existing contract requires cohort completeness.",
+    "fix": "Freeze complete source client-loan inventory separately from event payloads; block incomplete cohorts; compare inventory and action ownership again before apply. Preserve historical full-plan shape and all existing source/target guards.",
+    "new_tests": 10,
+    "focused_test_total": 272,
+    "tests_passed": true,
+    "test_command": ".venv/bin/python -m unittest tests.test_scoped_office_transfer_planning tests.test_client_office_transfers tests.test_client_office_transfer_replay tests.test_loan_retry_scope tests.test_loans tests.test_loan_metric_alignment",
+    "pre_fix_complete_cohort_regression": "failed as expected; repaired version passes",
+    "same_cycle_plan_apply_guard": "cohort proof passed; existing source eligibility guard then blocked loan:921; apply_loan_plan not called",
+    "financial_acceptance": "not performed; 19-loan selection is not a complete payoff closure"
+  },
+  "ls27_missing_payoff_dependencies": [
+    {
+      "predecessor_source_key": "loan:103",
+      "omitted_successor_source_key": "loan:308",
+      "successor_plan_action": "create-loan",
+      "successor_target_id": null,
+      "successor_target_status": null,
+      "payoff_present": false
+    },
+    {
+      "predecessor_source_key": "loan:139",
+      "omitted_successor_source_key": "loan:515",
+      "successor_plan_action": "create-loan",
+      "successor_target_id": null,
+      "successor_target_status": null,
+      "payoff_present": false
+    },
+    {
+      "predecessor_source_key": "loan:159",
+      "omitted_successor_source_key": "loan:360",
+      "successor_plan_action": "create-loan",
+      "successor_target_id": null,
+      "successor_target_status": null,
+      "payoff_present": false
+    },
+    {
+      "predecessor_source_key": "loan:200",
+      "omitted_successor_source_key": "loan:433",
+      "successor_plan_action": "create-loan",
+      "successor_target_id": null,
+      "successor_target_status": null,
+      "payoff_present": false
+    },
+    {
+      "predecessor_source_key": "loan:1784",
+      "omitted_successor_source_key": "loan:2402",
+      "successor_plan_action": "create-loan",
+      "successor_target_id": null,
+      "successor_target_status": null,
+      "payoff_present": false
+    }
+  ]
+}
