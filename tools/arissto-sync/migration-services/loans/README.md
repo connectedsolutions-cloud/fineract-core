@@ -12,6 +12,9 @@ Current full-run reconciliation gaps and the next-agent work order are tracked
 in [loan-reconciliation.md](loan-reconciliation.md).
 Historical adjustment canaries and the October 17 source/native baseline are
 tracked in [loan-history-canaries.md](loan-history-canaries.md).
+The [October 27 progress tracker](loan-sync-updates-progress-oct27.md) groups
+interrupted-cycle issues and records diagnosis, repair evidence and remaining
+recovery checks.
 
 The [component alignment guide](alignment.md) defines the date-normalization
 and historical integration work for mora, interest pauses, interest
