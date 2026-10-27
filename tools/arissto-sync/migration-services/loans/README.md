@@ -383,6 +383,15 @@ external ID and reject missing, unpaid or mismatched rows. A payment that still
 needs posting must provision its charges first. See the
 [LS-29 recovery evidence](loan-sync-updates-progress-oct27.md#ls-29-repair-and-four-loan-recovery--october-27).
 
+Source-exact interest on an empty temporary recalculation prefix may wait for
+final posting only when the payment follows actual disbursement, precedes every
+full-schedule due date and is covered by full-schedule charged interest. This
+read-only proof leaves recorded payments and installments untouched, returns
+only principal as early-paid amounts and retains strict final-posting guards.
+See [LS-05 loan 773 evidence](loan-sync-updates-progress-oct27.md#ls-05-loan-773--interest-allocation-repair-and-bounded-recovery)
+for its verified recovery and separate remaining cutover-insurance refusals.
+
+
 
 The controlled local Gate 4 canary used plan
 `9dbddd1712b54ef4bfd131e56db9d925`. Recovery run

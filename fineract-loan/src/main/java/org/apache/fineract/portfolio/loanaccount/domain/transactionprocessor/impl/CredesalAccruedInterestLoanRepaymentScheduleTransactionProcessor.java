@@ -246,13 +246,36 @@ public class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor
         // become early principal, nor may a declared amount without due charge coverage pass this guard.
         final boolean penaltyCanWaitForFullSchedule = temporaryRecalculationSchedule && penaltyRemaining.isGreaterThanZero()
                 && hasDuePenaltyChargeCoverage(loanTransaction, currency, charges);
-        if ((!temporaryRecalculationSchedule && principalRemaining.isGreaterThanZero()) || interestRemaining.isGreaterThanZero()
-                || feeRemaining.isGreaterThanZero() || (penaltyRemaining.isGreaterThanZero() && !penaltyCanWaitForFullSchedule)) {
+        // Before the first contractual due date the native generator can pass an empty prefix.
+        // Defer only interest backed by the loan's future contractual schedule; never return it as
+        // early principal or change that persisted schedule. Final posting remains fully strict.
+        final boolean interestCanWaitForFullSchedule = temporaryRecalculationSchedule && installments.isEmpty()
+                && interestRemaining.isGreaterThanZero() && hasFutureContractualInterestCoverage(loanTransaction, currency);
+        if ((!temporaryRecalculationSchedule && principalRemaining.isGreaterThanZero())
+                || (interestRemaining.isGreaterThanZero() && !interestCanWaitForFullSchedule) || feeRemaining.isGreaterThanZero()
+                || (penaltyRemaining.isGreaterThanZero() && !penaltyCanWaitForFullSchedule)) {
             throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.allocation.not.representable",
                     "The source-exact repayment allocation cannot be represented by the loan schedule. Remaining principal: %s, interest: %s, fees: %s, penalties: %s",
                     principalRemaining.getAmount(), interestRemaining.getAmount(), feeRemaining.getAmount(), penaltyRemaining.getAmount());
         }
         return principalRemaining;
+    }
+
+    private boolean hasFutureContractualInterestCoverage(final LoanTransaction transaction, final MonetaryCurrency currency) {
+        final Loan loan = transaction.getLoan();
+        if (loan == null || loan.getDisbursementDate() == null || transaction.getTransactionDate().isBefore(loan.getDisbursementDate())) {
+            return false;
+        }
+        final List<LoanRepaymentScheduleInstallment> contractual = loan.getRepaymentScheduleInstallments();
+        if (contractual == null || contractual.isEmpty() || contractual.stream().anyMatch(
+                installment -> installment.getDueDate() == null || !transaction.getTransactionDate().isBefore(installment.getDueDate()))) {
+            return false;
+        }
+        // Historical recalculation copies can precede repayments already recorded on the full loan.
+        // Charged interest is the contractual capacity; today's outstanding/paid counters are not.
+        final Money coverage = contractual.stream().map(installment -> installment.getInterestCharged(currency))
+                .reduce(Money.zero(currency), Money::add);
+        return !transaction.getSourceExactInterestPortion(currency).isGreaterThan(coverage);
     }
 
     private boolean hasDuePenaltyChargeCoverage(final LoanTransaction transaction, final MonetaryCurrency currency,

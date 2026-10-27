@@ -1,0 +1,891 @@
+{
+  "issue": "LS-05",
+  "conclusion": "Loan773 interest-only payment failed on an empty temporary recalculation prefix before its first contractual due date. Deferral backed by future full-schedule interest capacity preserves strict final posting; all54 events and8 metrics now match. Overall34-loan attempt remains false due three separate cutover-insurance recovery refusals (LS-31).",
+  "cycle": "sandbox-2026-10-26-full-clean-a",
+  "target": "local:sandbox:fineract_sandbox",
+  "fingerprint": "b9f6834b66790744",
+  "source_through_date": "2026-10-26",
+  "fineract_starts": "2026-10-27",
+  "plan_id": "ced78c4c83cd4d44bbcba748c4093d49",
+  "run_id": "0f2000b00c2245ed81e4eb318e67f971",
+  "run_status": "completed-with-errors",
+  "loan_keys": [
+    "loan:101",
+    "loan:103",
+    "loan:1178",
+    "loan:125",
+    "loan:139",
+    "loan:14",
+    "loan:1482",
+    "loan:159",
+    "loan:172",
+    "loan:1784",
+    "loan:1897",
+    "loan:1962",
+    "loan:200",
+    "loan:2055",
+    "loan:2165",
+    "loan:2265",
+    "loan:2402",
+    "loan:25",
+    "loan:283",
+    "loan:29",
+    "loan:30",
+    "loan:308",
+    "loan:34",
+    "loan:360",
+    "loan:407",
+    "loan:43",
+    "loan:433",
+    "loan:515",
+    "loan:553",
+    "loan:580",
+    "loan:644",
+    "loan:711",
+    "loan:773",
+    "loan:921"
+  ],
+  "setup_keys": [
+    "product:00010"
+  ],
+  "retry_roots": [
+    "loan:103",
+    "loan:125",
+    "loan:139",
+    "loan:159",
+    "loan:172",
+    "loan:1784",
+    "loan:200",
+    "loan:283"
+  ],
+  "runtime_controls": {
+    "workers": 2,
+    "pause_seconds": 30.0,
+    "recovery_attempts": 3
+  },
+  "source_chronology": {
+    "actual_disbursement": "2024-09-19",
+    "expected_disbursement": "2024-09-20",
+    "first_interest_payment": {
+      "source_movement": "0000005349",
+      "date": "2024-09-24",
+      "amount": "1.10",
+      "principal": "0.00",
+      "interest": "1.10",
+      "fee": "0.00",
+      "penalty": "0.00"
+    },
+    "first_contractual_due": "2024-10-20",
+    "first_contractual_interest": "130.82",
+    "first_contractual_principal": "42.22"
+  },
+  "repair_bounds": {
+    "temporary_recalculation_only": true,
+    "empty_prefix_only": true,
+    "transaction_not_before_disbursement": true,
+    "all_full_schedule_due_dates_strictly_after_payment": true,
+    "full_schedule_charged_interest_covers_entire_declared_interest": true,
+    "returned_early_payment_component": "principal only",
+    "full_schedule_mutated_for_proof": false,
+    "nonempty_and_final_posting_guards_retained": true
+  },
+  "tests": {
+    "java_total": 77,
+    "new_interest_regressions": 16,
+    "source_exact_penalty_regressions": 17,
+    "existing_processor_tests": 39,
+    "orm_preview_isolation": 5,
+    "valid_before_fix": {
+      "tests": 15,
+      "failures": 3,
+      "errors": 0
+    },
+    "result": "passed",
+    "scoped_spotless": "passed"
+  },
+  "backend_reload": {
+    "frozen_workflow_restart_policy": true,
+    "seconds": 85.08,
+    "financial_hashes_unchanged": true,
+    "liquibase_before": 2103,
+    "liquibase_after": 2103,
+    "processor_source_sha256": "0ec1ff0d66788ffcc51637fd8ff60959f5421c8e46c91ebdb133be605c7890c0",
+    "parent_workflow_queued": false,
+    "reset": false
+  },
+  "apply_counts": {
+    "unchanged": 1,
+    "loans_recovered": 31,
+    "loans_failed": 3,
+    "metrics_reconciled": 31,
+    "metrics_adjusted": 1,
+    "accrual_controls_reconciled": 3
+  },
+  "official_reconciliation": {
+    "persisted": true,
+    "ok": false,
+    "counts": {
+      "loans": 31,
+      "staff_assignments": 31,
+      "mora_terms": 31,
+      "legacy_timelines": 6,
+      "failed": 3,
+      "accrual_controls_reconciled": 3,
+      "guarantor_relationships": 1,
+      "products": 1,
+      "client_office_transfers_expected": 1,
+      "client_office_transfers_matched": 1
+    },
+    "blocking_mismatch_count": 0,
+    "variance_count": 343,
+    "variance_groups": [
+      {
+        "kind": "schedule_due_date",
+        "classification": "native_recalculated_schedule_variance",
+        "count": 59
+      },
+      {
+        "kind": "schedule_installment_count",
+        "classification": "native_recalculated_schedule_variance",
+        "count": 31
+      },
+      {
+        "kind": "schedule_installment_number",
+        "classification": "native_recalculated_schedule_variance",
+        "count": 54
+      },
+      {
+        "kind": "schedule_interest",
+        "classification": "native_recalculated_schedule_variance",
+        "count": 84
+      },
+      {
+        "kind": "schedule_interest_total",
+        "classification": "native_recalculated_schedule_variance",
+        "count": 31
+      },
+      {
+        "kind": "schedule_principal",
+        "classification": "native_recalculated_schedule_variance",
+        "count": 84
+      }
+    ],
+    "limit": "31 recovered loans have zero blocking mismatches; three failed cutover-charge recovery items keep overall ok=false."
+  },
+  "loan_results": [
+    {
+      "source_key": "loan:14",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 14,
+      "native_status": 600,
+      "planned_event_count": 6,
+      "represented_event_count": 6,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:25",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 23,
+      "native_status": 600,
+      "planned_event_count": 5,
+      "represented_event_count": 5,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:29",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 26,
+      "native_status": 600,
+      "planned_event_count": 9,
+      "represented_event_count": 9,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:30",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 27,
+      "native_status": 600,
+      "planned_event_count": 5,
+      "represented_event_count": 5,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:34",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 31,
+      "native_status": 600,
+      "planned_event_count": 5,
+      "represented_event_count": 5,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:43",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 40,
+      "native_status": 600,
+      "planned_event_count": 4,
+      "represented_event_count": 4,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:101",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1,
+      "native_status": 600,
+      "planned_event_count": 6,
+      "represented_event_count": 6,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:103",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1155,
+      "native_status": 600,
+      "planned_event_count": 7,
+      "represented_event_count": 7,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:125",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1154,
+      "native_status": 600,
+      "planned_event_count": 5,
+      "represented_event_count": 5,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:139",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1156,
+      "native_status": 600,
+      "planned_event_count": 15,
+      "represented_event_count": 15,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:159",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1157,
+      "native_status": 600,
+      "planned_event_count": 9,
+      "represented_event_count": 9,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:172",
+      "status": "failed",
+      "error_code": "existing_insurance_charge_outstanding_mismatch:ARISSTO:CRD-INS-CUTOVER:172",
+      "native_exists": true,
+      "target_id": 1158,
+      "native_status": 300,
+      "planned_event_count": 2,
+      "represented_event_count": 2,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:200",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1159,
+      "native_status": 600,
+      "planned_event_count": 6,
+      "represented_event_count": 6,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:283",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1144,
+      "native_status": 600,
+      "planned_event_count": 8,
+      "represented_event_count": 8,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:308",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1162,
+      "native_status": 600,
+      "planned_event_count": 7,
+      "represented_event_count": 7,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:360",
+      "status": "failed",
+      "error_code": "existing_insurance_charge_outstanding_mismatch:ARISSTO:CRD-INS-CUTOVER:360",
+      "native_exists": true,
+      "target_id": 1161,
+      "native_status": 300,
+      "planned_event_count": 10,
+      "represented_event_count": 10,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:407",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 279,
+      "native_status": 600,
+      "planned_event_count": 7,
+      "represented_event_count": 7,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:433",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1163,
+      "native_status": 600,
+      "planned_event_count": 7,
+      "represented_event_count": 7,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:515",
+      "status": "failed",
+      "error_code": "existing_insurance_charge_outstanding_mismatch:ARISSTO:CRD-INS-CUTOVER:515",
+      "native_exists": true,
+      "target_id": 1164,
+      "native_status": 300,
+      "planned_event_count": 11,
+      "represented_event_count": 11,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:553",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1145,
+      "native_status": 600,
+      "planned_event_count": 9,
+      "represented_event_count": 9,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:580",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1165,
+      "native_status": 600,
+      "planned_event_count": 11,
+      "represented_event_count": 11,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:644",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1160,
+      "native_status": 600,
+      "planned_event_count": 5,
+      "represented_event_count": 5,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:711",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1166,
+      "native_status": 600,
+      "planned_event_count": 13,
+      "represented_event_count": 13,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:773",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1167,
+      "native_status": 300,
+      "planned_event_count": 54,
+      "represented_event_count": 54,
+      "missing_events": [],
+      "first_interest_payment": {
+        "id": 25274,
+        "externalId": "ARISSTO:CRD-MOV:0000005349",
+        "date": [
+          2024,
+          9,
+          24
+        ],
+        "amount": 1.1,
+        "principalPortion": 0,
+        "interestPortion": 1.1,
+        "feeChargesPortion": 0,
+        "penaltyChargesPortion": 0
+      },
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:921",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1146,
+      "native_status": 300,
+      "planned_event_count": 23,
+      "represented_event_count": 23,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:1178",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 2,
+      "native_status": 600,
+      "planned_event_count": 11,
+      "represented_event_count": 11,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:1482",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 3,
+      "native_status": 600,
+      "planned_event_count": 12,
+      "represented_event_count": 12,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:1784",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1147,
+      "native_status": 600,
+      "planned_event_count": 10,
+      "represented_event_count": 10,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:1897",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1148,
+      "native_status": 600,
+      "planned_event_count": 10,
+      "represented_event_count": 10,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:1962",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1149,
+      "native_status": 600,
+      "planned_event_count": 11,
+      "represented_event_count": 11,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:2055",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1150,
+      "native_status": 600,
+      "planned_event_count": 8,
+      "represented_event_count": 8,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:2165",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1151,
+      "native_status": 600,
+      "planned_event_count": 8,
+      "represented_event_count": 8,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:2265",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1152,
+      "native_status": 600,
+      "planned_event_count": 12,
+      "represented_event_count": 12,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:2402",
+      "status": "recovered",
+      "error_code": null,
+      "native_exists": true,
+      "target_id": 1153,
+      "native_status": 300,
+      "planned_event_count": 5,
+      "represented_event_count": 5,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    }
+  ],
+  "new_discovery": {
+    "new_issue": "LS-31",
+    "loans": [
+      {
+        "source_key": "loan:172",
+        "target_id": 1158,
+        "frozen_cutover_charge": {
+          "amount": "12.54",
+          "charge_id": 2,
+          "classification": "source_insurance_cutover_outstanding",
+          "due_date": "2023-09-21",
+          "external_id": "ARISSTO:CRD-INS-CUTOVER:172"
+        },
+        "current_charge_rows": [
+          {
+            "id": 5101,
+            "external_id": "ARISSTO:CRD-INS-CUTOVER:172",
+            "active": true,
+            "amount": "0.000000",
+            "paid": "0.000000",
+            "outstanding": "0.000000"
+          },
+          {
+            "id": 5194,
+            "external_id": "ARISSTO:CRD-METRICS:INS:1158",
+            "active": true,
+            "amount": "12.540000",
+            "paid": "0.000000",
+            "outstanding": "12.540000"
+          }
+        ],
+        "final_metric_matches": 8,
+        "continuation_ready": true,
+        "expected_insurance_outstanding": "12.54"
+      },
+      {
+        "source_key": "loan:360",
+        "target_id": 1161,
+        "frozen_cutover_charge": {
+          "amount": "7.82",
+          "charge_id": 2,
+          "classification": "source_insurance_cutover_outstanding",
+          "due_date": "2024-07-09",
+          "external_id": "ARISSTO:CRD-INS-CUTOVER:360"
+        },
+        "current_charge_rows": [
+          {
+            "id": 5125,
+            "external_id": "ARISSTO:CRD-INS-CUTOVER:360",
+            "active": true,
+            "amount": "0.000000",
+            "paid": "0.000000",
+            "outstanding": "0.000000"
+          },
+          {
+            "id": 5199,
+            "external_id": "ARISSTO:CRD-METRICS:INS:1161",
+            "active": true,
+            "amount": "7.820000",
+            "paid": "0.000000",
+            "outstanding": "7.820000"
+          }
+        ],
+        "final_metric_matches": 8,
+        "continuation_ready": true,
+        "expected_insurance_outstanding": "7.82"
+      },
+      {
+        "source_key": "loan:515",
+        "target_id": 1164,
+        "frozen_cutover_charge": {
+          "amount": "6.45",
+          "charge_id": 2,
+          "classification": "source_insurance_cutover_outstanding",
+          "due_date": "2026-05-26",
+          "external_id": "ARISSTO:CRD-INS-CUTOVER:515"
+        },
+        "current_charge_rows": [
+          {
+            "id": 5149,
+            "external_id": "ARISSTO:CRD-INS-CUTOVER:515",
+            "active": true,
+            "amount": "0.000000",
+            "paid": "0.000000",
+            "outstanding": "0.000000"
+          },
+          {
+            "id": 5206,
+            "external_id": "ARISSTO:CRD-METRICS:INS:1164",
+            "active": true,
+            "amount": "7.410000",
+            "paid": "0.960000",
+            "outstanding": "6.450000"
+          }
+        ],
+        "final_metric_matches": 8,
+        "continuation_ready": true,
+        "expected_insurance_outstanding": "6.45"
+      }
+    ],
+    "read_only_target_unchanged": true
+  },
+  "payment_exclusion": {
+    "source_movement": "0000034318",
+    "still_excluded_from_frozen_921_history": true,
+    "target_any_namespace_count": 0,
+    "scoped_post_boundary_transaction_count": 0
+  },
+  "preservation": {
+    "immutable_plan_unchanged": true,
+    "outside_scope_unchanged": true,
+    "outside_before": {
+      "loans": {
+        "rows": 1133,
+        "sha256": "c8564133a5392589bd1cdee601b160fe1603103381670528f5207cd7d2de5e7b"
+      },
+      "transactions": {
+        "rows": 24725,
+        "sha256": "c38ec0d06e7bc097944490ef49dff5eaa6893f7091fc94588b83900e8e93f47c"
+      },
+      "schedules": {
+        "rows": 21195,
+        "sha256": "1a900878375447345c5e300422efc6e17b8bcddc53b3e6c977b1006c73362def"
+      },
+      "charges": {
+        "rows": 4973,
+        "sha256": "ea34575f6c924946c55b80d227185ad47ca0289dab5c9633fbdac28042fc4627"
+      },
+      "clients": {
+        "rows": 1070,
+        "sha256": "66e7a59e11fb3fa1ddb4426e1e60f9fe88f0a1f6f7a7d78103c67661cce40e56"
+      },
+      "products": {
+        "rows": 2,
+        "sha256": "9c06ba686fce342d9ff6dbcc9f674504bb91e5989b5b8355aede4fa4a77a57d8"
+      },
+      "journals": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "m_loan_charge_paid_by": {
+        "rows": 10035,
+        "sha256": "28d1f82f8e8965975421bb2e5bb1c3c17ff9e0f1b808a67e1ba3cda49f6fe537"
+      },
+      "m_loan_transaction_repayment_schedule_mapping": {
+        "rows": 25984,
+        "sha256": "59d5dbbec695146992740fb0b5b4c4fb94c890a6495874b053c6bb6770993f0a"
+      }
+    },
+    "outside_after": {
+      "loans": {
+        "rows": 1133,
+        "sha256": "c8564133a5392589bd1cdee601b160fe1603103381670528f5207cd7d2de5e7b"
+      },
+      "transactions": {
+        "rows": 24725,
+        "sha256": "c38ec0d06e7bc097944490ef49dff5eaa6893f7091fc94588b83900e8e93f47c"
+      },
+      "schedules": {
+        "rows": 21195,
+        "sha256": "1a900878375447345c5e300422efc6e17b8bcddc53b3e6c977b1006c73362def"
+      },
+      "charges": {
+        "rows": 4973,
+        "sha256": "ea34575f6c924946c55b80d227185ad47ca0289dab5c9633fbdac28042fc4627"
+      },
+      "clients": {
+        "rows": 1070,
+        "sha256": "66e7a59e11fb3fa1ddb4426e1e60f9fe88f0a1f6f7a7d78103c67661cce40e56"
+      },
+      "products": {
+        "rows": 2,
+        "sha256": "9c06ba686fce342d9ff6dbcc9f674504bb91e5989b5b8355aede4fa4a77a57d8"
+      },
+      "journals": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "m_loan_charge_paid_by": {
+        "rows": 10035,
+        "sha256": "28d1f82f8e8965975421bb2e5bb1c3c17ff9e0f1b808a67e1ba3cda49f6fe537"
+      },
+      "m_loan_transaction_repayment_schedule_mapping": {
+        "rows": 25984,
+        "sha256": "59d5dbbec695146992740fb0b5b4c4fb94c890a6495874b053c6bb6770993f0a"
+      }
+    },
+    "global_counts_before": [
+      1167,
+      25273,
+      0
+    ],
+    "global_counts_after": [
+      1167,
+      25352,
+      0
+    ],
+    "count_order": [
+      "loans",
+      "loan_transactions",
+      "gl_entries"
+    ],
+    "duplicate_scoped_source_transaction_ids": [],
+    "transfer_history_rows": 2,
+    "accepted_921_transfer_pair_count": 2,
+    "read_only_final_verification_target_unchanged": true,
+    "scheduler_paused": true,
+    "active_boundary_unchanged": true,
+    "parent_workflow_status": "interrupted",
+    "new_cycle": false,
+    "reset": false,
+    "broader_workflow_resume": false
+  },
+  "ui_static_review": {
+    "transaction_list": "mifos-core/src/app/loans/loans-view/transactions-tab/transactions-tab.component.html",
+    "repayment_form": "mifos-core/src/app/loans/loans-view/loan-account-actions/make-repayment/make-repayment.component.html",
+    "binding": "interestPortion displayed separately from principalPortion using formatNumber; existing native transaction fields and submit contract unchanged",
+    "labels": {
+      "en-US": "Interest",
+      "es-MX": "Inter\u00e9s"
+    },
+    "browser_or_ui_tests_run": false
+  },
+  "acceptance_limit": "LS-05 demonstrated loan773 fixed and individually verified; six baseline interest-only cases remain unverified. LS-31 cutover-insurance guards were not bypassed or repaired. LS-30 prior outside-row discovery remains separate."
+}
