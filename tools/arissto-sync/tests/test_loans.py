@@ -4200,10 +4200,6 @@ class LoanInspectionTests(unittest.TestCase):
     def test_apply_guard_accepts_frozen_quarantine_and_rejects_reason_drift(self):
         loan = {"ID_CREDITO": 346, "line_id": "00010"}
         source_product = {"line_id": "00010"}
-        lifecycle = {"refinance": None, "events": []}
-        source_hash = _stable_hash({
-            "header": loan, "lifecycle": _loan_source_hash_view(lifecycle),
-        })
         settings = SimpleNamespace(
             target=SimpleNamespace(name="local", fingerprint="sandbox"),
             source=SimpleNamespace(),
@@ -4223,9 +4219,20 @@ class LoanInspectionTests(unittest.TestCase):
             ("changed quarantine", "quarantine-loan", ["old_source_problem"],
              ["new_source_problem"], False),
             ("resolved quarantine", "quarantine-loan", ["old_source_problem"], [], False),
+            ("frozen missing metrics", "quarantine-loan",
+             ["missing_final_metric_source_snapshot"], [], True),
+            ("newly missing metrics", "create-loan", [], [], False),
+            ("metrics became available", "quarantine-loan",
+             ["missing_final_metric_source_snapshot"], [], False),
         ]
         for label, disposition, planned_reasons, rebuilt_reasons, accepted in cases:
             with self.subTest(label=label):
+                lifecycle = {"refinance": None, "events": []}
+                if label not in {"frozen missing metrics", "newly missing metrics"}:
+                    lifecycle["final_metric_alignment"] = {"revision": 1}
+                source_hash = _stable_hash({
+                    "header": loan, "lifecycle": _loan_source_hash_view(lifecycle),
+                })
                 action = {
                     "entity_type": "loan", "entity_source_key": "346",
                     "source_key": "loan:346", "external_id": "ARISSTO:CRD:346",

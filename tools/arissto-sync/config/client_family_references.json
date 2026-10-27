@@ -21,7 +21,7 @@
     "Esposo(a)/Pareja": ["ESPOSO", "ESPOSA", "ESPOSOS", "ESPESA", "CONYUGE", "CONYUGUE", "PAREJA", "COMPAÑERA DE VIDA", "COMPAÑERO DE VIDA", "COM. DE VIDA", "COMP. DE VIDA", "NOVIA"],
     "Tío(a)": ["TIO", "TIA", "TÍO", "TÍA"],
     "Sobrino(a)": ["SOBRINO", "SOBRINA", "SOBBRINA"],
-    "Cuñado(a)": ["CUÑADO", "CUÑADA"],
+    "Cuñado(a)": ["CUÑADO", "CUÑADA", "CUÑANA"],
     "Suegro(a)": ["SUEGRO", "SUEGRA"],
     "Yerno/Nuera": ["YERNO", "NUERA"],
     "Abuelo(a)": ["ABUELO", "ABUELA"],

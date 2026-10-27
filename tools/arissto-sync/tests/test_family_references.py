@@ -51,6 +51,7 @@ class FamilyReferenceContractTests(unittest.TestCase):
     def test_relationship_variants_are_accent_and_case_insensitive(self):
         self.assertEqual(self.contract.relationship_label(" mamá "), "Padre/Madre")
         self.assertEqual(self.contract.relationship_label("CONYUGUE"), "Esposo(a)/Pareja")
+        self.assertEqual(self.contract.relationship_label("CUÑANA"), "Cuñado(a)")
         self.assertEqual(self.contract.relationship_label(None), "Sin especificar")
 
     def test_payload_preserves_source_without_inventing_unknowns(self):

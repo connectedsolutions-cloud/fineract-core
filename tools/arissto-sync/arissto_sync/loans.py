@@ -5032,6 +5032,11 @@ def _loan_apply_guard(
             ) if current and source_product else None
             if rebuilt_lifecycle is not None:
                 rebuilt_lifecycle = _guard_unmapped_loan_events(rebuilt_lifecycle, current)
+                # Repeat the planner's final-metric completeness check before
+                # comparing intrinsic reasons; a frozen quarantine is not drift.
+                if (document.get("migration_cutover_date") and rebuilt_lifecycle.get("lifecycle")
+                        and not rebuilt_lifecycle["lifecycle"].get("final_metric_alignment")):
+                    rebuilt_lifecycle["quarantine_reasons"].append("missing_final_metric_source_snapshot")
             # The plan may intentionally freeze a quarantine. Chain markers are
             # added after each intrinsic lifecycle is built, so compare only the
             # intrinsic reasons here and keep the frozen disposition unchanged.
