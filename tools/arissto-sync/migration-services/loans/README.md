@@ -41,6 +41,11 @@ corroborated source-day window before later ordinary payments. Both 1572 and
 checks, and six native COB days with recalculation enabled. This is scoped
 loan-block acceptance; no whole-tenant reset or composed workflow was run.
 
+The [historical refinance source-window contract](historical-refinance-source-window.md)
+adds a source-proven single same-owner historical top-up projection before later
+ordinary payments. The loan 921 same-cycle plan preserves its original lifecycle
+and excludes the October 27 payment; financial replay acceptance remains pending.
+
 ## Stable identity
 
 ```text
