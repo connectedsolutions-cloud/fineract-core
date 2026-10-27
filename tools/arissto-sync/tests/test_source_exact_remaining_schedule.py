@@ -437,6 +437,7 @@ class SourceExactRemainingScheduleTests(unittest.TestCase):
         lifecycle["events"] = lifecycle["events"][:1]
         lifecycle["cutover_insurance_charge"] = None
         lifecycle["recurring_insurance_charge"] = None
+        lifecycle["mora_terms"]["fineract_starts_on"] = "2026-06-21"
         pending = {
             "id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
             "status": {"id": 100}, "transactions": [],
@@ -473,6 +474,7 @@ class SourceExactRemainingScheduleTests(unittest.TestCase):
         lifecycle["events"] = lifecycle["events"][:1]
         lifecycle["cutover_insurance_charge"] = None
         lifecycle["recurring_insurance_charge"] = None
+        lifecycle["mora_terms"]["fineract_starts_on"] = "2026-06-21"
         disbursement_date = lifecycle["events"][0]["date"]
         contractual_date = (datetime.fromisoformat(disbursement_date).date()
                             + timedelta(days=2)).isoformat()

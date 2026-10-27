@@ -31,11 +31,12 @@ methods, verified source whole-loan freeze history, and the native state checks
 that precede final amount reconciliation. The approved source control pauses/resumes interest and mora together; it is
 not inferred from balances.
 
-The [COB continuation repair](cob-continuation-repair.md) records a passed
-fresh isolated recalculation-enabled replay of 1572/1826 and six native COB
-days, including balance and accounting checks. Regression tests cover the
-joint freeze/resume boundary. The earlier failed diagnostic is retained;
-this scoped proof did not run a composed canonical workflow.
+The [actual CLI loan-sync/COB acceptance](loan-flow-cob-acceptance.md) closes
+the two planning blockers: a reviewed enable-only product update and a
+corroborated source-day window before later ordinary payments. Both 1572 and
+1826 passed official plan/apply/reconcile, final eight-metric and shared-control
+checks, and six native COB days with recalculation enabled. This is scoped
+loan-block acceptance; no whole-tenant reset or composed workflow was run.
 
 ## Stable identity
 

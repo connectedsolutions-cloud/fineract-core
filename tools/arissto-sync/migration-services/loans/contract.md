@@ -1,5 +1,14 @@
 # Loans contract
 
+## Source-day planning and product enablement — verified 2026-10-26
+
+The [normal CLI acceptance and planning contract](loan-flow-cob-acceptance.md)
+cover conservative dated reconstruction before later ordinary payments, guarded
+recalculation enablement, final metric/control reconciliation, and native COB.
+Unsupported temporal histories retain quarantine. All eight final metrics are
+aligned after migration mutations; exact source/native schedule equality is
+not an interest-recalculation activation gate.
+
 ## Scope and ownership
 
 The loans service is the sole migration owner of native Fineract loans and their

@@ -1,5 +1,7 @@
 # Interest recalculation activation
 
+The [actual loan CLI acceptance](loan-flow-cob-acceptance.md) verifies product enablement, new recalculation-enabled loans, final reconciliation and six native COB days for 1572/1826. Existing disabled products can receive a guarded enable-only update; incompatible already-enabled settings remain conflicts.
+
 ## Approved scope — 2026-10-26
 
 Enable native interest recalculation for every newly created sync product and

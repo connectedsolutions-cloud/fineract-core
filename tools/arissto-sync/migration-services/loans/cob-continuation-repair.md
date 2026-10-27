@@ -1,5 +1,7 @@
 # Reconciled loan continuation: COB repair — 2026-10-26
 
+**Later normal-CLI acceptance:** [planning repairs and actual loan-sync/COB evidence](loan-flow-cob-acceptance.md) supersede the archived-lifecycle limitation. The dated evidence below is retained.
+
 **Scoped local acceptance passed.** Fresh isolated loans for source 1572 and
 1826 were created with interest recalculation enabled, their complete frozen
 source histories replayed, all eight opening metrics aligned, and six native

@@ -1,11 +1,11 @@
 # Final loan metric reconciliation
 
-**COB repair verified locally — 2026-10-26:** the
-[recalculation-enabled continuation proof](cob-continuation-repair.md) passed six
-native COB days on fresh isolated 1572/1826 loans, including native interest
-postings and mora. Joint freeze/resume boundaries have regression coverage.
-The earlier failed diagnostic is retained; a composed canonical workflow was
-not run for this scoped acceptance.
+**Actual loan sync and COB verified locally — 2026-10-26:** the
+[normal CLI acceptance](loan-flow-cob-acceptance.md) planned, applied and
+reconciled 1572/1826 with recalculation enabled, then passed six native COB
+days and independent balance/accounting checks. This supersedes the archived
+lifecycle limitation of the first repair proof. A whole-portfolio composed
+workflow was not run.
 
 ## Approved use — 2026-10-26
 

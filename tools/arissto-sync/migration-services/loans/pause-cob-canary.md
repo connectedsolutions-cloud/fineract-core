@@ -1,5 +1,7 @@
 # Shared interest/mora pause: live COB canary — 2026-10-26
 
+**Later normal-CLI acceptance:** [planning repairs and actual loan-sync/COB evidence](loan-flow-cob-acceptance.md) supersede the archived-lifecycle limitation. The dated evidence below is retained.
+
 **Superseded diagnostic:** see the [passed repair and fresh recalculation-enabled proof](cob-continuation-repair.md). The dated failure below is retained as evidence.
 
 **Outcome: failed acceptance.** Remaining frozen works in the tested loan;

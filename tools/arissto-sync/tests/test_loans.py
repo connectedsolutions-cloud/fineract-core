@@ -33,9 +33,13 @@ from arissto_sync.loans import (
     _ensure_source_exact_initial_manual_schedule,
     _ensure_pending_native_creation_override,
     _ensure_source_exact_accrual_catchup,
+    _ensure_source_exact_freeze_history,
+    _ensure_cutover_interest_balance,
+    _assert_active_cutover_components,
     _validate_existing_loan,
     _ensure_source_exact_resync_schedule,
     _ensure_source_insurance_charges,
+    _ensure_source_mora_opening_charge,
     _verify_historical_insurance_charge_settlement,
     _ensure_source_penalty_charge,
     _ensure_refinance_prepayment_ready,
@@ -48,6 +52,7 @@ from arissto_sync.loans import (
     _stable_hash,
     _mark_unchanged_mapped_loans,
     _freeze_full_resync_schedule_guards,
+    _guard_unmapped_loan_events,
     _proof_namespace_lifecycle,
     _refinance_component_bridge,
     _refinance_components,
@@ -892,11 +897,13 @@ class LoanInspectionTests(unittest.TestCase):
         codes.update(product["portfolio_account_policy"]["reviewed_short_interest_receivable_gl_by_line"].values())
         codes.update(product["portfolio_account_policy"]["reviewed_long_interest_receivable_gl_by_line"].values())
         codes.add(product["target_resources"]["debt_insurance_charge"]["income_or_liability_gl"])
+        codes.add(product["target_resources"]["daily_mora_charge"]["income_or_liability_gl"])
         codes.add(product["target_resources"]["historical_debt_insurance_charge"]["income_or_liability_gl"])
         codes.add(product["target_resources"]["mobile_collection_fund_source_gl"])
         return {
             "gl_ids": {code: index + 100 for index, code in enumerate(sorted(codes))},
             "debt_insurance_charge_id": 8,
+            "daily_mora_charge_id": 12,
             "historical_debt_insurance_charge_id": 10,
             "historical_penalty_charge_id": 11,
             "mobile_collection_payment_type_id": 9,
@@ -947,6 +954,9 @@ class LoanInspectionTests(unittest.TestCase):
         response["feeToIncomeAccountMappings"] = [{
             "charge": {"id": item["chargeId"]}, "incomeAccount": {"id": item["incomeAccountId"]},
         } for item in payload["feeToIncomeAccountMappings"]]
+        response["penaltyToIncomeAccountMappings"] = [{
+            "charge": {"id": item["chargeId"]}, "incomeAccount": {"id": item["incomeAccountId"]},
+        } for item in payload["penaltyToIncomeAccountMappings"]]
         return response
 
     def lifecycle_fixture(self):
@@ -2717,6 +2727,10 @@ class LoanInspectionTests(unittest.TestCase):
         }
 
         result = _proof_namespace_lifecycle(lifecycle, "allocation-1")
+        self.assertEqual(
+            result["mora_opening_charge_external_id"],
+            "PROOF:allocation-1:ARISSTO:CRD-MORA-CUTOVER:1",
+        )
 
         identifiers = [result["application_payload"]["externalId"]]
         identifiers.extend(value for key, value in result["events"][0].items() if key.endswith("external_id"))
@@ -3649,6 +3663,7 @@ class LoanInspectionTests(unittest.TestCase):
         lifecycle["application"]["FECHA_APROBADO"] = "2026-07-01"
         lifecycle["application"]["FECHA_RESOLUCION"] = "2026-07-02"
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        built["lifecycle"]["mora_terms"]["fineract_starts_on"] = "2026-06-21"
         action = {"entity_source_key": "2068", "external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
         pending = {"id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
                    "status": {"id": 100}, "transactions": [],
@@ -3697,6 +3712,10 @@ class LoanInspectionTests(unittest.TestCase):
                 datatable_api_payload(built["lifecycle"]["staff_assignment"]),
             ),
             call(
+                "credesal_loan_mora_terms", "55",
+                datatable_api_payload(built["lifecycle"]["mora_terms"]),
+            ),
+            call(
                 "credesal_loan_legacy_timeline", "55",
                 datatable_api_payload(built["lifecycle"]["legacy_timeline"]),
             ),
@@ -3723,6 +3742,7 @@ class LoanInspectionTests(unittest.TestCase):
         repayment = built["lifecycle"]["events"][-1]
         built["lifecycle"]["migration_cutover_date"] = repayment["date"]
         built["lifecycle"]["cutover_insurance_charge"]["amount"] = "0.10"
+        built["lifecycle"]["mora_terms"]["fineract_starts_on"] = "2026-06-21"
         action = {
             "action": "recover-loan",
             "entity_source_key": "2068",
@@ -3843,6 +3863,7 @@ class LoanInspectionTests(unittest.TestCase):
             "terminal_adjustment": None,
             "migration_cutover_date": "2026-09-16",
         })
+        built["lifecycle"]["mora_terms"]["fineract_starts_on"] = "2026-06-21"
         action = {"entity_source_key": "2068", "external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
         original_transaction = {
             "id": 1,
@@ -3880,6 +3901,7 @@ class LoanInspectionTests(unittest.TestCase):
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
         built["lifecycle"]["cutover_insurance_charge"] = None
         built["lifecycle"]["recurring_insurance_charge"] = None
+        built["lifecycle"]["mora_terms"]["fineract_starts_on"] = "2026-06-21"
         action = {"entity_source_key": "2068", "external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
         active = {
             "id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
@@ -3922,6 +3944,7 @@ class LoanInspectionTests(unittest.TestCase):
         built["lifecycle"]["cutover_insurance_charge"] = None
         built["lifecycle"]["recurring_insurance_charge"] = None
         built["lifecycle"]["terminal_adjustment"] = None
+        built["lifecycle"]["mora_terms"]["fineract_starts_on"] = "2026-06-21"
         action = {"entity_source_key": "2068", "external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
         active = {
             "id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
@@ -3958,6 +3981,7 @@ class LoanInspectionTests(unittest.TestCase):
         built["lifecycle"]["cutover_insurance_charge"] = None
         built["lifecycle"]["recurring_insurance_charge"] = None
         built["lifecycle"]["events"] = []
+        built["lifecycle"]["mora_terms"]["fineract_starts_on"] = "2026-06-21"
         action = {"entity_source_key": "2068", "external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
         calculated = self.calculated_schedule(built["lifecycle"])
         calculated["periods"][0]["interestDue"] = "12.01"
@@ -4057,6 +4081,7 @@ class LoanInspectionTests(unittest.TestCase):
             "predecessor_external_id": "ARISSTO:CRD:2096",
             "settlement_classifier": "historical-post-payoff-state-v2",
         }
+        built["lifecycle"]["mora_terms"]["fineract_starts_on"] = "2026-06-21"
         action = {"external_id": "ARISSTO:CRD:2243", "lifecycle": built["lifecycle"]}
         predecessor = {"id": 342, "clientId": 900}
         pending = {
@@ -4090,6 +4115,7 @@ class LoanInspectionTests(unittest.TestCase):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
         built["lifecycle"]["refinance"] = {"predecessor_external_id": "ARISSTO:CRD:2096"}
+        built["lifecycle"]["mora_terms"]["fineract_starts_on"] = "2026-06-21"
         action = {"external_id": "ARISSTO:CRD:2243", "lifecycle": built["lifecycle"]}
 
         with self.assertRaisesRegex(RuntimeError, "loan_plan_predates_historical_refinance_classifier"):
@@ -4109,6 +4135,7 @@ class LoanInspectionTests(unittest.TestCase):
                 {"predecessor_external_id": "ARISSTO:CRD:2", "settlement_type": "PARTIAL_PAYDOWN"},
             ],
         }
+        built["lifecycle"]["mora_terms"]["fineract_starts_on"] = "2026-06-21"
         action = {"external_id": "ARISSTO:CRD:3", "lifecycle": built["lifecycle"]}
         full = {"id": 31, "clientId": 900}
         partial = {"id": 44, "clientId": 900}
@@ -4140,6 +4167,7 @@ class LoanInspectionTests(unittest.TestCase):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
         built["lifecycle"].pop("interest_recalculation_policy", None)
+        built["lifecycle"]["mora_terms"]["fineract_starts_on"] = "2026-06-21"
         action = {"entity_source_key": "2068", "external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
         calculated = self.calculated_schedule(built["lifecycle"])
         calculated["periods"][0]["dueDate"] = [2026, 6, 27]
@@ -4161,6 +4189,7 @@ class LoanInspectionTests(unittest.TestCase):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
         built["lifecycle"].pop("schedule_writer")
+        built["lifecycle"]["mora_terms"]["fineract_starts_on"] = "2026-06-21"
         action = {"entity_source_key": "2068", "external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
 
         with self.assertRaisesRegex(
@@ -4272,6 +4301,21 @@ class LoanInspectionTests(unittest.TestCase):
             _loan_apply_guard(settings, state, self.contract, "old-plan", None)
         inspect.assert_not_called()
 
+    def test_apply_guard_rejects_plan_without_dated_component_guards(self):
+        state = MagicMock()
+        state.plan.return_value = {
+            "block": "loans", "target_fingerprint": "sandbox", "source_fingerprint": "arissto",
+            "contract_hash": self.contract.digest, "document": {"applicable": True},
+        }
+        settings = SimpleNamespace(
+            target=SimpleNamespace(name="local", fingerprint="sandbox"), source=SimpleNamespace(),
+        )
+        with (
+            patch("arissto_sync.loans.source_fingerprint", return_value="arissto"),
+            self.assertRaisesRegex(RuntimeError, "predates_dated_component_and_event_guards"),
+        ):
+            _loan_apply_guard(settings, state, self.contract, "old-plan", None)
+
     def test_closed_source_loan_keeps_cash_exact_and_uses_explicit_cutover_adjustment(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         loan.update({
@@ -4285,6 +4329,7 @@ class LoanInspectionTests(unittest.TestCase):
             built["lifecycle"]["terminal_adjustment"]["external_id"],
             "ARISSTO:CRD-CUTOVER:2068",
         )
+        built["lifecycle"]["mora_terms"]["fineract_starts_on"] = "2026-06-21"
         action = {"entity_source_key": "2068", "external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
         pending = {"id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
                    "status": {"id": 100}, "transactions": [],
@@ -4478,9 +4523,39 @@ class LoanInspectionTests(unittest.TestCase):
         )
         self.assertIsNotNone(built["lifecycle"]["terminal_adjustment"])
 
-    def test_reconcile_validates_balances_transactions_and_balanced_journal(self):
+    def test_cutover_interest_uses_completed_close_without_adding_pending_bucket(self):
+        loan, lifecycle, target, payload = self.lifecycle_fixture()
+        loan["SALDO_INTERES"] = "82.79"
+        loan["SALDO_INTERES_PENDIENTE"] = "82.79"
+        loan["_mora_cutover_snapshot"] = {
+            "SALDO_INTERES": "62.79", "SALDO_VENCIDO_CAPITAL": "25.48",
+            "SALDO_MORA": "0.00", "INTERES_MORA_APROBADO": "0.42",
+            "SALDO_PAGADO_CAPITAL": "100.00", "SALDO_RECARGOS": "2.00",
+            "SALDO_SEGURO": "3.00", "SALDO_TOTAL": "317.79",
+            "ID_ESTADO_CARTERA": 1,
+        }
+        built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        self.assertEqual(
+            built["lifecycle"]["expected"]["principal_balance"],
+            format(Decimal(str(loan["MONTO_DESEMBOLSADO"])) - Decimal("100.00"), "f"),
+        )
+        self.assertEqual(built["lifecycle"]["expected"]["interest_balance"], "62.79")
+        self.assertEqual(built["lifecycle"]["expected"]["due_principal_balance"], "25.48")
+        self.assertEqual(built["lifecycle"]["expected"]["penalty_balance"], "2.00")
+        self.assertEqual(built["lifecycle"]["expected"]["fee_balance"], "3.00")
+        self.assertEqual(built["lifecycle"]["expected"]["total_outstanding"], "317.79")
+
+    @patch("arissto_sync.loan_daily_interest_canary.native_interest_as_of",
+           side_effect=lambda loan, day: (Decimal(str(
+               (loan.get("summary") or {}).get("totalUnpaidPayableDueInterest", 0)
+           )) + Decimal(str(
+               (loan.get("summary") or {}).get("totalUnpaidPayableNotDueInterest", 0)
+           ))).quantize(Decimal("0.01")))
+    def test_reconcile_validates_balances_transactions_and_balanced_journal(self, _projection):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        built["lifecycle"]["migration_cutover_date"] = "2026-06-21"
+        built["lifecycle"]["expected"]["due_principal_balance"] = "0.00"
         action = {
             "source_key": "loan:2068", "entity_type": "loan", "external_id": "ARISSTO:CRD:2068",
             "lifecycle": built["lifecycle"],
@@ -4538,6 +4613,15 @@ class LoanInspectionTests(unittest.TestCase):
             "interest_balance", {row["kind"] for row in result["variances"]}
         )
 
+        target_loan["summary"]["penaltyChargesOutstanding"] = .01
+        with (
+            patch("arissto_sync.loans.FineractApi", return_value=api),
+            patch("arissto_sync.loans._find_loan", return_value=target_loan),
+        ):
+            penny_mora = reconcile_loans(settings, state, self.contract, "run")
+        self.assertIn("penalty_balance", {row["kind"] for row in penny_mora["mismatches"]})
+        target_loan["summary"]["penaltyChargesOutstanding"] = 0
+
         target_loan["transactions"][1]["date"] = [2026, 6, 21]
         with (
             patch("arissto_sync.loans.FineractApi", return_value=api),
@@ -4578,12 +4662,33 @@ class LoanInspectionTests(unittest.TestCase):
         self.assertEqual(interest_variance["classification"], "native_interest_recalculation_variance")
         self.assertEqual(interest_variance["source"], "1.90")
         self.assertEqual(interest_variance["target"], "1.80")
-        self.assertEqual(interest_variance["target_components"], {
-            "totalUnpaidPayableDueInterest": "1.00",
-            "totalUnpaidPayableNotDueInterest": "0.80",
-        })
+        self.assertEqual(interest_variance["native_as_of"], "2026-06-21")
         target_loan["summary"]["interestOutstanding"] = 1.9
         target_loan["summary"]["totalUnpaidPayableNotDueInterest"] = .9
+
+        # Due principal is the unpaid part of installments due by the last
+        # Arissto-owned day, not all outstanding principal.
+        built["lifecycle"]["migration_cutover_date"] = "2026-07-01"
+        built["lifecycle"]["expected"]["due_principal_balance"] = "10.00"
+        target_loan["repaymentSchedule"]["periods"][0]["principalOutstanding"] = 10
+        target_loan["repaymentSchedule"]["periods"][1]["principalOutstanding"] = 175
+        with (
+            patch("arissto_sync.loans.FineractApi", return_value=api),
+            patch("arissto_sync.loans._find_loan", return_value=target_loan),
+        ):
+            due_principal_match = reconcile_loans(settings, state, self.contract, "run")
+        self.assertNotIn("due_principal_balance", {row["kind"] for row in due_principal_match["mismatches"]})
+        target_loan["repaymentSchedule"]["periods"][0]["principalOutstanding"] = 9
+        with (
+            patch("arissto_sync.loans.FineractApi", return_value=api),
+            patch("arissto_sync.loans._find_loan", return_value=target_loan),
+        ):
+            due_principal_drift = reconcile_loans(settings, state, self.contract, "run")
+        self.assertIn("due_principal_balance", {row["kind"] for row in due_principal_drift["variances"]})
+        built["lifecycle"]["expected"]["due_principal_balance"] = "0.00"
+        built["lifecycle"]["migration_cutover_date"] = "2026-06-21"
+        target_loan["repaymentSchedule"]["periods"][0].pop("principalOutstanding")
+        target_loan["repaymentSchedule"]["periods"][1].pop("principalOutstanding")
 
         # Approved loans have no generated schedule summary yet. Missing native
         # accrued-interest projections are valid only when the source expects
@@ -4614,8 +4719,8 @@ class LoanInspectionTests(unittest.TestCase):
                 settings, state, self.contract, "run"
             )
         self.assertIn(
-            "target_accrued_interest_projection_missing",
-            {row["kind"] for row in approved_with_source_interest["mismatches"]},
+            "interest_balance",
+            {row["kind"] for row in approved_with_source_interest["variances"]},
         )
         target_loan["status"] = active_status
         target_loan["summary"] = active_summary
@@ -4745,8 +4850,8 @@ class LoanInspectionTests(unittest.TestCase):
             patch("arissto_sync.loans._find_loan", return_value=target_loan),
         ):
             drifted = reconcile_loans(settings, state, self.contract, "run")
-        self.assertTrue(drifted["ok"])
-        self.assertIn("principal_balance", {row["kind"] for row in drifted["variances"]})
+        self.assertFalse(drifted["ok"])
+        self.assertIn("principal_balance", {row["kind"] for row in drifted["mismatches"]})
 
         built["lifecycle"]["expected"]["source_state"] = "3"
         with (
@@ -4756,6 +4861,56 @@ class LoanInspectionTests(unittest.TestCase):
             closed_drift = reconcile_loans(settings, state, self.contract, "run")
         self.assertFalse(closed_drift["ok"])
         self.assertIn("principal_balance", {row["kind"] for row in closed_drift["mismatches"]})
+
+    def test_mora_cutover_uses_unpaid_historical_penalty_before_creating_an_opening_charge(self):
+        api = MagicMock()
+        loan = {"id": 81, "status": {"id": 300},
+                "summary": {"penaltyChargesOutstanding": "0.31"},
+                "charges": [{"externalId": "ARISSTO:CRD-MOV:1:PENALTY", "amountOutstanding": "0.31"}]}
+        action = {"entity_source_key": "1807", "lifecycle": {
+            "mora_terms": {"source_mora_balance": "0.31", "fineract_starts_on": "2026-10-20"},
+            "mora_opening_charge_id": 11,
+        }}
+
+        self.assertIs(_ensure_source_mora_opening_charge(api, loan, action, None), loan)
+        api.request.assert_not_called()
+
+    def test_mora_cutover_posts_only_the_missing_source_balance(self):
+        api = MagicMock()
+        loan = {"id": 81, "status": {"id": 300},
+                "summary": {"penaltyChargesOutstanding": "0.20"}, "charges": []}
+        updated = {"id": 81, "status": {"id": 300},
+                   "summary": {"penaltyChargesOutstanding": "0.31"},
+                   "charges": [{"externalId": "ARISSTO:CRD-MORA-CUTOVER:1807",
+                                "amountOutstanding": "0.11"}]}
+        api.request.side_effect = [{}, updated]
+        action = {"entity_source_key": "1807", "lifecycle": {
+            "mora_terms": {"source_mora_balance": "0.31", "fineract_starts_on": "2026-10-20"},
+            "mora_opening_charge_id": 11,
+        }}
+
+        self.assertIs(_ensure_source_mora_opening_charge(api, loan, action, None), updated)
+        payload = api.request.call_args_list[0].args[2]
+        self.assertEqual(payload["amount"], "0.11")
+        self.assertEqual(payload["dueDate"], "2026-10-19")
+
+    def test_mora_cutover_uses_namespaced_proof_charge_identity(self):
+        api = MagicMock()
+        loan = {"id": 81, "status": {"id": 300},
+                "summary": {"penaltyChargesOutstanding": "0.20"}, "charges": []}
+        external_id = "PROOF:freeze-history-v3:ARISSTO:CRD-MORA-CUTOVER:1826"
+        updated = {"id": 81, "status": {"id": 300},
+                   "summary": {"penaltyChargesOutstanding": "0.31"},
+                   "charges": [{"externalId": external_id, "amountOutstanding": "0.11"}]}
+        api.request.side_effect = [{}, updated]
+        action = {"entity_source_key": "1826", "lifecycle": {
+            "mora_terms": {"source_mora_balance": "0.31", "fineract_starts_on": "2026-10-20"},
+            "mora_opening_charge_id": 11,
+            "mora_opening_charge_external_id": external_id,
+        }}
+
+        self.assertIs(_ensure_source_mora_opening_charge(api, loan, action, None), updated)
+        self.assertEqual(api.request.call_args_list[0].args[2]["externalId"], external_id)
 
     def test_product_payload_is_complete_and_target_specific(self):
         resources = self.target_resources()
@@ -4774,7 +4929,7 @@ class LoanInspectionTests(unittest.TestCase):
         self.assertEqual(payload["maxPrincipal"], "4905.60")
         self.assertEqual(payload["transactionProcessingStrategyCode"],
                          "credesal-accrued-interest-first-strategy")
-        self.assertEqual(payload["charges"], [{"id": 8}])
+        self.assertEqual(payload["charges"], [{"id": 8}, {"id": 12}])
         self.assertEqual(payload["paymentChannelToFundSourceMappings"][0]["paymentTypeId"], 9)
         self.assertTrue(payload["allowVariableInstallments"])
         self.assertTrue(payload["canDefineInstallmentAmount"])
@@ -4812,6 +4967,53 @@ class LoanInspectionTests(unittest.TestCase):
         self.assertTrue(plan["applicable"])
         self.assertEqual(plan["actions"][0]["action"], "update-product")
         self.assertEqual(plan["actions"][0]["payload"]["name"], "00001 C-CONSUMO MULTIDESTINOS")
+
+    def test_insurance_only_product_gets_reviewed_daily_mora_backfill(self):
+        settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target"), source=SimpleNamespace())
+        source_product = self.product("00010", "001", "M-MICROCREDITO MULTIDESTINO")
+        resources = self.target_resources()
+        payload = build_loan_product_payload(self.contract, source_product, resources)
+        existing = self.api_product(payload)
+        existing["charges"] = [{"id": resources["debt_insurance_charge_id"]}]
+        existing["penaltyToIncomeAccountMappings"] = []
+        target = {"resources": resources, "products": {"00010": existing}, "crosswalks": {}}
+        with patch("arissto_sync.loans.source_fingerprint", return_value="source"):
+            plan = compose_loan_plan(settings, self.contract, [self.loan(2068, "00010")], [source_product], target)
+        self.assertTrue(plan["applicable"])
+        self.assertEqual(plan["actions"][0]["action"], "update-product")
+        self.assertTrue(plan["actions"][0]["mora_charge_backfill"])
+
+    def test_disabled_product_gets_enable_only_recalculation_plan(self):
+        settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target"), source=SimpleNamespace())
+        source_product = self.product("00010", "001", "M-MICROCREDITO MULTIDESTINO")
+        resources = self.target_resources()
+        payload = build_loan_product_payload(self.contract, source_product, resources)
+        existing = self.api_product(payload)
+        existing["isInterestRecalculationEnabled"] = False
+        existing.pop("interestRecalculationData")
+        target = {"resources": resources, "products": {"00010": existing}, "crosswalks": {}}
+        with patch("arissto_sync.loans.source_fingerprint", return_value="source"):
+            plan = compose_loan_plan(settings, self.contract, [self.loan(2068, "00010")], [source_product], target)
+        self.assertTrue(plan["applicable"])
+        action = plan["actions"][0]
+        self.assertEqual(action["action"], "update-product")
+        self.assertTrue(action["recalculation_enablement"])
+        updated = self.api_product(payload)
+        api = MagicMock()
+        with patch("arissto_sync.loans._find_loan_product", side_effect=[existing, updated]), patch("arissto_sync.loans.ensure_standard_loan_product_bucket"):
+            _resolve_or_create_loan_product(api, action, existing)
+        request = api.request.call_args.args[2]
+        self.assertTrue(request["isInterestRecalculationEnabled"])
+        self.assertEqual(request["interestRecalculationCompoundingMethod"], 0)
+        # Retry after the product update was accepted must not issue another PUT.
+        api.reset_mock()
+        with patch("arissto_sync.loans._find_loan_product", return_value=updated), patch("arissto_sync.loans.ensure_standard_loan_product_bucket"):
+            _resolve_or_create_loan_product(api, action, existing)
+        api.request.assert_not_called()
+        drifted = copy.deepcopy(existing)
+        drifted["principal"] = "99999"
+        with patch("arissto_sync.loans._find_loan_product", return_value=drifted), self.assertRaisesRegex(RuntimeError, "changed_after_enablement_plan"):
+            _resolve_or_create_loan_product(api, action, existing)
 
     def test_unrelated_product_name_remains_a_conflict(self):
         settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target"), source=SimpleNamespace())
@@ -4873,6 +5075,136 @@ class LoanInspectionTests(unittest.TestCase):
         self.assertEqual(plan["actions"][1]["depends_on"], ["product:00001"])
         self.assertEqual(plan["scope"]["required_product_lines"], ["00001"])
 
+    def test_source_freeze_without_frozen_lifecycle_is_quarantined(self):
+        settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target"), source=SimpleNamespace())
+        source_product = self.product("00001", "002", "C-CONSUMO MULTIDESTINOS")
+        target = {"resources": self.target_resources(), "products": {"00001": None}, "crosswalks": {}}
+        loan = self.loan(24, "00001")
+        loan["_source_freeze_events"] = [{
+            "source_event_id": 17, "blocked": True,
+            "effective_date": "2026-07-28", "recorded_at": "2026-07-28T12:00:00",
+        }]
+        with patch("arissto_sync.loans.source_fingerprint", return_value="source"):
+            plan = compose_loan_plan(
+                settings, self.contract, [loan], [source_product], target, source_keys=["24"],
+            )
+        action = next(row for row in plan["actions"] if row["source_key"] == "loan:24")
+        self.assertEqual(action["action"], "quarantine-loan")
+        self.assertIn("historical_source_freeze_terminal_unsupported", action["quarantine_reasons"])
+
+    def test_active_source_freeze_is_frozen_into_lifecycle_hash(self):
+        events = [{
+            "source_event_id": 17, "blocked": True,
+            "effective_date": "2026-07-28", "recorded_at": "2026-07-28T12:00:00",
+        }]
+        action = {"lifecycle": {"expected": {"source_state": "1"}}, "quarantine_reasons": []}
+        result = _guard_unmapped_loan_events(action, {"_source_freeze_events": events})
+        self.assertEqual(result["quarantine_reasons"], [])
+        self.assertEqual(result["lifecycle"]["source_freeze_events"], events)
+        self.assertEqual(result["lifecycle_hash"], _stable_hash(result["lifecycle"]))
+
+    def test_source_exact_freeze_history_imports_and_verifies_order(self):
+        action = {
+            "external_id": "PROOF:freeze-canary:ARISSTO:CRD:1572",
+            "lifecycle": {
+                "migration_cutover_date": "2026-10-20",
+                "source_freeze_events": [
+                    {"source_event_id": 20, "blocked": True, "effective_date": "2026-02-03"},
+                    {"source_event_id": 21, "blocked": False, "effective_date": "2026-02-03"},
+                    {"source_event_id": 22, "blocked": True, "effective_date": "2026-02-03"},
+                    {"source_event_id": 30, "blocked": False, "effective_date": "2026-04-22"},
+                ],
+            },
+        }
+        expected = [{
+            "sourceEventExternalId": f"PROOF:freeze-canary:ARISSTO:AFI-BLOQUEO:{event['source_event_id']}",
+            "effectiveDate": event["effective_date"],
+            "action": "FREEZE" if event["blocked"] else "UNFREEZE",
+        } for event in action["lifecycle"]["source_freeze_events"]]
+        api = MagicMock()
+        api.request.side_effect = [[], {}, expected]
+        with patch("arissto_sync.loans._find_loan", return_value={"id": 42}):
+            loan = _ensure_source_exact_freeze_history(api, {"id": 42}, action, None)
+        self.assertEqual(loan["id"], 42)
+        command = api.request.call_args_list[1]
+        self.assertEqual(command.kwargs["query"], {"command": "sourceExactFreezeHistory"})
+        self.assertEqual(len(command.args[2]["events"]), 4)
+
+    def test_cutover_interest_waives_only_excess_and_keeps_principal(self):
+        action = {"external_id": "PROOF:pause:ARISSTO:CRD:1826", "entity_source_key": "1826",
+                  "lifecycle": {"migration_cutover_date": "2026-10-20",
+                                "expected": {"source_state": "1", "interest_balance": "54.04"}}}
+        before = {"id": 42, "summary": {"totalUnpaidPayableDueInterest": "113.65",
+                 "totalUnpaidPayableNotDueInterest": "0", "principalOutstanding": "617.94"},
+                  "repaymentSchedule": {"periods": [{"period": 1, "fromDate": [2026, 9, 20],
+                     "dueDate": [2026, 10, 19], "interestOutstanding": "113.65"}]}}
+        after = {"id": 42, "summary": {"totalUnpaidPayableDueInterest": "54.04",
+                "totalUnpaidPayableNotDueInterest": "0", "principalOutstanding": "617.94"},
+                 "repaymentSchedule": {"periods": [{"period": 1, "fromDate": [2026, 9, 20],
+                    "dueDate": [2026, 10, 19], "interestOutstanding": "54.04"}]}}
+        api = MagicMock()
+        with (patch("arissto_sync.loans._find_loan_transaction", return_value=None),
+              patch("arissto_sync.loans._find_loan", return_value=after)):
+            self.assertIs(_ensure_cutover_interest_balance(api, before, action, None), after)
+        command = api.request.call_args
+        self.assertEqual(command.kwargs["query"], {"command": "sourceExactWaiveInterest"})
+        self.assertEqual(command.args[2]["transactionAmount"], "59.61")
+        self.assertEqual(command.args[2]["transactionDate"], "2026-10-19")
+        self.assertTrue(command.args[2]["externalId"].startswith("PROOF:pause:"))
+
+    def test_cutover_interest_below_source_is_not_silently_adjusted(self):
+        action = {"external_id": "PROOF:pause:ARISSTO:CRD:1826", "entity_source_key": "1826",
+                  "lifecycle": {"migration_cutover_date": "2026-10-20",
+                                "expected": {"source_state": "1", "interest_balance": "54.04"}}}
+        loan = {"id": 42, "summary": {"totalUnpaidPayableDueInterest": "53.00",
+                "totalUnpaidPayableNotDueInterest": "0", "principalOutstanding": "617.94"},
+                "repaymentSchedule": {"periods": [{"period": 1, "fromDate": [2026, 9, 20],
+                   "dueDate": [2026, 10, 19], "interestOutstanding": "53.00"}]}}
+        api = MagicMock()
+        with patch("arissto_sync.loans._find_loan_transaction", return_value=None):
+            with self.assertRaisesRegex(RuntimeError, "loan_cutover_interest_below_source"):
+                _ensure_cutover_interest_balance(api, loan, action, None)
+        api.request.assert_not_called()
+
+    def test_cutover_interest_ignores_post_handoff_live_summary(self):
+        action = {"external_id": "PROOF:pause:ARISSTO:CRD:2695", "entity_source_key": "2695",
+                  "lifecycle": {"migration_cutover_date": "2026-10-20",
+                                "expected": {"source_state": "1", "interest_balance": "23.01"}}}
+        loan = {"id": 42, "summary": {"totalUnpaidPayableDueInterest": "0.00",
+                "totalUnpaidPayableNotDueInterest": "41.42", "principalOutstanding": "100.00"},
+                "repaymentSchedule": {"periods": [{"period": 1, "fromDate": [2026, 10, 15],
+                    "dueDate": [2026, 10, 25], "interestDue": "46.02",
+                    "interestPaid": "0.00", "interestWaived": "0.00"}]}}
+        api = MagicMock()
+        with patch("arissto_sync.loans._find_loan_transaction", return_value=None):
+            self.assertIs(_ensure_cutover_interest_balance(api, loan, action, None), loan)
+        api.request.assert_not_called()
+
+    def test_active_cutover_components_require_exact_cents(self):
+        lifecycle = {"migration_cutover_date": "2026-10-20", "expected": {
+            "source_state": "1", "due_principal_balance": "10.00",
+            "interest_balance": "23.01", "penalty_balance": "2.00",
+        }}
+        loan = {"summary": {"penaltyChargesOutstanding": "2.00"},
+                "repaymentSchedule": {"periods": [
+                    {"period": 1, "fromDate": [2026, 10, 1], "dueDate": [2026, 10, 19],
+                     "principalOutstanding": "10.00", "interestOutstanding": "23.01"},
+                ]}}
+        _assert_active_cutover_components(loan, lifecycle)
+        for field, value, component in (
+            ("principalOutstanding", "10.01", "due_principal"),
+            ("interestOutstanding", "23.02", "accrued_interest"),
+        ):
+            loan["repaymentSchedule"]["periods"][0][field] = value
+            with self.assertRaisesRegex(RuntimeError, component):
+                _assert_active_cutover_components(loan, lifecycle)
+            loan["repaymentSchedule"]["periods"][0][field] = (
+                "10.00" if field == "principalOutstanding" else "23.01"
+            )
+        loan["summary"]["penaltyChargesOutstanding"] = "2.01"
+        with self.assertRaisesRegex(RuntimeError, "mora"):
+            _assert_active_cutover_components(loan, lifecycle)
+
     def test_recalculated_active_retry_keeps_native_schedule(self):
         api = MagicMock()
         loan = {"id": 9, "status": {"id": 300}, "isInterestRecalculationEnabled": True,
@@ -4916,6 +5248,38 @@ class LoanInspectionTests(unittest.TestCase):
         response = self.api_product(payload)
         response["isInterestRecalculationEnabled"] = False
         self.assertTrue(loan_product_conflicts(payload, response))
+
+    def test_cutover_interest_skips_historical_refinance_predecessor(self):
+        action = {"external_id": "PROOF:alignment:ARISSTO:CRD:1884",
+                  "entity_source_key": "1884", "lifecycle": {
+                      "migration_cutover_date": "2026-10-20",
+                      "expected": {"source_state": "3", "interest_balance": "0.00"}}}
+        loan = {"id": 42, "summary": {"totalUnpaidPayableDueInterest": "1.00",
+                "totalUnpaidPayableNotDueInterest": "0", "principalOutstanding": "124.17"}}
+        api = MagicMock()
+        self.assertIs(_ensure_cutover_interest_balance(api, loan, action, None), loan)
+        api.request.assert_not_called()
+
+    def test_cutover_interest_rejects_canonical_active_loan(self):
+        action = {"external_id": "ARISSTO:CRD:2695", "entity_source_key": "2695",
+                  "lifecycle": {"migration_cutover_date": "2026-10-20",
+                                "expected": {"source_state": "1", "interest_balance": "23.01"}}}
+        with self.assertRaisesRegex(RuntimeError, "loan_cutover_exact_component_alignment_unproved"):
+            _ensure_cutover_interest_balance(MagicMock(), {"id": 42}, action, None)
+
+    def test_post_cutover_source_events_are_quarantined(self):
+        settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target"), source=SimpleNamespace())
+        source_product = self.product("00001", "002", "C-CONSUMO MULTIDESTINOS")
+        target = {"resources": self.target_resources(), "products": {"00001": None}, "crosswalks": {}}
+        loan = self.loan(24, "00001")
+        loan["_post_cutover_source_events"] = {"movements": 1}
+        with patch("arissto_sync.loans.source_fingerprint", return_value="source"):
+            plan = compose_loan_plan(
+                settings, self.contract, [loan], [source_product], target, source_keys=["24"],
+            )
+        action = next(row for row in plan["actions"] if row["source_key"] == "loan:24")
+        self.assertEqual(action["action"], "quarantine-loan")
+        self.assertIn("source_events_after_fineract_accounting_boundary", action["quarantine_reasons"])
 
     def test_consolidation_plan_depends_on_every_predecessor(self):
         settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target"), source=SimpleNamespace())
@@ -4973,6 +5337,7 @@ class LoanInspectionTests(unittest.TestCase):
             patch("arissto_sync.loans.extract_loan_lifecycle_rows", return_value={}),
             patch("arissto_sync.loans.extract_loan_mora_cutover_snapshots", return_value={}),
             patch("arissto_sync.loans.extract_loan_freeze_events", return_value={}),
+            patch("arissto_sync.loans.extract_loan_post_cutover_events", return_value={}),
             patch("arissto_sync.loans.resolve_loan_product_target", return_value=target),
             patch("arissto_sync.loans.plan_client_office_transfers", return_value=[]),
             patch("arissto_sync.loans.target_client_office_transfer_blockers", return_value=[]),

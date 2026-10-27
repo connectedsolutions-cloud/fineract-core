@@ -151,7 +151,7 @@ class LoansContractTests(unittest.TestCase):
         self.assertEqual(
             set(config["native_creation_overrides"]),
             {"24", "301", "805", "1117", "1182", "1441", "1638",
-             "2357", "2427", "2498", "2499"},
+             "2357", "2427", "2482", "2498", "2499"},
         )
         self.assertEqual(
             config["native_creation_overrides"]["24"],
@@ -170,6 +170,11 @@ class LoansContractTests(unittest.TestCase):
             if loan_id == "1182":
                 expected["terminal_adjustment_maximum_source"] = "source-schedule-total"
             self.assertEqual(config["native_creation_overrides"][loan_id], expected)
+        self.assertEqual(
+            config["native_creation_overrides"]["2482"],
+            {"classification": "reviewed-early-payoff-future-interest-cutover",
+             "terminal_adjustment_maximum_source": "source-schedule-total"},
+        )
         self.assertEqual(
             config["native_creation_overrides"]["805"],
             {

@@ -30,6 +30,7 @@
     "legacy_insurance_charge_external_id": "ARISSTO:CRD-INS-LEGACY:{ID_MOVIMIENTO_CARTERA}",
     "insurance_charge_external_id": "ARISSTO:CRD-INS:{ID_RECARGO_CARTERA}:{ID_MOVIMIENTO_CARTERA}:{ID_PAGOS}",
     "insurance_cutover_charge_external_id": "ARISSTO:CRD-INS-CUTOVER:{ID_CREDITO}",
+    "mora_cutover_charge_external_id": "ARISSTO:CRD-MORA-CUTOVER:{ID_CREDITO}",
     "insurance_recurring_charge_external_id": "ARISSTO:CRD-INS-FUTURE:{ID_CREDITO}",
     "cutover_adjustment_external_id": "ARISSTO:CRD-CUTOVER:{ID_CREDITO}",
     "refinance_adjustment_external_id": "ARISSTO:CRD-REFI-CUTOVER:{OLD_ID_CREDITO}:{NEW_ID_CREDITO}",
@@ -169,6 +170,13 @@
       "overpaymentLiabilityAccountId": "2220070302"
     },
     "target_resources": {
+      "daily_mora_charge": {
+        "name": "Interes por mora",
+        "amount": "0.42",
+        "charge_time_type": 19,
+        "calculation_type": 1,
+        "income_or_liability_gl": "611001010003"
+      },
       "debt_insurance_charge": {
         "amount": "0.06",
         "charge_time_type": 8,
