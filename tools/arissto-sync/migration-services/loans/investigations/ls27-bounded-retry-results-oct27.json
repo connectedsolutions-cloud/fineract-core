@@ -1,0 +1,762 @@
+{
+  "issue": "LS-27",
+  "mode": "bounded resumed loan-block recovery in existing cycle",
+  "cycle": "sandbox-2026-10-26-full-clean-a",
+  "plan_id": "ced78c4c83cd4d44bbcba748c4093d49",
+  "run_id": "4b0d62a7a0034254b67cba8cfbbc5fbd",
+  "target": "local:sandbox:fineract_sandbox",
+  "fingerprint": "b9f6834b66790744",
+  "source_through_date": "2026-10-26",
+  "fineract_starts": "2026-10-27",
+  "retry_roots": [
+    "loan:103",
+    "loan:125",
+    "loan:139",
+    "loan:159",
+    "loan:172",
+    "loan:1784",
+    "loan:200",
+    "loan:283"
+  ],
+  "loan_keys": [
+    "loan:101",
+    "loan:103",
+    "loan:1178",
+    "loan:125",
+    "loan:139",
+    "loan:14",
+    "loan:1482",
+    "loan:159",
+    "loan:172",
+    "loan:1784",
+    "loan:1897",
+    "loan:1962",
+    "loan:200",
+    "loan:2055",
+    "loan:2165",
+    "loan:2265",
+    "loan:2402",
+    "loan:25",
+    "loan:283",
+    "loan:29",
+    "loan:30",
+    "loan:308",
+    "loan:34",
+    "loan:360",
+    "loan:407",
+    "loan:43",
+    "loan:433",
+    "loan:515",
+    "loan:553",
+    "loan:580",
+    "loan:644",
+    "loan:711",
+    "loan:773",
+    "loan:921"
+  ],
+  "setup_keys": [
+    "product:00010"
+  ],
+  "runtime_controls": {
+    "workers": 2,
+    "pause_seconds": 30.0,
+    "recovery_attempts": 3
+  },
+  "run_status": "completed-with-errors",
+  "apply_counts": {
+    "unchanged": 1,
+    "loans_blocked": 3,
+    "loans_failed": 2,
+    "loans_recovered": 16,
+    "loans_succeeded": 13,
+    "metrics_reconciled": 29,
+    "metrics_adjusted": 24,
+    "accrual_controls_reconciled": 4
+  },
+  "official_reconciliation": {
+    "persisted": true,
+    "entrypoint": "reconcile_loans + State.record_reconciliation",
+    "ok": false,
+    "counts": {
+      "blocked": 3,
+      "loans": 29,
+      "staff_assignments": 29,
+      "mora_terms": 29,
+      "legacy_timelines": 6,
+      "accrual_controls_reconciled": 4,
+      "failed": 2,
+      "products": 1,
+      "client_office_transfers_expected": 1,
+      "client_office_transfers_matched": 1
+    },
+    "blocking_mismatch_count": 0,
+    "variance_count": 353,
+    "variance_groups": [
+      {
+        "kind": "schedule_due_date",
+        "classification": "native_recalculated_schedule_variance",
+        "count": 74
+      },
+      {
+        "kind": "schedule_installment_count",
+        "classification": "native_recalculated_schedule_variance",
+        "count": 28
+      },
+      {
+        "kind": "schedule_installment_number",
+        "classification": "native_recalculated_schedule_variance",
+        "count": 74
+      },
+      {
+        "kind": "schedule_interest",
+        "classification": "native_recalculated_schedule_variance",
+        "count": 74
+      },
+      {
+        "kind": "schedule_interest_total",
+        "classification": "native_recalculated_schedule_variance",
+        "count": 29
+      },
+      {
+        "kind": "schedule_principal",
+        "classification": "native_recalculated_schedule_variance",
+        "count": 74
+      }
+    ],
+    "acceptance_limit": "29 successful/recovered loans have zero blocking mismatches; overall result is false because two failed and three blocked items remain."
+  },
+  "loan_results": [
+    {
+      "source_key": "loan:14",
+      "status": "recovered",
+      "native_exists": true,
+      "target_id": 14,
+      "native_status": 600,
+      "planned_event_count": 6,
+      "represented_event_count": 6,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:25",
+      "status": "recovered",
+      "native_exists": true,
+      "target_id": 23,
+      "native_status": 600,
+      "planned_event_count": 5,
+      "represented_event_count": 5,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:29",
+      "status": "recovered",
+      "native_exists": true,
+      "target_id": 26,
+      "native_status": 600,
+      "planned_event_count": 9,
+      "represented_event_count": 9,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:30",
+      "status": "recovered",
+      "native_exists": true,
+      "target_id": 27,
+      "native_status": 600,
+      "planned_event_count": 5,
+      "represented_event_count": 5,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:34",
+      "status": "recovered",
+      "native_exists": true,
+      "target_id": 31,
+      "native_status": 600,
+      "planned_event_count": 5,
+      "represented_event_count": 5,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:43",
+      "status": "recovered",
+      "native_exists": true,
+      "target_id": 40,
+      "native_status": 600,
+      "planned_event_count": 4,
+      "represented_event_count": 4,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:101",
+      "status": "blocked",
+      "native_exists": true,
+      "target_id": 1,
+      "native_status": 600,
+      "planned_event_count": 6,
+      "represented_event_count": 6,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:103",
+      "status": "succeeded",
+      "native_exists": true,
+      "target_id": 1155,
+      "native_status": 600,
+      "planned_event_count": 7,
+      "represented_event_count": 7,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:125",
+      "status": "succeeded",
+      "native_exists": true,
+      "target_id": 1154,
+      "native_status": 600,
+      "planned_event_count": 5,
+      "represented_event_count": 5,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:139",
+      "status": "succeeded",
+      "native_exists": true,
+      "target_id": 1156,
+      "native_status": 600,
+      "planned_event_count": 15,
+      "represented_event_count": 15,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:159",
+      "status": "succeeded",
+      "native_exists": true,
+      "target_id": 1157,
+      "native_status": 600,
+      "planned_event_count": 9,
+      "represented_event_count": 9,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:172",
+      "status": "succeeded",
+      "native_exists": true,
+      "target_id": 1158,
+      "native_status": 300,
+      "planned_event_count": 2,
+      "represented_event_count": 2,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:200",
+      "status": "succeeded",
+      "native_exists": true,
+      "target_id": 1159,
+      "native_status": 600,
+      "planned_event_count": 6,
+      "represented_event_count": 6,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:283",
+      "status": "blocked",
+      "native_exists": true,
+      "target_id": 1144,
+      "native_status": 600,
+      "planned_event_count": 8,
+      "represented_event_count": 8,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:308",
+      "status": "succeeded",
+      "native_exists": true,
+      "target_id": 1162,
+      "native_status": 600,
+      "planned_event_count": 7,
+      "represented_event_count": 7,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:360",
+      "status": "succeeded",
+      "native_exists": true,
+      "target_id": 1161,
+      "native_status": 300,
+      "planned_event_count": 10,
+      "represented_event_count": 10,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:407",
+      "status": "recovered",
+      "native_exists": true,
+      "target_id": 279,
+      "native_status": 600,
+      "planned_event_count": 7,
+      "represented_event_count": 7,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:433",
+      "status": "succeeded",
+      "native_exists": true,
+      "target_id": 1163,
+      "native_status": 600,
+      "planned_event_count": 7,
+      "represented_event_count": 7,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:515",
+      "status": "succeeded",
+      "native_exists": true,
+      "target_id": 1164,
+      "native_status": 300,
+      "planned_event_count": 11,
+      "represented_event_count": 11,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:553",
+      "status": "blocked",
+      "native_exists": true,
+      "target_id": 1145,
+      "native_status": 600,
+      "planned_event_count": 9,
+      "represented_event_count": 9,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:580",
+      "status": "succeeded",
+      "native_exists": true,
+      "target_id": 1165,
+      "native_status": 600,
+      "planned_event_count": 11,
+      "represented_event_count": 11,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:644",
+      "status": "succeeded",
+      "native_exists": true,
+      "target_id": 1160,
+      "native_status": 600,
+      "planned_event_count": 5,
+      "represented_event_count": 5,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:711",
+      "status": "succeeded",
+      "native_exists": true,
+      "target_id": 1166,
+      "native_status": 600,
+      "planned_event_count": 13,
+      "represented_event_count": 13,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:773",
+      "status": "failed",
+      "native_exists": true,
+      "target_id": 1167,
+      "native_status": 300,
+      "planned_event_count": 54,
+      "represented_event_count": 1,
+      "missing_events": [
+        {
+          "role": "repayment",
+          "external_id": "ARISSTO:CRD-MOV:0000005349",
+          "successor_source_key": null
+        }
+      ],
+      "metric_match_count": 2,
+      "metric_target_count": 8,
+      "continuation_ready": false,
+      "remaining_unrepresented_event_count": 53
+    },
+    {
+      "source_key": "loan:921",
+      "status": "failed",
+      "native_exists": true,
+      "target_id": 1146,
+      "native_status": 300,
+      "planned_event_count": 23,
+      "represented_event_count": 23,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:1178",
+      "status": "recovered",
+      "native_exists": true,
+      "target_id": 2,
+      "native_status": 600,
+      "planned_event_count": 11,
+      "represented_event_count": 11,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:1482",
+      "status": "recovered",
+      "native_exists": true,
+      "target_id": 3,
+      "native_status": 600,
+      "planned_event_count": 12,
+      "represented_event_count": 12,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:1784",
+      "status": "recovered",
+      "native_exists": true,
+      "target_id": 1147,
+      "native_status": 600,
+      "planned_event_count": 10,
+      "represented_event_count": 10,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:1897",
+      "status": "recovered",
+      "native_exists": true,
+      "target_id": 1148,
+      "native_status": 600,
+      "planned_event_count": 10,
+      "represented_event_count": 10,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:1962",
+      "status": "recovered",
+      "native_exists": true,
+      "target_id": 1149,
+      "native_status": 600,
+      "planned_event_count": 11,
+      "represented_event_count": 11,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:2055",
+      "status": "recovered",
+      "native_exists": true,
+      "target_id": 1150,
+      "native_status": 600,
+      "planned_event_count": 8,
+      "represented_event_count": 8,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:2165",
+      "status": "recovered",
+      "native_exists": true,
+      "target_id": 1151,
+      "native_status": 600,
+      "planned_event_count": 8,
+      "represented_event_count": 8,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:2265",
+      "status": "recovered",
+      "native_exists": true,
+      "target_id": 1152,
+      "native_status": 600,
+      "planned_event_count": 12,
+      "represented_event_count": 12,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    },
+    {
+      "source_key": "loan:2402",
+      "status": "recovered",
+      "native_exists": true,
+      "target_id": 1153,
+      "native_status": 300,
+      "planned_event_count": 5,
+      "represented_event_count": 5,
+      "missing_events": [],
+      "metric_match_count": 8,
+      "metric_target_count": 8,
+      "continuation_ready": true
+    }
+  ],
+  "payment_exclusion": {
+    "source_movement_id": "0000034318",
+    "excluded_in_frozen_921_source_window": true,
+    "target_any_namespace_count": 0,
+    "scoped_post_boundary_transaction_count": 0
+  },
+  "preservation": {
+    "plan_unchanged": true,
+    "parent_workflow_status": "interrupted",
+    "scheduler_paused": true,
+    "cutoff_verified_unchanged": true,
+    "outside_scope_unchanged": false,
+    "outside_scope_before": {
+      "loans": {
+        "rows": 1133,
+        "sha256": "626f59cbec57c92f79e570d48ff0af6cc50386b7519544fa0ca0a7938baf1fb3"
+      },
+      "transactions": {
+        "rows": 24725,
+        "sha256": "c38ec0d06e7bc097944490ef49dff5eaa6893f7091fc94588b83900e8e93f47c"
+      },
+      "schedules": {
+        "rows": 21195,
+        "sha256": "1a900878375447345c5e300422efc6e17b8bcddc53b3e6c977b1006c73362def"
+      },
+      "charges": {
+        "rows": 4973,
+        "sha256": "ea34575f6c924946c55b80d227185ad47ca0289dab5c9633fbdac28042fc4627"
+      },
+      "clients": {
+        "rows": 1070,
+        "sha256": "66e7a59e11fb3fa1ddb4426e1e60f9fe88f0a1f6f7a7d78103c67661cce40e56"
+      },
+      "products": {
+        "rows": 2,
+        "sha256": "9c06ba686fce342d9ff6dbcc9f674504bb91e5989b5b8355aede4fa4a77a57d8"
+      },
+      "journals": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "m_loan_charge_paid_by": {
+        "rows": 10035,
+        "sha256": "28d1f82f8e8965975421bb2e5bb1c3c17ff9e0f1b808a67e1ba3cda49f6fe537"
+      },
+      "m_loan_transaction_repayment_schedule_mapping": {
+        "rows": 25984,
+        "sha256": "59d5dbbec695146992740fb0b5b4c4fb94c890a6495874b053c6bb6770993f0a"
+      }
+    },
+    "outside_scope_after": {
+      "loans": {
+        "rows": 1133,
+        "sha256": "c8564133a5392589bd1cdee601b160fe1603103381670528f5207cd7d2de5e7b"
+      },
+      "transactions": {
+        "rows": 24725,
+        "sha256": "c38ec0d06e7bc097944490ef49dff5eaa6893f7091fc94588b83900e8e93f47c"
+      },
+      "schedules": {
+        "rows": 21195,
+        "sha256": "1a900878375447345c5e300422efc6e17b8bcddc53b3e6c977b1006c73362def"
+      },
+      "charges": {
+        "rows": 4973,
+        "sha256": "ea34575f6c924946c55b80d227185ad47ca0289dab5c9633fbdac28042fc4627"
+      },
+      "clients": {
+        "rows": 1070,
+        "sha256": "66e7a59e11fb3fa1ddb4426e1e60f9fe88f0a1f6f7a7d78103c67661cce40e56"
+      },
+      "products": {
+        "rows": 2,
+        "sha256": "9c06ba686fce342d9ff6dbcc9f674504bb91e5989b5b8355aede4fa4a77a57d8"
+      },
+      "journals": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "m_loan_charge_paid_by": {
+        "rows": 10035,
+        "sha256": "28d1f82f8e8965975421bb2e5bb1c3c17ff9e0f1b808a67e1ba3cda49f6fe537"
+      },
+      "m_loan_transaction_repayment_schedule_mapping": {
+        "rows": 25984,
+        "sha256": "59d5dbbec695146992740fb0b5b4c4fb94c890a6495874b053c6bb6770993f0a"
+      }
+    },
+    "global_counts_before": [
+      1146,
+      24918,
+      0
+    ],
+    "global_counts_after": [
+      1167,
+      25273,
+      0
+    ],
+    "count_order": [
+      "loans",
+      "loan_transactions",
+      "gl_entries"
+    ],
+    "duplicate_scoped_source_transaction_ids": [],
+    "transfer_history_count": 2,
+    "accepted_921_transfer_pair_count": 2,
+    "read_only_verification_target_unchanged": true,
+    "reset": false,
+    "new_cycle": false,
+    "backend_reload": false,
+    "broader_workflow_resume": false
+  },
+  "remaining_failures": {
+    "loan:773": {
+      "external_id": "ARISSTO:CRD-MOV:0000005349",
+      "date": "2024-09-24",
+      "role": "repayment",
+      "allocation": {
+        "fee": "0.00",
+        "interest": "1.10",
+        "penalty": "0.00",
+        "principal": "0.00"
+      },
+      "source_movement_id": "0000005349"
+    },
+    "loan:921": {
+      "operation": "sourceExactAddCharge",
+      "code": "error.msg.loanCharge.cannot.be.added.as.date.is.before.last.transaction.date",
+      "persisted_inactive_charge_id": 5056,
+      "source_movement_id": "0000021121",
+      "date": "2026-05-29",
+      "amount": "1.31",
+      "transaction_already_exists": true,
+      "inactive_charge_absent_from_loan_api": true,
+      "persisted_charge_amount_paid": "0.00",
+      "persisted_charge_outstanding": "1.31",
+      "charge_paid_by_rows": 0,
+      "diagnostic_limit": "Inactive charge visibility and unconditional ensure-before-repayment-recovery are confirmed. Why the prior history left that charge inactive/unpaid requires a separate ownership/alignment investigation; do not reactivate or recreate it based on this observation."
+    }
+  },
+  "outside_scope_observation": {
+    "source_key": "loan:383",
+    "native_id": 261,
+    "modified_at": "2026-10-27 13:52:43.655613-06:00",
+    "same_client_context": [
+      {
+        "source_key": "loan:43",
+        "native_id": 40,
+        "disbursed_on": "2023-05-19",
+        "loan_counter": null,
+        "loan_product_counter": 1,
+        "last_modified_on": "2026-10-27 13:53:10.406577-06:00",
+        "selected": true
+      },
+      {
+        "source_key": "loan:125",
+        "native_id": 1154,
+        "disbursed_on": "2023-07-24",
+        "loan_counter": null,
+        "loan_product_counter": 2,
+        "last_modified_on": "2026-10-27 13:53:10.606936-06:00",
+        "selected": true
+      },
+      {
+        "source_key": "loan:383",
+        "native_id": 261,
+        "disbursed_on": "2023-12-16",
+        "loan_counter": null,
+        "loan_product_counter": 3,
+        "last_modified_on": "2026-10-27 13:52:43.655613-06:00",
+        "selected": false
+      }
+    ],
+    "inference": "Consistent with native updateLoanCounters when inserting historical loan 125 before existing later loan 383 for the same client and product. A per-row preimage was not captured, so the exact changed columns are not proven. All outside-scope transaction, schedule, charge, ownership, client, product and GL hashes match; only the outside m_loan hash differs. Do not claim total preservation or expand replay to 383."
+  },
+  "successful_event_identities": {
+    "represented": 236,
+    "expected": 236
+  },
+  "successful_metric_targets": {
+    "matched": 232,
+    "expected": 232
+  }
+}
