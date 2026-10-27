@@ -100,3 +100,17 @@ This verifies reconstruction and plan readiness for a bounded same-cycle retry.
 remain unexecuted.** Recheck current source/target guards before using the new
 plan; test evidence does not freeze future source commits. The separate LS-27
 payoff-closure issue for the original eight-root/19-loan recovery remains open.
+
+## Subsequent bounded execution
+
+The four-loan plan was executed in run `bac2eee7a4744cc8ba3f7c0a12d895f4`.
+See [persisted execution/reconciliation evidence](investigations/ls28-bounded-retry-results-oct27.json).
+The source-day exclusion worked: October 27 payment `0000034318` is absent from
+the target, and all scoped target transactions predate the boundary. The three
+new loans were created and the office transfer matched. However, replay stopped
+on loan 921's historical August 25, 2025 repayment `0000012748`: 0.26 penalty
+could not be represented. The official reconciliation is unsuccessful, and the
+cohort's final metrics have not been aligned over the incomplete history.
+This is LS-03, separate from historical reconstruction. Preserve the partial
+target state and investigate the allocation before the next same-cycle retry.
+No reset, source write or broader workflow resume occurred.

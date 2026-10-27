@@ -1,0 +1,428 @@
+{
+  "mode": "bounded resumed loan-block recovery in existing cycle",
+  "cycle": "sandbox-2026-10-26-full-clean-a",
+  "plan_id": "46b49222cc9e488ca7a4f553f27af5f9",
+  "target": "local:sandbox:fineract_sandbox",
+  "fingerprint": "b9f6834b66790744",
+  "source_through_date": "2026-10-26",
+  "fineract_starts": "2026-10-27",
+  "loan_keys": [
+    "loan:101",
+    "loan:283",
+    "loan:553",
+    "loan:921"
+  ],
+  "setup_keys": [
+    "product:00010"
+  ],
+  "loan_controls": {
+    "workers": 2,
+    "pause_seconds": 30.0,
+    "recovery_attempts": 3
+  },
+  "review_before": {
+    "outside_scope": {
+      "loans": {
+        "rows": 1142,
+        "sha256": "cecad9f5756adbc895434b179154b0f264e935227ad4556ba58fec0bb42ac2ee"
+      },
+      "transactions": {
+        "rows": 24844,
+        "sha256": "7a608be45cea5e19440cdf8681cfc2b334a9292afa3cbfacfb4a9b153b9232b0"
+      },
+      "schedules": {
+        "rows": 21270,
+        "sha256": "9a4d58c58072869788fff9e57a82b75f85ba8c21bcca8a0c9ed501e3bd7857e1"
+      },
+      "charges": {
+        "rows": 5009,
+        "sha256": "f567260a802d5d3ca1f79e5ec31a27df07eea8741cdd371ff89374c3487801e4"
+      },
+      "clients": {
+        "rows": 1070,
+        "sha256": "66e7a59e11fb3fa1ddb4426e1e60f9fe88f0a1f6f7a7d78103c67661cce40e56"
+      },
+      "products": {
+        "rows": 2,
+        "sha256": "9c06ba686fce342d9ff6dbcc9f674504bb91e5989b5b8355aede4fa4a77a57d8"
+      },
+      "journals": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    },
+    "global_counts": [
+      1143,
+      24850,
+      0
+    ],
+    "scoped_loans": [
+      {
+        "external_id": "ARISSTO:CRD:101",
+        "target_id": 1,
+        "status": 300,
+        "office_id": 1
+      }
+    ],
+    "excluded_payment_transaction_count": 0,
+    "scoped_post_boundary_transactions": 0,
+    "transfer_history_count": 0
+  },
+  "before": {
+    "outside_scope": {
+      "loans": {
+        "rows": 1142,
+        "sha256": "cecad9f5756adbc895434b179154b0f264e935227ad4556ba58fec0bb42ac2ee"
+      },
+      "transactions": {
+        "rows": 24844,
+        "sha256": "7a608be45cea5e19440cdf8681cfc2b334a9292afa3cbfacfb4a9b153b9232b0"
+      },
+      "schedules": {
+        "rows": 21270,
+        "sha256": "9a4d58c58072869788fff9e57a82b75f85ba8c21bcca8a0c9ed501e3bd7857e1"
+      },
+      "charges": {
+        "rows": 5009,
+        "sha256": "f567260a802d5d3ca1f79e5ec31a27df07eea8741cdd371ff89374c3487801e4"
+      },
+      "clients": {
+        "rows": 1070,
+        "sha256": "66e7a59e11fb3fa1ddb4426e1e60f9fe88f0a1f6f7a7d78103c67661cce40e56"
+      },
+      "products": {
+        "rows": 2,
+        "sha256": "9c06ba686fce342d9ff6dbcc9f674504bb91e5989b5b8355aede4fa4a77a57d8"
+      },
+      "journals": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    },
+    "global_counts": [
+      1143,
+      24850,
+      0
+    ],
+    "scoped_loans": [
+      {
+        "external_id": "ARISSTO:CRD:101",
+        "target_id": 1,
+        "status": 300,
+        "office_id": 1
+      }
+    ],
+    "excluded_payment_transaction_count": 0,
+    "scoped_post_boundary_transactions": 0,
+    "transfer_history_count": 0
+  },
+  "run_id": "bac2eee7a4744cc8ba3f7c0a12d895f4",
+  "apply_counts": {
+    "unchanged": 1,
+    "loans_blocked": 3,
+    "loans_failed": 1
+  },
+  "run_status": "completed-with-errors",
+  "reconciliation_ok": false,
+  "reconciliation_counts": {
+    "blocked": 3,
+    "failed": 1,
+    "products": 1,
+    "client_office_transfers_expected": 1,
+    "client_office_transfers_matched": 1
+  },
+  "compact_reconciliation": {
+    "run_id": "bac2eee7a4744cc8ba3f7c0a12d895f4",
+    "ok": false,
+    "counts": {
+      "blocked": 3,
+      "failed": 1,
+      "products": 1,
+      "client_office_transfers_expected": 1,
+      "client_office_transfers_matched": 1
+    },
+    "blocking_mismatch_count": 0,
+    "blocking_affected_source_key_count": 0,
+    "blocking_affected_source_keys": [],
+    "mismatch_groups": [],
+    "variance_count": 0,
+    "variance_groups": [],
+    "failed_or_quarantined_count": 4,
+    "failed_or_quarantined_groups": [
+      {
+        "status": "blocked",
+        "error_code": "client_office_transfer_cohort_failed",
+        "count": 3,
+        "affected_source_keys": [
+          "loan:101",
+          "loan:283",
+          "loan:553"
+        ],
+        "samples": [
+          {
+            "source_key": "loan:101",
+            "status": "blocked",
+            "error_code": "client_office_transfer_cohort_failed"
+          },
+          {
+            "source_key": "loan:283",
+            "status": "blocked",
+            "error_code": "client_office_transfer_cohort_failed"
+          },
+          {
+            "source_key": "loan:553",
+            "status": "blocked",
+            "error_code": "client_office_transfer_cohort_failed"
+          }
+        ]
+      },
+      {
+        "status": "failed",
+        "error_code": "error.msg.loan.source.exact.allocation.not.representable; remaining penalty 0.26",
+        "count": 1,
+        "affected_source_keys": [
+          "loan:921"
+        ],
+        "samples": [
+          {
+            "source_key": "loan:921",
+            "status": "failed",
+            "error_code": "error.msg.loan.source.exact.allocation.not.representable; remaining penalty 0.26"
+          }
+        ]
+      }
+    ],
+    "adjustments": []
+  },
+  "run_items": [
+    {
+      "source_key": "loan:101",
+      "action": "recover-loan",
+      "status": "blocked",
+      "target_id": "1",
+      "error_code": "client_office_transfer_cohort_failed"
+    },
+    {
+      "source_key": "loan:283",
+      "action": "create-loan",
+      "status": "blocked",
+      "target_id": null,
+      "error_code": "client_office_transfer_cohort_failed"
+    },
+    {
+      "source_key": "loan:553",
+      "action": "create-loan",
+      "status": "blocked",
+      "target_id": null,
+      "error_code": "client_office_transfer_cohort_failed"
+    },
+    {
+      "source_key": "loan:921",
+      "action": "create-loan",
+      "status": "failed",
+      "target_id": null,
+      "error_code": "error.msg.loan.source.exact.allocation.not.representable; remaining penalty 0.26"
+    },
+    {
+      "source_key": "product:00010",
+      "action": "unchanged-product",
+      "status": "unchanged",
+      "target_id": "2",
+      "error_code": null
+    }
+  ],
+  "after": {
+    "outside_scope": {
+      "loans": {
+        "rows": 1142,
+        "sha256": "cecad9f5756adbc895434b179154b0f264e935227ad4556ba58fec0bb42ac2ee"
+      },
+      "transactions": {
+        "rows": 24844,
+        "sha256": "7a608be45cea5e19440cdf8681cfc2b334a9292afa3cbfacfb4a9b153b9232b0"
+      },
+      "schedules": {
+        "rows": 21270,
+        "sha256": "9a4d58c58072869788fff9e57a82b75f85ba8c21bcca8a0c9ed501e3bd7857e1"
+      },
+      "charges": {
+        "rows": 5009,
+        "sha256": "f567260a802d5d3ca1f79e5ec31a27df07eea8741cdd371ff89374c3487801e4"
+      },
+      "clients": {
+        "rows": 1070,
+        "sha256": "66e7a59e11fb3fa1ddb4426e1e60f9fe88f0a1f6f7a7d78103c67661cce40e56"
+      },
+      "products": {
+        "rows": 2,
+        "sha256": "9c06ba686fce342d9ff6dbcc9f674504bb91e5989b5b8355aede4fa4a77a57d8"
+      },
+      "journals": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    },
+    "global_counts": [
+      1146,
+      24888,
+      0
+    ],
+    "scoped_loans": [
+      {
+        "external_id": "ARISSTO:CRD:101",
+        "target_id": 1,
+        "status": 600,
+        "office_id": 2
+      },
+      {
+        "external_id": "ARISSTO:CRD:283",
+        "target_id": 1144,
+        "status": 600,
+        "office_id": 2
+      },
+      {
+        "external_id": "ARISSTO:CRD:553",
+        "target_id": 1145,
+        "status": 600,
+        "office_id": 2
+      },
+      {
+        "external_id": "ARISSTO:CRD:921",
+        "target_id": 1146,
+        "status": 300,
+        "office_id": 2
+      }
+    ],
+    "excluded_payment_transaction_count": 0,
+    "scoped_post_boundary_transactions": 0,
+    "transfer_history_count": 2
+  },
+  "outside_scope_unchanged": true,
+  "excluded_payment_absent": true,
+  "no_post_boundary_scoped_transactions": true,
+  "scheduler_after": {
+    "active": false
+  },
+  "parent_workflow_status_after": "interrupted",
+  "plan_unchanged": true,
+  "root_failure": {
+    "source_key": "loan:921",
+    "target_loan_id": 1146,
+    "http_status": 403,
+    "code": "error.msg.loan.source.exact.allocation.not.representable",
+    "remaining_penalty": "0.26",
+    "first_missing_movement": "0000012748",
+    "date": "2025-08-25",
+    "issue": "LS-03"
+  },
+  "read_only_diagnostics": {
+    "run_id": "bac2eee7a4744cc8ba3f7c0a12d895f4",
+    "loans": [
+      {
+        "source_key": "loan:101",
+        "target_id": 1,
+        "status": 600,
+        "planned_event_count": 6,
+        "represented_event_count": 6,
+        "missing_event_count": 0,
+        "first_missing_event": null,
+        "metric_matches": {
+          "paidPrincipal": true,
+          "outstandingPrincipal": true,
+          "paidInterest": false,
+          "accruedInterest": true,
+          "duePrincipal": true,
+          "mora": true,
+          "insurancePaid": true,
+          "insuranceOutstanding": true
+        }
+      },
+      {
+        "source_key": "loan:283",
+        "target_id": 1144,
+        "status": 600,
+        "planned_event_count": 8,
+        "represented_event_count": 8,
+        "missing_event_count": 0,
+        "first_missing_event": null,
+        "metric_matches": {
+          "paidPrincipal": true,
+          "outstandingPrincipal": true,
+          "paidInterest": false,
+          "accruedInterest": true,
+          "duePrincipal": true,
+          "mora": true,
+          "insurancePaid": true,
+          "insuranceOutstanding": true
+        }
+      },
+      {
+        "source_key": "loan:553",
+        "target_id": 1145,
+        "status": 600,
+        "planned_event_count": 9,
+        "represented_event_count": 9,
+        "missing_event_count": 0,
+        "first_missing_event": null,
+        "metric_matches": {
+          "paidPrincipal": true,
+          "outstandingPrincipal": true,
+          "paidInterest": false,
+          "accruedInterest": true,
+          "duePrincipal": true,
+          "mora": true,
+          "insurancePaid": true,
+          "insuranceOutstanding": true
+        }
+      },
+      {
+        "source_key": "loan:921",
+        "target_id": 1146,
+        "status": 300,
+        "planned_event_count": 23,
+        "represented_event_count": 10,
+        "missing_event_count": 13,
+        "first_missing_event": {
+          "movement": "0000012748",
+          "date": "2025-08-25",
+          "role": "repayment",
+          "penalty_component": "0.26",
+          "penalty_charge_external_id": "ARISSTO:CRD-MOV:0000012748:PENALTY"
+        },
+        "metric_matches": {
+          "paidPrincipal": false,
+          "outstandingPrincipal": false,
+          "paidInterest": false,
+          "accruedInterest": false,
+          "duePrincipal": false,
+          "mora": false,
+          "insurancePaid": false,
+          "insuranceOutstanding": true
+        }
+      }
+    ],
+    "excluded_payment_any_namespace_count": 0,
+    "transfer_pairs": [
+      {
+        "source_loan_key": "loan:921",
+        "type": 12,
+        "date": "2025-04-01",
+        "count": 1
+      },
+      {
+        "source_loan_key": "loan:921",
+        "type": 13,
+        "date": "2025-04-01",
+        "count": 1
+      }
+    ],
+    "diagnostic_target_unchanged": true
+  },
+  "reconciliation_interpretation": "Unsuccessful: one failed loan and three cohort-blocked loans. Zero blocking mismatch groups is not acceptance: failed/blocked loan items were not fully compared. Independent diagnostics confirm represented event identities only; final financial metrics are incomplete.",
+  "no_reset": true,
+  "no_broader_workflow_resume": true,
+  "runtime_code_changed": false,
+  "runtime_entrypoints": "apply_loan_plan and reconcile_loans, the same entrypoints used by the CLI; reconciliation stored in cycle State.record_reconciliation.",
+  "next_step": "Investigate LS-03 at historical repayment 0000012748 on native loan 1146 before another retry. Preserve actual allocations and the failed transaction rule; no blind retry, metric-only completion or penalty bypass.",
+  "official_reconciliation_persisted": true
+}
