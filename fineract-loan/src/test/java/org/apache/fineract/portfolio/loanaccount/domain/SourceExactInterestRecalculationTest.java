@@ -177,6 +177,58 @@ class SourceExactInterestRecalculationTest {
         assertThrows(GeneralPlatformDomainRuleException.class, this::recalculate);
     }
 
+    @Test
+    void loan10EmptyPrefixReturnsDeclaredPrincipalAndFinalPostingMapsTheMixedPayment() {
+        final var rows = loan10Schedule();
+        transaction = payment(LocalDate.of(2023, 5, 13), "27.37", "98.63", "0.00", "0.00");
+        assertMoney("27.37", recalculate());
+        assertMoney("98.63", transaction.getSourceExactInterestPortion(CURRENCY));
+        for (var row : rows) {
+            assertMoney("0.00", row.getPrincipalCompleted(CURRENCY));
+            assertMoney("0.00", row.getInterestPaid(CURRENCY));
+        }
+        assertMoney("0.00", processor.handleTransactionAndCharges(transaction, CURRENCY, rows, new HashSet<>(), null, false));
+        assertMoney("27.37", transaction.getPrincipalPortion(CURRENCY));
+        assertMoney("98.63", transaction.getInterestPortion(CURRENCY));
+        assertMoney("18.95", rows.get(0).getPrincipalCompleted(CURRENCY));
+        assertMoney("8.42", rows.get(1).getPrincipalCompleted(CURRENCY));
+        assertMoney("98.63", rows.get(0).getInterestPaid(CURRENCY));
+        assertMoney("0.00", rows.get(1).getInterestPaid(CURRENCY));
+        assertEquals(2, transaction.getLoanTransactionToRepaymentScheduleMappings().size());
+        assertEquals(LocalDate.of(2023, 5, 14), rows.get(0).getDueDate());
+        assertEquals(LocalDate.of(2023, 6, 14), rows.get(1).getDueDate());
+    }
+
+    @Test
+    void loan10StillRejectsMixedPaymentWithoutContractualEvidence() {
+        loan10Schedule();
+        transaction = payment(LocalDate.of(2023, 5, 13), "27.37", "98.63", "0.00", "0.00");
+        when(loan.getRepaymentScheduleInstallments()).thenReturn(List.of());
+        assertThrows(GeneralPlatformDomainRuleException.class, this::recalculate);
+    }
+
+    @Test
+    void loan10FinalPostingStillRejectsUnrepresentedPrincipal() {
+        final var rows = loan10Schedule();
+        transaction = payment(LocalDate.of(2023, 5, 13), "27.37", "98.63", "0.00", "0.00");
+        assertMoney("27.37", recalculate());
+        assertThrows(GeneralPlatformDomainRuleException.class,
+                () -> processor.handleTransactionAndCharges(transaction, CURRENCY, List.of(rows.get(0)), new HashSet<>(), null, false));
+    }
+
+    private List<LoanRepaymentScheduleInstallment> loan10Schedule() {
+        final LocalDate disbursed = LocalDate.of(2023, 4, 14);
+        final LocalDate firstDue = LocalDate.of(2023, 5, 14);
+        when(loan.getDisbursementDate()).thenReturn(disbursed);
+        final var rows = List.of(
+                new LoanRepaymentScheduleInstallment(loan, 1, disbursed, firstDue, new BigDecimal("18.95"), new BigDecimal("101.92"),
+                        BigDecimal.ZERO, BigDecimal.ZERO, false, null),
+                new LoanRepaymentScheduleInstallment(loan, 2, firstDue, LocalDate.of(2023, 6, 14), new BigDecimal("19.92"),
+                        new BigDecimal("100.95"), BigDecimal.ZERO, BigDecimal.ZERO, false, null));
+        when(loan.getRepaymentScheduleInstallments()).thenReturn(rows);
+        return rows;
+    }
+
     private void useSchedule(LocalDate due, String interest) {
         final var rows = List.of(installment(due, interest));
         when(loan.getRepaymentScheduleInstallments()).thenReturn(rows);

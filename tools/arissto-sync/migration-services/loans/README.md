@@ -390,6 +390,8 @@ read-only proof leaves recorded payments and installments untouched, returns
 only principal as early-paid amounts and retains strict final-posting guards.
 See [LS-05 loan 773 evidence](loan-sync-updates-progress-oct27.md#ls-05-loan-773--interest-allocation-repair-and-bounded-recovery)
 for its verified recovery and separate remaining cutover-insurance refusals.
+The same runtime fix also covers loan 10's pre-first-due mixed principal/interest
+payment; see [LS-01 regression coverage and scoped acceptance](loan-sync-updates-progress-oct27.md#ls-01-loan-10--mixed-allocation-recovery-october-27).
 
 On same-cycle recovery after final metric alignment, insurance opening debt may
 already reside on the canonical `ARISSTO:CRD-METRICS:INS:<loan-id>` charge.
