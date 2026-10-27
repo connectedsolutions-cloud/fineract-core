@@ -41,13 +41,13 @@ Counts are observations from this attempt. Representative loans use Arissto `loa
 | LS-21 | Parent and child status/summary disagree after interruption and earlier recovery. | One workflow: 11 latest completed services, one interrupted loan step, six blocked services; parent summary still says 10 completed / two failed. Loan child remains stored as `running`. | **Open — reporting inconsistency verified in preserved state.** | Recompute effective latest-attempt summary and consistently expose interrupted children. |
 | LS-22 | Planned actions lack recorded outcomes; target creation differs from completed replay. | 1,293 of 2,752 planned actions have no item record. 970 succeeded items include three setup actions, leaving 967 succeeded loans; supplied target check reports 1,143 created loans. | **Open — incomplete outcome evidence.** Missing record does not prove no target write. | Reconcile stable target identities, transaction prefixes and mappings before retry; preserve original evidence. |
 | LS-23 | Final metric alignment and first native COB cannot establish a complete handoff while replay/downstream financial services are incomplete. | Cycle-wide; final alignment not reached, six downstream services blocked, no first native COB recorded. | **Blocked — awaiting complete financial replay and reconciliation.** | Complete required services and opening metric reconciliation before first native COB. Do not mask incomplete replay with corrections. |
-| LS-24 | Scoped retry selection can promote healthy product prerequisites into explicit fan-out roots when adding office-transfer cohort members. | Eight requested successors plus prerequisites select 17 loans initially; recomputation would select 2,735 loans. Transfer cohort includes `loan:101`, `loan:283`, `loan:553`, `loan:921`. No expanded apply ran. | **Fixed — 248 tests passed; frozen-plan audit selects 19 loans and one product instead of 2,735 loans. Latest 34-loan run remained bounded; see LS-27.** | Keep the bounded selector; LS-26 now permits complete scoped transfer cohorts. LS-27 now adds the required successors and consolidation dependencies: 34 loans and one product, with no sibling portfolio fan-out. LS-31 now officially reconciles all 34 selected loans without portfolio fan-out. The earlier same-client counter finding remains separate in LS-30. |
+| LS-24 | Scoped retry selection can promote healthy product prerequisites into explicit fan-out roots when adding office-transfer cohort members. | Eight requested successors plus prerequisites select 17 loans initially; recomputation would select 2,735 loans. Transfer cohort includes `loan:101`, `loan:283`, `loan:553`, `loan:921`. No expanded apply ran. | **Fixed — 248 tests passed; frozen-plan audit selects 19 loans and one product instead of 2,735 loans. Latest 34-loan run remained bounded; see LS-27.** | Keep the bounded selector; LS-26 now permits complete scoped transfer cohorts. LS-27 now adds the required successors and consolidation dependencies: 34 loans and one product, with no sibling portfolio fan-out. LS-31 now officially reconciles all 34 selected loans without portfolio fan-out. LS-30 now confirms the separate native product-counter resequencing as expected behavior. |
 | LS-25 | Frozen-plan validation detects source changes after planning; scoped loan 921 gained an October 27 repayment. | Original full-plan blocker: `loan:1613` (separate). For 921, movement `0000034318` increases 23 frozen events to 24; the prior 23 are unchanged. Before LS-28, current-source planning quarantined `loan:101`, `loan:283`, `loan:553`, `loan:921` through the refinancing cohort. | **921 diagnosed — genuine source drift; guard is correct. 280 tests passed; no runtime fix needed.** The recorded payment creation is about 79 seconds after the scoped plan observation. LS-28 now provides a verified bounded reconstruction plan for 921; four-loan replay was reconciled; exclusion also holds in the latest 34-loan retry. | Preserve Arissto through October 26 / Fineract starts October 27. Use the new LS-28 plan for the complete four-loan 921 chain; unsupported refinance histories still block. LS-27 and the separate 1613 evidence remain open. |
 | LS-26 | Planner unconditionally rejects scoped loans with client office transfers, even with the full transfer cohort. | The 19-loan retry includes cohort `loan:101`, `loan:283`, `loan:553`, `loan:921`; source extraction freezes a 34-loan refinancing graph. | **Fixed — complete cohort proof, 272 tests passed, same-cycle planner accepts the cohort. LS-28 now clears the historical projection gate for the complete 921 chain. Accepted transfer remains matched after the 34-loan attempt.** | Recheck frozen cohort inventory before writes; incomplete/changed cohorts remain blocked. LS-29 follow-up recovers/reconciles the complete four-loan cohort again, with the existing transfer matched and no duplicate history. |
-| LS-27 | Dependency-only retry omits successors whose disbursements create selected loans’ native refinancing payoffs. | Original eight roots select exactly 34 loans and one product; all 35 actions received outcomes. | **Recovered — officially reconciled.** LS-31 follow-up run `68b2c701797546849a349bdda2cf52ac`: all 34 recovered, zero failed/blocked, 336/336 events and 272/272 metric targets match. | Preserve this bounded acceptance and October 27 exclusion. Prior failed attempts remain historical; full portfolio/workflow readiness and the earlier LS-30 finding remain separate. |
+| LS-27 | Dependency-only retry omits successors whose disbursements create selected loans’ native refinancing payoffs. | Original eight roots select exactly 34 loans and one product; all 35 actions received outcomes. | **Recovered — officially reconciled.** LS-31 follow-up run `68b2c701797546849a349bdda2cf52ac`: all 34 recovered, zero failed/blocked, 336/336 events and 272/272 metric targets match. | Preserve this bounded acceptance and October 27 exclusion. Prior failed attempts remain historical; full portfolio/workflow readiness remains separate. LS-30’s counter effect is now classified as expected native behavior. |
 | LS-28 | Historical reconstruction for 921 preserves the original snapshot and excludes the October 27 payment. | Completed recovery: `loan:101` → native 1, `loan:283` → 1144, `loan:553` → 1145, `loan:921` → 1146. | **Recovered — officially reconciled.** All source event identities and 32/32 metric targets match; October 27 payment absent. | LS-29 follow-up again recovers/reconciles all four: 46/46 events, 32/32 metric targets and continuation readiness; historical reconstruction and payment exclusion remain verified. |
 | LS-29 | Existing repayment recovery tries to provision historical penalty/insurance charges omitted from the active loan charge collection. | Loan 921, May 29 movement `0000021121`: inactive penalty 5056 (1.31) and fully paid inactive insurance 5057 (0.32). Blocks 101/283/553 as one transfer cohort. | **Fixed — 310 tests passed; all four loans recovered and officially reconciled.** Existing repayments are checked without charge provisioning; strict insurance settlement checks remain. | Run `0837cac1d1b4496fac6f22e06c90035a`: 46/46 events and 32/32 metrics match, no duplicate or post-boundary transactions. Historical charges/repayment and outside-scope hashes unchanged. Details below. |
-| LS-30 | Native historical disbursement can update a later same-client loan row outside selected writer actions. | Loan 383 / native 261, outside the 34-loan plan, changed while selected loan 125 was historically disbursed. Same client/product; 383 is later in time. | **Discovery — outside loan-row hash differs.** Native borrower/product counter update is a supported explanation, not a proven complete column diff. Outside transactions, schedules, charges, ownership, clients, products and GL hashes match. | Capture per-row preimages and trace native `updateLoanCounters` before promising strict row preservation. Keep financial replay bounded; do not add 383 to replay merely to hide the side effect. |
+| LS-30 | Historical disbursement updates a later same-client/product loan’s native sequence counter outside selected financial writer actions. | Loan 125 inserted between 43 and 383: current product counters 1/2/3; 383 / native 261 is the expected later neighbor. Overall borrower cycles are disabled and `loan_counter` stays null. | **Expected native behavior confirmed — no runtime fix needed.** 15 Java tests passed; command 40939 starts 19.57 ms before 383’s change, with no direct command/replay on 383. | Keep counter 3. Future audits must capture per-row preimages and verify only predicted counter/audit deltas; original complete column diff remains unavailable. Current accepted cohort still reconciles read-only. |
 | LS-31 | Recovery expects the original cutover insurance charge to retain an obligation already moved to the approved final-metric baseline. | 172 (12.54), 360 (7.82), 515 (6.45); original charge is zero and canonical INS baseline carries the balance. | **Fixed — 325 tests passed; complete 34-loan cohort recovered and officially reconciled.** Prior alignment, full metrics and charge identity/balance proof permit read-only recovery. | Run `68b2c701797546849a349bdda2cf52ac`: zero metric adjustments, unchanged charge/transaction rows and counts. Drift or missing proof remains blocking; no insurance obligation recreated. |
 
 ## LS-07 investigation — why this appeared after recent changes
@@ -1095,3 +1095,104 @@ Machine-readable evidence:
 [LS-31 cutover insurance recovery](investigations/ls31-cutover-insurance-recovery-oct27.json).
 Regression suite:
 [`test_cutover_insurance_baseline_recovery.py`](../../tests/test_cutover_insurance_baseline_recovery.py).
+
+## LS-30 investigation — loan 383’s expected native product-counter update
+
+**Conclusion: expected native counter resequencing; no runtime correction.**
+The bounded writer did not import or replay loan 383. Disbursing the selected
+historical loan 125 made an existing later loan the third disbursed account on
+the same product, so native Fineract updated its `loan_product_counter`.
+Restoring counter 2 or suppressing the native update would leave the sequence
+inconsistent with the actual disbursement history.
+
+| Same client / product 2 | Native loan | Actual disbursement | Current product counter | Overall borrower counter |
+|---|---:|---|---:|---|
+| Source 43 | 40 | 2023-05-19 | 1 | null |
+| Source 125 | 1154 | 2023-07-24 | 2 | null |
+| Source 383 | 261 | 2023-12-16 | 3 | null |
+
+Product 2 has both `include_in_borrower_cycle=false` and
+`use_borrower_cycle=false`. These do not turn off the separate product sequence
+counter. Native code gates the overall borrower counter on the include flag,
+while incrementing the product counter whenever the two loans share a product.
+Cycle-based product rules are disabled here; no repricing follows this update.
+
+### Evidence and causal path
+
+- Original bounded run: `4b0d62a7a0034254b67cba8cfbbc5fbd`, immutable plan
+  `ced78c4c83cd4d44bbcba748c4093d49`; 383 was not one of its 34 selected loans.
+- Audit command **40939**, `SOURCEEXACTREFINANCINGDISBURSE`, targets native
+  1154 / source 125, uses actual disbursement 2023-07-24 and completed HTTP 200.
+  It started **2026-10-27 19:52:43.636043 UTC**; loan 383’s row modification is
+  **19:52:43.655613 UTC**, **19.57 ms later**. No direct command on 383 occurred
+  during that bounded retry.
+- The handler calls `disburseSourceExactTopupLoan`, then
+  `disburseLoanInternal`. That method invokes native `updateLoanCounters`.
+  `FIND_CLIENT_OR_JLG_LOANS_DISBURSED_AFTER` loads the same client’s loans with
+  actual disbursement strictly later than the inserted date. The equivalent
+  read-only query selects **383 only** in this case.
+- `updateLoanCounter` increments the later same-product loan and assigns the
+  inserted loan its proper position, then saves the related loan entities.
+  Real `Loan` setters change counter fields; JPA versioning and the auditable
+  base class explain accompanying version/last-modified bookkeeping.
+- The original retry’s outside-scope transaction, schedule, charge, ownership,
+  client, product and GL hashes all matched. Only the aggregate outside
+  `m_loan` hash changed. Its postimage hash still exactly matches the current
+  **1,133 outside loan rows**. Loan 383 remains product counter **3**, version
+  **20**, with the same original modification timestamp across later retries.
+- The native API returns `loanProductCounter=3`, `loanCounter=null`; an
+  independent chronological ranking of current disbursed same-product loans
+  gives 1, 2 and 3. Existing disbursement recovery has not repeatedly shifted
+  the counter.
+
+This confirms the counter effect and excludes a selected-action expansion or
+normal out-of-scope payment replay as the explanation. **The original complete
+per-row before-image was not captured.** We cannot reconstruct an exhaustive
+historical column diff or independently certify every original noncounter
+`m_loan` value. The inferred prior counter 2 is reproduced from the chronology
+and native algorithm; it is not presented as a separately retained old row.
+
+### Testing and operating-guidance correction
+
+**15 Java tests passed**: five new native counter characterizations and ten
+existing disbursement-service cases. The new tests use the real native counter
+stage and real `Loan` entities, with repository selection/persistence mocked.
+They verify insertion of 125 before 383 (new ordinal 2, later ordinal 3), shifts
+of multiple later same-product loans, unchanged other-product counters, no
+change to previous loans when appending, and the separate enabled-borrower-cycle
+case. Domain and embedded summary comparisons, with nonzero principal and paid/
+outstanding fixtures, show only the expected counter changes;
+EclipseLink’s non-persistent lazy holders are excluded. This is not a full
+historical ORM before-image reconstruction. Scoped Spotless checks passed.
+
+No runtime bug was found in this case, so no counter, transaction or financial
+writer behavior was patched. The operating guide now distinguishes bounded
+**source financial actions** from native related-loan **counter metadata**.
+Future audit captures must include potential later-client-loan neighbors before
+historical disbursement and retain per-row counter/audit values plus full and
+noncounter hashes. Only a proven predicted counter delta with corresponding
+version/audit changes may be classified as expected; other row changes still
+require investigation. Do not add 383 to financial replay or globally ignore
+outside loan-row mismatches.
+
+### Preserved sandbox and accepted cohort
+
+This was a **read-only same-cycle investigation** in
+`sandbox-2026-10-26-full-clean-a`, local `sandbox` / `fineract_sandbox`,
+fingerprint `b9f6834b66790744`. **Arissto through: 2026-10-26. Fineract starts:
+2026-10-27.** A read-only recheck of accepted run
+`68b2c701797546849a349bdda2cf52ac` still returns **`ok=true`**, zero blocking
+mismatches and the same 448 nonblocking schedule variances. Its stored
+reconciliation record was not replaced and no new financial run was started.
+
+All captured target financial-table hashes, including loan rows, match before
+and after this investigation. October 27 movement `0000034318` remains absent
+across namespaces; there are zero post-boundary transactions in the accepted
+34-loan scope. The scheduler stays paused, parent workflow interrupted and
+active accounting boundary unchanged. **No replay, reset, new cycle, backend
+reload, source write or broader workflow resume occurred.**
+
+Machine-readable evidence:
+[LS-30 loan 383 counter behavior](investigations/ls30-loan-383-counter-behavior-oct27.json).
+Regression suite:
+[`HistoricalDisbursementLoanCounterTest`](../../../../fineract-provider/src/test/java/org/apache/fineract/portfolio/loanaccount/service/HistoricalDisbursementLoanCounterTest.java).

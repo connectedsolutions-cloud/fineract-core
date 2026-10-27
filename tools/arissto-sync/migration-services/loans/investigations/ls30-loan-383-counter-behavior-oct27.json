@@ -1,0 +1,299 @@
+{
+  "issue": "LS-30",
+  "classification": "Expected native historical-disbursement product-counter resequencing; not a loan selection/financial replay defect.",
+  "runtime_fix_needed": false,
+  "changes": [
+    "Native counter characterization tests",
+    "Scoped-run counter-effect audit guidance",
+    "Tracker and sanitized evidence"
+  ],
+  "cycle": "sandbox-2026-10-26-full-clean-a",
+  "target": "local:sandbox:fineract_sandbox",
+  "fingerprint": "b9f6834b66790744",
+  "source_through_date": "2026-10-26",
+  "fineract_starts": "2026-10-27",
+  "original_run": "4b0d62a7a0034254b67cba8cfbbc5fbd",
+  "original_plan": "ced78c4c83cd4d44bbcba748c4093d49",
+  "loan_context": {
+    "same_client_and_product": true,
+    "product_id": 2,
+    "flags": {
+      "product_id": 2,
+      "include_in_borrower_cycle": false,
+      "use_borrower_cycle": false
+    },
+    "chronology": [
+      {
+        "source_key": "loan:43",
+        "target_id": 40,
+        "disbursed_on": "2023-05-19",
+        "native_status": 600,
+        "product_counter": 1,
+        "overall_counter": null
+      },
+      {
+        "source_key": "loan:125",
+        "target_id": 1154,
+        "disbursed_on": "2023-07-24",
+        "native_status": 600,
+        "product_counter": 2,
+        "overall_counter": null
+      },
+      {
+        "source_key": "loan:383",
+        "target_id": 261,
+        "disbursed_on": "2023-12-16",
+        "native_status": 300,
+        "product_counter": 3,
+        "overall_counter": null
+      }
+    ],
+    "counter_conclusion": "Adding historical loan125 between43 and383 makes125 the second and383 the third disbursed loan on this product. The2\u21923 prior-counter transition is reproduced by the actual native algorithm; original pre-counter value was not separately captured."
+  },
+  "command_correlation": {
+    "trigger": {
+      "id": 40939,
+      "action": "SOURCEEXACTREFINANCINGDISBURSE",
+      "entity": "LOAN",
+      "loan_id": 1154,
+      "resource_id": 1154,
+      "response_status": 200,
+      "actual_disbursement_date": "2023-07-24"
+    },
+    "command_started_utc": "2026-10-27T19:52:43.636043+00:00",
+    "loan383_modified_utc": "2026-10-27T19:52:43.655613+00:00",
+    "milliseconds_after_command_start": 19.57,
+    "direct_commands_on_383_during_original_retry": 0,
+    "later_same_client_query_result": [
+      {
+        "target_id": 261,
+        "source_key": "loan:383",
+        "disbursed_on": "2023-12-16",
+        "product_id": 2
+      }
+    ]
+  },
+  "native_path": [
+    "arissto_sync.loans._apply_loan_lifecycle: sourceExactRefinancingDisburse",
+    "SourceExactRefinancingDisburseLoanCommandHandler -> disburseSourceExactTopupLoan",
+    "LoanWritePlatformServiceJpaRepositoryImpl.disburseLoanInternal -> updateLoanCounters",
+    "LoanRepository.FIND_CLIENT_OR_JLG_LOANS_DISBURSED_AFTER: same client, actual date strictly later",
+    "updateLoanCounter: increment later same-product counters, assign inserted ordinal, save related loans",
+    "Loan @Version and AbstractAuditableWithUTCDateTimeCustom explain persistence audit/version updates"
+  ],
+  "native_api_counter": {
+    "id": 261,
+    "externalId": "ARISSTO:CRD:383",
+    "loanProductId": 2,
+    "loanCounter": null,
+    "loanProductCounter": 3
+  },
+  "current_counter_ordinals": [
+    {
+      "id": 40,
+      "source_key": "loan:43",
+      "product_counter": 1,
+      "overall_counter": null,
+      "chronological_ordinal": 1
+    },
+    {
+      "id": 1154,
+      "source_key": "loan:125",
+      "product_counter": 2,
+      "overall_counter": null,
+      "chronological_ordinal": 2
+    },
+    {
+      "id": 261,
+      "source_key": "loan:383",
+      "product_counter": 3,
+      "overall_counter": null,
+      "chronological_ordinal": 3
+    }
+  ],
+  "current_383_version": 20,
+  "financial_scope_evidence": {
+    "383_selected_for_financial_replay": false,
+    "original_outside_financial_table_hash_matches": {
+      "transactions": true,
+      "schedules": true,
+      "charges": true,
+      "clients": true,
+      "products": true,
+      "journals": true,
+      "m_loan_charge_paid_by": true,
+      "m_loan_transaction_repayment_schedule_mapping": true
+    },
+    "original_outside_loan_rows_before": {
+      "rows": 1133,
+      "sha256": "626f59cbec57c92f79e570d48ff0af6cc50386b7519544fa0ca0a7938baf1fb3"
+    },
+    "original_outside_loan_rows_after": {
+      "rows": 1133,
+      "sha256": "c8564133a5392589bd1cdee601b160fe1603103381670528f5207cd7d2de5e7b"
+    },
+    "current_outside_rows": {
+      "rows": 1133,
+      "sha256": "c8564133a5392589bd1cdee601b160fe1603103381670528f5207cd7d2de5e7b"
+    },
+    "current_matches_original_postimage": true,
+    "no_counter_restore_or_extra_replay_performed": true
+  },
+  "tests": {
+    "java_total": 15,
+    "suites": [
+      {
+        "name": "HistoricalDisbursementLoanCounterTest",
+        "tests": 5,
+        "failures": 0,
+        "errors": 0
+      },
+      {
+        "name": "LoanWritePlatformServiceJpaRepositoryImplTest",
+        "tests": 10,
+        "failures": 0,
+        "errors": 0
+      }
+    ],
+    "new_characterization_tests": 5,
+    "production_counter_algorithm_and_domain_entities": "real",
+    "repository_selection_and_persistence": "mocked for isolated counter stage; live read-only query separately confirms only383 is selected",
+    "entity_field_check": "Disabled borrower-cycle reproduction changes only the domain loanProductCounter, preserving nonzero principal and embedded paid/outstanding summary values. Woven lazy-loading infrastructure is excluded; domain/audit/version fields are retained. Enabled-cycle case separately changes both counters.",
+    "coverage": [
+      "historical125 inserted before383: new2, later3, overallnull",
+      "multiple later same-product loans shift once",
+      "other product retains its own product counter",
+      "appending a later loan does not modify previous loans",
+      "enabled overall borrower cycle remains distinct"
+    ],
+    "scoped_spotless": "passed"
+  },
+  "current_read_only_verification": {
+    "accepted_bounded_run": "68b2c701797546849a349bdda2cf52ac",
+    "reconciliation_ok": true,
+    "counts": {
+      "loans": 34,
+      "staff_assignments": 34,
+      "mora_terms": 34,
+      "legacy_timelines": 6,
+      "accrual_controls_reconciled": 6,
+      "guarantor_relationships": 1,
+      "products": 1,
+      "client_office_transfers_expected": 1,
+      "client_office_transfers_matched": 1
+    },
+    "blocking_mismatch_count": 0,
+    "variance_count": 448,
+    "all_target_financial_hashes_unchanged": true,
+    "before": {
+      "m_loan": {
+        "rows": 1167,
+        "sha256": "c2dc313b62392b6093666f34c2188f11e981ee9bf588ceaf5b69f272629a2d80"
+      },
+      "m_loan_transaction": {
+        "rows": 25352,
+        "sha256": "54f9168a464c11fc5698a390f15eb0c39a02d3649f716d9b92b12121e4aa44c8"
+      },
+      "m_loan_repayment_schedule": {
+        "rows": 21625,
+        "sha256": "a891cda0e0e6096e2ca9f474aea57a1914e1d46245a57b3848c30245cef8ffcd"
+      },
+      "m_loan_charge": {
+        "rows": 5291,
+        "sha256": "dea92ceca7da7f225cde50fc3a966adda901722d98f9c4ac63563fa13d13e736"
+      },
+      "m_loan_transaction_repayment_schedule_mapping": {
+        "rows": 26877,
+        "sha256": "dd83b6f5be6bc6a2ef00516624a5286b74a9faaa5807e420a94f7e59a89ce9ab"
+      },
+      "m_loan_charge_paid_by": {
+        "rows": 10559,
+        "sha256": "ead44e25f56cecdf1081d7057e937a0cd892fe77f02bab7180102c0ee0d0eb9d"
+      },
+      "m_client": {
+        "rows": 1071,
+        "sha256": "c5bf7b2ffc849c08fe8856dcb7fcb7099cda77ef087c02a779b00cad264969ea"
+      },
+      "m_client_transfer_details": {
+        "rows": 2,
+        "sha256": "aac768fab956ed9487f7bd6cc40ca8693babebf4b730b2d470ec24372dbdc4ce"
+      },
+      "acc_gl_journal_entry": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    },
+    "after": {
+      "m_loan": {
+        "rows": 1167,
+        "sha256": "c2dc313b62392b6093666f34c2188f11e981ee9bf588ceaf5b69f272629a2d80"
+      },
+      "m_loan_transaction": {
+        "rows": 25352,
+        "sha256": "54f9168a464c11fc5698a390f15eb0c39a02d3649f716d9b92b12121e4aa44c8"
+      },
+      "m_loan_repayment_schedule": {
+        "rows": 21625,
+        "sha256": "a891cda0e0e6096e2ca9f474aea57a1914e1d46245a57b3848c30245cef8ffcd"
+      },
+      "m_loan_charge": {
+        "rows": 5291,
+        "sha256": "dea92ceca7da7f225cde50fc3a966adda901722d98f9c4ac63563fa13d13e736"
+      },
+      "m_loan_transaction_repayment_schedule_mapping": {
+        "rows": 26877,
+        "sha256": "dd83b6f5be6bc6a2ef00516624a5286b74a9faaa5807e420a94f7e59a89ce9ab"
+      },
+      "m_loan_charge_paid_by": {
+        "rows": 10559,
+        "sha256": "ead44e25f56cecdf1081d7057e937a0cd892fe77f02bab7180102c0ee0d0eb9d"
+      },
+      "m_client": {
+        "rows": 1071,
+        "sha256": "c5bf7b2ffc849c08fe8856dcb7fcb7099cda77ef087c02a779b00cad264969ea"
+      },
+      "m_client_transfer_details": {
+        "rows": 2,
+        "sha256": "aac768fab956ed9487f7bd6cc40ca8693babebf4b730b2d470ec24372dbdc4ce"
+      },
+      "acc_gl_journal_entry": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    },
+    "existing_reconciliation_record_replaced": false
+  },
+  "preservation": {
+    "excluded_payment_any_namespace_count": 0,
+    "scoped_post_boundary_transaction_count": 0,
+    "new_cycle": false,
+    "reset": false,
+    "loan_replay": false,
+    "backend_reload": false,
+    "source_write": false,
+    "broader_workflow_resume": false,
+    "same_active_accounting_boundary": true,
+    "scheduler_paused": true,
+    "parent_workflow": "interrupted"
+  },
+  "historical_limit": "The original retry retained aggregate outside-row hashes, not a full per-row before-image of383. Native code, command timing, chronology, current ordinal and unchanged monetary child tables confirm expected counter behavior; an exhaustive byte-for-byte historical column diff cannot be established. No claim is made that every original noncounter loan column is independently proven unchanged.",
+  "future_audit_rule": "Pre-capture native later-client-loan candidates and per-row full/noncounter hashes. Review exact predicted counter deltas plus audit/version changes; do not ignore all m_loan differences, suppress counters or expand financial replay to related loans.",
+  "current_postimage_fingerprint": {
+    "current_postimage_only": true,
+    "target_id": 261,
+    "source_key": "loan:383",
+    "product_counter": 3,
+    "overall_counter": null,
+    "version": 20,
+    "last_modified_on": "2026-10-27 13:52:43.655613-06:00",
+    "full_row_sha256": "d5754584e6ca9f3c7feacafcb5ba90e9398d1ca16410213ce62aacd64dd34c04",
+    "noncounter_row_sha256": "baf179b1e6b7643b56f0a79c4f1c520f968b5bf42618858b74a4e794da333ee4",
+    "noncounter_excluded_fields": [
+      "loan_product_counter",
+      "loan_counter",
+      "version",
+      "last_modified_on_utc",
+      "last_modified_by"
+    ]
+  }
+}

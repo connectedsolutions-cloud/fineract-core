@@ -399,6 +399,29 @@ before accepting this representation read-only. It never restores the old debt
 when proof is missing or drifted. Initial unaligned provisioning retains its
 existing path. See [LS-31 acceptance](loan-sync-updates-progress-oct27.md#ls-31-repair--preserve-the-approved-insurance-baseline-on-recovery).
 
+### Scoped historical disbursements and native loan counters
+
+A bounded loan plan limits source financial writer actions. A native historical
+disbursement can also resequence later loans for the same client, even when
+those loans are outside the selected actions. Fineract’s separate product
+counter is maintained for matching products even when overall borrower-cycle
+inclusion and cycle-based product rules are disabled. This derived metadata
+update does not import the related loan or authorize replaying its payments.
+For the verified LS-30 case, inserting 125 between 43 and 383 yields product
+counters 1/2/3; restoring 383 to 2 would be incorrect.
+
+Before first disbursement, future preservation audits should capture the native
+later-client-loan candidate set, its counter/version/audit values, and per-row
+hashes for both the full row and the noncounter projection. Keep stable IDs and
+hashes rather than logging sensitive raw rows. Compare exact predicted counter
+deltas and corresponding audit changes; retain strict checks on financial
+transactions, schedules, charges and all other row fields. A counter allowance
+must be restricted to the proven related rows and must not hide arbitrary
+outside-row drift or expand financial replay. The original LS-30 run lacked a
+full per-row preimage, so its complete historical column diff remains unknown.
+See [LS-30 investigation](loan-sync-updates-progress-oct27.md#ls-30-investigation--loan-383s-expected-native-product-counter-update).
+
+
 
 
 
@@ -497,7 +520,7 @@ cohorts are added together until stable. Each payoff successor must exist as a
 loan action and declare its predecessor in `depends_on`; missing proof stops
 selection before writes. Healthy product prerequisites do not select unrelated
 borrowers. See the [LS-27 tracker evidence](loan-sync-updates-progress-oct27.md#ls-27-repair--complete-bounded-native-payoff-closure)
-for the original eight roots’ bounded 34-loan plan and remaining recovery work.
+for the original eight roots’ accepted bounded 34-loan recovery.
 
 
 Historical plan `1eeadbdec4a04d76b02cef67c7dddeee` widened the product and run
