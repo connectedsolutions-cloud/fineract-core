@@ -1,0 +1,464 @@
+{
+  "issue": "LS-27",
+  "tests": {
+    "focused_python_tests": 296,
+    "result": "passed",
+    "new_regression_methods": 9,
+    "before_fix": "Two targeted successor-closure regressions failed before implementation."
+  },
+  "frozen_plan_audit": {
+    "issue": "LS-27",
+    "cycle": "sandbox-2026-10-26-full-clean-a",
+    "frozen_full_plan_id": "8098f714e10b4363934545537026a714",
+    "plan_document_sha256": "d41f22411e94d6ffa49795aa8a8b41eaff69182db07d90d3e480509dbcca1946",
+    "original_plan_unchanged": true,
+    "requested_roots": [
+      "loan:103",
+      "loan:125",
+      "loan:139",
+      "loan:159",
+      "loan:172",
+      "loan:1784",
+      "loan:200",
+      "loan:283"
+    ],
+    "before": {
+      "loan_count": 19,
+      "action_count": 20
+    },
+    "after": {
+      "loan_count": 34,
+      "action_count": 35,
+      "loan_keys": [
+        "loan:14",
+        "loan:25",
+        "loan:29",
+        "loan:30",
+        "loan:34",
+        "loan:43",
+        "loan:101",
+        "loan:103",
+        "loan:125",
+        "loan:139",
+        "loan:159",
+        "loan:172",
+        "loan:200",
+        "loan:283",
+        "loan:308",
+        "loan:360",
+        "loan:407",
+        "loan:433",
+        "loan:515",
+        "loan:553",
+        "loan:580",
+        "loan:644",
+        "loan:711",
+        "loan:773",
+        "loan:921",
+        "loan:1178",
+        "loan:1482",
+        "loan:1784",
+        "loan:1897",
+        "loan:1962",
+        "loan:2055",
+        "loan:2165",
+        "loan:2265",
+        "loan:2402"
+      ],
+      "setup_keys": [
+        "product:00010"
+      ],
+      "added_loan_keys": [
+        "loan:308",
+        "loan:360",
+        "loan:407",
+        "loan:433",
+        "loan:515",
+        "loan:580",
+        "loan:644",
+        "loan:711",
+        "loan:773",
+        "loan:1897",
+        "loan:1962",
+        "loan:2055",
+        "loan:2165",
+        "loan:2265",
+        "loan:2402"
+      ]
+    },
+    "required_payoff_edges": [
+      {
+        "predecessor": "loan:14",
+        "successor": "loan:200"
+      },
+      {
+        "predecessor": "loan:25",
+        "successor": "loan:103"
+      },
+      {
+        "predecessor": "loan:29",
+        "successor": "loan:159"
+      },
+      {
+        "predecessor": "loan:30",
+        "successor": "loan:139"
+      },
+      {
+        "predecessor": "loan:34",
+        "successor": "loan:172"
+      },
+      {
+        "predecessor": "loan:43",
+        "successor": "loan:125"
+      },
+      {
+        "predecessor": "loan:101",
+        "successor": "loan:283"
+      },
+      {
+        "predecessor": "loan:103",
+        "successor": "loan:308"
+      },
+      {
+        "predecessor": "loan:139",
+        "successor": "loan:515"
+      },
+      {
+        "predecessor": "loan:159",
+        "successor": "loan:360"
+      },
+      {
+        "predecessor": "loan:200",
+        "successor": "loan:433"
+      },
+      {
+        "predecessor": "loan:283",
+        "successor": "loan:553"
+      },
+      {
+        "predecessor": "loan:308",
+        "successor": "loan:580"
+      },
+      {
+        "predecessor": "loan:407",
+        "successor": "loan:644"
+      },
+      {
+        "predecessor": "loan:433",
+        "successor": "loan:711"
+      },
+      {
+        "predecessor": "loan:553",
+        "successor": "loan:921"
+      },
+      {
+        "predecessor": "loan:580",
+        "successor": "loan:773"
+      },
+      {
+        "predecessor": "loan:644",
+        "successor": "loan:773"
+      },
+      {
+        "predecessor": "loan:1178",
+        "successor": "loan:1482"
+      },
+      {
+        "predecessor": "loan:1482",
+        "successor": "loan:1784"
+      },
+      {
+        "predecessor": "loan:1784",
+        "successor": "loan:2402"
+      },
+      {
+        "predecessor": "loan:1897",
+        "successor": "loan:1962"
+      },
+      {
+        "predecessor": "loan:1962",
+        "successor": "loan:2055"
+      },
+      {
+        "predecessor": "loan:2055",
+        "successor": "loan:2165"
+      },
+      {
+        "predecessor": "loan:2165",
+        "successor": "loan:2265"
+      },
+      {
+        "predecessor": "loan:2265",
+        "successor": "loan:2402"
+      }
+    ],
+    "no_missing_prerequisites": true,
+    "no_missing_payoff_successors": true,
+    "plan_order_preserved": true,
+    "original_portfolio_loan_count": 2749,
+    "verification": "Read-only frozen selection audit; original full plan is not applied and its global source guard is not bypassed."
+  },
+  "same_cycle_current_plan": {
+    "issue": "LS-27",
+    "cycle": "sandbox-2026-10-26-full-clean-a",
+    "mode": "same-cycle bounded recovery planning only",
+    "target": "local:sandbox:fineract_sandbox",
+    "fingerprint": "b9f6834b66790744",
+    "source_through_date": "2026-10-26",
+    "fineract_starts": "2026-10-27",
+    "requested_roots": [
+      "loan:103",
+      "loan:125",
+      "loan:139",
+      "loan:159",
+      "loan:172",
+      "loan:1784",
+      "loan:200",
+      "loan:283"
+    ],
+    "original_plan_id": "8098f714e10b4363934545537026a714",
+    "financial_apply_performed": false,
+    "reset": false,
+    "plan_id": "ced78c4c83cd4d44bbcba748c4093d49",
+    "applicable": true,
+    "readiness_blockers": [],
+    "counts": {
+      "unchanged-product": 1,
+      "recover-loan": 13,
+      "create-loan": 21
+    },
+    "scope": {
+      "mode": "explicit-source-keys",
+      "requested_source_keys": [
+        "103",
+        "125",
+        "139",
+        "159",
+        "172",
+        "1784",
+        "200",
+        "283"
+      ],
+      "loan_count": 34,
+      "required_product_lines": [
+        "00010"
+      ],
+      "proof_namespace": null
+    },
+    "selected_loan_keys": [
+      "loan:14",
+      "loan:25",
+      "loan:29",
+      "loan:30",
+      "loan:34",
+      "loan:43",
+      "loan:101",
+      "loan:103",
+      "loan:125",
+      "loan:139",
+      "loan:159",
+      "loan:172",
+      "loan:200",
+      "loan:283",
+      "loan:308",
+      "loan:360",
+      "loan:407",
+      "loan:433",
+      "loan:515",
+      "loan:553",
+      "loan:580",
+      "loan:644",
+      "loan:711",
+      "loan:773",
+      "loan:921",
+      "loan:1178",
+      "loan:1482",
+      "loan:1784",
+      "loan:1897",
+      "loan:1962",
+      "loan:2055",
+      "loan:2165",
+      "loan:2265",
+      "loan:2402"
+    ],
+    "setup_keys": [
+      "product:00010"
+    ],
+    "payoff_edges": [
+      {
+        "predecessor": "loan:14",
+        "successor": "loan:200"
+      },
+      {
+        "predecessor": "loan:25",
+        "successor": "loan:103"
+      },
+      {
+        "predecessor": "loan:29",
+        "successor": "loan:159"
+      },
+      {
+        "predecessor": "loan:30",
+        "successor": "loan:139"
+      },
+      {
+        "predecessor": "loan:34",
+        "successor": "loan:172"
+      },
+      {
+        "predecessor": "loan:43",
+        "successor": "loan:125"
+      },
+      {
+        "predecessor": "loan:101",
+        "successor": "loan:283"
+      },
+      {
+        "predecessor": "loan:103",
+        "successor": "loan:308"
+      },
+      {
+        "predecessor": "loan:139",
+        "successor": "loan:515"
+      },
+      {
+        "predecessor": "loan:159",
+        "successor": "loan:360"
+      },
+      {
+        "predecessor": "loan:200",
+        "successor": "loan:433"
+      },
+      {
+        "predecessor": "loan:283",
+        "successor": "loan:553"
+      },
+      {
+        "predecessor": "loan:308",
+        "successor": "loan:580"
+      },
+      {
+        "predecessor": "loan:407",
+        "successor": "loan:644"
+      },
+      {
+        "predecessor": "loan:433",
+        "successor": "loan:711"
+      },
+      {
+        "predecessor": "loan:553",
+        "successor": "loan:921"
+      },
+      {
+        "predecessor": "loan:580",
+        "successor": "loan:773"
+      },
+      {
+        "predecessor": "loan:644",
+        "successor": "loan:773"
+      },
+      {
+        "predecessor": "loan:1178",
+        "successor": "loan:1482"
+      },
+      {
+        "predecessor": "loan:1482",
+        "successor": "loan:1784"
+      },
+      {
+        "predecessor": "loan:1784",
+        "successor": "loan:2402"
+      },
+      {
+        "predecessor": "loan:1897",
+        "successor": "loan:1962"
+      },
+      {
+        "predecessor": "loan:1962",
+        "successor": "loan:2055"
+      },
+      {
+        "predecessor": "loan:2055",
+        "successor": "loan:2165"
+      },
+      {
+        "predecessor": "loan:2165",
+        "successor": "loan:2265"
+      },
+      {
+        "predecessor": "loan:2265",
+        "successor": "loan:2402"
+      }
+    ],
+    "no_missing_prerequisites": true,
+    "no_missing_payoff_successors": true,
+    "four_loan_921_selection": [
+      "loan:101",
+      "loan:283",
+      "loan:553",
+      "loan:921"
+    ],
+    "loan_921_projection": {
+      "excluded_movements": [
+        "0000034318"
+      ],
+      "event_count": 23,
+      "source_lifecycle_matches_reconciled_plan": true,
+      "excluded_payment_not_in_writer": true
+    },
+    "all_writer_events_before_fineract_start": true,
+    "apply_guard": "passed (read-only; no apply)",
+    "excluded_payment_any_namespace_count": 0,
+    "target_state_unchanged": true,
+    "original_plan_unchanged": true,
+    "parent_workflow_status": "interrupted"
+  },
+  "financial_snapshot_checks": {
+    "before_equals_after": true,
+    "scope": "Full rows of the enumerated financial and client tables; each before/after row count and SHA-256 matched.",
+    "counts": {
+      "loans": 1146,
+      "loan_transactions": 24918,
+      "gl_entries": 0
+    },
+    "preserved_tables": {
+      "m_loan": {
+        "rows": 1146,
+        "sha256": "f8346107f15fbd23992832d5df619b2484072b356530f3c0af561639f703a6d0"
+      },
+      "m_loan_transaction": {
+        "rows": 24918,
+        "sha256": "2bcbecb0936ac50b8d87085a94c323d665e4ca6a1537fcf615e1021c19d0fb16"
+      },
+      "m_loan_repayment_schedule": {
+        "rows": 21311,
+        "sha256": "5dfb80f26e6e3cd2ba30dcbab783a9666829cfcfc7a786010a8571be81fdc4e5"
+      },
+      "m_loan_charge": {
+        "rows": 5065,
+        "sha256": "273e7dd17c117e2b5581717e3621f27edde0515eab8801dca8666c51477423ca"
+      },
+      "m_loan_transaction_repayment_schedule_mapping": {
+        "rows": 26226,
+        "sha256": "4c2d149d4fcdb3c9a5ed7925ce52608ad1f4cadb865b3225656561ac6994795b"
+      },
+      "m_loan_charge_paid_by": {
+        "rows": 10211,
+        "sha256": "5a99ae5f6a9adbd1b0d43d6c379dcc1b5783313ccd03194409ce840b2d57705f"
+      },
+      "m_client": {
+        "rows": 1071,
+        "sha256": "c5bf7b2ffc849c08fe8856dcb7fcb7099cda77ef087c02a779b00cad264969ea"
+      },
+      "m_client_transfer_details": {
+        "rows": 2,
+        "sha256": "aac768fab956ed9487f7bd6cc40ca8693babebf4b730b2d470ec24372dbdc4ce"
+      },
+      "acc_gl_journal_entry": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    }
+  },
+  "acceptance_limit": "Selection and current-plan validation only. No apply, reset, financial reconciliation of the wider 34-loan set, parent resume or backend reload was performed."
+}

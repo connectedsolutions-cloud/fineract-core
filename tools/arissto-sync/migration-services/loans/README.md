@@ -463,6 +463,16 @@ healthy product as a failed loan's prerequisite no longer selects its siblings.
 Failed Fineract diagnostics retain a bounded 4,000-character safe response so
 validation codes remain operable.
 
+Scoped loan action selection also closes over frozen `native-refinance-payoff`
+events: the successor’s disbursement creates that predecessor payoff. Required
+successors, their consolidation prerequisites and complete office-transfer
+cohorts are added together until stable. Each payoff successor must exist as a
+loan action and declare its predecessor in `depends_on`; missing proof stops
+selection before writes. Healthy product prerequisites do not select unrelated
+borrowers. See the [LS-27 tracker evidence](loan-sync-updates-progress-oct27.md#ls-27-repair--complete-bounded-native-payoff-closure)
+for the original eight roots’ bounded 34-loan plan and remaining recovery work.
+
+
 Historical plan `1eeadbdec4a04d76b02cef67c7dddeee` widened the product and run
 `e8bbff21f3bf42e2abdaf1496eb73c7b` synchronized 138 loans, recovered 27, and
 recorded the remaining rows as 987 direct quarantines, 1,238 dependency blocks,

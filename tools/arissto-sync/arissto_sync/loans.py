@@ -5164,11 +5164,12 @@ def _selected_loan_actions(
     actions: list[dict[str, Any]], only_keys: set[str] | None,
     *, client_office_transfers: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Close original retry roots over prerequisites and indivisible transfer cohorts."""
+    """Close retry roots over prerequisites, native payoffs and transfer cohorts."""
     if only_keys is None:
         return actions
     by_key = {action["source_key"]: action for action in actions}
-    unknown = sorted(set(only_keys) - set(by_key))
+    known_keys = set(by_key)
+    unknown = sorted(set(only_keys) - known_keys)
     if unknown:
         raise RuntimeError(f"Retry keys are absent from the loans plan: {unknown}")
     explicitly_selected = set(only_keys)
@@ -5185,8 +5186,9 @@ def _selected_loan_actions(
     )
     # Keep roots distinct from discovered prerequisites. Re-selecting the
     # expanded set would promote healthy products to explicit fan-out roots.
-    # A cohort can introduce a predecessor from another transfer client, so
-    # close both relationships together until no required action is added.
+    # Native payoff events are created by successor disbursements, not by the
+    # predecessor action. Successors can add consolidation predecessors or
+    # another transfer cohort: close all relationships together to a fixed point.
     transfer_clients = {
         event["client_external_id"] for event in client_office_transfers or []
     }
@@ -5194,7 +5196,27 @@ def _selected_loan_actions(
     while changed:
         previous = set(selected)
         for key in list(selected):
-            selected.update(by_key[key].get("depends_on", []))
+            action = by_key[key]
+            dependencies = set(action.get("depends_on", []))
+            missing = sorted(dependencies - known_keys)
+            if missing:
+                raise RuntimeError(f"loan_retry_dependency_action_missing:{key}:{','.join(missing)}")
+            selected.update(dependencies)
+            if action["entity_type"] != "loan":
+                continue
+            for event in (action.get("lifecycle") or {}).get("events", []):
+                if event.get("role") != "native-refinance-payoff":
+                    continue
+                try:
+                    successor = loan_action_key(event.get("successor_source_key"))
+                except ValueError as exc:
+                    raise RuntimeError(f"native_refinance_payoff_invalid_successor:{key}") from exc
+                successor_action = by_key.get(successor)
+                if successor_action is None or successor_action.get("entity_type") != "loan":
+                    raise RuntimeError(f"native_refinance_payoff_successor_action_missing:{key}:{successor}")
+                if key not in successor_action.get("depends_on", []):
+                    raise RuntimeError(f"native_refinance_payoff_successor_dependency_missing:{key}:{successor}")
+                selected.add(successor)
         selected_transfer_clients = {
             by_key[key].get("client_external_id") for key in selected
             if by_key[key]["entity_type"] == "loan"
