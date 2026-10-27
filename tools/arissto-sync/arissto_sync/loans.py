@@ -7587,7 +7587,7 @@ def _apply_loan_lifecycle(
                     f"loan_cutover_adjustment_exceeds_frozen_maximum:"
                     f"{adjustment['external_id']}:{amount}:{maximum}"
                 )
-            if amount > Decimal("0.01"):
+            if amount > Decimal("0.00"):
                 api.request(
                     "POST", f"loans/{loan_id}/transactions", {
                         "transactionDate": adjustment["date"], "transactionAmount": format(amount, "f"),

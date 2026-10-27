@@ -4348,6 +4348,12 @@ class LoanInspectionTests(unittest.TestCase):
             _loan_apply_guard(settings, state, self.contract, "old-plan", None)
 
     def test_closed_source_loan_keeps_cash_exact_and_uses_explicit_cutover_adjustment(self):
+        self.assert_closed_source_terminal_adjustment("2.00")
+
+    def test_one_cent_terminal_residual_is_adjusted_to_close_the_loan(self):
+        self.assert_closed_source_terminal_adjustment("0.01")
+
+    def assert_closed_source_terminal_adjustment(self, adjustment_amount):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         loan.update({
             "source_state": "3", "ULTIMO_SALDO": "0", "SALDO_INTERES": "0",
@@ -4370,9 +4376,9 @@ class LoanInspectionTests(unittest.TestCase):
             {"id": 1, "externalId": "ARISSTO:CRD-MOV:100", "amount": 350},
         ]}
         paid = {**active, "summary": {
-            "principalOutstanding": 0, "interestOutstanding": 2,
+            "principalOutstanding": 0, "interestOutstanding": adjustment_amount,
             "feeChargesOutstanding": 0, "penaltyChargesOutstanding": 0,
-            "totalOutstanding": 2,
+            "totalOutstanding": adjustment_amount,
         }, "charges": [{
             "externalId": "ARISSTO:CRD-INS:7001:101:0001", "amount": .1, "amountOutstanding": 0,
         }],
@@ -4388,8 +4394,8 @@ class LoanInspectionTests(unittest.TestCase):
             "totalOutstanding": 0,
         },
                   "transactions": paid["transactions"] + [{
-            "id": 3, "externalId": "ARISSTO:CRD-CUTOVER:2068", "amount": 2,
-            "principalPortion": 0, "interestPortion": 2,
+            "id": 3, "externalId": "ARISSTO:CRD-CUTOVER:2068", "amount": adjustment_amount,
+            "principalPortion": 0, "interestPortion": adjustment_amount,
             "feeChargesPortion": 0, "penaltyChargesPortion": 0,
         }]}
         api = MagicMock()
@@ -4421,9 +4427,9 @@ class LoanInspectionTests(unittest.TestCase):
             ],
         )
         terminal_request = api.request.call_args_list[8]
-        self.assertEqual(terminal_request.args[2]["transactionAmount"], "2.00")
+        self.assertEqual(terminal_request.args[2]["transactionAmount"], adjustment_amount)
         self.assertEqual(terminal_request.args[2]["principalPortion"], "0.00")
-        self.assertEqual(terminal_request.args[2]["interestPortion"], "2.00")
+        self.assertEqual(terminal_request.args[2]["interestPortion"], adjustment_amount)
         self.assertEqual(terminal_request.args[2]["feeChargesPortion"], "0.00")
         self.assertEqual(terminal_request.args[2]["penaltyChargesPortion"], "0.00")
 
