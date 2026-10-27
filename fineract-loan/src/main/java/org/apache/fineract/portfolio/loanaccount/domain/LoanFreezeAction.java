@@ -17,5 +17,5 @@
 package org.apache.fineract.portfolio.loanaccount.domain;
 
 public enum LoanFreezeAction {
-    FREEZE, UNFREEZE
+    FREEZE, UNFREEZE, MORA_FREEZE, MORA_UNFREEZE
 }

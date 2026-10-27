@@ -254,6 +254,7 @@ public class LoanRepaymentScheduleService {
                     totalPaidInAdvanceForPeriod, totalPaidLateForPeriod, totalWaivedForPeriod, totalWrittenOffForPeriod, credits,
                     isDownPayment, accrualInterest);
 
+            periodData = periodData.toBuilder().interestForecast(installment.getMigrationInterestForecast()).build();
             periods.add(periodData);
         }
 

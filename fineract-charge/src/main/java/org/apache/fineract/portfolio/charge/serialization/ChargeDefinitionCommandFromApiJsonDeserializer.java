@@ -515,6 +515,11 @@ public final class ChargeDefinitionCommandFromApiJsonDeserializer {
 
     private void performChargeTimeNCalculationTypeValidation(DataValidatorBuilder baseDataValidator, final Integer chargeTimeType,
             final Integer chargeCalculationType) {
+        if (chargeTimeType.equals(ChargeTimeType.CREDESAL_DAILY_MORA.getValue())) {
+            baseDataValidator.reset().parameter(CHARGE_CALCULATION_TYPE).value(chargeCalculationType)
+                    .isOneOfTheseValues(new Object[] { ChargeCalculationType.FLAT.getValue() });
+            return;
+        }
         if (chargeTimeType.equals(ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE.getValue())) {
             baseDataValidator.reset().parameter(CHARGE_CALCULATION_TYPE).value(chargeCalculationType)
                     .isOneOfTheseValues(new Object[] { ChargeCalculationType.PERCENT_OF_DELINQUENT_PRINCIPAL.getValue() });

@@ -81,6 +81,9 @@ class FinalLoanMetricsTest {
             var high = targets("80", "140", "40", "20", "30", "7", "10", "5");
             FinalLoanMetrics.apply(loan, SOURCE, high, ids, insurance, penalty);
             assertEquals(FinalLoanMetrics.normalize(high), FinalLoanMetrics.read(loan, SOURCE, ids));
+            assertEquals(new BigDecimal("15.00"), rows.get(1).getMigrationInterestForecast());
+            assertEquals(new BigDecimal("0.00"), rows.get(1).getInterestOutstanding(currency).getAmount());
+            assertEquals(new BigDecimal("0.00"), FinalLoanMetrics.baseline(loan).getMigrationInterestForecast());
             var low = targets("10", "100", "2", "1", "10", "0.50", "1", "0.25");
             FinalLoanMetrics.apply(loan, SOURCE, low, ids, insurance, penalty);
             assertEquals(FinalLoanMetrics.normalize(low), FinalLoanMetrics.read(loan, SOURCE, ids));

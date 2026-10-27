@@ -36,6 +36,7 @@ public class ApplyDelinquencyRangeChargesBusinessStep implements LoanCOBBusiness
     @Override
     public Loan execute(Loan loan) {
         loanChargeWritePlatformService.applyDelinquencyRangeChargesForLoan(loan.getId());
+        loanChargeWritePlatformService.applyCredesalDailyMoraForLoan(loan.getId());
         return loan;
     }
 

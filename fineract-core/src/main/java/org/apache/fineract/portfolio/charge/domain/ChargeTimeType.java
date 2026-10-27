@@ -42,7 +42,9 @@ public enum ChargeTimeType {
      * Loan charge applied on COB when loan-level delinquency tag matches linked range; see
      * ChargeCalculationType.PERCENT_OF_DELINQUENT_PRINCIPAL
      */
-    DELINQUENCY_CLASSIFICATION_RANGE(18, "chargeTimeType.delinquencyClassificationRange"); // only for loan charges
+    DELINQUENCY_CLASSIFICATION_RANGE(18, "chargeTimeType.delinquencyClassificationRange"), // only for loan charges
+    /** Product-level monthly mora rate, posted as cumulative daily differences by loan COB. */
+    CREDESAL_DAILY_MORA(19, "chargeTimeType.credesalDailyMora"); // only for loan charges
 
     private final Integer value;
     private final String code;
@@ -64,7 +66,7 @@ public enum ChargeTimeType {
         return new Integer[] { ChargeTimeType.DISBURSEMENT.getValue(), ChargeTimeType.SPECIFIED_DUE_DATE.getValue(),
                 ChargeTimeType.INSTALMENT_FEE.getValue(), ChargeTimeType.OVERDUE_INSTALLMENT.getValue(),
                 ChargeTimeType.TRANCHE_DISBURSEMENT.getValue(), ChargeTimeType.AVAILABLE_AT_CASHIER.getValue(),
-                ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE.getValue() };
+                ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE.getValue(), ChargeTimeType.CREDESAL_DAILY_MORA.getValue() };
     }
 
     public static Object[] validLoanChargeValues() {
@@ -146,6 +148,9 @@ public enum ChargeTimeType {
                 case 18:
                     chargeTimeType = DELINQUENCY_CLASSIFICATION_RANGE;
                 break;
+                case 19:
+                    chargeTimeType = CREDESAL_DAILY_MORA;
+                break;
                 default:
                     chargeTimeType = INVALID;
                 break;
@@ -204,11 +209,15 @@ public enum ChargeTimeType {
 
     public boolean isAllowedLoanChargeTime() {
         return isTimeOfDisbursement() || isOnSpecifiedDueDate() || isInstalmentFee() || isOverdueInstallment() || isTrancheDisbursement()
-                || isAvailableAtCashier() || isDelinquencyClassificationRange();
+                || isAvailableAtCashier() || isDelinquencyClassificationRange() || isCredesalDailyMora();
     }
 
     public boolean isDelinquencyClassificationRange() {
         return this.equals(ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE);
+    }
+
+    public boolean isCredesalDailyMora() {
+        return this.equals(ChargeTimeType.CREDESAL_DAILY_MORA);
     }
 
     public boolean isAllowedClientChargeTime() {

@@ -276,7 +276,8 @@ public class Charge extends AbstractPersistableCustom<Long> {
             if (penalty && (chargeTime.isTimeOfDisbursement() || chargeTime.isTrancheDisbursement())) {
                 throw new ChargeDueAtDisbursementCannotBePenaltyException(name);
             }
-            if (!penalty && (chargeTime.isOverdueInstallment() || chargeTime.isDelinquencyClassificationRange())) {
+            if (!penalty && (chargeTime.isOverdueInstallment() || chargeTime.isDelinquencyClassificationRange()
+                    || chargeTime.isCredesalDailyMora())) {
                 throw new ChargeMustBePenaltyException(name);
             }
             if (chargeTime.isDelinquencyClassificationRange()) {
@@ -288,6 +289,10 @@ public class Charge extends AbstractPersistableCustom<Long> {
                     baseDataValidator.reset().parameter(ChargesApiConstants.delinquencyRangeIdParamName).value(null)
                             .failWithCodeNoParameterAddedToErrorCode("delinquency.range.id.required");
                 }
+            }
+            if (chargeTime.isCredesalDailyMora() && !chargeCalculationType.isFlat()) {
+                baseDataValidator.reset().parameter(CHARGE_CALCULATION_TYPE_PARAM_NAME).value(this.chargeCalculation)
+                        .failWithCodeNoParameterAddedToErrorCode("credesal.daily.mora.charge.calculation.must.be.flat");
             }
             // TODO vishwas, this validation seems unnecessary as identical
             // validation is performed in the write service
@@ -668,7 +673,8 @@ public class Charge extends AbstractPersistableCustom<Long> {
             throw new ChargeDueAtDisbursementCannotBePenaltyException(this.name);
         }
         if (!penalty && (ChargeTimeType.fromInt(this.chargeTimeType).isOverdueInstallment()
-                || ChargeTimeType.fromInt(this.chargeTimeType).isDelinquencyClassificationRange())) {
+                || ChargeTimeType.fromInt(this.chargeTimeType).isDelinquencyClassificationRange()
+                || ChargeTimeType.fromInt(this.chargeTimeType).isCredesalDailyMora())) {
             throw new ChargeMustBePenaltyException(name);
         }
 

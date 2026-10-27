@@ -41,6 +41,37 @@ public final class FinalLoanMetrics {
 
     private FinalLoanMetrics() {}
 
+    public static LoanRepaymentScheduleInstallment baseline(Loan loan) {
+        return loan.getRepaymentScheduleInstallments().stream().filter(LoanRepaymentScheduleInstallment::isMigrationMetricBaseline)
+                .findFirst().orElse(null);
+    }
+
+    public static LocalDate sourceDay(List<LoanRepaymentScheduleInstallment> rows) {
+        return rows.stream().filter(LoanRepaymentScheduleInstallment::isMigrationMetricBaseline)
+                .map(LoanRepaymentScheduleInstallment::getDueDate).max(LocalDate::compareTo).orElse(null);
+    }
+
+    /** Refresh persisted native projections without replaying imported cash history. */
+    public static void refresh(Loan loan) {
+        var anchor = baseline(loan);
+        if (anchor == null) throw new IllegalStateException("A migration baseline is required");
+        projectCharges(loan, anchor);
+        loan.getSummary().updateSummary(loan.getCurrency(), loan.getLoanRepaymentScheduleDetail().getPrincipal(),
+                loan.getRepaymentScheduleInstallments(), loan.getLoanCharges(),
+                Money.of(loan.getCurrency(), loan.getSummary().getTotalCapitalizedIncome()),
+                Money.of(loan.getCurrency(), loan.getSummary().getTotalCapitalizedIncomeAdjustment()));
+    }
+
+    public static void ensureChargePeriod(Loan loan, LocalDate day) {
+        if (loan.getRepaymentScheduleInstallments().stream().anyMatch(r -> !r.getDueDate().isBefore(day))) return;
+        var rows = loan.getRepaymentScheduleInstallments();
+        LocalDate from = rows.stream().map(LoanRepaymentScheduleInstallment::getDueDate).max(LocalDate::compareTo).orElseThrow();
+        int number = rows.stream().mapToInt(LoanRepaymentScheduleInstallment::getInstallmentNumber).max().orElse(0) + 1;
+        var row = new LoanRepaymentScheduleInstallment(loan, number, from, day, ZERO, ZERO, ZERO, ZERO, false, null, null);
+        row.setAdditional(true);
+        loan.addLoanRepaymentScheduleInstallment(row);
+    }
+
     public static BigDecimal money(BigDecimal value) {
         return value == null ? ZERO : value.setScale(2, RoundingMode.HALF_EVEN);
     }
@@ -165,23 +196,20 @@ public final class FinalLoanMetrics {
             BigDecimal outstanding = pastAllocation.getOrDefault(row, ZERO).add(allocation.getOrDefault(row, ZERO));
             row.setPrincipal(money(row.getPrincipalCompleted()).add(money(row.getPrincipalWrittenOff())).add(outstanding));
             row.setCreditedPrincipal(ZERO);
+            row.setPostDueInterestCharged(ZERO);
             if (row != anchor) {
-                if (loan.getStatus() == null || !loan.getStatus().isActive() || !row.getDueDate().isAfter(firstDay)) {
-                    row.setInterestCharged(money(row.getInterestWaived()).add(money(row.getInterestWrittenOff())));
-                } else if (row.getFromDate() != null && row.getFromDate().isBefore(firstDay)) {
-                    long total = ChronoUnit.DAYS.between(row.getFromDate(), row.getDueDate());
-                    long remaining = ChronoUnit.DAYS.between(firstDay, row.getDueDate());
-                    BigDecimal unearned = row.getInterestCharged(currency).getAmount().multiply(BigDecimal.valueOf(remaining))
-                            .divide(BigDecimal.valueOf(total), 6, RoundingMode.HALF_EVEN);
-                    row.setInterestCharged(unearned.add(money(row.getInterestWaived())).add(money(row.getInterestWrittenOff())));
-                    row.setFromDate(firstDay);
-                }
+                // Preserve the pre-handoff forecast for schedule display, but do not
+                // turn that unearned estimate into collectible accrued interest.
+                if (row.getDueDate().isAfter(sourceDay) && row.getMigrationInterestForecast() == null)
+                    row.setMigrationInterestForecast(money(row.getInterestCharged()));
+                row.setInterestCharged(money(row.getInterestWaived()).add(money(row.getInterestWrittenOff())));
                 row.setInterestPaid(ZERO);
             }
         }
         BigDecimal writtenOff = rows.stream().map(r -> money(r.getPrincipalWrittenOff())).reduce(ZERO, BigDecimal::add);
         anchor.setCreditedPrincipal(targets.get("paidPrincipal").add(targets.get("outstandingPrincipal")).add(writtenOff)
                 .subtract(loan.getLoanRepaymentScheduleDetail().getPrincipal().getAmount()).subtract(capitalized.getAmount()));
+        anchor.setMigrationInterestForecast(ZERO);
         anchor.setInterestPaid(targets.get("paidInterest"));
         anchor.setInterestCharged(targets.get("paidInterest").add(targets.get("accruedInterest")));
         alignCharges(loan, sourceDay, insuranceIds, insuranceDefinition, false, targets.get("insurancePaid"),

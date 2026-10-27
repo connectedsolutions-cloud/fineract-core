@@ -450,6 +450,9 @@
     <include file="parts/0428_require_branch_voucher_office.xml" relativeToChangelogFile="true" />
     <include file="parts/0429_daily_movement_account_level.xml" relativeToChangelogFile="true" />
     <include file="parts/0430_align_loan_overdue_principal.xml" relativeToChangelogFile="true" />
+    <include file="parts/0431_add_loan_mora_terms.xml" relativeToChangelogFile="true" />
+    <include file="parts/0433_add_loan_mora_terms_audit_columns.xml" relativeToChangelogFile="true" />
     <include file="parts/0434_add_source_exact_freeze_history_permission.xml" relativeToChangelogFile="true" />
     <include file="parts/0436_final_loan_metric_alignment.xml" relativeToChangelogFile="true" />
+    <include file="parts/0437_loan_metric_interest_forecast.xml" relativeToChangelogFile="true" />
 </databaseChangeLog>

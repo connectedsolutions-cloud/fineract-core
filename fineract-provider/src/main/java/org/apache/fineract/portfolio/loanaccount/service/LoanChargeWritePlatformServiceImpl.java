@@ -23,6 +23,7 @@ import com.google.gson.JsonObject;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -91,6 +92,8 @@ import org.apache.fineract.portfolio.group.exception.GroupNotActiveException;
 import org.apache.fineract.portfolio.loanaccount.api.LoanApiConstants;
 import org.apache.fineract.portfolio.loanaccount.data.LoanChargePaidByData;
 import org.apache.fineract.portfolio.loanaccount.data.ScheduleGeneratorDTO;
+import org.apache.fineract.portfolio.loanaccount.domain.CredesalDailyMoraCalculator;
+import org.apache.fineract.portfolio.loanaccount.domain.FinalLoanMetrics;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanAccountDomainService;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanAccountService;
@@ -102,6 +105,7 @@ import org.apache.fineract.portfolio.loanaccount.domain.LoanEvent;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanInstallmentCharge;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanInterestRecalcualtionAdditionalDetails;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanLifecycleStateMachine;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanMoraFreezePeriods;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanOverdueInstallmentCharge;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallment;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleProcessingWrapper;
@@ -136,6 +140,7 @@ import org.apache.fineract.portfolio.note.domain.NoteRepository;
 import org.apache.fineract.portfolio.paymentdetail.domain.PaymentDetail;
 import org.apache.fineract.portfolio.paymentdetail.service.PaymentDetailWritePlatformService;
 import org.apache.fineract.portfolio.savings.domain.SavingsAccount;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
@@ -174,6 +179,7 @@ public class LoanChargeWritePlatformServiceImpl implements LoanChargeWritePlatfo
     private final LoanAdjustmentService loanAdjustmentService;
     private final LoanChargeService loanChargeService;
     private final LoanJournalEntryPoster loanJournalEntryPoster;
+    private final JdbcTemplate jdbcTemplate;
 
     private static boolean isPartOfThisInstallment(LoanCharge loanCharge, LoanRepaymentScheduleInstallment e) {
         return DateUtils.isAfter(loanCharge.getDueDate(), e.getFromDate()) && !DateUtils.isAfter(loanCharge.getDueDate(), e.getDueDate());
@@ -1064,6 +1070,10 @@ public class LoanChargeWritePlatformServiceImpl implements LoanChargeWritePlatfo
             final String defaultUserMessage = "Delinquency range charge cannot be added manually; it is applied on loan close of business.";
             throw new LoanChargeCannotBeAddedException("loanCharge", "delinquency.range.charge", defaultUserMessage, null,
                     chargeDefinition.getName());
+        } else if (ChargeTimeType.fromInt(chargeDefinition.getChargeTimeType()).isCredesalDailyMora()) {
+            final String defaultUserMessage = "Daily mora charges are applied by loan close of business.";
+            throw new LoanChargeCannotBeAddedException("loanCharge", "credesal.daily.mora.charge", defaultUserMessage, null,
+                    chargeDefinition.getName());
         }
         validateAddLoanChargeExcludingAutoAppliedTypes(loan, chargeDefinition, loanCharge);
     }
@@ -1159,6 +1169,155 @@ public class LoanChargeWritePlatformServiceImpl implements LoanChargeWritePlatfo
             this.loanAccountService.saveAndFlushLoanWithDataIntegrityViolationChecks(loan);
             this.loanAccountDomainService.setLoanDelinquencyTag(loan, businessDate);
         }
+    }
+
+    @Transactional
+    @Override
+    public void applyCredesalDailyMoraForLoan(final Long loanId) {
+        final Loan loan = this.loanAssembler.assembleFrom(loanId);
+        final LocalDate businessDate = DateUtils.getBusinessLocalDate();
+        if (loan.isChargedOff() || loan.isFrozenOn(businessDate)
+                || LoanMoraFreezePeriods.isMoraFrozen(loan.getFreezeHistory(), businessDate) || !loan.getStatus().isActive()) {
+            return;
+        }
+        final List<Charge> definitions = loan.getLoanProduct().getCharges().stream()
+                .filter(c -> c.isLoanCharge() && c.isActive() && ChargeTimeType.fromInt(c.getChargeTimeType()).isCredesalDailyMora())
+                .toList();
+        if (definitions.isEmpty()) {
+            return;
+        }
+        if (definitions.size() != 1) {
+            throw new IllegalStateException("Loan " + loanId + " must have exactly one active daily mora definition");
+        }
+        final Charge definition = definitions.get(0);
+        final List<Map<String, Object>> termRows = jdbcTemplate
+                .queryForList("SELECT monthly_rate_percent,grace_days,last_source_mora_payment_on,fineract_starts_on "
+                        + "FROM credesal_loan_mora_terms WHERE loan_id=?", loanId);
+        final boolean sourceLoan = loan.getExternalId() != null && loan.getExternalId().toString().startsWith("ARISSTO:CRD:");
+        if (sourceLoan && termRows.size() != 1) {
+            // Existing disposable sandbox loans predate the terms migration.
+            // Their next fresh/clean sync writes the terms and is reconciled.
+            log.warn("Skipping daily mora for migrated loan {} without source mora terms", loanId);
+            return;
+        }
+        final Map<String, Object> terms = termRows.isEmpty() ? Map.of() : termRows.get(0);
+        final LocalDate startsOn = terms.isEmpty() ? loan.getDisbursementDate()
+                : ((java.sql.Date) terms.get("fineract_starts_on")).toLocalDate();
+        if (startsOn == null || businessDate.isBefore(startsOn)) {
+            return;
+        }
+        final BigDecimal monthlyRate = terms.isEmpty() ? definition.getAmount() : (BigDecimal) terms.get("monthly_rate_percent");
+        final int graceDays = terms.isEmpty() ? 0 : ((Number) terms.get("grace_days")).intValue();
+        LocalDate lastMoraPayment = terms.get("last_source_mora_payment_on") == null ? loan.getDisbursementDate()
+                : ((java.sql.Date) terms.get("last_source_mora_payment_on")).toLocalDate();
+        for (LoanTransaction transaction : loan.getLoanTransactions()) {
+            if (transaction.isNotReversed() && transaction.isRepaymentLikeType() && !transaction.getTransactionDate().isBefore(startsOn)
+                    && transaction.getLoanChargesPaid().stream().anyMatch(
+                            paid -> paid.getAmount().signum() > 0 && isCredesalMoraCharge(paid.getLoanCharge(), definition, loanId))
+                    && (lastMoraPayment == null || transaction.getTransactionDate().isAfter(lastMoraPayment))) {
+                lastMoraPayment = transaction.getTransactionDate();
+            }
+        }
+        final List<LoanRepaymentScheduleInstallment> scheduled = loan.getRepaymentScheduleInstallments().stream()
+                .filter(i -> !i.isDownPayment() && !i.isAdditional()).toList();
+        BigDecimal balance = scheduled.stream().map(i -> i.getPrincipal(loan.getCurrency()).getAmount()).reduce(BigDecimal.ZERO,
+                BigDecimal::add);
+        final List<CredesalDailyMoraCalculator.Installment> installments = new ArrayList<>();
+        for (LoanRepaymentScheduleInstallment installment : scheduled) {
+            final BigDecimal after = balance.subtract(installment.getPrincipal(loan.getCurrency()).getAmount());
+            installments.add(new CredesalDailyMoraCalculator.Installment(installment.getDueDate(), balance, after));
+            balance = after;
+        }
+        final BigDecimal principalOutstanding = loan.getSummary().getTotalPrincipalOutstanding();
+        final BigDecimal overduePrincipal = loan.getTotalPrincipalOutstandingUntil(businessDate).getAmount();
+        final LocalDate firstUnpaidDue = scheduled.stream().filter(i -> i.getDueDate().isBefore(businessDate))
+                .filter(i -> i.getPrincipalOutstanding(loan.getCurrency()).isGreaterThanZero()
+                        || i.getInterestOutstanding(loan.getCurrency()).isGreaterThanZero())
+                .map(LoanRepaymentScheduleInstallment::getDueDate).min(LocalDate::compareTo).orElse(null);
+        final int daysInArrears = firstUnpaidDue == null ? 0 : (int) ChronoUnit.DAYS.between(firstUnpaidDue, businessDate);
+        final CredesalDailyMoraCalculator calculator = new CredesalDailyMoraCalculator();
+        final int scale = loan.getCurrency().getDigitsAfterDecimal();
+        final var baseline = FinalLoanMetrics.baseline(loan);
+        if (baseline != null && (lastMoraPayment == null || lastMoraPayment.isBefore(baseline.getDueDate())))
+            lastMoraPayment = baseline.getDueDate();
+        BigDecimal cumulative = calculator.calculate(businessDate, principalOutstanding, overduePrincipal, daysInArrears, graceDays,
+                lastMoraPayment, monthlyRate, installments, scale, LoanMoraFreezePeriods.fromLoan(loan, businessDate));
+        if (baseline != null) {
+            if (!businessDate.isAfter(baseline.getDueDate())) return;
+            String dailyIdentity = "CREDESAL:MORA:" + loanId + ":" + businessDate;
+            if (loan.getCharges().stream()
+                    .anyMatch(c -> c.isActive() && c.getExternalId() != null && dailyIdentity.equals(c.getExternalId().getValue())))
+                return;
+            BigDecimal previous = calculator.calculate(businessDate.minusDays(1), principalOutstanding, overduePrincipal,
+                    Math.max(0, daysInArrears - 1), graceDays, lastMoraPayment, monthlyRate, installments, scale,
+                    LoanMoraFreezePeriods.fromLoan(loan, businessDate));
+            cumulative = cumulative.subtract(previous).max(BigDecimal.ZERO);
+        }
+        final List<LoanCharge> moraCharges = loan.getCharges().stream()
+                .filter(c -> c.isActive() && isCredesalMoraCharge(c, definition, loanId))
+                .sorted((a, b) -> b.getDueLocalDate().compareTo(a.getDueLocalDate())).toList();
+        final BigDecimal assessedOutstanding = moraCharges.stream().map(LoanCharge::amountOutstanding).reduce(BigDecimal.ZERO,
+                BigDecimal::add);
+        BigDecimal difference = baseline == null ? cumulative.subtract(assessedOutstanding) : cumulative;
+        if (difference.signum() == 0) {
+            return;
+        }
+        if (difference.signum() < 0) {
+            BigDecimal reduction = difference.negate();
+            for (LoanCharge charge : moraCharges) {
+                if (reduction.signum() == 0) {
+                    break;
+                }
+                final BigDecimal amount = charge.amountOutstanding().min(reduction);
+                if (amount.signum() <= 0) {
+                    continue;
+                }
+                final JsonObject adjustment = new JsonObject();
+                adjustment.addProperty("amount", amount);
+                adjustment.addProperty("externalId", "CREDESAL:MORA-ADJ:" + loanId + ":" + businessDate + ":" + charge.getId());
+                adjustment.addProperty("locale", "en");
+                final String adjustmentJson = adjustment.toString();
+                final JsonCommand adjustmentCommand = JsonCommand.from(adjustmentJson, fromApiJsonHelper.parse(adjustmentJson),
+                        fromApiJsonHelper, null, null, null, null, null, loanId, null, null, null, null, null, null, null, null);
+                adjustmentForLoanCharge(loanId, charge.getId(), adjustmentCommand);
+                reduction = reduction.subtract(amount);
+            }
+            if (reduction.signum() != 0) {
+                throw new IllegalStateException("Unable to reduce daily mora to source-calculated balance on loan " + loanId);
+            }
+            return;
+        }
+        final JsonObject json = new JsonObject();
+        json.addProperty("chargeId", definition.getId());
+        if (baseline != null) json.addProperty("externalId", "CREDESAL:MORA:" + loanId + ":" + businessDate);
+        json.addProperty("amount", difference);
+        json.addProperty("dueDate", businessDate.format(DateTimeFormatter.ISO_DATE));
+        json.addProperty("dateFormat", "yyyy-MM-dd");
+        json.addProperty("locale", "en");
+        final String jsonString = json.toString();
+        final JsonCommand command = JsonCommand.from(jsonString, fromApiJsonHelper.parse(jsonString), fromApiJsonHelper, null, null, null,
+                null, null, loanId, null, null, null, null, null, null, null, null);
+        final LoanCharge loanCharge = loanChargeAssembler.createNewFromJson(loan, definition, command, businessDate);
+        businessEventNotifierService.notifyPreBusinessEvent(new LoanAddChargeBusinessEvent(loanCharge));
+        validateAddLoanChargeExcludingAutoAppliedTypes(loan, definition, loanCharge);
+        if (baseline == null) {
+            addCharge(loan, definition, loanCharge);
+            reprocessLoanTransactionsService.reprocessTransactions(loan);
+        } else {
+            // A new daily penalty is not a reason to replay source-owned repayments.
+            loan.addCharge(loanCharge);
+            loanChargeRepository.saveAndFlush(loanCharge);
+            FinalLoanMetrics.ensureChargePeriod(loan, businessDate);
+            FinalLoanMetrics.refresh(loan);
+        }
+        loanAccountService.saveAndFlushLoanWithDataIntegrityViolationChecks(loan);
+        loanAccountDomainService.setLoanDelinquencyTag(loan, businessDate);
+    }
+
+    private boolean isCredesalMoraCharge(final LoanCharge charge, final Charge dailyDefinition, final Long loanId) {
+        return (charge.getCharge() != null && dailyDefinition.getId().equals(charge.getCharge().getId()))
+                || (charge.getCharge() != null && "Arissto historical penalty allocation".equals(charge.getCharge().getName()))
+                || (charge.getExternalId() != null && ("ARISSTO:CRD-MORA-CUTOVER:" + loanId).equals(charge.getExternalId().toString()));
     }
 
     private boolean addCharge(final Loan loan, final Charge chargeDefinition, LoanCharge loanCharge) {

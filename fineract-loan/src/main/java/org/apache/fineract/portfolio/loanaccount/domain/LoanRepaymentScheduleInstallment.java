@@ -146,6 +146,9 @@ public class LoanRepaymentScheduleInstallment extends AbstractAuditableWithUTCDa
     @Column(name = "migration_metric_baseline", nullable = false)
     private boolean migrationMetricBaseline;
 
+    @Column(name = "migration_interest_forecast", scale = 6, precision = 19)
+    private BigDecimal migrationInterestForecast;
+
     // TODO: At some point in time this database column needs to be renamed to credited_principal using the following
     // approach
     // https://blog.thepete.net/blog/2023/12/05/expand/contract-making-a-breaking-change-without-a-big-bang/

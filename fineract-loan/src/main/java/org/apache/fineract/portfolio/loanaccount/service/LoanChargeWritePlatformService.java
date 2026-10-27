@@ -52,4 +52,7 @@ public interface LoanChargeWritePlatformService {
      * delinquent principal.
      */
     void applyDelinquencyRangeChargesForLoan(Long loanId);
+
+    /** Apply the daily change in Arissto-compatible cumulative moratory interest. */
+    void applyCredesalDailyMoraForLoan(Long loanId);
 }

@@ -1,0 +1,178 @@
+{
+  "status": "passed",
+  "plan_sha256": "e4406313b509e1f51b9bfe19e91ae9f4ded3653c6e80fe130e8e4b04abe2c0b7",
+  "target": "local sandbox",
+  "Arissto through": "2026-10-19",
+  "Fineract starts": "2026-10-20",
+  "daily": [
+    {
+      "source_loan_id": "1572",
+      "native_loan_id": 2771,
+      "day": "2026-10-20",
+      "ordinary_interest": "6.03",
+      "new_ordinary_interest": "0.43",
+      "mora": "0.01",
+      "new_mora": "0.01",
+      "ordinary_interest_booked": "0.43",
+      "closed_and_matched": true
+    },
+    {
+      "source_loan_id": "1572",
+      "native_loan_id": 2771,
+      "day": "2026-10-21",
+      "ordinary_interest": "6.46",
+      "new_ordinary_interest": "0.86",
+      "mora": "0.02",
+      "new_mora": "0.02",
+      "ordinary_interest_booked": "0.86",
+      "closed_and_matched": true
+    },
+    {
+      "source_loan_id": "1572",
+      "native_loan_id": 2771,
+      "day": "2026-10-22",
+      "ordinary_interest": "6.89",
+      "new_ordinary_interest": "1.29",
+      "mora": "0.02",
+      "new_mora": "0.02",
+      "ordinary_interest_booked": "1.29",
+      "closed_and_matched": true
+    },
+    {
+      "source_loan_id": "1572",
+      "native_loan_id": 2771,
+      "day": "2026-10-23",
+      "ordinary_interest": "7.32",
+      "new_ordinary_interest": "1.72",
+      "mora": "0.03",
+      "new_mora": "0.03",
+      "ordinary_interest_booked": "1.72",
+      "closed_and_matched": true
+    },
+    {
+      "source_loan_id": "1572",
+      "native_loan_id": 2771,
+      "day": "2026-10-24",
+      "ordinary_interest": "7.75",
+      "new_ordinary_interest": "2.15",
+      "mora": "0.04",
+      "new_mora": "0.04",
+      "ordinary_interest_booked": "2.15",
+      "closed_and_matched": true
+    },
+    {
+      "source_loan_id": "1572",
+      "native_loan_id": 2771,
+      "day": "2026-10-25",
+      "ordinary_interest": "8.19",
+      "new_ordinary_interest": "2.59",
+      "mora": "0.06",
+      "new_mora": "0.06",
+      "ordinary_interest_booked": "2.59",
+      "closed_and_matched": true
+    },
+    {
+      "source_loan_id": "1826",
+      "native_loan_id": 2772,
+      "day": "2026-10-20",
+      "ordinary_interest": "54.04",
+      "new_ordinary_interest": "0.00",
+      "mora": "0.34",
+      "new_mora": "0.00",
+      "ordinary_interest_booked": "0",
+      "closed_and_matched": true
+    },
+    {
+      "source_loan_id": "1826",
+      "native_loan_id": 2772,
+      "day": "2026-10-21",
+      "ordinary_interest": "54.04",
+      "new_ordinary_interest": "0.00",
+      "mora": "0.34",
+      "new_mora": "0.00",
+      "ordinary_interest_booked": "0",
+      "closed_and_matched": true
+    },
+    {
+      "source_loan_id": "1826",
+      "native_loan_id": 2772,
+      "day": "2026-10-22",
+      "ordinary_interest": "54.04",
+      "new_ordinary_interest": "0.00",
+      "mora": "0.34",
+      "new_mora": "0.00",
+      "ordinary_interest_booked": "0",
+      "closed_and_matched": true
+    },
+    {
+      "source_loan_id": "1826",
+      "native_loan_id": 2772,
+      "day": "2026-10-23",
+      "ordinary_interest": "54.04",
+      "new_ordinary_interest": "0.00",
+      "mora": "0.34",
+      "new_mora": "0.00",
+      "ordinary_interest_booked": "0",
+      "closed_and_matched": true
+    },
+    {
+      "source_loan_id": "1826",
+      "native_loan_id": 2772,
+      "day": "2026-10-24",
+      "ordinary_interest": "54.04",
+      "new_ordinary_interest": "0.00",
+      "mora": "0.34",
+      "new_mora": "0.00",
+      "ordinary_interest_booked": "0",
+      "closed_and_matched": true
+    },
+    {
+      "source_loan_id": "1826",
+      "native_loan_id": 2772,
+      "day": "2026-10-25",
+      "ordinary_interest": "54.04",
+      "new_ordinary_interest": "0.00",
+      "mora": "0.34",
+      "new_mora": "0.00",
+      "ordinary_interest_booked": "0",
+      "closed_and_matched": true
+    }
+  ],
+  "loans": [
+    {
+      "source_loan_id": "1572",
+      "native_loan_id": 2771,
+      "recalculation_enabled": true,
+      "apr": "60.0",
+      "principal": "262.15",
+      "monthly_mora_rate": "0.42",
+      "opening_accrued_interest": "5.60",
+      "opening_mora": "0.00",
+      "final_accrued_interest": "8.19",
+      "final_mora": "0.06",
+      "original_transactions_unchanged": true,
+      "native_historical_gl_count": 0,
+      "forecast_present": true
+    },
+    {
+      "source_loan_id": "1826",
+      "native_loan_id": 2772,
+      "recalculation_enabled": true,
+      "apr": "84.0",
+      "principal": "617.94",
+      "monthly_mora_rate": "0.42",
+      "opening_accrued_interest": "54.04",
+      "opening_mora": "0.34",
+      "final_accrued_interest": "54.04",
+      "final_mora": "0.34",
+      "original_transactions_unchanged": true,
+      "native_historical_gl_count": 0,
+      "forecast_present": false
+    }
+  ],
+  "matched_daily_metric_checks": 36,
+  "opening_replay_and_adjustments_gl_free": true,
+  "date_control_restored": true,
+  "scope": "Fresh isolated recalculation-enabled product; complete archived source-bounded lifecycle replay; final all-eight-metric alignment; six native COB days. This is a canary, not execution of the rejected current canonical workflow plan.",
+  "repeated_final_cob_unchanged_transactions_and_gl": true
+}

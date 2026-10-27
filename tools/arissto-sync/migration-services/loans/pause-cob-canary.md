@@ -1,5 +1,7 @@
 # Shared interest/mora pause: live COB canary — 2026-10-26
 
+**Superseded diagnostic:** see the [passed repair and fresh recalculation-enabled proof](cob-continuation-repair.md). The dated failure below is retained as evidence.
+
 **Outcome: failed acceptance.** Remaining frozen works in the tested loan;
 resumption on the exact source date without catch-up is **not verified**.
 A new full loan-sync replay was blocked before apply. Existing proof loans

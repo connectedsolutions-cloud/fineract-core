@@ -33,10 +33,13 @@ import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.organisation.monetary.domain.MonetaryCurrency;
 import org.apache.fineract.organisation.monetary.domain.Money;
 import org.apache.fineract.organisation.monetary.domain.MoneyHelper;
+import org.apache.fineract.portfolio.charge.domain.Charge;
 import org.apache.fineract.portfolio.charge.domain.ChargeCalculationType;
+import org.apache.fineract.portfolio.charge.domain.ChargeTimeType;
 import org.apache.fineract.portfolio.delinquency.service.DelinquencyReadPlatformService;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanCharge;
@@ -57,6 +60,23 @@ class LoanChargeServiceOutstandingPrincipalTest {
     private final LoanChargeService underTest = new LoanChargeService(mock(LoanChargeValidator.class),
             mock(LoanTransactionProcessingService.class), mock(LoanLifecycleStateMachine.class), mock(LoanBalanceService.class),
             mock(DelinquencyReadPlatformService.class));
+
+    @Test
+    void keepsDueDateOnCredesalDailyMoraCharge() {
+        final Charge definition = mock(Charge.class);
+        when(definition.getChargeTimeType()).thenReturn(ChargeTimeType.CREDESAL_DAILY_MORA.getValue());
+        when(definition.getChargeCalculation()).thenReturn(ChargeCalculationType.FLAT.getValue());
+        when(definition.getAmount()).thenReturn(new BigDecimal("0.65"));
+        when(definition.getChargePaymentMode()).thenReturn(0);
+
+        final LocalDate dueDate = LocalDate.of(2026, 10, 24);
+        try (MockedStatic<DateUtils> dates = mockStatic(DateUtils.class)) {
+            dates.when(DateUtils::getBusinessLocalDate).thenReturn(dueDate);
+            final LoanCharge charge = underTest.create(mock(Loan.class), definition, BigDecimal.ZERO, new BigDecimal("0.65"), null, null,
+                    dueDate, null, null, BigDecimal.ZERO, null);
+            assertEquals(dueDate, charge.getDueLocalDate());
+        }
+    }
 
     @BeforeAll
     static void setUpMoney() {

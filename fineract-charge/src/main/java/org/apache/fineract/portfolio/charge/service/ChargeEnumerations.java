@@ -111,6 +111,10 @@ public final class ChargeEnumerations {
                 optionData = new EnumOptionData(ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE.getValue().longValue(),
                         ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE.getCode(), "Delinquency classification range (COB)");
             break;
+            case CREDESAL_DAILY_MORA:
+                optionData = new EnumOptionData(ChargeTimeType.CREDESAL_DAILY_MORA.getValue().longValue(),
+                        ChargeTimeType.CREDESAL_DAILY_MORA.getCode(), "Daily moratory interest (monthly % rate)");
+            break;
             default:
                 optionData = new EnumOptionData(ChargeTimeType.INVALID.getValue().longValue(), ChargeTimeType.INVALID.getCode(), "Invalid");
             break;

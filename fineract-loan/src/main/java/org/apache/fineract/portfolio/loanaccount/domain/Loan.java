@@ -1571,6 +1571,9 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
         LoanFreezeAction effectiveAction = null;
         LocalDate effectiveActionDate = null;
         for (final LoanFreezeHistory event : this.freezeHistory) {
+            if (event.getAction() != LoanFreezeAction.FREEZE && event.getAction() != LoanFreezeAction.UNFREEZE) {
+                continue;
+            }
             if (!event.getEffectiveDate().isAfter(date)
                     && (effectiveActionDate == null || !event.getEffectiveDate().isBefore(effectiveActionDate))) {
                 effectiveAction = event.getAction();

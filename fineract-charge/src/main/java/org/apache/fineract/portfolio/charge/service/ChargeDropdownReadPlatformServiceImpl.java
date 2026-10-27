@@ -92,7 +92,8 @@ public class ChargeDropdownReadPlatformServiceImpl implements ChargeDropdownRead
         return Arrays.asList(chargeTimeType(ChargeTimeType.DISBURSEMENT), chargeTimeType(ChargeTimeType.SPECIFIED_DUE_DATE),
                 chargeTimeType(ChargeTimeType.INSTALMENT_FEE), chargeTimeType(ChargeTimeType.OVERDUE_INSTALLMENT),
                 chargeTimeType(ChargeTimeType.TRANCHE_DISBURSEMENT), chargeTimeType(ChargeTimeType.AVAILABLE_AT_CASHIER),
-                chargeTimeType(ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE));
+                chargeTimeType(ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE),
+                chargeTimeType(ChargeTimeType.CREDESAL_DAILY_MORA));
     }
 
     @Override

@@ -666,7 +666,8 @@ public class LoanChargeService {
 
         if (loanCharge.getChargeTimeType().equals(ChargeTimeType.SPECIFIED_DUE_DATE)
                 || loanCharge.getChargeTimeType().equals(ChargeTimeType.OVERDUE_INSTALLMENT)
-                || loanCharge.getChargeTimeType().equals(ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE)) {
+                || loanCharge.getChargeTimeType().equals(ChargeTimeType.DELINQUENCY_CLASSIFICATION_RANGE)
+                || loanCharge.getChargeTimeType().isCredesalDailyMora()) {
 
             if (dueDate == null) {
                 final String defaultUserMessage = "Loan charge is missing due date.";

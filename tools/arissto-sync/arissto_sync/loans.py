@@ -211,7 +211,7 @@ REQUIRED_TARGET_COLUMNS = {
         "source_disbursed_on", "effective_approved_on", "classification", "created_at", "updated_at",
     },
     "credesal_loan_metric_alignment": {"loan_id", "request_id", "payload_hash", "source_through_date", "before_json", "target_json", "after_json"},
-    "m_loan_repayment_schedule": {"loan_id", "migration_metric_baseline"},
+    "m_loan_repayment_schedule": {"loan_id", "migration_metric_baseline", "migration_interest_forecast"},
     "credesal_loan_product_map": {
         "id", "source_system", "source_key", "source_hash", "contract_hash", "loan_product_id",
         "arissto_company_id", "arissto_line_id", "mapping_status", "created_at", "updated_at",

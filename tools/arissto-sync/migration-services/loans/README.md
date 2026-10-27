@@ -13,6 +13,11 @@ in [loan-reconciliation.md](loan-reconciliation.md).
 Historical adjustment canaries and the October 17 source/native baseline are
 tracked in [loan-history-canaries.md](loan-history-canaries.md).
 
+The [component alignment guide](alignment.md) defines the date-normalization
+and historical integration work for mora, interest pauses, interest
+reductions, due principal, schedules, accrued interest and related events.
+Its implementation/canary gates are separate from existing service availability.
+
 The implemented [final loan metric reconciliation step](loan-metric-final-alignment.md)
 runs after all existing operations affecting each loan, compares the frozen
 source targets, applies GL-free metric corrections and verifies the final set.
@@ -26,10 +31,11 @@ methods, verified source whole-loan freeze history, and the native state checks
 that precede final amount reconciliation. The approved source control pauses/resumes interest and mora together; it is
 not inferred from balances.
 
-The [live pause/COB follow-up](pause-cob-canary.md) records failed continuation
-acceptance: frozen source 1826 stayed stable for six days; resumed source 1572
-had an interest discontinuity and then a mora adjustment failure. A fresh replay
-with recalculation enabled and a true resume-boundary test remain required.
+The [COB continuation repair](cob-continuation-repair.md) records a passed
+fresh isolated recalculation-enabled replay of 1572/1826 and six native COB
+days, including balance and accounting checks. Regression tests cover the
+joint freeze/resume boundary. The earlier failed diagnostic is retained;
+this scoped proof did not run a composed canonical workflow.
 
 ## Stable identity
 

@@ -22,15 +22,19 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import org.apache.fineract.organisation.monetary.domain.MonetaryCurrency;
 import org.apache.fineract.organisation.monetary.domain.Money;
 import org.apache.fineract.organisation.monetary.domain.MoneyHelper;
 import org.apache.fineract.portfolio.common.domain.DaysInYearType;
+import org.apache.fineract.portfolio.loanaccount.domain.CredesalInterestPausePeriods;
+import org.apache.fineract.portfolio.loanaccount.domain.FinalLoanMetrics;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallment;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
+import org.apache.fineract.portfolio.loanaccount.domain.WholeLoanFreezePeriods;
 import org.apache.fineract.portfolio.loanproduct.domain.InterestCalculationPeriodMethod;
 import org.apache.fineract.portfolio.loanproduct.domain.LoanProductRelatedDetail;
 
@@ -58,16 +62,19 @@ public class PostDueAccruedInterestCalculator {
         }
 
         final LocalDate transactionDate = transaction.getTransactionDate();
-        final LocalDate latestCoveredDate = installments.stream().filter(installment -> !installment.isAdditional())
+        LocalDate latestCoveredDate = installments.stream().filter(installment -> !installment.isAdditional())
                 .map(LoanRepaymentScheduleInstallment::getDueDate).filter(dueDate -> !dueDate.isAfter(transactionDate))
                 .max(Comparator.naturalOrder()).orElse(null);
+        LocalDate sourceDay = FinalLoanMetrics.sourceDay(installments);
+        if (sourceDay != null) latestCoveredDate = sourceDay;
         if (latestCoveredDate == null) {
             return zero;
         }
 
+        final LocalDate coveredDate = latestCoveredDate;
         final List<LoanTransaction> loanTransactions = loan.getLoanTransactions() == null ? List.of() : loan.getLoanTransactions();
         final LocalDate accrualStartDate = loanTransactions.stream().filter(LoanTransaction::isRepayment)
-                .map(LoanTransaction::getTransactionDate).filter(date -> date.isAfter(latestCoveredDate) && date.isBefore(transactionDate))
+                .map(LoanTransaction::getTransactionDate).filter(date -> date.isAfter(coveredDate) && date.isBefore(transactionDate))
                 .max(Comparator.naturalOrder()).orElse(latestCoveredDate);
         if (!accrualStartDate.isBefore(transactionDate)) {
             return zero;
@@ -80,7 +87,7 @@ public class PostDueAccruedInterestCalculator {
         }
 
         final MathContext mc = MoneyHelper.getMathContext();
-        final BigDecimal yearFraction = yearFraction(accrualStartDate, transactionDate, terms.fetchDaysInYearType(), mc);
+        final BigDecimal yearFraction = chargeableYearFraction(loan, accrualStartDate, transactionDate, terms.fetchDaysInYearType(), mc);
         final Money accruedInterest = Money.of(currency,
                 outstandingPrincipal.getAmount().multiply(annualRate, mc).divide(ONE_HUNDRED, mc).multiply(yearFraction, mc), mc);
         if (!accruedInterest.isGreaterThanZero()) {
@@ -113,16 +120,19 @@ public class PostDueAccruedInterestCalculator {
             return zero;
         }
 
-        final LocalDate latestCoveredDate = installments.stream().filter(installment -> !installment.isAdditional())
+        LocalDate latestCoveredDate = installments.stream().filter(installment -> !installment.isAdditional())
                 .map(LoanRepaymentScheduleInstallment::getDueDate).filter(dueDate -> !dueDate.isAfter(effectiveDate))
                 .max(Comparator.naturalOrder()).orElse(null);
+        LocalDate sourceDay = FinalLoanMetrics.sourceDay(installments);
+        if (sourceDay != null) latestCoveredDate = sourceDay;
         if (latestCoveredDate == null || !latestCoveredDate.isBefore(effectiveDate)) {
             return zero;
         }
 
+        final LocalDate coveredDate = latestCoveredDate;
         final List<LoanTransaction> repayments = (loan.getLoanTransactions() == null ? List.<LoanTransaction>of()
                 : loan.getLoanTransactions()).stream().filter(transaction -> transaction.isRepayment() && !transaction.isReversed())
-                .filter(transaction -> transaction.getTransactionDate().isAfter(latestCoveredDate))
+                .filter(transaction -> transaction.getTransactionDate().isAfter(coveredDate))
                 .sorted(Comparator.comparing(LoanTransaction::getTransactionDate)).toList();
 
         Money outstandingPrincipal = installments.stream().map(installment -> installment.getPrincipalOutstanding(currency)).reduce(zero,
@@ -138,13 +148,13 @@ public class PostDueAccruedInterestCalculator {
             if (repayment.getTransactionDate().isAfter(effectiveDate)) {
                 break;
             }
-            accrued = accrued.add(calculateSegment(outstandingPrincipal, annualRate, segmentStart, repayment.getTransactionDate(),
+            accrued = accrued.add(calculateSegment(loan, outstandingPrincipal, annualRate, segmentStart, repayment.getTransactionDate(),
                     terms.fetchDaysInYearType(), mc), mc);
             outstandingPrincipal = outstandingPrincipal.minus(repayment.getPrincipalPortion(currency));
             segmentStart = repayment.getTransactionDate();
         }
-        accrued = accrued
-                .add(calculateSegment(outstandingPrincipal, annualRate, segmentStart, effectiveDate, terms.fetchDaysInYearType(), mc), mc);
+        accrued = accrued.add(
+                calculateSegment(loan, outstandingPrincipal, annualRate, segmentStart, effectiveDate, terms.fetchDaysInYearType(), mc), mc);
         return Money.of(currency, accrued, mc);
     }
 
@@ -161,13 +171,41 @@ public class PostDueAccruedInterestCalculator {
         return totalAccruable.isGreaterThan(materialized) ? totalAccruable.minus(materialized) : Money.zero(currency);
     }
 
-    private BigDecimal calculateSegment(final Money outstandingPrincipal, final BigDecimal annualRate, final LocalDate startDate,
-            final LocalDate endDate, final DaysInYearType daysInYearType, final MathContext mc) {
+    private BigDecimal calculateSegment(final Loan loan, final Money outstandingPrincipal, final BigDecimal annualRate,
+            final LocalDate startDate, final LocalDate endDate, final DaysInYearType daysInYearType, final MathContext mc) {
         if (!outstandingPrincipal.isGreaterThanZero() || !startDate.isBefore(endDate)) {
             return BigDecimal.ZERO;
         }
         return outstandingPrincipal.getAmount().multiply(annualRate, mc).divide(ONE_HUNDRED, mc)
-                .multiply(yearFraction(startDate, endDate, daysInYearType, mc), mc);
+                .multiply(chargeableYearFraction(loan, startDate, endDate, daysInYearType, mc), mc);
+    }
+
+    private BigDecimal chargeableYearFraction(final Loan loan, final LocalDate startDate, final LocalDate endDate,
+            final DaysInYearType daysInYearType, final MathContext mc) {
+        BigDecimal result = BigDecimal.ZERO;
+        LocalDate cursor = startDate;
+        var pauses = new ArrayList<>(CredesalInterestPausePeriods.fromLoan(loan));
+        pauses.addAll(WholeLoanFreezePeriods.fromLoan(loan, endDate));
+        for (CredesalInterestPausePeriods.Period pause : pauses.stream()
+                .sorted(Comparator.comparing(CredesalInterestPausePeriods.Period::startDate)).toList()) {
+            if (pause.startDate().isAfter(endDate)) {
+                break;
+            }
+            if (!pause.endDate().isAfter(cursor)) {
+                continue;
+            }
+            final LocalDate chargeableEnd = pause.startDate().minusDays(1).isBefore(endDate) ? pause.startDate().minusDays(1) : endDate;
+            if (cursor.isBefore(chargeableEnd)) {
+                result = result.add(yearFraction(cursor, chargeableEnd, daysInYearType, mc), mc);
+            }
+            if (cursor.isBefore(pause.endDate())) {
+                cursor = pause.endDate().isBefore(endDate) ? pause.endDate() : endDate;
+            }
+        }
+        if (cursor.isBefore(endDate)) {
+            result = result.add(yearFraction(cursor, endDate, daysInYearType, mc), mc);
+        }
+        return result;
     }
 
     private BigDecimal yearFraction(final LocalDate startDate, final LocalDate endDate, final DaysInYearType daysInYearType,

@@ -1,10 +1,11 @@
 # Final loan metric reconciliation
 
-**Live COB follow-up — 2026-10-26:** [the two-loan canary](pause-cob-canary.md)
-passed six frozen days on source 1826 but found a post-baseline interest jump
-and a mora adjustment failure on source 1572. Resume-boundary/no-catch-up
-acceptance and a fresh recalculation-enabled replay remain unverified. The
-point-in-time and unit checks below do not establish safe continued operation.
+**COB repair verified locally — 2026-10-26:** the
+[recalculation-enabled continuation proof](cob-continuation-repair.md) passed six
+native COB days on fresh isolated 1572/1826 loans, including native interest
+postings and mora. Joint freeze/resume boundaries have regression coverage.
+The earlier failed diagnostic is retained; a composed canonical workflow was
+not run for this scoped acceptance.
 
 ## Approved use — 2026-10-26
 

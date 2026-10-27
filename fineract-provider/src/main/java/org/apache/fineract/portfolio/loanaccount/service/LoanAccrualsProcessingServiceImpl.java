@@ -66,6 +66,7 @@ import org.apache.fineract.portfolio.loanaccount.data.AccrualPeriodData;
 import org.apache.fineract.portfolio.loanaccount.data.AccrualPeriodsData;
 import org.apache.fineract.portfolio.loanaccount.data.CumulativeIncomeFromIncomePosting;
 import org.apache.fineract.portfolio.loanaccount.data.TransactionPortionsForForeclosure;
+import org.apache.fineract.portfolio.loanaccount.domain.FinalLoanMetrics;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanCharge;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanChargePaidBy;
@@ -114,6 +115,7 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
     private final TransactionTemplate transactionTemplate;
     private final LoanChargeService loanChargeService;
     private final LoanBalanceService loanBalanceService;
+    private final LoanArrearsAgingService loanArrearsAgingService;
     private final PostDueAccruedInterestCalculator postDueAccruedInterestCalculator;
     private final LoanChargePaidByRepository loanChargePaidByRepository;
     private final LoanJournalEntryPoster journalEntryPoster;
@@ -382,6 +384,15 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
             }
         }
 
+        if (usesReconciledAccrualBaseline(loan, tillDate)) {
+            var anchor = FinalLoanMetrics.baseline(loan);
+            Money unmaterialized = postDueAccruedInterestCalculator.calculateUnmaterializedAccruableThrough(loan, loan.getCurrency(),
+                    loan.getRepaymentScheduleInstallments(), tillDate);
+            if (unmaterialized.isGreaterThanZero()) {
+                anchor.addPostDueInterest(tillDate, unmaterialized);
+                FinalLoanMetrics.refresh(loan);
+            }
+        }
         final AccrualPeriodsData accrualPeriods = calculateAccrualAmounts(loan, tillDate, periodic, isFinal, chargeOnDueDate);
         final boolean mergeTransactions = isFinal || progressiveAccrual;
         log.info(
@@ -417,8 +428,9 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
                 if (!isFinal && DateUtils.isAfter(dueDate, tillDate) && DateUtils.isBefore(tillDate, accruedTill)) {
                     continue;
                 }
-                final LocalDate periodAccrualDate = credesalPostMaturityAccrual && isLastNormalInstallment(loan, period) ? accrualDate
-                        : (DateUtils.isBefore(dueDate, accrualDate) ? dueDate : accrualDate);
+                final LocalDate periodAccrualDate = usesReconciledAccrualBaseline(loan, tillDate)
+                        || credesalPostMaturityAccrual && isLastNormalInstallment(loan, period) ? accrualDate
+                                : (DateUtils.isBefore(dueDate, accrualDate) ? dueDate : accrualDate);
                 final LoanTransaction accrualTransaction = addAccrualTransaction(loan, periodAccrualDate, period, interestPortion,
                         feePortion, penaltyPortion, false);
                 if (accrualTransaction != null) {
@@ -453,6 +465,10 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
         loanTransactionRepository.flush();
         log.info("COMPLETED addAccruals for loan [{}]: Saved {} accrual transactions on date {}, new accruedTill={}", loan.getId(),
                 accrualTransactions.size(), tillDate, loan.getAccruedTill());
+
+        if (usesReconciledAccrualBaseline(loan, tillDate)) {
+            loanArrearsAgingService.updateLoanArrearsAgeingDetails(loan);
+        }
 
         if (addJournal) {
             for (LoanTransaction accrualTransaction : accrualTransactions) {
@@ -503,7 +519,22 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
     private void addInterestAccrual(@NonNull final Loan loan, @NonNull final LocalDate tillDate,
             final LoanScheduleGenerator scheduleGenerator, @NonNull final LoanRepaymentScheduleInstallment installment,
             @NonNull final AccrualPeriodsData accrualPeriods) {
-        if (installment.isAdditional() || installment.isReAged()) {
+        var baseline = FinalLoanMetrics.baseline(loan);
+        if (baseline != null && installment.isMigrationMetricBaseline() && usesReconciledAccrualBaseline(loan, tillDate)) {
+            var period = accrualPeriods.getPeriodByInstallmentNumber(installment.getInstallmentNumber());
+            var currency = accrualPeriods.getCurrency();
+            period.setInterestAmount(postDueAccruedInterestCalculator.calculateAccruableThrough(loan, currency,
+                    loan.getRepaymentScheduleInstallments(), tillDate));
+            period.setInterestAccruable(period.getInterestAmount());
+            BigDecimal recognized = loan.getLoanTransactions().stream()
+                    .filter(t -> t.isNotReversed() && t.isAccrual() && t.getTransactionDate().isAfter(baseline.getDueDate())
+                            && !t.getTransactionDate().isAfter(tillDate))
+                    .map(t -> t.getInterestPortion(currency).getAmount()).reduce(BigDecimal.ZERO, BigDecimal::add);
+            period.setInterestAccrued(Money.of(currency, recognized));
+            period.setTransactionAccrued(Money.of(currency, recognized));
+            return;
+        }
+        if (installment.isAdditional() || installment.isReAged() || baseline != null && baseline.getMigrationInterestForecast() != null) {
             return;
         }
         final AccrualPeriodData period = accrualPeriods.getPeriodByInstallmentNumber(installment.getInstallmentNumber());
@@ -546,6 +577,12 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
         period.setTransactionAccrued(transactionAccrued);
         final Money accrued = MathUtil.minusToZero(transactionAccrued, transactionWaived);
         period.setInterestAccrued(accrued);
+    }
+
+    private boolean usesReconciledAccrualBaseline(Loan loan, LocalDate day) {
+        var baseline = FinalLoanMetrics.baseline(loan);
+        return baseline != null && baseline.getMigrationInterestForecast() != null && day.isAfter(baseline.getDueDate())
+                && isCredesalAccruedInterestStrategy(loan);
     }
 
     private boolean usesActualOutstandingPostDueAccrual(final Loan loan, final LoanRepaymentScheduleInstallment installment,
@@ -637,7 +674,11 @@ public class LoanAccrualsProcessingServiceImpl implements LoanAccrualsProcessing
         final Collection<LoanCharge> loanCharges = loan
                 .getLoanCharges(lc -> !lc.isDueAtDisbursement() && (lc.isInstalmentFee() ? !DateUtils.isBefore(tillDate, dueDate)
                         : isChargeDue(lc, tillDate, chargeOnDueDate, installment, period.isFirstPeriod())));
+        var baseline = FinalLoanMetrics.baseline(loan);
         for (LoanCharge loanCharge : loanCharges) {
+            // Historical source-owned charges are carried by the opening baseline, not re-accrued by COB.
+            if (baseline != null && loanCharge.getDueLocalDate() != null && !loanCharge.getDueLocalDate().isAfter(baseline.getDueDate()))
+                continue;
             if (loanCharge.isActive()) {
                 addChargeAccrual(loanCharge, tillDate, chargeOnDueDate, installment, accrualPeriods);
             }

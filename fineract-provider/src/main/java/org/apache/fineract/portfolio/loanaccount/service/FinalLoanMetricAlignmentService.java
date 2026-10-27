@@ -64,7 +64,9 @@ public class FinalLoanMetricAlignmentService {
             cutoff.requireExactActiveCutoff(firstDay);
             Loan loan = loans.findOneWithNotFoundDetection(loanId, true);
             verifyLoan(loan, loan.getExternalId().getValue());
-            return Map.of("loanId", loanId, "cutoffDate", cutoffDate, "alignmentVersion",
+            var baseline = FinalLoanMetrics.baseline(loan);
+            return Map.of("loanId", loanId, "cutoffDate", cutoffDate, "continuationReady",
+                    baseline != null && baseline.getMigrationInterestForecast() != null, "alignmentVersion",
                     jdbc.queryForObject("SELECT COALESCE(MAX(id),0) FROM credesal_loan_metric_alignment WHERE loan_id=?", Long.class,
                             loanId),
                     "metrics", FinalLoanMetrics.read(loan, firstDay.minusDays(1), Set.of(insuranceChargeId, recurringInsuranceChargeId)));
@@ -144,7 +146,8 @@ public class FinalLoanMetricAlignmentService {
         }
         var journals = journals(loanId);
         boolean changed = !before.equals(targets);
-        if (changed) {
+        var baseline = FinalLoanMetrics.baseline(loan);
+        if (changed || baseline == null || baseline.getMigrationInterestForecast() == null) {
             FinalLoanMetrics.apply(loan, sourceDay, targets, insuranceIds, insuranceDefinition, penaltyDefinition);
             loans.saveAndFlush(loan);
             // Refresh the normal loan-detail overdue projection at the same source boundary.

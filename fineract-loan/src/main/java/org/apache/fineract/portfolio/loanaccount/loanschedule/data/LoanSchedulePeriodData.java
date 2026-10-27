@@ -32,7 +32,7 @@ import org.apache.fineract.organisation.monetary.domain.MoneyHelper;
  *
  */
 @Getter
-@Builder
+@Builder(toBuilder = true)
 public final class LoanSchedulePeriodData {
 
     private final Integer period;
@@ -50,6 +50,7 @@ public final class LoanSchedulePeriodData {
     private final BigDecimal principalLoanBalanceOutstanding;
     private final BigDecimal interestOriginalDue;
     private final BigDecimal interestDue;
+    private final BigDecimal interestForecast;
     private final BigDecimal interestPaid;
     private final BigDecimal interestWaived;
     private final BigDecimal interestWrittenOff;

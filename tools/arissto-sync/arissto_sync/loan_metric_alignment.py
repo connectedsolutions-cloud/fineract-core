@@ -63,7 +63,7 @@ def align(api: Any, loan_id: int, action: dict[str, Any], observed_at: str) -> d
     observation = api.request("GET", path, query=query)
     before = amounts(observation["metrics"])
     targets = amounts(frozen["targets"])
-    if before == targets:
+    if before == targets and observation.get("continuationReady") is True:
         return {"loan_id": loan_id, "changed": False, "metrics": before}
     payload = {k: frozen[k] for k in ("cutoffDate", "insuranceChargeId", "recurringInsuranceChargeId", "penaltyChargeId")}
     payload.update(sourceObservedAt=observed_at, sourceSystem="ARISSTO", sourceLoanExternalId=action["external_id"], expected=before, targets=targets)
@@ -73,7 +73,10 @@ def align(api: Any, loan_id: int, action: dict[str, Any], observed_at: str) -> d
     response = api.request("POST", path, payload, idempotency_key="fm:" + identity[:46])
     if amounts(response["metrics"]) != targets:
         raise RuntimeError("final_metrics_write_readback_mismatch")
-    after = amounts(api.request("GET", path, query=query)["metrics"])
+    readback = api.request("GET", path, query=query)
+    after = amounts(readback["metrics"])
+    if readback.get("continuationReady") is not True:
+        raise RuntimeError("final_metrics_continuation_baseline_missing")
     if after != targets:
         raise RuntimeError("final_metrics_persisted_readback_mismatch")
-    return {"loan_id": loan_id, "changed": True, "request_id": payload["requestId"], "metrics": after}
+    return {"loan_id": loan_id, "changed": bool(response.get("changed", before != targets)), "request_id": payload["requestId"], "metrics": after}

@@ -20,12 +20,12 @@ class FinalMetricTests(unittest.TestCase):
             'insuranceChargeId': 3, 'recurringInsuranceChargeId': 5, 'penaltyChargeId': 4}}}
 
     def test_equal_metrics_are_zero_write(self):
-        api=MagicMock(); api.request.return_value={'metrics': self.vector('2.00')}
+        api=MagicMock(); api.request.return_value={'metrics': self.vector('2.00'), 'continuationReady': True}
         self.assertFalse(align(api,1,self.action(),'2026-10-26T15:00:00Z')['changed'])
         self.assertEqual([c.args[0] for c in api.request.call_args_list],['GET'])
 
     def test_correction_is_expected_state_guarded_and_verified_after_write(self):
-        api=MagicMock(); api.request.side_effect=[{'metrics':self.vector()},{'metrics':self.vector('2.00')},{'metrics':self.vector('2.00')}]
+        api=MagicMock(); api.request.side_effect=[{'metrics':self.vector()},{'metrics':self.vector('2.00'),'continuationReady':True},{'metrics':self.vector('2.00'),'continuationReady':True}]
         result=align(api,1,self.action(),'2026-10-26T15:00:00Z')
         self.assertTrue(result['changed'])
         payload=api.request.call_args_list[1].args[2]
@@ -34,17 +34,24 @@ class FinalMetricTests(unittest.TestCase):
         self.assertEqual(payload['sourceLoanExternalId'],'ARISSTO:CRD:1')
         self.assertEqual([c.args[0] for c in api.request.call_args_list],['GET','POST','GET'])
 
+    def test_equal_amounts_still_initialize_missing_continuation_state(self):
+        api=MagicMock();api.request.side_effect=[{'metrics':self.vector('2.00'),'continuationReady':False},
+            {'metrics':self.vector('2.00'),'changed':False},{'metrics':self.vector('2.00'),'continuationReady':True}]
+        result=align(api,1,self.action(),'2026-10-26T15:00:00Z')
+        self.assertFalse(result['changed'])
+        self.assertEqual([c.args[0] for c in api.request.call_args_list],['GET','POST','GET'])
+
     def test_later_final_pass_can_repeat_a_previous_transition(self):
         identities=[]
         for version in (1,2):
             api=MagicMock();api.request.side_effect=[{'metrics':self.vector(),'alignmentVersion':version},
-                {'metrics':self.vector('2.00')},{'metrics':self.vector('2.00')}]
+                {'metrics':self.vector('2.00'),'continuationReady':True},{'metrics':self.vector('2.00'),'continuationReady':True}]
             align(api,1,self.action(),'2026-10-26T15:00:00Z')
             identities.append(api.request.call_args_list[1].args[2]['requestId'])
         self.assertNotEqual(*identities)
 
     def test_failed_persisted_verification_is_not_success(self):
-        api=MagicMock(); api.request.side_effect=[{'metrics':self.vector()},{'metrics':self.vector('2.00')},{'metrics':self.vector()}]
+        api=MagicMock(); api.request.side_effect=[{'metrics':self.vector()},{'metrics':self.vector('2.00'),'continuationReady':True},{'metrics':self.vector(),'continuationReady':True}]
         with self.assertRaisesRegex(RuntimeError,'persisted_readback'):
             align(api,1,self.action(),'2026-10-26T15:00:00Z')
 

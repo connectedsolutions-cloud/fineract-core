@@ -42,6 +42,7 @@ import org.apache.fineract.portfolio.charge.domain.ChargeCalculationType;
 import org.apache.fineract.portfolio.charge.domain.ChargePaymentMode;
 import org.apache.fineract.portfolio.charge.domain.ChargeRepositoryWrapper;
 import org.apache.fineract.portfolio.charge.domain.ChargeTimeType;
+import org.apache.fineract.portfolio.charge.exception.LoanChargeCannotBeAddedException;
 import org.apache.fineract.portfolio.charge.exception.LoanChargeNotFoundException;
 import org.apache.fineract.portfolio.charge.exception.LoanChargeWithoutMandatoryFieldException;
 import org.apache.fineract.portfolio.loanaccount.api.LoanApiConstants;
@@ -124,6 +125,10 @@ public class LoanChargeAssembler {
                     final ExternalId externalId = externalIdFactory.create(externalIdStr);
                     if (loanChargeId == null) {
                         final Charge chargeDefinition = this.chargeRepository.findOneWithNotFoundDetection(chargeId);
+                        if (ChargeTimeType.fromInt(chargeDefinition.getChargeTimeType()).isCredesalDailyMora()) {
+                            throw new LoanChargeCannotBeAddedException("loanCharge", "credesal.daily.mora.charge",
+                                    "Daily mora charges are applied by loan close of business.", null, chargeDefinition.getName());
+                        }
                         ChargeTimeType chargeTime = null;
                         if (chargeTimeType != null) {
                             chargeTime = ChargeTimeType.fromInt(chargeTimeType);
