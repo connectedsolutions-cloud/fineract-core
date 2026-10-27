@@ -1,0 +1,413 @@
+{
+  "issue": "LS-07",
+  "verified_on": "2026-10-27",
+  "recorded_at_utc": "2026-10-27T17:01:08.795994+00:00",
+  "repair_commit": "349ca8ad3f2ad6b7c513efb96252e7b4712e7ebd",
+  "durable_change_id": 29,
+  "cycle": "sandbox-2026-10-26-full-clean-a",
+  "target": {
+    "name": "local",
+    "tenant": "sandbox",
+    "database": "fineract_sandbox",
+    "fingerprint": "b9f6834b66790744"
+  },
+  "parent_workflow_run": "2490d7f94fe841c196402e20bc1fa3aa",
+  "original_loan_plan": "8098f714e10b4363934545537026a714",
+  "source_through_date": "2026-10-26",
+  "fineract_starts": "2026-10-27",
+  "accounting_cutoff": {
+    "boundary_semantics": "inclusive-source-through-date",
+    "configuration_hash": "c52b21a5f2ca8bacf22d14ff4acc5fcba1d811ee862ec7687ac034a455db7338",
+    "configuration_revision": 2,
+    "date": "2026-10-27",
+    "lifecycle_state": "ACTIVE",
+    "source": "source-through-date",
+    "source_through_date": "2026-10-26",
+    "timezone": "America/El_Salvador"
+  },
+  "verification_scope": "non-posting live payoff and application-schedule validation against original eight successors; no migration replay",
+  "payoff_checks_passed": 8,
+  "application_schedule_checks_passed": 8,
+  "results": [
+    {
+      "source_key": "loan:103",
+      "predecessors": [
+        {
+          "source_external_id": "ARISSTO:CRD:25",
+          "target_id": 23,
+          "recalculation_enabled": true
+        }
+      ],
+      "full_replay_performed": false,
+      "payoff_preview": {
+        "ok": true,
+        "amount_present": true,
+        "returned_loan_id": 23
+      },
+      "application_schedule_validation": {
+        "ok": true,
+        "period_count": 13
+      }
+    },
+    {
+      "source_key": "loan:125",
+      "predecessors": [
+        {
+          "source_external_id": "ARISSTO:CRD:43",
+          "target_id": 40,
+          "recalculation_enabled": true
+        }
+      ],
+      "full_replay_performed": false,
+      "payoff_preview": {
+        "ok": true,
+        "amount_present": true,
+        "returned_loan_id": 40
+      },
+      "application_schedule_validation": {
+        "ok": true,
+        "period_count": 10
+      }
+    },
+    {
+      "source_key": "loan:139",
+      "predecessors": [
+        {
+          "source_external_id": "ARISSTO:CRD:30",
+          "target_id": 27,
+          "recalculation_enabled": true
+        }
+      ],
+      "full_replay_performed": false,
+      "payoff_preview": {
+        "ok": true,
+        "amount_present": true,
+        "returned_loan_id": 27
+      },
+      "application_schedule_validation": {
+        "ok": true,
+        "period_count": 10
+      }
+    },
+    {
+      "source_key": "loan:159",
+      "predecessors": [
+        {
+          "source_external_id": "ARISSTO:CRD:29",
+          "target_id": 26,
+          "recalculation_enabled": true
+        }
+      ],
+      "full_replay_performed": false,
+      "payoff_preview": {
+        "ok": true,
+        "amount_present": true,
+        "returned_loan_id": 26
+      },
+      "application_schedule_validation": {
+        "ok": true,
+        "period_count": 7
+      }
+    },
+    {
+      "source_key": "loan:172",
+      "predecessors": [
+        {
+          "source_external_id": "ARISSTO:CRD:34",
+          "target_id": 31,
+          "recalculation_enabled": true
+        }
+      ],
+      "full_replay_performed": false,
+      "payoff_preview": {
+        "ok": true,
+        "amount_present": true,
+        "returned_loan_id": 31
+      },
+      "application_schedule_validation": {
+        "ok": true,
+        "period_count": 10
+      }
+    },
+    {
+      "source_key": "loan:1784",
+      "predecessors": [
+        {
+          "source_external_id": "ARISSTO:CRD:1482",
+          "target_id": 3,
+          "recalculation_enabled": true
+        }
+      ],
+      "full_replay_performed": false,
+      "payoff_preview": {
+        "ok": true,
+        "amount_present": true,
+        "returned_loan_id": 3
+      },
+      "application_schedule_validation": {
+        "ok": true,
+        "period_count": 21
+      }
+    },
+    {
+      "source_key": "loan:200",
+      "predecessors": [
+        {
+          "source_external_id": "ARISSTO:CRD:14",
+          "target_id": 14,
+          "recalculation_enabled": true
+        }
+      ],
+      "full_replay_performed": false,
+      "payoff_preview": {
+        "ok": true,
+        "amount_present": true,
+        "returned_loan_id": 14
+      },
+      "application_schedule_validation": {
+        "ok": true,
+        "period_count": 10
+      }
+    },
+    {
+      "source_key": "loan:283",
+      "predecessors": [
+        {
+          "source_external_id": "ARISSTO:CRD:101",
+          "target_id": 1,
+          "recalculation_enabled": true
+        }
+      ],
+      "full_replay_performed": false,
+      "payoff_preview": {
+        "ok": true,
+        "amount_present": true,
+        "returned_loan_id": 1
+      },
+      "application_schedule_validation": {
+        "ok": true,
+        "period_count": 13
+      }
+    }
+  ],
+  "before": {
+    "loans": {
+      "rows": 8,
+      "sha256": "3cb82d847a05a0c4ed864f0666662e0a0eb2cece1cbdc42a167e4ea552f5d845"
+    },
+    "transactions": {
+      "rows": 94,
+      "sha256": "68bd3f48134d847253f9038329896845fdcbdd675a8df068dc07f5c58dfecbbc"
+    },
+    "installments": {
+      "rows": 58,
+      "sha256": "e28a23f10f269e25426f0c693657578dd3032272a5531ac8a38e735f3942e31c"
+    },
+    "charges": {
+      "rows": 28,
+      "sha256": "9dec8166d769e4560aa3b4ae11574b62229749e72ad9be42153af609e4ba7d53"
+    },
+    "transaction_mappings": {
+      "rows": 95,
+      "sha256": "aad47e541dfa74746c6b831663d8cbccff0ce232af80522afeb46b713fe64497"
+    },
+    "charge_ownership": {
+      "rows": 45,
+      "sha256": "16920687dcc619fc754da7df3040224afb68d37dd92337a33d5941903b018013"
+    },
+    "installment_charges": {
+      "rows": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "global_counts": [
+      1143,
+      24850,
+      0,
+      2103
+    ]
+  },
+  "after": {
+    "loans": {
+      "rows": 8,
+      "sha256": "3cb82d847a05a0c4ed864f0666662e0a0eb2cece1cbdc42a167e4ea552f5d845"
+    },
+    "transactions": {
+      "rows": 94,
+      "sha256": "68bd3f48134d847253f9038329896845fdcbdd675a8df068dc07f5c58dfecbbc"
+    },
+    "installments": {
+      "rows": 58,
+      "sha256": "e28a23f10f269e25426f0c693657578dd3032272a5531ac8a38e735f3942e31c"
+    },
+    "charges": {
+      "rows": 28,
+      "sha256": "9dec8166d769e4560aa3b4ae11574b62229749e72ad9be42153af609e4ba7d53"
+    },
+    "transaction_mappings": {
+      "rows": 95,
+      "sha256": "aad47e541dfa74746c6b831663d8cbccff0ce232af80522afeb46b713fe64497"
+    },
+    "charge_ownership": {
+      "rows": 45,
+      "sha256": "16920687dcc619fc754da7df3040224afb68d37dd92337a33d5941903b018013"
+    },
+    "installment_charges": {
+      "rows": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "global_counts": [
+      1143,
+      24850,
+      0,
+      2103
+    ]
+  },
+  "predecessor_state_unchanged": true,
+  "reload": {
+    "scope": "owned backend reload for scoped LS-07 verification only",
+    "workflow_queued": false,
+    "reset": false,
+    "cycle": "sandbox-2026-10-26-full-clean-a",
+    "cutoff_before": {
+      "boundary_semantics": "inclusive-source-through-date",
+      "configuration_hash": "c52b21a5f2ca8bacf22d14ff4acc5fcba1d811ee862ec7687ac034a455db7338",
+      "configuration_revision": 2,
+      "date": "2026-10-27",
+      "lifecycle_state": "ACTIVE",
+      "source": "source-through-date",
+      "source_through_date": "2026-10-26",
+      "timezone": "America/El_Salvador"
+    },
+    "scheduler_before": {
+      "active": false
+    },
+    "before_counts": [
+      1143,
+      24850,
+      0,
+      2103
+    ],
+    "reload_seconds": 78.71,
+    "scheduler_after": {
+      "active": false
+    },
+    "cutoff_after": {
+      "boundary_semantics": "inclusive-source-through-date",
+      "configuration_hash": "c52b21a5f2ca8bacf22d14ff4acc5fcba1d811ee862ec7687ac034a455db7338",
+      "configuration_revision": 2,
+      "date": "2026-10-27",
+      "lifecycle_state": "ACTIVE",
+      "source": "source-through-date",
+      "source_through_date": "2026-10-26",
+      "timezone": "America/El_Salvador"
+    },
+    "after_counts": [
+      1143,
+      24850,
+      0,
+      2103
+    ],
+    "loaded_repair_commit": "349ca8ad3f2ad6b7c513efb96252e7b4712e7ebd"
+  },
+  "scheduler_after": {
+    "active": false
+  },
+  "workflow_status_after": "interrupted",
+  "recovery_not_run": true,
+  "reset_performed": false,
+  "new_cycle_created": false,
+  "successor_applications_created": 0,
+  "scoped_plan_review": {
+    "plan_id": "6fa82232f72748a5833e2d28bc3c0d5a",
+    "scope": {
+      "mode": "explicit-source-keys",
+      "requested_source_keys": [
+        "103",
+        "125",
+        "139",
+        "159",
+        "172",
+        "1784",
+        "200",
+        "283"
+      ],
+      "loan_count": 34,
+      "required_product_lines": [
+        "00010"
+      ],
+      "proof_namespace": null
+    },
+    "counts": {
+      "unchanged-product": 1,
+      "recover-loan": 10,
+      "create-loan": 24
+    },
+    "applicable": false,
+    "readiness_blockers": [
+      "scoped_loan_plan_cannot_replay_client_office_transfers"
+    ],
+    "unchanged_source_hashes": [
+      "loan:14",
+      "loan:25",
+      "loan:29",
+      "loan:30",
+      "loan:34",
+      "loan:43",
+      "loan:101",
+      "loan:103",
+      "loan:125",
+      "loan:139",
+      "loan:159",
+      "loan:172",
+      "loan:200",
+      "loan:283",
+      "loan:308",
+      "loan:360",
+      "loan:407",
+      "loan:433",
+      "loan:515",
+      "loan:553",
+      "loan:580",
+      "loan:644",
+      "loan:711",
+      "loan:773",
+      "loan:921",
+      "loan:1178",
+      "loan:1482",
+      "loan:1784",
+      "loan:1897",
+      "loan:1962",
+      "loan:2055",
+      "loan:2165",
+      "loan:2265",
+      "loan:2402"
+    ],
+    "changed_source_hashes": [],
+    "source_observed_at": "2026-10-27T16:55:55.414988+00:00"
+  },
+  "original_full_plan_guard": {
+    "ok": false,
+    "type": "RuntimeError",
+    "reason": "Loan target or source became inapplicable after planning:loan:1613:missing_final_metric_source_snapshot,source_events_after_fineract_accounting_boundary"
+  },
+  "retry_scope_review": {
+    "requested_loan_count": 8,
+    "dependency_closure_loan_count": 17,
+    "office_transfer_cohort_keys": [
+      "loan:101",
+      "loan:283",
+      "loan:553",
+      "loan:921"
+    ],
+    "expanded_selected_loan_count": 2735,
+    "executed": false
+  },
+  "interpretation": "The repaired live non-posting payoff and schedule-validation paths pass for all eight original successor/predecessor pairs with recalculation enabled and no observed persistence mutation. This is not successful creation, disbursement, repayment replay or portfolio reconciliation.",
+  "remaining_gates": [
+    "Resolve the scoped office-transfer replay restriction without silently broadening the requested write scope.",
+    "Fix the retry expansion that promotes healthy product prerequisites into explicit fan-out roots.",
+    "Review newly inapplicable source evidence on loan:1613 before using the original full-portfolio plan.",
+    "Perform separately reviewed creation/disbursement/replay and reconciliation of the eight successors; no run IDs or success ledger rows were fabricated.",
+    "Six original generic HTTP 500 responses remain individually uncorrelated, although no such error occurred in the 16 live checks."
+  ]
+}
