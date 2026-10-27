@@ -216,6 +216,66 @@ class SourceExactInterestRecalculationTest {
                 () -> processor.handleTransactionAndCharges(transaction, CURRENCY, List.of(rows.get(0)), new HashSet<>(), null, false));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = { "1036", "1040" })
+    void februaryMixedPaymentsDeferOnlyInterestAndMapAcrossTheRequiredInstallments(final String sourceLoan) {
+        final var rows = februaryMixedSchedule(sourceLoan);
+        final Money principal = transaction.getSourceExactPrincipalPortion(CURRENCY);
+        final Money interest = transaction.getSourceExactInterestPortion(CURRENCY);
+        assertMoney(principal.getAmount().toPlainString(), recalculate());
+        for (var row : rows) {
+            assertMoney("0.00", row.getPrincipalCompleted(CURRENCY));
+            assertMoney("0.00", row.getInterestPaid(CURRENCY));
+        }
+        assertMoney("0.00", processor.handleTransactionAndCharges(transaction, CURRENCY, rows, new HashSet<>(), null, false));
+        assertMoney(principal.getAmount().toPlainString(), transaction.getPrincipalPortion(CURRENCY));
+        assertMoney(interest.getAmount().toPlainString(), transaction.getInterestPortion(CURRENCY));
+        assertMoney(rows.get(0).getPrincipal(CURRENCY).getAmount().toPlainString(), rows.get(0).getPrincipalCompleted(CURRENCY));
+        assertMoney(sourceLoan.equals("1036") ? "18.52" : "7.31", rows.get(1).getPrincipalCompleted(CURRENCY));
+        assertMoney(sourceLoan.equals("1036") ? "0.00" : "0.58", rows.get(2).getPrincipalCompleted(CURRENCY));
+        assertMoney(interest.getAmount().toPlainString(), rows.get(0).getInterestPaid(CURRENCY));
+        assertMoney("0.00", rows.get(1).getInterestPaid(CURRENCY));
+        assertEquals(sourceLoan.equals("1036") ? 2 : 3, transaction.getLoanTransactionToRepaymentScheduleMappings().size());
+        assertEquals(LocalDate.of(2025, 3, sourceLoan.equals("1036") ? 15 : 17), rows.get(0).getDueDate());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "1036", "1040" })
+    void februaryMixedPaymentsStillRequireFutureContractualCoverage(final String sourceLoan) {
+        februaryMixedSchedule(sourceLoan);
+        when(loan.getRepaymentScheduleInstallments()).thenReturn(List.of());
+        assertThrows(GeneralPlatformDomainRuleException.class, this::recalculate);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "1036", "1040" })
+    void februaryMixedFinalPostingStillRejectsInsufficientPrincipalCapacity(final String sourceLoan) {
+        final var rows = februaryMixedSchedule(sourceLoan);
+        assertMoney(transaction.getSourceExactPrincipalPortion(CURRENCY).getAmount().toPlainString(), recalculate());
+        assertThrows(GeneralPlatformDomainRuleException.class,
+                () -> processor.handleTransactionAndCharges(transaction, CURRENCY, List.of(rows.get(0)), new HashSet<>(), null, false));
+    }
+
+    private List<LoanRepaymentScheduleInstallment> februaryMixedSchedule(final String sourceLoan) {
+        final boolean mobileCollection = sourceLoan.equals("1036");
+        final LocalDate disbursed = LocalDate.of(2025, 2, 14);
+        final LocalDate firstDue = LocalDate.of(2025, 3, mobileCollection ? 15 : 17);
+        when(loan.getDisbursementDate()).thenReturn(disbursed);
+        final var rows = List.of(
+                new LoanRepaymentScheduleInstallment(loan, 1, disbursed, firstDue, new BigDecimal(mobileCollection ? "69.73" : "22.44"),
+                        new BigDecimal(mobileCollection ? "25.32" : "151.89"), BigDecimal.ZERO, BigDecimal.ZERO, false, null),
+                new LoanRepaymentScheduleInstallment(loan, 2, firstDue, firstDue.plusMonths(1),
+                        new BigDecimal(mobileCollection ? "70.58" : "7.31"), new BigDecimal(mobileCollection ? "24.47" : "167.02"),
+                        BigDecimal.ZERO, BigDecimal.ZERO, false, null),
+                new LoanRepaymentScheduleInstallment(loan, 3, firstDue.plusMonths(1), firstDue.plusMonths(2),
+                        new BigDecimal(mobileCollection ? "74.85" : "13.06"), new BigDecimal(mobileCollection ? "20.20" : "161.27"),
+                        BigDecimal.ZERO, BigDecimal.ZERO, false, null));
+        when(loan.getRepaymentScheduleInstallments()).thenReturn(rows);
+        transaction = payment(LocalDate.of(2025, 2, 28), mobileCollection ? "88.25" : "30.33", mobileCollection ? "11.75" : "59.67", "0.00",
+                "0.00");
+        return rows;
+    }
+
     private List<LoanRepaymentScheduleInstallment> loan10Schedule() {
         final LocalDate disbursed = LocalDate.of(2023, 4, 14);
         final LocalDate firstDue = LocalDate.of(2023, 5, 14);

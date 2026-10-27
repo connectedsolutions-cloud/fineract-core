@@ -392,6 +392,10 @@ See [LS-05 loan 773 evidence](loan-sync-updates-progress-oct27.md#ls-05-loan-773
 for its verified recovery and separate remaining cutover-insurance refusals.
 The same runtime fix also covers loan 10's pre-first-due mixed principal/interest
 payment; see [LS-01 regression coverage and scoped acceptance](loan-sync-updates-progress-oct27.md#ls-01-loan-10--mixed-allocation-recovery-october-27).
+[Loans 1036 and 1040](loan-sync-updates-progress-oct27.md#ls-01-loans-1036-and-1040--same-fix-verification-and-bounded-recovery)
+also passed exact mixed-payment regression tests and their four-loan dependency
+recovery without another runtime patch; reconciliation retains its documented
+adjustments and nonblocking full-schedule variances.
 
 On same-cycle recovery after final metric alignment, insurance opening debt may
 already reside on the canonical `ARISSTO:CRD-METRICS:INS:<loan-id>` charge.
