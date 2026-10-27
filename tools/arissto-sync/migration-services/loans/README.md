@@ -391,6 +391,15 @@ only principal as early-paid amounts and retains strict final-posting guards.
 See [LS-05 loan 773 evidence](loan-sync-updates-progress-oct27.md#ls-05-loan-773--interest-allocation-repair-and-bounded-recovery)
 for its verified recovery and separate remaining cutover-insurance refusals.
 
+On same-cycle recovery after final metric alignment, insurance opening debt may
+already reside on the canonical `ARISSTO:CRD-METRICS:INS:<loan-id>` charge.
+The writer verifies prior alignment, exact loan/cutoff, all eight frozen metrics,
+canonical charge ownership and balance, and the zeroed original cutover charge
+before accepting this representation read-only. It never restores the old debt
+when proof is missing or drifted. Initial unaligned provisioning retains its
+existing path. See [LS-31 acceptance](loan-sync-updates-progress-oct27.md#ls-31-repair--preserve-the-approved-insurance-baseline-on-recovery).
+
+
 
 
 The controlled local Gate 4 canary used plan

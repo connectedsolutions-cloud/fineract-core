@@ -5702,6 +5702,102 @@ def _ensure_source_mora_opening_charge(
     return loan
 
 
+def _ensure_cutover_insurance_charge(
+    api: FineractApi, loan: dict[str, Any], action: dict[str, Any], attempt_key: str | None,
+) -> dict[str, Any]:
+    lifecycle = action["lifecycle"]
+    template = lifecycle["cutover_insurance_charge"]
+
+    def provision() -> dict[str, Any]:
+        return _ensure_source_insurance_charges(
+            api, loan, {"historical_insurance_charges": [template]}, attempt_key,
+        )
+
+    frozen = lifecycle.get("final_metric_alignment")
+    if not frozen:
+        return provision()
+    from .loan_metric_alignment import amounts as metric_amounts
+
+    def refuse(reason: str) -> None:
+        raise RuntimeError(f"cutover_insurance_baseline_{reason}:{template['external_id']}")
+
+    targets = metric_amounts(frozen["targets"])
+    loan_id = int(loan["id"])
+    currency = (loan.get("currency") or {}).get("code")
+    if (not currency or loan.get("externalId") != action["external_id"] or frozen.get("revision") != 1
+            or template.get("classification") != "source_insurance_cutover_outstanding"
+            or int(template["charge_id"]) != int(frozen["insuranceChargeId"])
+            or _amount(template["amount"]) != _amount(targets["insuranceOutstanding"])
+            or (lifecycle.get("migration_cutover_date")
+                and lifecycle["migration_cutover_date"] != frozen["cutoffDate"])):
+        refuse("plan_identity_mismatch")
+    observation = api.request("GET", f"loans/{loan_id}/migration-metrics", query={
+        key: frozen[key] for key in ("cutoffDate", "insuranceChargeId", "recurringInsuranceChargeId")
+    })
+    version = observation.get("alignmentVersion")
+    baseline_external_id = f"ARISSTO:CRD-METRICS:INS:{loan_id}"
+    baseline = _loan_charge_by_external_id(loan, baseline_external_id)
+    if observation.get("loanId") != loan_id or observation.get("cutoffDate") != frozen["cutoffDate"]:
+        refuse("observation_identity_mismatch")
+    if type(version) is int and version == 0 and observation.get("continuationReady") is False and baseline is None:
+        return provision()  # Initial migration still needs its original opening charge.
+    if type(version) is not int or version <= 0 or observation.get("continuationReady") is not True:
+        refuse("prior_alignment_unproven")
+    try:
+        observed_metrics = metric_amounts(observation["metrics"])
+    except (KeyError, RuntimeError) as exc:
+        raise RuntimeError(f"cutover_insurance_baseline_metrics_invalid:{template['external_id']}") from exc
+    if observed_metrics != targets:
+        refuse("metrics_drift")
+    if baseline is None:
+        refuse("active_charge_missing")
+
+    def verify_charge(charge: dict[str, Any], external_id: str, due_date: str) -> dict[str, Decimal]:
+        if (charge.get("externalId") != external_id or charge.get("loanId") != loan_id
+                or charge.get("externalLoanId") != action["external_id"]
+                or charge.get("chargeId") != int(frozen["insuranceChargeId"])
+                or charge.get("penalty") is not False
+                or (charge.get("currency") or {}).get("code") != currency
+                or _enum_id(charge.get("chargeTimeType")) != 2
+                or _enum_id(charge.get("chargeCalculationType")) != 1
+                or not charge.get("dueDate") or _iso_date(charge["dueDate"], "insurance due date") != due_date):
+            refuse("charge_identity_mismatch")
+        values = {}
+        for key in ("amount", "amountPaid", "amountWaived", "amountWrittenOff", "amountOutstanding"):
+            if charge.get(key) is None:
+                refuse("charge_amount_missing")
+            try:
+                value = Decimal(str(charge[key]))
+            except (ArithmeticError, ValueError, TypeError) as exc:
+                raise RuntimeError(f"cutover_insurance_baseline_charge_amount_invalid:{template['external_id']}") from exc
+            if not value.is_finite() or value < 0 or value != value.quantize(Decimal("0.01")):
+                refuse("charge_amount_invalid")
+            values[key] = value
+        return values
+
+    source_day = (date.fromisoformat(frozen["cutoffDate"]) - timedelta(days=1)).isoformat()
+    values = verify_charge(baseline, baseline_external_id, source_day)
+    if (values["amountOutstanding"] != _amount(targets["insuranceOutstanding"])
+            or values["amountPaid"] > _amount(targets["insurancePaid"])
+            or values["amountWaived"] != 0 or values["amountWrittenOff"] != 0
+            or values["amount"] != values["amountPaid"] + values["amountOutstanding"]):
+        refuse("charge_balance_mismatch")
+    original = _loan_charge_by_external_id(loan, template["external_id"])
+    if original is None:
+        try:
+            original = api.request("GET", f"loans/{loan_id}/charges/external-id/{template['external_id']}")
+        except FineractError as exc:
+            if exc.status_code != 404:
+                raise
+        if original is None:
+            refuse("original_charge_missing")
+    if any(verify_charge(original, template["external_id"], template["due_date"]).values()):
+        refuse("original_charge_not_zero")
+    # Final alignment moved the opening debt to this canonical baseline. Recover
+    # that representation read-only; restoring the old charge would duplicate it.
+    return loan
+
+
 def _ensure_source_insurance_charges(
     api: FineractApi, loan: dict[str, Any], event: dict[str, Any], attempt_key: str | None,
 ) -> dict[str, Any]:
@@ -7615,12 +7711,7 @@ def _apply_loan_lifecycle(
         return loan_id, recovered
 
     if cutover_charge is not None and not action.get("full_resync_insurance_guard"):
-        loan = _ensure_source_insurance_charges(
-            api,
-            loan,
-            {"historical_insurance_charges": [cutover_charge]},
-            attempt_key,
-        )
+        loan = _ensure_cutover_insurance_charge(api, loan, action, attempt_key)
 
     if not lifecycle.get("final_metric_alignment"):
         loan = _rebase_full_resync_cutover_insurance(api, loan, action, attempt_key)
