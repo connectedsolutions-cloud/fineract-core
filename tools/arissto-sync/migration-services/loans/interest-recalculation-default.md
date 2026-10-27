@@ -1,5 +1,15 @@
 # Interest recalculation activation
 
+> **October 27 evidence review:** the proposed historical-replay direction is
+> recalculation **off**, followed by complete-service reconciliation and end-only
+> migration corrections. Post-handoff activation requires a forward-only
+> operation. See the [design decision](historical-replay-design-decision-oct27.md).
+> This replacement is **not implemented**: the code and existing loan/product
+> flags still follow the October 26 activation behavior documented below.
+> Do not use this historical implementation record as an instruction to resume,
+> toggle existing loans, reset a tenant or launch another experiment.
+
+
 The [actual loan CLI acceptance](loan-flow-cob-acceptance.md) verifies product enablement, new recalculation-enabled loans, final reconciliation and six native COB days for 1572/1826. Existing disabled products can receive a guarded enable-only update; incompatible already-enabled settings remain conflicts.
 
 ## Approved scope — 2026-10-26

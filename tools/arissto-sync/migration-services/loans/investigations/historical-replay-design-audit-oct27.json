@@ -1,0 +1,45 @@
+{
+  "kind": "read-only design audit and evidence-based direction",
+  "runtime_changed": false,
+  "current_runtime_historical_recalculation": "enabled; unchanged",
+  "recommended_historical_replay_recalculation": "off",
+  "migration_adjustments_phase": "after complete loan-service replay and reconciliation barrier",
+  "post_migration_activation": "desired forward-only capability; not verified/supported by current flag/product-switch path",
+  "source_through_date": "2026-10-26",
+  "fineract_starts": "2026-10-27",
+  "oct27_source_payments_remain_excluded": true,
+  "new_test_runs": 0,
+  "new_replay_runs": 0,
+  "sandbox_writes": 0,
+  "sandbox_reset": false,
+  "new_baseline_completed": false,
+  "isolated_preparation": {
+    "api_port": 18443,
+    "postgres_port": 55477,
+    "database_prefix": "lsreg_",
+    "loan_replay_executed": false,
+    "services_stopped": true
+  },
+  "evidence": [
+    "interest-recalculation-canary.md",
+    "investigations/ls01-remaining-cohort-investigation-retry-oct27.json"
+  ],
+  "reviewed_working_tree_sha256": {
+    "fineract-provider/src/main/java/org/apache/fineract/portfolio/loanaccount/service/LoanTransactionProcessingServiceImpl.java": "f83616185c8dea53f3e8a706a9c213d45130c1244beb938525a983beb6b999a7",
+    "fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/loanschedule/domain/AbstractCumulativeLoanScheduleGenerator.java": "210d12465eec8ebd53f6ec41235a387fc0b0055d89c50a5ff7aaf9659e59f486",
+    "fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/domain/transactionprocessor/AbstractLoanRepaymentScheduleTransactionProcessor.java": "a9b80955b79f3d64cf517151d1fcd2e468c7cb601f03ef79312c8e3e24cfbd3a",
+    "fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/domain/Loan.java": "fb838aa1152fe22acccb8b8ddd334119a569d414e70e77f76ef2a4ab313715bb",
+    "fineract-provider/src/main/java/org/apache/fineract/portfolio/loanaccount/service/LoanAssemblerImpl.java": "1683fbb947186205435483be3a4f9ba3c61dd5b3a49d209b7f22fd47231ef636",
+    "tools/arissto-sync/arissto_sync/loans.py": "30884b349016500fede4d3643c998b336875697c3c530968ac151f03bc819f40",
+    "tools/arissto-sync/config/loans.json": "0413315679f089711056250501f17da52c8fc608f88201a418fb408bcbf22d4b"
+  },
+  "findings": [
+    "Source-exact allocations compete with regenerated native installment prefixes.",
+    "Disabling interest recalculation does not disable all derived-state reprocessing.",
+    "Non-recalculation prepayment sums scheduled outstanding components and is not automatically a source-as-of payoff.",
+    "Interim refinance goodwill-credit bridges conflict with end-only migration corrections.",
+    "Final metric loop runs on successful items without requiring zero failed/blocked chains.",
+    "Loan product switch copies the per-loan flag and requests schedule regeneration; it is not a forward-only activation boundary."
+  ],
+  "implementation_status": "open; decision documented, runtime unchanged"
+}

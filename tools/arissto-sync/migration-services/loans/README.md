@@ -51,6 +51,22 @@ The [penalty recalculation recovery](penalty-recalculation-recovery.md) records
 the source-exact temporary-prefix fix and completed same-cycle reconciliation
 for loans 101, 283, 553 and 921, keeping the October 27 payment excluded.
 
+## Historical replay design review — October 27
+
+The [evidence-based design direction](historical-replay-design-decision-oct27.md)
+is **recalculation off during historical import**, complete-history and refinance
+chain reconciliation, then explicit corrections at the end of the complete loan
+service. Future recalculation activation must preserve the accepted history and
+start from the Fineract-owned boundary.
+
+This direction is **pending implementation**. Current code still enables daily
+recalculation, can insert pre-refinance bridges/per-loan terminal corrections,
+and runs its final-metric loop for successful outcomes even when other chains
+failed. Its final loop is not yet the global success barrier required by this
+review. Product/loan settings and the existing sandbox were not changed. Further
+experiments and baseline construction were stopped at the operator's request;
+no complete new lifecycle baseline is claimed.
+
 ## Stable identity
 
 ```text

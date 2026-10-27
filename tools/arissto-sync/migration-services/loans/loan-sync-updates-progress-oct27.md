@@ -1,5 +1,34 @@
 # Loan sync updates and progress — October 27, 2026
 
+## Current direction — address the shared replay design
+
+The [October 27 design decision](historical-replay-design-decision-oct27.md)
+consolidates LS-01/03/05 and LS-32–35 into a shared replay/recalculation workstream.
+Keep the case rows below as evidence and unresolved outcomes, not separate
+proofs of a completed loan-service fix.
+
+**Direction:** native interest recalculation off for historical replay; import
+source facts, reconcile complete histories/refinance chains, then apply explicit
+migration corrections at the end of the complete loan service. A future
+post-migration activation must start at **Fineract starts** and preserve the
+accepted historical state. The current code has no verified forward-only
+activation for already-migrated loans.
+
+**Implementation remains open.** Existing code and product/loan flags are
+unchanged; there was no sandbox replay, write, reset, boundary change, or new
+reconciliation. Additional tests/experiments and complete-lifecycle baseline
+construction were stopped following the operator's instruction to decide from
+existing evidence. The temporary isolated test services were stopped before any
+loan replay. Earlier case counts and the unaccepted 65-loan attempt remain true.
+
+The code audit identifies two central gaps beyond the flag: historical refinance
+currently depends on interim native-quote bridges, and final metric adjustments
+can run on successful outcomes while other chains remain failed/blocked. Both
+must be addressed as part of the shared service design, with source payoff/net
+cash preserved and a global completion barrier before corrections. No new issue
+row is added for each manifestation.
+
+
 Working tracker for issue discovery, diagnosis, implementation and verified recovery. Keep observations separate from hypotheses, and preserve earlier evidence when updating a status. This document complements the [durable change tracker](change-log.md); implemented loan-sync changes must still be recorded there with commit and affected-loan evidence.
 
 ## Evidence baseline
