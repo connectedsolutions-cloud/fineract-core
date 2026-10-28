@@ -1,6 +1,30 @@
 # Loans contract
 
-## Source-day planning and product enablement — verified 2026-10-26
+## Current historical migration policy — October 27
+
+Revision 10 plans freeze `source-exact-off-v1`: native products and loans must
+read back with interest recalculation **false**. Enabled or missing flags fail
+closed; the importer does not toggle existing loans/products for compatibility.
+Historical successors are created without ordinary top-up quote validation;
+the guarded source-exact disbursement installs native refinance relationships,
+uses the recorded allocations and disburses the remaining net cash. Neither
+prepayment-quote nor residual goodwill bridges are permitted in this path.
+
+Corrections run only after every eligible frozen-plan history has succeeded,
+including connected refinance and office-transfer histories, followed by native
+source-event readback. A failed, blocked or missing history defers corrections
+for the whole plan, including scoped retry roots. Reviewed intrinsic quarantines
+remain explicit; strict final reconciliation is still required. Recalculation
+stays off after this run. Forward-only activation is a separate future contract.
+
+Implementation `9d021d4efd` has focused coverage and is under native clean-run
+verification, **not full-service acceptance**. The current attempt exposes an
+unresolved source-closed/native-active office-transfer phase conflict. See the
+[progress tracker](loan-sync-updates-progress-oct27.md) for the recorded outcome.
+Earlier dated activation/canary records below preserve historical evidence and
+do not supersede this current policy.
+
+## Historical source-day and product-enable acceptance — October 26
 
 The [normal CLI acceptance and planning contract](loan-flow-cob-acceptance.md)
 cover conservative dated reconstruction before later ordinary payments, guarded
@@ -24,9 +48,10 @@ GL-free correction for each difference, and verify the full final set. The
 [final metric reconciliation requirements](loan-metric-final-alignment.md)
 own this new step and its method contracts. Corrections are not required to
 survive later recalculation, reversals or replay; rerunning earlier work
-requires a new final pass. Loan plan revision 9 freezes the eight targets and
-runs the grouped native correction after all dependency operations. The step
-does not change interest-recalculation activation.
+requires a new final pass. Revision 10 freezes the eight targets and requires
+a complete-plan replay barrier plus native event readback before the grouped
+correction phase. Successful siblings are not corrected while another required
+history has failed or remains blocked. Historical recalculation stays off.
 
 The service includes only originated rows in `CRD_CARTERA`. Under reviewed
 scope decision [`SCOPE-001`](../scope-decisions.md#scope-001--standalone-credit-applications),
@@ -1240,17 +1265,17 @@ contract; an insurance rebase is not permission to post Arissto GL on or after
 Fineract's first owned date. The command audit records the prior and source
 outstanding amounts so accounting differences remain visible for review.
 
-The sync now enables daily general interest recalculation on all newly created
-native products and loans, with no compounding and the reschedule-next-repayments
-strategy. The opening-outstanding-principal installment insurance charge remains
-enabled: its schedule-based calculation is supported during recalculation, and
+Historical sync products and loans now have general interest recalculation off.
+The prior enable-only policy is preserved as a dated acceptance record, not the
+current default. The opening-outstanding-principal installment insurance charge
+remains enabled; its schedule-based calculation supports the historical policy, and
 the obsolete loan-application validation restriction has been removed. Other
 percentage-charge restrictions remain in force. Historical insurance is still
 imported through its existing exact-charge path, and recurring insurance starts
 at the frozen Fineract boundary; it must not be applied retroactively to Arissto
-history. See [the activation contract](interest-recalculation-default.md).
-Exact source interest or derived-schedule parity is not an activation requirement;
-metric alignment is separate future work. A local posted lifecycle for source loan `2068`
+history. See [the historical activation record](interest-recalculation-default.md).
+Current migration acceptance still requires exact final metrics after the global
+barrier. In the earlier activation proof, a local posted lifecycle for source loan `2068`
 proved the combined behavior: a `$40.00` payment one day after the first due
 date allocated `$0.21` insurance, `$12.89` interest, and `$26.90` principal,
 matching the source movement exactly. Repayment and disbursement reversal left
@@ -1275,15 +1300,18 @@ with one settlement. For a consolidation it classifies each verified source
 settlement as `FULL_CLOSE` or `PARTIAL_PAYDOWN`, submits only the full-close
 predecessors in `loanIdsToClose`, and submits one source-exact settlement row
 for every predecessor. Fineract atomically creates every loan-to-loan transfer
-before disbursing the exact remaining net cash. Full-close predecessors must
-end closed without a material balance; partial-paydown predecessors must be
+before disbursing the exact remaining net cash. In historical-off mode, native
+refinance relationships are installed by the guarded disbursement rather than
+ordinary application creation. Full-close predecessors must end closed without
+a material balance after the complete-plan final correction phase;
+partial-paydown predecessors must be
 active with a positive residual immediately after settlement and retain any
 later source transactions. They may close after those transactions.
-Because Fineract recalculates each full-close predecessor at the historical
-payoff date, deterministic goodwill-credit bridges separately capture each
-dated prepayment-quote difference and any post-settlement residual; no bridge
-is represented as customer cash. Partial paydowns use their exact source
-allocation and never receive a closure bridge.
+The historical-off path uses source-recorded allocations instead of ordinary
+future-interest-inclusive payoff quotes. It posts no prepayment or residual
+goodwill bridge during settlement. Remaining migration differences are evaluated
+only after complete replay readiness. Genuine partial paydowns keep their exact
+source allocation and subsequent dated history.
 
 The settlement classifier uses the predecessor's `CRD_MOVIMIENTO_PRE_POS`
 state immediately after the refinancing payment. An active post-payment state
@@ -1608,10 +1636,13 @@ The composed full workflows order loans before savings deposits. The transfer
 planner also rejects a target that already has savings accounts for a client
 whose historical move has not yet been accepted, because native client
 transfer would otherwise try to transfer a fully replayed savings account.
-A loan with a frozen terminal adjustment before a transfer is finalized before
-the native active-loan check only when all its frozen events predate the transfer
-and no deferred insurance charge remains. The normal finalization pass remains
-idempotent; other loans stay phased across the transfer boundary.
+The earlier enabled-policy path finalized a source-closed loan before the native
+active-loan check when its entire history predated the transfer. Historical-off
+mode does not permit that interim corrective exception. The clean run confirms
+that source-closed loans can consequently remain natively Active and conflict
+with the exact transfer inventory check. Both Python and native guards remain
+strict. A reviewed source-state transfer/ownership contract is required; neither
+ignoring extra active loans nor restoring interim credits is approved.
 A savings-only workflow does not reconstruct client office history; it must
 be paired with the loan transfer phase when that history is required.
 A full loan plan also fails closed if a newly observed client move belongs to
