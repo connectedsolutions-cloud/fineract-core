@@ -1,6 +1,18 @@
 # Loan sync updates and progress — October 27, 2026
 
 
+## October 28 — quarantine expansion analysis
+
+The accepted plan still excludes 464 of 2,752 source loans. A saved-plan audit
+finds 161 direct-reason loans and 303 propagation-only loans. Non-overlapping
+review groups: 319 boundary/history reconstruction, 104 closed-freeze history,
+23 intentional no-write omissions, 7 remaining-schedule cases and 11 mora/schedule
+cases. The historical 19 belongs to the September 13 population/contract;
+current intentional omission categories total 23. No eligibility rules or
+financial records were changed. See the [complete analysis and per-loan evidence](loan-quarantine-analysis-oct28.md).
+
+
+
 ## Latest: failure-pattern repair and Arissto timeout
 
 A local follow-up corrected the native office model in
