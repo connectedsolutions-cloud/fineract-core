@@ -106,6 +106,48 @@ class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest {
         ThreadLocalContextUtil.reset();
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = { 2, 4, 6 })
+    void migratedRepaymentDoesNotCollectInterestAlreadyMaterializedByCob(final int elapsedDays) {
+        when(terms.getAnnualNominalInterestRate()).thenReturn(new BigDecimal("36.5"));
+        final LocalDate sourceDay = LocalDate.of(2026, 10, 26);
+        final var anchor = installment(1, sourceDay.minusDays(1), sourceDay, BigDecimal.ZERO, new BigDecimal("10.00"));
+        anchor.setAdditional(true);
+        anchor.setMigrationMetricBaseline(true);
+        anchor.setMigrationInterestForecast(BigDecimal.ZERO);
+        anchor.addPostDueInterest(sourceDay.plusDays(elapsedDays - 1), Money.of(CURRENCY, BigDecimal.valueOf(elapsedDays - 1)));
+        final var future = installment(2, sourceDay, sourceDay.plusDays(30), new BigDecimal("1000.00"), BigDecimal.ZERO);
+        final var payment = repayment(sourceDay.plusDays(elapsedDays), BigDecimal.valueOf(510 + elapsedDays));
+
+        processor.processTransaction(payment, CURRENCY, List.of(anchor, future), new HashSet<>(), null);
+
+        assertMoney("500.00", payment.getPrincipalPortion(CURRENCY));
+        assertMoney(String.valueOf(10 + elapsedDays), payment.getInterestPortion(CURRENCY));
+        assertMoney(String.valueOf(elapsedDays), Money.of(CURRENCY, anchor.getPostDueInterestCharged()));
+        assertMoney("500.00", future.getPrincipalOutstanding(CURRENCY));
+    }
+
+    @Test
+    void migratedInterestOnlyPaymentAfterCobPreservesWaiverAndAddsOnlyNewDay() {
+        when(terms.getAnnualNominalInterestRate()).thenReturn(new BigDecimal("36.5"));
+        final LocalDate sourceDay = LocalDate.of(2026, 10, 26);
+        final var anchor = installment(1, sourceDay.minusDays(1), sourceDay, BigDecimal.ZERO, new BigDecimal("10.00"));
+        anchor.setAdditional(true);
+        anchor.setMigrationMetricBaseline(true);
+        anchor.setMigrationInterestForecast(BigDecimal.ZERO);
+        anchor.setInterestWaived(new BigDecimal("5.00"));
+        anchor.addPostDueInterest(sourceDay.plusDays(13), Money.of(CURRENCY, new BigDecimal("13.00")));
+        final var future = installment(2, sourceDay, sourceDay.plusDays(30), new BigDecimal("1000.00"), BigDecimal.ZERO);
+        final var payment = repayment(sourceDay.plusDays(14), BigDecimal.ONE);
+
+        processor.processTransaction(payment, CURRENCY, List.of(anchor, future), new HashSet<>(), null);
+
+        assertMoney("1.00", payment.getInterestPortion(CURRENCY));
+        assertMoney("18.00", anchor.getInterestOutstanding(CURRENCY));
+        assertMoney("5.00", anchor.getInterestWaived(CURRENCY));
+        assertMoney("1000.00", future.getPrincipalOutstanding(CURRENCY));
+    }
+
     @Test
     void oneDayLateRepaymentPaysAccruedInterestBeforePrincipal() {
         final LoanRepaymentScheduleInstallment installment = installment(new BigDecimal("350.00"), new BigDecimal("12.08"));

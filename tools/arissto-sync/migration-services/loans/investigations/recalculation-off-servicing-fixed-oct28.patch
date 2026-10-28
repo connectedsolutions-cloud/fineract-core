@@ -1,0 +1,243 @@
+--- a/fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/domain/transactionprocessor/PostDueAccruedInterestCalculator.java
++++ b/fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/domain/transactionprocessor/PostDueAccruedInterestCalculator.java
+@@ -69 +69,10 @@
+-        if (sourceDay != null) latestCoveredDate = sourceDay;
++        if (sourceDay != null) {
++            // COB and repayments share one cumulative post-handoff interest amount.
++            // Adding the whole payment interval again would collect prior COB interest twice.
++            final Money missing = calculateUnmaterializedAccruableThrough(loan, currency, installments, transactionDate);
++            if (missing.isGreaterThanZero()) {
++                installments.stream().filter(LoanRepaymentScheduleInstallment::isMigrationMetricBaseline).findFirst().orElseThrow()
++                        .addPostDueInterest(transactionDate, missing);
++            }
++            return missing;
++        }
+--- a/fineract-loan/src/main/java/org/apache/fineract/portfolio/interestpauses/service/InterestPauseWritePlatformServiceImpl.java
++++ b/fineract-loan/src/main/java/org/apache/fineract/portfolio/interestpauses/service/InterestPauseWritePlatformServiceImpl.java
+@@ -22,0 +23 @@
++import static org.apache.fineract.portfolio.loanaccount.loanschedule.domain.LoanScheduleType.CUMULATIVE;
+@@ -38,0 +40 @@
++import org.apache.fineract.infrastructure.core.service.DateUtils;
+@@ -46,0 +49,2 @@
++import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor;
++import org.apache.fineract.portfolio.loanproduct.domain.InterestCalculationPeriodMethod;
+@@ -113,0 +118,5 @@
++        if (isMigratedCredesalCumulativeLoan(loan) && !variation.getTermApplicableFrom().isAfter(DateUtils.getBusinessLocalDate())) {
++            throw new GeneralPlatformDomainRuleException("interest.pause.started.cannot.be.deleted",
++                    "A Credesal interest pause that has already started cannot be deleted.");
++        }
++
+@@ -117 +126,3 @@
+-        loanScheduleService.regenerateScheduleWithReprocessingTransactions(loan);
++        if (!isMigratedCredesalCumulativeLoan(loan)) {
++            loanScheduleService.regenerateScheduleWithReprocessingTransactions(loan);
++        }
+@@ -136,0 +148,5 @@
++        if (isMigratedCredesalCumulativeLoan(loan) && !variation.getTermApplicableFrom().isAfter(DateUtils.getBusinessLocalDate())) {
++            throw new GeneralPlatformDomainRuleException("interest.pause.started.cannot.be.updated",
++                    "A Credesal interest pause that has already started cannot be updated.");
++        }
++
+@@ -144 +160,3 @@
+-        loanScheduleService.regenerateScheduleWithReprocessingTransactions(loan);
++        if (!isMigratedCredesalCumulativeLoan(loan)) {
++            loanScheduleService.regenerateScheduleWithReprocessingTransactions(loan);
++        }
+@@ -164 +182,3 @@
+-        loanScheduleService.regenerateScheduleWithReprocessingTransactions(loan);
++        if (!isMigratedCredesalCumulativeLoan(loan)) {
++            loanScheduleService.regenerateScheduleWithReprocessingTransactions(loan);
++        }
+@@ -189 +209,2 @@
+-        if (endDate.isAfter(loan.getMaturityDate())) {
++        final boolean migrated = isMigratedCredesalCumulativeLoan(loan);
++        if (!migrated && endDate.isAfter(loan.getMaturityDate())) {
+@@ -201 +222 @@
+-        if (!PROGRESSIVE.equals(loan.getLoanRepaymentScheduleDetail().getLoanScheduleType())) {
++        if (!PROGRESSIVE.equals(loan.getLoanRepaymentScheduleDetail().getLoanScheduleType()) && !migrated) {
+@@ -211 +232 @@
+-        if (!loan.getLoanRepaymentScheduleDetail().isInterestRecalculationEnabled()) {
++        if (!loan.getLoanRepaymentScheduleDetail().isInterestRecalculationEnabled() && !migrated) {
+@@ -213,0 +235,14 @@
++        }
++
++        // Historical accounting and source-exact repayment allocations must not be repriced by a backdated pause.
++        if (migrated && !startDate.isAfter(DateUtils.getBusinessLocalDate())) {
++            throw new GeneralPlatformDomainRuleException("interest.pause.start.date.must.follow.business.date",
++                    "Credesal interest pauses must start after the current business date.");
++        }
++
++        if (migrated && loan.getRepaymentScheduleInstallments().stream().filter(installment -> !installment.isAdditional())
++                .anyMatch(installment -> installment.getFromDate() != null && installment.getFromDate().isBefore(endDate)
++                        && !installment.getDueDate().isBefore(startDate) && (positive(installment.getInterestPaid())
++                                || positive(installment.getInterestWaived()) || positive(installment.getInterestWrittenOff())))) {
++            throw new GeneralPlatformDomainRuleException("interest.pause.future.interest.already.settled",
++                    "A Credesal interest pause cannot change an installment whose future interest has already been settled.");
+@@ -229,0 +265,17 @@
++    private boolean isMigratedCredesalCumulativeLoan(final Loan loan) {
++        // Only the initialized migration baseline earns actual-principal interest without
++        // regenerating its schedule. Other loan types retain their existing behavior.
++        return CUMULATIVE.equals(loan.getLoanRepaymentScheduleDetail().getLoanScheduleType())
++                && CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor.STRATEGY_CODE
++                        .equals(loan.transactionProcessingStrategy())
++                && loan.getLoanRepaymentScheduleDetail().getInterestMethod() != null
++                && loan.getLoanRepaymentScheduleDetail().getInterestMethod().isDecliningBalance()
++                && InterestCalculationPeriodMethod.DAILY.equals(loan.getLoanRepaymentScheduleDetail().getInterestCalculationPeriodMethod())
++                && loan.getRepaymentScheduleInstallments().stream().anyMatch(
++                        installment -> installment.isMigrationMetricBaseline() && installment.getMigrationInterestForecast() != null);
++    }
++
++    private boolean positive(final BigDecimal amount) {
++        return amount != null && amount.signum() > 0;
++    }
++
+--- a/fineract-loan/src/test/java/org/apache/fineract/portfolio/loanaccount/domain/CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest.java
++++ b/fineract-loan/src/test/java/org/apache/fineract/portfolio/loanaccount/domain/CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest.java
+@@ -108,0 +109,42 @@
++    @ParameterizedTest
++    @ValueSource(ints = { 2, 4, 6 })
++    void migratedRepaymentDoesNotCollectInterestAlreadyMaterializedByCob(final int elapsedDays) {
++        when(terms.getAnnualNominalInterestRate()).thenReturn(new BigDecimal("36.5"));
++        final LocalDate sourceDay = LocalDate.of(2026, 10, 26);
++        final var anchor = installment(1, sourceDay.minusDays(1), sourceDay, BigDecimal.ZERO, new BigDecimal("10.00"));
++        anchor.setAdditional(true);
++        anchor.setMigrationMetricBaseline(true);
++        anchor.setMigrationInterestForecast(BigDecimal.ZERO);
++        anchor.addPostDueInterest(sourceDay.plusDays(elapsedDays - 1), Money.of(CURRENCY, BigDecimal.valueOf(elapsedDays - 1)));
++        final var future = installment(2, sourceDay, sourceDay.plusDays(30), new BigDecimal("1000.00"), BigDecimal.ZERO);
++        final var payment = repayment(sourceDay.plusDays(elapsedDays), BigDecimal.valueOf(510 + elapsedDays));
++
++        processor.processTransaction(payment, CURRENCY, List.of(anchor, future), new HashSet<>(), null);
++
++        assertMoney("500.00", payment.getPrincipalPortion(CURRENCY));
++        assertMoney(String.valueOf(10 + elapsedDays), payment.getInterestPortion(CURRENCY));
++        assertMoney(String.valueOf(elapsedDays), Money.of(CURRENCY, anchor.getPostDueInterestCharged()));
++        assertMoney("500.00", future.getPrincipalOutstanding(CURRENCY));
++    }
++
++    @Test
++    void migratedInterestOnlyPaymentAfterCobPreservesWaiverAndAddsOnlyNewDay() {
++        when(terms.getAnnualNominalInterestRate()).thenReturn(new BigDecimal("36.5"));
++        final LocalDate sourceDay = LocalDate.of(2026, 10, 26);
++        final var anchor = installment(1, sourceDay.minusDays(1), sourceDay, BigDecimal.ZERO, new BigDecimal("10.00"));
++        anchor.setAdditional(true);
++        anchor.setMigrationMetricBaseline(true);
++        anchor.setMigrationInterestForecast(BigDecimal.ZERO);
++        anchor.setInterestWaived(new BigDecimal("5.00"));
++        anchor.addPostDueInterest(sourceDay.plusDays(13), Money.of(CURRENCY, new BigDecimal("13.00")));
++        final var future = installment(2, sourceDay, sourceDay.plusDays(30), new BigDecimal("1000.00"), BigDecimal.ZERO);
++        final var payment = repayment(sourceDay.plusDays(14), BigDecimal.ONE);
++
++        processor.processTransaction(payment, CURRENCY, List.of(anchor, future), new HashSet<>(), null);
++
++        assertMoney("1.00", payment.getInterestPortion(CURRENCY));
++        assertMoney("18.00", anchor.getInterestOutstanding(CURRENCY));
++        assertMoney("5.00", anchor.getInterestWaived(CURRENCY));
++        assertMoney("1000.00", future.getPrincipalOutstanding(CURRENCY));
++    }
++
+--- a/fineract-loan/src/test/java/org/apache/fineract/portfolio/interestpauses/service/MigratedInterestPauseWritePlatformServiceTest.java
++++ b/fineract-loan/src/test/java/org/apache/fineract/portfolio/interestpauses/service/MigratedInterestPauseWritePlatformServiceTest.java
+@@ -0,0 +1,102 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements. See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership. The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License. You may obtain a copy of the License at
++ *
++ * http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing,
++ * software distributed under the License is distributed on an
++ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
++ * KIND, either express or implied. See the License for the
++ * specific language governing permissions and limitations
++ * under the License.
++ */
++package org.apache.fineract.portfolio.interestpauses.service;
++
++import static org.apache.fineract.portfolio.loanaccount.domain.LoanStatus.ACTIVE;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.mock;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
++
++import java.math.BigDecimal;
++import java.time.LocalDate;
++import java.util.ArrayList;
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++import org.apache.fineract.infrastructure.businessdate.domain.BusinessDateType;
++import org.apache.fineract.infrastructure.core.domain.ActionContext;
++import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenant;
++import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
++import org.apache.fineract.infrastructure.event.business.service.BusinessEventNotifierService;
++import org.apache.fineract.portfolio.loanaccount.domain.Loan;
++import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallment;
++import org.apache.fineract.portfolio.loanaccount.domain.LoanRepositoryWrapper;
++import org.apache.fineract.portfolio.loanaccount.domain.LoanTermVariations;
++import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.LoanScheduleType;
++import org.apache.fineract.portfolio.loanaccount.rescheduleloan.domain.LoanTermVariationsRepository;
++import org.apache.fineract.portfolio.loanaccount.service.LoanAssembler;
++import org.apache.fineract.portfolio.loanaccount.service.LoanScheduleService;
++import org.apache.fineract.portfolio.loanproduct.domain.InterestCalculationPeriodMethod;
++import org.apache.fineract.portfolio.loanproduct.domain.InterestMethod;
++import org.apache.fineract.portfolio.loanproduct.domain.LoanProductRelatedDetail;
++import org.junit.jupiter.api.AfterEach;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.ValueSource;
++
++class MigratedInterestPauseWritePlatformServiceTest {
++
++    @AfterEach
++    void resetContext() {
++        ThreadLocalContextUtil.reset();
++    }
++
++    @ParameterizedTest
++    @ValueSource(booleans = { false, true })
++    void migratedPausePreservesOpeningAcrossFutureInstallmentAndAfterMaturity(final boolean afterMaturity) {
++        ThreadLocalContextUtil.setTenant(new FineractPlatformTenant(1L, "default", "Default", "America/El_Salvador", null));
++        ThreadLocalContextUtil.setActionContext(ActionContext.DEFAULT);
++        ThreadLocalContextUtil.setBusinessDates(new HashMap<>(Map.of(BusinessDateType.BUSINESS_DATE, LocalDate.of(2026, 10, 20))));
++
++        final Loan loan = mock(Loan.class);
++        final LoanProductRelatedDetail detail = mock(LoanProductRelatedDetail.class);
++        final LoanRepaymentScheduleInstallment installment = mock(LoanRepaymentScheduleInstallment.class);
++        final LoanTermVariations savedVariation = mock(LoanTermVariations.class);
++        final LoanTermVariationsRepository variationsRepository = mock(LoanTermVariationsRepository.class);
++        final LoanAssembler loanAssembler = mock(LoanAssembler.class);
++        final LoanScheduleService scheduleService = mock(LoanScheduleService.class);
++        final var service = new InterestPauseWritePlatformServiceImpl(variationsRepository, mock(LoanRepositoryWrapper.class),
++                loanAssembler, mock(BusinessEventNotifierService.class), scheduleService);
++        when(loanAssembler.assembleFrom(42L, false)).thenReturn(loan);
++        when(loan.getLoanStatus()).thenReturn(ACTIVE);
++        when(loan.getStatus()).thenReturn(ACTIVE);
++        when(loan.getSubmittedOnDate()).thenReturn(LocalDate.of(2025, 1, 1));
++        when(loan.getMaturityDate()).thenReturn(LocalDate.of(2026, 9, 30));
++        when(loan.getLoanRepaymentScheduleDetail()).thenReturn(detail);
++        when(detail.getLoanScheduleType()).thenReturn(LoanScheduleType.CUMULATIVE);
++        when(detail.getInterestMethod()).thenReturn(InterestMethod.DECLINING_BALANCE);
++        when(detail.getInterestCalculationPeriodMethod()).thenReturn(InterestCalculationPeriodMethod.DAILY);
++        when(loan.transactionProcessingStrategy()).thenReturn("credesal-accrued-interest-first-strategy");
++        when(loan.isInterestBearing()).thenReturn(true);
++        when(loan.getLoanTermVariations()).thenReturn(new ArrayList<>());
++        final LoanRepaymentScheduleInstallment baseline = mock(LoanRepaymentScheduleInstallment.class);
++        when(baseline.getDueDate()).thenReturn(LocalDate.of(2026, 10, 19));
++        when(baseline.isMigrationMetricBaseline()).thenReturn(true);
++        when(baseline.getMigrationInterestForecast()).thenReturn(BigDecimal.ZERO);
++        when(loan.getRepaymentScheduleInstallments()).thenReturn(List.of(baseline, installment));
++        when(installment.getDueDate()).thenReturn(afterMaturity ? LocalDate.of(2026, 9, 30) : LocalDate.of(2026, 10, 30));
++        when(variationsRepository.saveAndFlush(any())).thenReturn(savedVariation);
++        when(savedVariation.getId()).thenReturn(1L);
++
++        service.createInterestPause(42L, "2026-10-21", "2027-01-21", "yyyy-MM-dd", "en");
++
++        verify(scheduleService, never()).regenerateScheduleWithReprocessingTransactions(loan);
++    }
++}

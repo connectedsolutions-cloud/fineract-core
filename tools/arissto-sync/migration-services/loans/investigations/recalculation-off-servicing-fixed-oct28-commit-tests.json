@@ -1,0 +1,14 @@
+{
+  "command": "./gradlew :fineract-loan:test --tests '*CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest' --tests '*MigratedInterestPauseWritePlatformServiceTest' --console=plain",
+  "tests": 43,
+  "failures": 0,
+  "exit_code": 0,
+  "log_sha256": "8112e46365d2223bdfb560104844af6133b4500517e5e982dd1c3696b149093c",
+  "source_sha256": {
+    "fineract-loan/src/main/java/org/apache/fineract/portfolio/loanaccount/domain/transactionprocessor/PostDueAccruedInterestCalculator.java": "88cfffdd22e0f9ab10d78da0802023915a346fc7c9cd6f1f1bbe6839e1a20e5a",
+    "fineract-loan/src/main/java/org/apache/fineract/portfolio/interestpauses/service/InterestPauseWritePlatformServiceImpl.java": "f4abf4a041f39d6219658d06236dcedb0137788c0d6615c3f8a281d2788b6a7e",
+    "fineract-loan/src/test/java/org/apache/fineract/portfolio/loanaccount/domain/CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest.java": "d30eabbe2f0f386cc1a7c85ab3565dcf20124cbcee637ff7904a4fb8e0c51921",
+    "fineract-loan/src/test/java/org/apache/fineract/portfolio/interestpauses/service/MigratedInterestPauseWritePlatformServiceTest.java": "868886dcd71c4c99d2eb1d156b1808802bee411a0222e85a6d962f8624ad065f"
+  },
+  "scope": "Focused regression with the isolated migrated-only pause service and task-only repayment tests, then pre-existing working-tree files restored. Removal of one unused import after the run is nonsemantic."
+}

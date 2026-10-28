@@ -66,7 +66,16 @@ public class PostDueAccruedInterestCalculator {
                 .map(LoanRepaymentScheduleInstallment::getDueDate).filter(dueDate -> !dueDate.isAfter(transactionDate))
                 .max(Comparator.naturalOrder()).orElse(null);
         LocalDate sourceDay = FinalLoanMetrics.sourceDay(installments);
-        if (sourceDay != null) latestCoveredDate = sourceDay;
+        if (sourceDay != null) {
+            // COB and repayments share one cumulative post-handoff interest amount.
+            // Adding the whole payment interval again would collect prior COB interest twice.
+            final Money missing = calculateUnmaterializedAccruableThrough(loan, currency, installments, transactionDate);
+            if (missing.isGreaterThanZero()) {
+                installments.stream().filter(LoanRepaymentScheduleInstallment::isMigrationMetricBaseline).findFirst().orElseThrow()
+                        .addPostDueInterest(transactionDate, missing);
+            }
+            return missing;
+        }
         if (latestCoveredDate == null) {
             return zero;
         }
