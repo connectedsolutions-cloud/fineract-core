@@ -3,6 +3,14 @@
 
 ## Latest: failure-pattern repair and Arissto timeout
 
+A local follow-up corrected the native office model in
+`05767a0399a944a8002695883504261ae73c6bb3` (tracker entry 51): historical terminal
+credits now use the recorded repayment office, proved against client transfer
+history, rather than the loan's derived current-client office. Seven focused
+provider tests pass, and read-only native/frozen-plan checks confirm all 19
+local repair preconditions. The Arissto connection-only recheck still timed out;
+no source comparison, new sync/retry or guarded native reload followed it.
+
 See [the pattern-repair record](loan-failure-pattern-repair-oct27.md) and
 [the sanitized resumed-run result](investigations/loan-pattern-repair-resumed-result-oct27.json).
 The full 2,288-history barrier and all four office transfers passed. Native

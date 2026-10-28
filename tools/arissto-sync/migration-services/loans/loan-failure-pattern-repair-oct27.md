@@ -225,3 +225,10 @@ identities; the same known IDs were restored in durable tracker rows whose
 later failure records had omitted target IDs. The insurance templates remain
 unchanged, and the later Arissto connection-only recheck also timed out. No
 source comparison, sync/retry, tenant reset or guarded native reload followed it.
+
+
+Historical receipt-office correction:
+`05767a0399a944a8002695883504261ae73c6bb3`, durable tracker entry 51.
+It covers the shared terminal guard and preserves the other local repairs from
+entry 50. Runtime acceptance is still pending; the local audit never writes to
+Fineract or reads Arissto source data.
