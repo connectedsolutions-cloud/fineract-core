@@ -1,5 +1,18 @@
 # Loan sync updates and progress — October 27, 2026
 
+## October 28 — active metric variance review complete
+
+The56,520 reference records contain55,188 active-loan rows and1,332 inactive
+rows. Fresh read-only checks match all4,168 identified metric values across521
+active loans, with521 continuation checks passing. The55,010 active schedule
+comparisons are expected final-baseline/reference differences. The remaining178
+active rows are89 duplicated fee/total pairs fully explained by future insurance.
+No active metric amount repair is indicated. Reporting should foreground the
+eight active metrics and group/hide these expected references. See the
+[scoped analysis](active-loan-variance-analysis-oct28.md) and
+[per-loan predicate evidence](investigations/active-loan-variance-analysis-oct28.json).
+
+
 ## October 28 — all real loan histories accepted
 
 All2,726 real histories through October26 are imported and reconciled in the
