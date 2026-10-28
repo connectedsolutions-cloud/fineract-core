@@ -84,3 +84,39 @@ The scheduler remains subject to the guarded pause verification on reload.
 Mifos account details still read `loanDetails.isInterestRecalculationEnabled`
 and conditionally display recalculation fields; this repair introduces no new
 frontend field or activation flow.
+
+## Resumed full-run evidence and cashless-refinance barrier repair
+
+The resumed plan `75aa8b92014c4995ab88a2b30bc4239f` is applicable. Its executable
+scope is 2,288 loans: 429 source-active, 1,850 source-closed and 9 pending.
+It retains 464 quarantines. Twelve closed histories previously quarantined only
+for a missing metric snapshot became eligible; their financial history guards
+remain. The plan also retains 77 quarantined active metric snapshots as evidence,
+so counting all 506 frozen target vectors overstates executable metric scope.
+
+All four historical office transfers completed and matched native proposal and
+acceptance records. Eleven source-closed histories were excluded with validated
+proofs, and none received loan transfer postings. All 2,288 eligible histories
+replayed without action failures. The subsequent complete readback rejected one
+fully cashless refinancing representation and deferred all 2,288 final corrections.
+No terminal correction or metric-alignment rows were posted.
+
+The readback bug was generic: `_find_reconciliation_transaction` can return a
+refinance transfer as an alias for a disbursement when there is no cash remainder.
+The barrier then added that same transfer again. It now resolves the exact cash
+external ID for refinances, permits its absence only when the independently
+verified settlement sum represents the complete source gross, and counts every
+transfer once. Positive cash, multiple predecessors, missing cash and excess
+cash are covered by regression tests. No native transaction needed changing.
+Read-only verification of the actual cashless native representation now passes.
+
+The failed child run `9e234c07a4f94980b715a0bb9568ef66` saved an official full
+reconciliation rather than aborting on the old metric invariant. It records
+1,858 inactive metric skips (the failed cashless closed action is excluded from
+that loop) and 429 active comparisons. Its financial/status/term differences
+remain blocking because final corrections were intentionally deferred. These
+are not accepted variances. The runner is terminal before the verifier change.
+
+The expanded Python suite passes 432 tests. The next supported same-cycle resume
+can retry the failed refinance dependency scope under the same immutable child
+plan, then revalidate the entire 2,288-history barrier before any final correction.

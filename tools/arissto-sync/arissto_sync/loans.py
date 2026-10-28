@@ -7744,9 +7744,13 @@ def _verify_complete_historical_replay(api: FineractApi, action: dict[str, Any])
             if event["role"] == "repayment-reversal" and not _target_reversal_date_matches(original, event):
                 raise RuntimeError("historical_replay_reversal_date_mismatch")
             continue
-        transaction = _find_reconciliation_transaction(api, loan, event)
         is_refinance = bool(refinance and event["role"] == "disbursement"
                             and event["external_id"] == refinance["disbursement_external_id"])
+        # A fully cashless refinance has no cash transaction. The generic
+        # reconciliation lookup aliases a settlement disbursement in that case;
+        # using it here would count that transfer twice below.
+        transaction = (_find_loan_transaction(api, loan, event["external_id"]) if is_refinance
+                       else _find_reconciliation_transaction(api, loan, event))
         if transaction is None and not is_refinance:
             raise RuntimeError("historical_replay_event_missing:" + event["external_id"])
         represented = _amount((transaction or {}).get("amount"))
