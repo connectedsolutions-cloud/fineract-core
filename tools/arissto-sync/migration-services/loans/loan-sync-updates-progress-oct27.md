@@ -89,6 +89,17 @@ observations, not final portfolio counts or complete-chain acceptance.
 | Historical office-transfer active-loan inventory mismatches after historical-off replay. | Recorded root `loan:101`; 17 related actions blocked in the transfer cohort. Source/native inventories for the four transfer clients are preserved in the observation. | **Verified phase conflict; replay continues elsewhere.** The frozen plan shows loans `115`, `363`, `688` source-closed before the November 27, 2024 transfer, while native readback leaves them Active because corrections are deferred. This includes an ordinary terminal repayment as well as refinance payoffs. Python and native transfer guards independently require the exact active-loan inventory. Do not weaken inventory validation or post interim credits to force it through; review an explicit source-state transfer proof/ownership contract after this attempt finishes. |
 | Historical recalculation-off and source-exact refinance execution. | All native products/loans observed so far; 13 recorded native settlements. | **Runtime exercised, full acceptance pending.** Native flags are false and both interim bridge counts remain zero. The complete-plan correction barrier and strict final reconciliation remain enforced. |
 
+Loan apply has now finished **completed-with-errors**: 2,249 loans succeeded,
+9 recovered, 1 failed (`loan:101`, the recorded transfer-cohort root), 17 blocked,
+and 476 planned quarantines. The actual complete-plan gate recorded
+`final_corrections_deferred=2276`. Native readback at apply completion found
+2,268 loans, all recalculation false; 1,220 refinance settlement rows; zero
+interim refinance credits, terminal corrections, final metric alignments, or
+source movement transactions dated on/after October 27. Partially replayed
+blocked-cohort loans explain why native loan count exceeds successful outcomes.
+Official reconciliation and the remaining workflow steps are still running;
+these results do not accept the loan service or the complete migration.
+
 The old cycle's SQLite snapshot is compressed under the new run's ignored
 `.arissto-sync/evidence/` directory, outside automatic cycle retention. Durable
 change record **47** owns this implementation and pending verification across
