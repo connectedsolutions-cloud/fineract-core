@@ -2,6 +2,14 @@
 
 ## Current direction — address the shared replay design
 
+**Execution request, October 27:** the [readiness assessment](recalculation-off-execution-readiness-oct27.md)
+stopped before reset/planning at the handoff's unsupported historical refinance
+gate. Native creation/approval/disbursement still validate ordinary prepayment
+quotes, and the importer contains both prepayment and residual goodwill bridges.
+The coherent off-policy implementation and complete-service correction barrier
+remain open; no runtime setting, financial target or source window changed.
+
+
 The [next-chat fresh/clean run plan](recalculation-off-full-sync-handoff-plan.md)
 now specifies **all 18 services**, historical loan recalculation off, the
 implementation prerequisites and guarded restore/new-cycle sequence. Preparation
