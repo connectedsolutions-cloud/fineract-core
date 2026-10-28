@@ -2,6 +2,13 @@
 
 ## Current direction — address the shared replay design
 
+The [next-chat fresh/clean run plan](recalculation-off-full-sync-handoff-plan.md)
+now specifies **all 18 services**, historical loan recalculation off, the
+implementation prerequisites and guarded restore/new-cycle sequence. Preparation
+only: no settings changed, cycle/executable plan created, reset or sync started.
+The source window remains October 26 inclusive / Fineract starts October 27.
+
+
 The [October 27 design decision](historical-replay-design-decision-oct27.md)
 consolidates LS-01/03/05 and LS-32–35 into a shared replay/recalculation workstream.
 Keep the case rows below as evidence and unresolved outcomes, not separate
