@@ -1,5 +1,28 @@
 # Loan sync updates and progress — October 27, 2026
 
+
+## Latest: failure-pattern repair and Arissto timeout
+
+See [the pattern-repair record](loan-failure-pattern-repair-oct27.md) and
+[the sanitized resumed-run result](investigations/loan-pattern-repair-resumed-result-oct27.json).
+The full 2,288-history barrier and all four office transfers passed. Native
+readback verifies 418 active metric baselines, zero closed/pending metric rows,
+all products/loans with recalculation off, and a paused scheduler.
+
+The last attempt is terminal with 30 finalization failures: 11 historical
+closure/office-date cases, 8 selected-maturity refresh conflicts and 11 insurance
+template mismatches. Local native and retry-selection repairs are committed as
+`a8b32b22557804979c190016619649d874866033` (durable tracker entry 50), with
+433 Python and 22 Java checks passing. They await controlled runtime validation.
+The earlier shared repairs are `ad32e90e4827fcf8b7fb4069d1759c71c093e4b1`
+and cashless gross verification `8c34138a5bcdf88f7c079cbbb61b57de5ea963a4`.
+
+Arissto source-check timed out after the user's outage warning. Fresh source
+comparison and further sync/retries are stopped. The 11 insurance mappings were
+left unchanged. No replacement cycle, reset, new sync/retry or guarded backend
+reload was started after that timeout. The migration remains unaccepted.
+
+
 ## Final result of the fresh/clean recalculation-off attempt
 
 The requested diagnostic run **finished failed** on October 27 at 20:11:20

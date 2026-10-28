@@ -187,3 +187,11 @@ child plan through the workflow control plane. Then use a reviewed same-cycle
 resume with guarded native reload to validate the local terminal repairs and
 finish strict loan reconciliation. Do not release the scheduler or mark this
 migration accepted from unit tests or partial correction counts.
+
+
+Local-only implementation commit:
+`a8b32b22557804979c190016619649d874866033`; durable tracker entry 50 covers
+all 2,752 source identities and existing native IDs. Read-only inspection of the
+preserved retry chain now exposes all 30 failed roots, where the earlier sticky
+view exposed zero. No recovery execution was performed to verify that selection
+against the target while source comparison is unavailable.
