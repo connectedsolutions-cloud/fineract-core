@@ -1,5 +1,47 @@
 # Loan quarantine recovery — October 28, 2026
 
+## Accepted result — October 28
+
+**All2,726 real in-scope loan histories are imported and reconciled**, including
+**438 previously quarantined histories**, with **zero blocking mismatches**.
+The checkpointed full re-sync completed all three selected services in workflow
+`a78ea9e871b94ca28fc8e6ee30d6d09d`, child loan plan
+`f0da9e74973e4923a4866dc8eb3cef2e`, and loan run
+`d4b9a7330b3a45098a60bc564c6bdf8e`. The26 exclusions are exactly the user-approved
+23 provenance-only records and3 originations after S. No real in-scope loan
+remains quarantined.
+
+The run preserves **Arissto through October26 / Fineract starts October27**,
+local disposable sandbox only, recalculation off for both products and all
+2,726 loans, and a paused scheduler. The tenant was not reset. All521 active
+metric vectors, continuation schedules and accrual controls reconcile. All161
+expected source freeze events match, including histories on38 repaid loans.
+There are zero inactive metric rows/baselines, interim refinancing credits,
+source movements dated on/after T, or native historical GL entries before T.
+
+Source labels comprise2,196 closed,521 active and9 pending histories. Native
+statuses are2,162 obligations-met,521 active and43 approved; the latter include
+34 real histories ending in disbursement reversal. The existing reversal
+contract deliberately preserves those histories in approved-undisbursed native
+state. Every native status matches that frozen contract.
+
+The result discloses56,520 schedule/reference variances: the previous population
+retains exactly its original38,644, and the438 newly admitted histories add
+17,876. Those variances remain available for the next review. The workflow's
+historical failure ledger contains52 reviewed exclusion entries (26 at planning
+and26 at apply) plus the first-attempt plan-serialization failure, fixed in
+`45a8eff9b0c4f0b1d42a5ccc84dfed54000b809b` before any loan writes. The successful
+native loan attempt has zero failed or blocked loan items.
+
+Final committed-code verification:1,006/1,007 Python tests pass, with only the
+unrelated savings minimum-balance assertion failing;6 native freeze-history
+tests pass. Durable change-tracker entries55–58 are resolved, including the
+per-loan native IDs and reviewed provenance/out-of-window dispositions.
+
+[Complete sanitized acceptance evidence](investigations/complete-quarantine-recovery-accepted-oct28.json).
+The sections below preserve the investigation and implementation sequence.
+
+
 ## Requested outcome and boundary
 
 Import all real loan histories in the selected source-through scope. The user

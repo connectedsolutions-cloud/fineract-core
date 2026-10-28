@@ -1,13 +1,17 @@
 # Loan sync updates and progress — October 27, 2026
 
-## October 28 — real-history quarantine recovery in progress
+## October 28 — all real loan histories accepted
 
-The repaired read-only plan admits all2,726 real histories through October26:
-438 more than the accepted2,288, with zero eligibility regressions. The26
-remaining exclusions are23 provenance-only records and3 later originations.
-Source-day reconstruction, historical closed-freeze support and dated schedule
-replacement proofs are implemented; native import/reconciliation remains
-pending. See [the recovery record](loan-quarantine-recovery-oct28.md).
+All2,726 real histories through October26 are imported and reconciled in the
+existing local sandbox cycle:438 formerly quarantined histories admitted,
+zero blocking mismatches,521 active metric/continuation/control checks passed,
+and161 source freeze events matched. The26 remaining exclusions are23
+provenance-only records and3 later originations. Recalculation stays off;
+scheduler stays paused. The original38,644 schedule/reference variances are
+unchanged; the expanded population adds17,876 for a total56,520 to review.
+Workflow `a78ea9e871b94ca28fc8e6ee30d6d09d` completed all3 selected services.
+Trackers55–58 are resolved. See [the acceptance record](loan-quarantine-recovery-oct28.md)
+and [sanitized native evidence](investigations/complete-quarantine-recovery-accepted-oct28.json).
 
 
 
