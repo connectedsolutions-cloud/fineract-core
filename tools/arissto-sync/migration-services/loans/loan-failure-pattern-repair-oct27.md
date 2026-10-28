@@ -232,3 +232,31 @@ Historical receipt-office correction:
 It covers the shared terminal guard and preserves the other local repairs from
 entry 50. Runtime acceptance is still pending; the local audit never writes to
 Fineract or reads Arissto source data.
+
+
+## October 28: source recovered and insurance basis confirmed
+
+A fresh Arissto connection/permission check passed with the read-only login.
+Read-only comparison of all 11 insurance failures confirms the same pattern:
+each frozen metric target equals the October 26 daily snapshot, while every
+opening-charge template equals the newer current CRD_CARTERA insurance balance.
+All 11 current-header amounts differ from their dated snapshots. The
+[boolean-only source comparison](investigations/insurance-source-contrast-oct28.json)
+records stable source IDs and proof predicates without financial amounts.
+
+Opening insurance now uses the dated snapshot balance and source status, just
+like final metrics. A zero source-day balance does not import a later current
+header charge; a positive source-day balance still gets an opening template if
+the current header has since become zero. The policy is explicit in the service
+contract as `cutover_insurance_balance_policy=dated-source-snapshot-v1`. Changing
+that contract hash makes supported workflow recovery discard the old child
+plan and generate a replacement under the same accounting boundary. Saved
+financial plans are not edited. Recalculation remains false and metric alignment
+remains restricted to source-active/native-active loans.
+
+The requested final validation is a resumed sync in local sandbox, retaining
+Arissto through 2026-10-26 / Fineract starts 2026-10-27. The native historical
+terminal fixes also require the documented guarded backend reload before the
+next attempt. Native and source read-only checks verified the exact sandbox
+database, active matching cutoff, paused scheduler, 2,288 off-mode loans and
+no active workflows before the recovery action.

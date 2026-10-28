@@ -269,6 +269,8 @@ class LoanContract:
         value = json.loads(path.read_text(encoding="utf-8"))
         if value.get("version") != 1:
             raise ValueError("Loans mapping requires version 1")
+        if value.get("cutover_insurance_balance_policy") != "dated-source-snapshot-v1":
+            raise ValueError("Loans mapping requires dated-source cutover insurance balances")
         if value.get("final_metric_alignment_policy") != "source-active-only-v1":
             raise ValueError("Loans mapping requires source-active-only final metrics")
         if value.get("terminal_adjustment_policy") != "closed-after-outgoing-refinance-later-repayment-v1":
@@ -3083,8 +3085,12 @@ def _build_loan_lifecycle_action(
 
     cutover_insurance_charge = None
     recurring_insurance_charge = None
-    source_insurance_outstanding = _amount(loan.get("SALDO_SEGURO"))
-    if source_insurance_outstanding > 0 and _clean(loan.get("source_state")) == "1":
+    # Opening debt insurance and final metrics share the same dated source state.
+    # The current header may already include activity owned by Fineract after T.
+    insurance_snapshot = loan.get("_mora_cutover_snapshot") or loan
+    source_insurance_outstanding = _amount(insurance_snapshot.get("SALDO_SEGURO", loan.get("SALDO_SEGURO")))
+    insurance_source_state = _clean(insurance_snapshot.get("ID_ESTADO_CARTERA", loan.get("source_state")))
+    if source_insurance_outstanding > 0 and insurance_source_state == "1":
         cutover_date = max(
             (event["date"] for event in events),
             default=_iso_date(loan.get("FECHA_OTORGAMIENTO"), "insurance cutover date"),

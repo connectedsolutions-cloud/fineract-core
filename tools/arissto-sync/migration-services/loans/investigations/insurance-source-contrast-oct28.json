@@ -1,0 +1,123 @@
+{
+  "observed_at": "2026-10-28T13:30:02.720936+00:00",
+  "source_access_mode": "read-only",
+  "source_through_date": "2026-10-26",
+  "fineract_starts": "2026-10-27",
+  "active_scope": 11,
+  "predicate_counts": {
+    "exact_source_day": 11,
+    "snapshot_matches_frozen_target": 11,
+    "header_differs_from_dated_snapshot": 11,
+    "template_matches_frozen_target": 0,
+    "template_matches_current_header": 11
+  },
+  "failed_scope": 11,
+  "failed_predicate_counts": {
+    "exact_source_day": 11,
+    "snapshot_matches_frozen_target": 11,
+    "header_differs_from_dated_snapshot": 11,
+    "template_matches_frozen_target": 0,
+    "template_matches_current_header": 11
+  },
+  "failed_cases": [
+    {
+      "source_key": "loan:2069",
+      "was_failed": true,
+      "exact_source_day": true,
+      "snapshot_matches_frozen_target": true,
+      "header_differs_from_dated_snapshot": true,
+      "template_matches_frozen_target": false,
+      "template_matches_current_header": true
+    },
+    {
+      "source_key": "loan:2340",
+      "was_failed": true,
+      "exact_source_day": true,
+      "snapshot_matches_frozen_target": true,
+      "header_differs_from_dated_snapshot": true,
+      "template_matches_frozen_target": false,
+      "template_matches_current_header": true
+    },
+    {
+      "source_key": "loan:2351",
+      "was_failed": true,
+      "exact_source_day": true,
+      "snapshot_matches_frozen_target": true,
+      "header_differs_from_dated_snapshot": true,
+      "template_matches_frozen_target": false,
+      "template_matches_current_header": true
+    },
+    {
+      "source_key": "loan:2419",
+      "was_failed": true,
+      "exact_source_day": true,
+      "snapshot_matches_frozen_target": true,
+      "header_differs_from_dated_snapshot": true,
+      "template_matches_frozen_target": false,
+      "template_matches_current_header": true
+    },
+    {
+      "source_key": "loan:2480",
+      "was_failed": true,
+      "exact_source_day": true,
+      "snapshot_matches_frozen_target": true,
+      "header_differs_from_dated_snapshot": true,
+      "template_matches_frozen_target": false,
+      "template_matches_current_header": true
+    },
+    {
+      "source_key": "loan:2483",
+      "was_failed": true,
+      "exact_source_day": true,
+      "snapshot_matches_frozen_target": true,
+      "header_differs_from_dated_snapshot": true,
+      "template_matches_frozen_target": false,
+      "template_matches_current_header": true
+    },
+    {
+      "source_key": "loan:2529",
+      "was_failed": true,
+      "exact_source_day": true,
+      "snapshot_matches_frozen_target": true,
+      "header_differs_from_dated_snapshot": true,
+      "template_matches_frozen_target": false,
+      "template_matches_current_header": true
+    },
+    {
+      "source_key": "loan:2582",
+      "was_failed": true,
+      "exact_source_day": true,
+      "snapshot_matches_frozen_target": true,
+      "header_differs_from_dated_snapshot": true,
+      "template_matches_frozen_target": false,
+      "template_matches_current_header": true
+    },
+    {
+      "source_key": "loan:2584",
+      "was_failed": true,
+      "exact_source_day": true,
+      "snapshot_matches_frozen_target": true,
+      "header_differs_from_dated_snapshot": true,
+      "template_matches_frozen_target": false,
+      "template_matches_current_header": true
+    },
+    {
+      "source_key": "loan:2628",
+      "was_failed": true,
+      "exact_source_day": true,
+      "snapshot_matches_frozen_target": true,
+      "header_differs_from_dated_snapshot": true,
+      "template_matches_frozen_target": false,
+      "template_matches_current_header": true
+    },
+    {
+      "source_key": "loan:2716",
+      "was_failed": true,
+      "exact_source_day": true,
+      "snapshot_matches_frozen_target": true,
+      "header_differs_from_dated_snapshot": true,
+      "template_matches_frozen_target": false,
+      "template_matches_current_header": true
+    }
+  ]
+}
