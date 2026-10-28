@@ -18,7 +18,8 @@ class ScopedOfficeTransferPlanningTests(unittest.TestCase):
                         "active_source_loans": [{"source_loan_id": 3}]}]
         self.cohorts = [{"client_external_id": "client-A", "source_loan_keys": ["loan:1", "loan:2", "loan:3"]}]
         self.actions = [{"entity_type": "loan", "source_key": f"loan:{n}",
-                         "client_external_id": "client-A", "action": "recover-loan"} for n in (1, 2, 3)]
+                         "client_external_id": "client-A", "action": "recover-loan",
+                         "lifecycle": {"interest_recalculation_policy": "source-exact-off-v1"}} for n in (1, 2, 3)]
 
     def test_inventory_includes_inactive_loans_and_queries_only_touched_clients(self):
         with (patch("arissto_sync.arissto.source_connection") as conn,
@@ -108,7 +109,7 @@ class ScopedOfficeTransferPlanningTests(unittest.TestCase):
     def guard_plan(self):
         return {"block": "loans", "target_fingerprint": "target", "source_fingerprint": "source",
                 "contract_hash": "contract", "document": {
-                    "component_alignment_plan_revision": 9, "final_metric_alignment_revision": 1,
+                    "component_alignment_plan_revision": 10, "historical_replay_policy": "source-exact-off-v1", "final_metric_alignment_revision": 2,
                     "accrual_control_revision": 1, "source_observed_at": "2026-10-27",
                     "applicable": True, "scope": {"mode": "explicit-source-keys", "requested_source_keys": ["3"]},
                     "client_office_transfers": self.events, "actions": self.actions,

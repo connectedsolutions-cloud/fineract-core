@@ -67,6 +67,7 @@ public final class TransfersDataValidator {
             PROPOSE_AND_ACCEPT_CLIENT_TRANSFER_DATA_PARAMETERS);
     static {
         SOURCE_EXACT_CLIENT_TRANSFER_DATA_PARAMETERS.add(TransferApiConstants.loanTransferBalances);
+        SOURCE_EXACT_CLIENT_TRANSFER_DATA_PARAMETERS.add("deferredClosedLoans");
     }
 
     private static final Set<String> REJECT_CLIENT_TRANSFER_DATA_PARAMETERS = new HashSet<>(Arrays.asList(TransferApiConstants.note));

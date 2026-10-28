@@ -37,7 +37,7 @@ class LoanBoundarySourceDriftTests(unittest.TestCase):
         self.state = MagicMock()
         self.plan = {'block': 'loans', 'target_fingerprint': 'sandbox', 'source_fingerprint': 'source',
                      'contract_hash': self.contract.digest, 'document': {
-                         'component_alignment_plan_revision': 10, 'historical_replay_policy': 'source-exact-off-v1', 'final_metric_alignment_revision': 1,
+                         'component_alignment_plan_revision': 10, 'historical_replay_policy': 'source-exact-off-v1', 'final_metric_alignment_revision': 2,
                          'accrual_control_revision': 1, 'source_observed_at': '2026-10-27T17:33:57Z',
                          'applicable': True, 'product_writer_registered': True, 'loan_writer_registered': True,
                          'collateral_writer_registered': True, 'schema_signature': 's',

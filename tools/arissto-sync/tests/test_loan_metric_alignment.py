@@ -15,7 +15,7 @@ class FinalMetricTests(unittest.TestCase):
         return dict.fromkeys(METRICS, value)
 
     def action(self):
-        return {'external_id': 'ARISSTO:CRD:1', 'lifecycle': {'final_metric_alignment': {
+        return {'external_id': 'ARISSTO:CRD:1', 'lifecycle': {'expected': {'source_state':'1'}, 'final_metric_alignment': {
             'revision': 1, 'cutoffDate': '2026-10-20', 'targets': self.vector('2.00'),
             'insuranceChargeId': 3, 'recurringInsuranceChargeId': 5, 'penaltyChargeId': 4}}}
 
@@ -57,7 +57,7 @@ class FinalMetricTests(unittest.TestCase):
 
     def test_source_paid_insurance_uses_dedicated_counter_and_missing_is_not_zero(self):
         loan={'_mora_cutover_snapshot':{'SALDO_PAGADO_CAPITAL':'8','SALDO_PAGADO_INTERES':'3','SALDO_PAGADO_SEGURO':'2','SALDO_PAGADO_OTROS':'999','SALDO_VENCIDO_CAPITAL':'4','MONTO_DESEMBOLSADO':'18','SALDO_INTERES':'1','SALDO_MORA':'0','SALDO_RECARGOS':'0','SALDO_SEGURO':'0.5'}}
-        expected={'principal_balance':'10','interest_balance':'1','penalty_balance':'0','fee_balance':'0.5'}
+        expected={'source_state':'1','principal_balance':'10','interest_balance':'1','penalty_balance':'0','fee_balance':'0.5'}
         resources={'historical_debt_insurance_charge_id':3,'debt_insurance_charge_id':5,'historical_penalty_charge_id':4}
         frozen=freeze(loan,expected,resources,'2026-10-20')
         self.assertEqual(frozen['targets']['insurancePaid'],'2.00')
@@ -69,6 +69,25 @@ class FinalMetricTests(unittest.TestCase):
         self.assertIsNone(freeze(loan,expected,resources,'2026-10-20',events))
         loan['_mora_cutover_snapshot'].pop('SALDO_PAGADO_OTROS')
         self.assertIsNone(freeze(loan,expected,resources,'2026-10-20'))
+
+    def test_inconsistent_observation_can_be_corrected_but_cannot_be_a_target(self):
+        before = self.vector(); before['duePrincipal'] = '2.00'
+        api = MagicMock(); api.request.side_effect = [
+            {'metrics': before}, {'metrics': self.vector('2.00')},
+            {'metrics': self.vector('2.00'), 'continuationReady': True}]
+        align(api, 1, self.action(), '2026-10-26T15:00:00Z')
+        self.assertEqual(api.request.call_args_list[1].args[2]['expected'], before)
+        with self.assertRaisesRegex(RuntimeError, 'due_exceeds'):
+            amounts(before)
+
+    def test_closed_and_pending_source_loans_never_call_metrics_api(self):
+        for state in ('3', '2', None):
+            action = self.action(); action['lifecycle']['expected']['source_state'] = state
+            api = MagicMock()
+            with self.assertRaisesRegex(RuntimeError, 'requires_active_source'):
+                align(api, 1, action, '2026-10-26T15:00:00Z')
+            api.request.assert_not_called()
+            self.assertIsNone(freeze({}, {'source_state':state}, {}, '2026-10-27'))
 
     def test_invalid_target_vectors_are_rejected(self):
         for bad in ({},self.vector('-1'),self.vector('0.001'),self.vector('NaN')):
@@ -87,7 +106,7 @@ class FinalMetricTests(unittest.TestCase):
                 action='create-loan',depends_on=['product:00001'],product_action_key='product:00001',source_hash=f'h{key}',target_id=None,external_id=f'ARISSTO:CRD:{key}')
             action["lifecycle"]["accrual_controls"]={"ordinaryInterestPaused":False,"moraPaused":False,"fineractStarts":"2026-10-20"}
             loans.append(action)
-        plan={'id':'p','document':{'actions':[product,*loans],'final_metric_alignment_revision':1,'source_observed_at':'2026-10-26T15:00:00Z'}}
+        plan={'id':'p','document':{'actions':[product,*loans],'final_metric_alignment_revision':2,'source_observed_at':'2026-10-26T15:00:00Z'}}
         settings=SimpleNamespace(target=SimpleNamespace(fingerprint='target'));state=MagicMock();state.start_run.return_value='run'
         state.run_items.return_value=[{'source_key':f'loan:{k}','status':'succeeded','target_id':str(k)} for k in (1,2)]
         log=[];barrier=threading.Barrier(2)
@@ -102,7 +121,7 @@ class FinalMetricTests(unittest.TestCase):
              patch('arissto_sync.loans._resolve_or_create_loan_product',return_value=(91,False)), \
              patch('arissto_sync.loans._upsert_loan_product_crosswalk'), \
              patch('arissto_sync.loans._apply_loan_lifecycle',side_effect=history), \
-             patch('arissto_sync.loans._find_loan',side_effect=lambda api,external:{'id':int(external.rsplit(':',1)[1])}), \
+             patch('arissto_sync.loans._find_loan',side_effect=lambda api,external:{'id':int(external.rsplit(':',1)[1]),'status':{'id':300}}), \
              patch('arissto_sync.loan_accrual_controls.verify',side_effect=lambda api,native,controls: log.append('controls:'+str(native['id']))), \
              patch('arissto_sync.loan_metric_alignment.align',side_effect=metrics):
             _,counts=apply_loan_plan(settings,state,fixture.contract,'p',controls=LoanApplyControls(workers=2,pause_seconds=0,recovery_attempts=1))

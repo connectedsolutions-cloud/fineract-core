@@ -269,6 +269,8 @@ class LoanContract:
         value = json.loads(path.read_text(encoding="utf-8"))
         if value.get("version") != 1:
             raise ValueError("Loans mapping requires version 1")
+        if value.get("final_metric_alignment_policy") != "source-active-only-v1":
+            raise ValueError("Loans mapping requires source-active-only final metrics")
         if value.get("terminal_adjustment_policy") != "closed-after-outgoing-refinance-later-repayment-v1":
             raise ValueError("Loans mapping requires the reviewed terminal adjustment policy")
         for section in (
@@ -4595,7 +4597,9 @@ def compose_loan_plan(
                 "client_external_id": _clean(loan.get("client_source_key")), "staff_external_id": None,
             }
         lifecycle_action = _guard_unmapped_loan_events(lifecycle_action, loan)
-        if migration_cutover_date and lifecycle_action.get("lifecycle") and not lifecycle_action["lifecycle"].get("final_metric_alignment"):
+        if (migration_cutover_date and lifecycle_action.get("lifecycle")
+                and lifecycle_action["lifecycle"]["expected"]["source_state"] == "1"
+                and not lifecycle_action["lifecycle"].get("final_metric_alignment")):
             lifecycle_action["quarantine_reasons"].append("missing_final_metric_source_snapshot")
         # The source guard must describe Arissto, not the local-only proof
         # identity overlay applied to the frozen writer payload below.
@@ -4650,7 +4654,7 @@ def compose_loan_plan(
         "version": 1,
         "component_alignment_plan_revision": 10,
         "historical_replay_policy": HISTORICAL_REPLAY_POLICY,
-        "final_metric_alignment_revision": 1,
+        "final_metric_alignment_revision": 2,
         "accrual_control_revision": 1,
         "source_observed_at": datetime.now(timezone.utc).isoformat(),
         "block": BLOCK,
@@ -4923,7 +4927,7 @@ def _loan_apply_guard(
     document = plan["document"]
     if (document.get("component_alignment_plan_revision") != 10
             or document.get("historical_replay_policy") != HISTORICAL_REPLAY_POLICY
-            or document.get("final_metric_alignment_revision") != 1
+            or document.get("final_metric_alignment_revision") != 2
             or document.get("accrual_control_revision") != 1
             or not document.get("source_observed_at")):
         raise RuntimeError("loan_plan_predates_dated_component_and_event_guards")
@@ -5050,6 +5054,7 @@ def _loan_apply_guard(
                 # Repeat the planner's final-metric completeness check before
                 # comparing intrinsic reasons; a frozen quarantine is not drift.
                 if (document.get("migration_cutover_date") and rebuilt_lifecycle.get("lifecycle")
+                        and rebuilt_lifecycle["lifecycle"]["expected"]["source_state"] == "1"
                         and not rebuilt_lifecycle["lifecycle"].get("final_metric_alignment")):
                     rebuilt_lifecycle["quarantine_reasons"].append("missing_final_metric_source_snapshot")
             # The plan may intentionally freeze a quarantine. Chain markers are
@@ -8157,8 +8162,11 @@ def _expected_native_transfer_loan_ids(
     if verify_pretransfer_balance:
         active = {external_id for external_id, (_, status, _) in by_external.items()
                   if status in {300, 700}}
-        if active != set(expected):
-            different = active ^ set(expected)
+        deferred = {row["loanExternalId"] for row in event.get("deferredClosedLoans", [])}
+        if deferred & set(expected):
+            raise RuntimeError("client_office_transfer_closed_active_overlap")
+        if active - deferred != set(expected):
+            different = (active - deferred) ^ set(expected)
             if len(different) == 1:
                 external_id = next(iter(different))
                 if external_id.startswith("ARISSTO:CRD:"):
@@ -8223,10 +8231,38 @@ def _verify_native_client_office_transfer_loans(
                 raise RuntimeError("native_loan_transfer_source_components_mismatch")
 
 
+def _prepare_deferred_closed_transfer_loans(api: FineractApi, event: dict[str, Any]) -> dict[str, Any]:
+    """Prove source-closed history without premature final corrections or transfers."""
+    proofs = []
+    for action in event.get("_deferred_closed_actions", []):
+        lifecycle = action["lifecycle"]
+        adjustment = lifecycle.get("terminal_adjustment") or {}
+        terminal = next((row for row in reversed(lifecycle.get("events", []))
+                         if row.get("role") in {"repayment", "adjusted-repayment", "mobile-collection-repayment", "native-refinance-payoff"}
+                         and not row.get("source_reversed")), None)
+        if (lifecycle.get("interest_recalculation_policy") != HISTORICAL_REPLAY_POLICY
+                or lifecycle["expected"]["source_state"] != "3"
+                or _amount(lifecycle["expected"]["principal_balance"]) != 0
+                or not terminal or terminal["date"] != adjustment.get("date")
+                or not all(row["date"] < event["effective_date"] for row in lifecycle["events"])):
+            raise RuntimeError("client_office_transfer_invalid_source_closure_proof")
+        _verify_complete_historical_replay(api, action)
+        native = _find_loan(api, action["external_id"])
+        if int((native.get("status") or {}).get("id") or -1) not in {300, 700}:
+            continue
+        if (int(native["clientId"]) != int(event["client_id"])
+                or abs(_amount((native.get("summary") or {}).get("principalOutstanding"))) > Decimal("0.01")):
+            raise RuntimeError("client_office_transfer_closed_loan_identity_or_principal_mismatch")
+        proofs.append({"loanId": int(native["id"]), "loanExternalId": action["external_id"],
+                       "terminalExternalId": terminal["external_id"], "terminalDate": terminal["date"]})
+    return {**event, "deferredClosedLoans": proofs} if proofs else event
+
+
 def _apply_native_client_office_transfer(
     settings: Settings, api: FineractApi, event: dict[str, Any],
     gate: _FineractCircuitBreaker, controls: LoanApplyControls,
 ) -> None:
+    event = _prepare_deferred_closed_transfer_loans(api, event)
     office_id, joining_date, proposal_count, acceptance_count, _ = (
         _native_client_office_transfer_snapshot(settings, event)
     )
@@ -8269,6 +8305,7 @@ def _apply_native_client_office_transfer(
                     "transferDate": event["effective_date"],
                     "dateFormat": "yyyy-MM-dd", "locale": "en",
                     "loanTransferBalances": transfer_balances,
+                    **({"deferredClosedLoans": event["deferredClosedLoans"]} if event.get("deferredClosedLoans") else {}),
                 }, query={"command": "sourceExactProposeAndAcceptTransfer"},
                 idempotency_key=(
                     f"ARISSTO:CLIENT-OFFICE:{event['source_client_id']}:"
@@ -8379,6 +8416,7 @@ def _replay_client_office_transfer_timeline(
             pretransfer_phase(action, prefix, False)
             adjustment = lifecycle.get("terminal_adjustment")
             if (action.get("client_external_id") == transfer["client_external_id"]
+                    and lifecycle.get("interest_recalculation_policy") != HISTORICAL_REPLAY_POLICY
                     and adjustment is not None
                     and adjustment["date"] < boundary
                     and len(prefix) == len(lifecycle["events"])
@@ -8389,7 +8427,14 @@ def _replay_client_office_transfer_timeline(
                 # native transfer checks its active-loan set. Finalization is
                 # safe here only after every frozen event has been replayed.
                 pretransfer_phase(action, prefix, True)
-        transfer_client(transfer)
+        deferred = [action for action in related_actions
+                    if action.get("client_external_id") == transfer["client_external_id"]
+                    and (action.get("lifecycle") or {}).get("interest_recalculation_policy") == HISTORICAL_REPLAY_POLICY
+                    and (action["lifecycle"].get("expected") or {}).get("source_state") == "3"
+                    and action["lifecycle"].get("terminal_adjustment")
+                    and action["lifecycle"]["terminal_adjustment"]["date"] < boundary
+                    and all(row["date"] < boundary for row in action["lifecycle"]["events"])]
+        transfer_client({**transfer, "_deferred_closed_actions": deferred} if deferred else transfer)
     outcomes: dict[str, tuple[int, bool]] = {}
     for component in related_components:
         outcomes.update(_replay_refinance_component(component, apply_phase))
@@ -8813,7 +8858,7 @@ def apply_loan_plan(
 
     correction_ready = True
     required_actions = loan_actions
-    if document.get("final_metric_alignment_revision") == 1:
+    if document.get("final_metric_alignment_revision") == 2:
         required_actions = [a for a in document["actions"]
                             if a.get("entity_type") == "loan" and a["action"] != "quarantine-loan"]
         replay_results = {row["source_key"]: row for row in state.latest_plan_run_items(plan_id)}
@@ -8826,7 +8871,7 @@ def apply_loan_plan(
         if not correction_ready:
             counts["final_corrections_deferred"] = len(required_actions)
 
-    if correction_ready and document.get("final_metric_alignment_revision") == 1:
+    if correction_ready and document.get("final_metric_alignment_revision") == 2:
         from .loan_metric_alignment import align as align_final_metrics
         final_api = FineractApi(settings.target)
         for candidate in required_actions:
@@ -8865,6 +8910,12 @@ def apply_loan_plan(
                     from .loan_accrual_controls import verify as verify_accrual_controls
                     verify_accrual_controls(final_api, native, controls)
                     counts["accrual_controls_reconciled"] += 1
+                from .loan_metric_alignment import eligible as metric_eligible
+                if not metric_eligible(action["lifecycle"]):
+                    counts["metrics_skipped_inactive"] += 1
+                    continue
+                if int((native.get("status") or {}).get("id") or -1) != 300:
+                    raise RuntimeError("final_metrics_active_source_native_status_mismatch")
                 result = align_final_metrics(final_api, int(native["id"]), action, document["source_observed_at"])
                 counts["metrics_reconciled"] += 1
                 counts["metrics_adjusted"] += int(result["changed"])
@@ -8974,17 +9025,26 @@ def reconcile_loans(
             except RuntimeError as exc:
                 mismatches.append({"source_key": item["source_key"], "kind": "accrual_control_state", "detail": str(exc),
                     "classification": "blocking_cutover_operational_state"})
-        if lifecycle.get("final_metric_alignment"):
-            from .loan_metric_alignment import amounts as metric_amounts
+        from .loan_metric_alignment import eligible as metric_eligible
+        if not metric_eligible(lifecycle):
+            counts["metrics_skipped_inactive"] += 1
+        elif lifecycle.get("final_metric_alignment"):
+            from .loan_metric_alignment import amounts as metric_amounts, observed_amounts
             frozen = lifecycle["final_metric_alignment"]
-            observed = api.request("GET", f"loans/{int(loan['id'])}/migration-metrics", query={
-                k: frozen[k] for k in ("cutoffDate", "insuranceChargeId", "recurringInsuranceChargeId")})
-            actual_metrics = metric_amounts(observed["metrics"])
-            target_metrics = metric_amounts(frozen["targets"])
-            for metric in target_metrics:
-                if actual_metrics[metric] != target_metrics[metric]:
-                    mismatches.append({"source_key": item["source_key"], "kind": "final_metric:" + metric,
-                        "source": target_metrics[metric], "target": actual_metrics[metric]})
+            try:
+                observed = api.request("GET", f"loans/{int(loan['id'])}/migration-metrics", query={
+                    k: frozen[k] for k in ("cutoffDate", "insuranceChargeId", "recurringInsuranceChargeId")})
+                actual_metrics = observed_amounts(observed["metrics"])
+                target_metrics = metric_amounts(frozen["targets"])
+                for metric in target_metrics:
+                    if actual_metrics[metric] != target_metrics[metric]:
+                        mismatches.append({"source_key": item["source_key"], "kind": "final_metric:" + metric,
+                            "source": target_metrics[metric], "target": actual_metrics[metric]})
+                if observed.get("continuationReady") is not True:
+                    mismatches.append({"source_key": item["source_key"], "kind": "final_metric_continuation_missing"})
+            except (RuntimeError, ValueError, KeyError, ArithmeticError) as exc:
+                mismatches.append({"source_key": item["source_key"], "kind": "final_metric_observation_invalid",
+                    "error": type(exc).__name__, "classification": "blocking_cutover_balance"})
         if lifecycle.get("source_maturity_pending"):
             if int((loan.get("status") or {}).get("id") or -1) not in {100, 200}:
                 mismatches.append({"source_key": item["source_key"], "kind": "term_account",

@@ -106,6 +106,16 @@ class FinalLoanMetricsTest {
         assertThrows(IllegalArgumentException.class, () -> FinalLoanMetrics.validate(targets("0", "1", "0", "0", "2", "0", "0", "0")));
     }
 
+    @Test
+    void inconsistentNativeObservationIsAnExpectedStateTokenNotAnAcceptableTarget() {
+        var observed = targets("0", "1", "0", "0", "2", "0", "0", "0");
+        assertDoesNotThrow(() -> FinalLoanMetrics.validateObservation(observed));
+        assertThrows(IllegalArgumentException.class, () -> FinalLoanMetrics.validate(observed));
+        assertThrows(IllegalArgumentException.class, () -> FinalLoanMetrics.validateObservation(Map.of()));
+        assertThrows(IllegalArgumentException.class,
+                () -> FinalLoanMetrics.validateObservation(targets("0", "1", "0.001", "0", "0", "0", "0", "0")));
+    }
+
     static Map<String, BigDecimal> targets(String... values) {
         Map<String, BigDecimal> map = new LinkedHashMap<>();
         for (int i = 0; i < values.length; i++)

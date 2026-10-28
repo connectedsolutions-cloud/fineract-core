@@ -7,7 +7,8 @@ from typing import Any
 
 METRICS = ("paidPrincipal", "outstandingPrincipal", "paidInterest", "accruedInterest", "duePrincipal", "mora", "insurancePaid", "insuranceOutstanding")
 
-def amounts(values: dict[str, Any]) -> dict[str, str]:
+def observed_amounts(values: dict[str, Any]) -> dict[str, str]:
+    """Parse raw native projections without assuming target consistency."""
     if set(values) != set(METRICS):
         raise RuntimeError("final_metrics_incomplete_vector")
     result = {}
@@ -15,14 +16,27 @@ def amounts(values: dict[str, Any]) -> dict[str, str]:
         if values[key] is None:
             raise RuntimeError("final_metrics_missing_value:" + key)
         value = Decimal(str(values[key]))
-        if not value.is_finite() or value < 0 or value != value.quantize(Decimal(".01")):
+        if not value.is_finite() or value != value.quantize(Decimal(".01")):
             raise RuntimeError("final_metrics_invalid_amount:" + key)
         result[key] = format(value.quantize(Decimal(".01")), "f")
+    return result
+
+def amounts(values: dict[str, Any]) -> dict[str, str]:
+    result = observed_amounts(values)
+    for key, value in result.items():
+        if Decimal(value) < 0:
+            raise RuntimeError("final_metrics_invalid_amount:" + key)
     if Decimal(result["duePrincipal"]) > Decimal(result["outstandingPrincipal"]):
         raise RuntimeError("final_metrics_due_exceeds_outstanding")
     return result
 
+def eligible(lifecycle: dict[str, Any]) -> bool:
+    """Source state at the frozen boundary, never the unfinished native replay."""
+    return str((lifecycle.get("expected") or {}).get("source_state", "")).strip() == "1"
+
 def freeze(loan: dict[str, Any], expected: dict[str, Any], resources: dict[str, Any], cutoff: str | None, events: list[dict[str, Any]] | None = None) -> dict[str, Any] | None:
+    if not eligible({"expected": expected}):
+        return None
     snapshot = loan.get("_mora_cutover_snapshot") or {}
     required = ("SALDO_PAGADO_CAPITAL", "SALDO_PAGADO_INTERES", "SALDO_VENCIDO_CAPITAL", "MONTO_DESEMBOLSADO",
                 "SALDO_INTERES", "SALDO_MORA", "SALDO_RECARGOS", "SALDO_SEGURO")
@@ -55,13 +69,15 @@ def freeze(loan: dict[str, Any], expected: dict[str, Any], resources: dict[str, 
             "penaltyChargeId": int(resources["historical_penalty_charge_id"])}
 
 def align(api: Any, loan_id: int, action: dict[str, Any], observed_at: str) -> dict[str, Any]:
+    if not eligible(action["lifecycle"]):
+        raise RuntimeError("final_metrics_requires_active_source_loan")
     frozen = action["lifecycle"].get("final_metric_alignment")
     if not frozen or frozen.get("revision") != 1:
         raise RuntimeError("loan_plan_missing_final_metric_targets")
     path = f"loans/{loan_id}/migration-metrics"
     query = {k: frozen[k] for k in ("cutoffDate", "insuranceChargeId", "recurringInsuranceChargeId")}
     observation = api.request("GET", path, query=query)
-    before = amounts(observation["metrics"])
+    before = observed_amounts(observation["metrics"])
     targets = amounts(frozen["targets"])
     if before == targets and observation.get("continuationReady") is True:
         return {"loan_id": loan_id, "changed": False, "metrics": before}

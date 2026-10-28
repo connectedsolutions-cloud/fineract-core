@@ -288,13 +288,30 @@ public class TransferWritePlatformServiceJpaRepositoryImpl implements TransferWr
         final Office office = this.officeRepository.findOneWithNotFoundDetection(destinationOfficeId);
         final Client client = this.clientRepositoryWrapper.findOneWithNotFoundDetection(clientId, true);
         if (sourceBalances != null) {
-            final Set<Long> activeLoanIds = new HashSet<>();
-            for (final Loan loan : this.loanRepositoryWrapper.findLoanByClientId(client.getId())) {
-                if (loan.isDisbursed() && !loan.isClosed()) {
-                    activeLoanIds.add(loan.getId());
+            final Map<Long, JsonObject> deferredClosed = new HashMap<>();
+            if (jsonCommand.parameterExists("deferredClosedLoans")) {
+                for (var element : jsonCommand.arrayOfParameterNamed("deferredClosedLoans")) {
+                    JsonObject proof = element.getAsJsonObject();
+                    if (deferredClosed.putIfAbsent(proof.get("loanId").getAsLong(), proof) != null) {
+                        throw new IllegalArgumentException("Duplicate deferred source-closed loan");
+                    }
                 }
             }
-            if (!activeLoanIds.equals(sourceBalances.keySet())) {
+            final Set<Long> activeLoanIds = new HashSet<>();
+            final Set<Long> verifiedClosedIds = new HashSet<>();
+            for (final Loan loan : this.loanRepositoryWrapper.findLoanByClientId(client.getId())) {
+                if (loan.isDisbursed() && !loan.isClosed()) {
+                    JsonObject proof = deferredClosed.get(loan.getId());
+                    if (proof == null) {
+                        activeLoanIds.add(loan.getId());
+                    } else {
+                        validateDeferredSourceClosedLoan(loan, proof,
+                                jsonCommand.localDateValueOfParameterNamed(TransferApiConstants.transferDate));
+                        verifiedClosedIds.add(loan.getId());
+                    }
+                }
+            }
+            if (!verifiedClosedIds.equals(deferredClosed.keySet()) || !activeLoanIds.equals(sourceBalances.keySet())) {
                 throw new IllegalArgumentException("Source-exact client transfer active loan set mismatch");
             }
         }
@@ -307,6 +324,37 @@ public class TransferWritePlatformServiceJpaRepositoryImpl implements TransferWr
                 .withClientId(clientId) //
                 .withEntityId(clientId) //
                 .build();
+    }
+
+    // A source-closed loan can retain future schedule interest until the global finalization barrier.
+    // Its complete dated source payoff must already exist; it must never produce branch transfer postings.
+    static void validateDeferredSourceClosedLoan(Loan loan, JsonObject proof, LocalDate transferDate) {
+        String externalId = loan.getExternalId().getValue();
+        LocalDate terminalDate = LocalDate.parse(proof.get("terminalDate").getAsString());
+        String terminalExternalId = proof.get("terminalExternalId").getAsString();
+        if (loan.isInterestRecalculationEnabled() || externalId == null || !externalId.startsWith("ARISSTO:CRD:")
+                || !externalId.equals(proof.get("loanExternalId").getAsString())
+                || !terminalExternalId.startsWith("ARISSTO:CRD-MOV:") || !terminalDate.isBefore(transferDate)
+                || loan.getSummary().getTotalPrincipalOutstanding() == null
+                || loan.getSummary().getTotalPrincipalOutstanding().abs().compareTo(new java.math.BigDecimal("0.01")) > 0) {
+            throw new IllegalArgumentException("Invalid deferred source-closed loan proof");
+        }
+        boolean terminalFound = false;
+        for (var transaction : loan.getLoanTransactions()) {
+            if (transaction.isReversed()) {
+                continue;
+            }
+            if (!transaction.getTransactionDate().isBefore(transferDate)) {
+                throw new IllegalArgumentException("Deferred source-closed loan has later native activity");
+            }
+            if (terminalExternalId.equals(transaction.getExternalId().getValue())
+                    && terminalDate.equals(transaction.getTransactionDate()) && transaction.isRepayment()) {
+                terminalFound = true;
+            }
+        }
+        if (!terminalFound) {
+            throw new IllegalArgumentException("Deferred source-closed loan payoff is missing");
+        }
     }
 
     /**
@@ -428,6 +476,10 @@ public class TransferWritePlatformServiceJpaRepositoryImpl implements TransferWr
                  * We need to create transactions etc only for loans which are disbursed and not yet closed
                  **/
                 if (loan.isDisbursed() && !loan.isClosed()) {
+                    if (sourceBalances != null && !sourceBalances.containsKey(loan.getId())) {
+                        // Exact inventory and dated closure proof were validated before proposal.
+                        continue;
+                    }
                     switch (transferEventType) {
                         case ACCEPTANCE:
                             if (sourceBalances == null) {

@@ -367,3 +367,63 @@ class NativeTransferAdapterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class DeferredClosedTransferTests(unittest.TestCase):
+    def action(self):
+        return {
+            'source_key':'loan:1','external_id':'ARISSTO:CRD:1','client_external_id':'client-a',
+            'depends_on':[], 'lifecycle': {
+                'interest_recalculation_policy':'source-exact-off-v1',
+                'expected':{'source_state':'3','principal_balance':'0.00'},
+                'refinance':None,'terminal_adjustment':{'date':'2024-10-16'},
+                'events':[event('disbursement','2024-01-01','ARISSTO:CRD-MOV:0'),
+                          event('repayment','2024-10-16','ARISSTO:CRD-MOV:1')]}}
+
+    def test_off_history_defers_finalization_and_passes_frozen_closure_to_transfer(self):
+        from unittest.mock import MagicMock
+        action = self.action(); phases = []
+        transfer = MagicMock()
+        def phase(action, events, finalize):
+            phases.append(finalize); return 1,False
+        _replay_client_office_transfer_timeline([action], [{
+            'client_external_id':'client-a','client_id':2,'effective_date':'2024-11-27'}], phase, transfer)
+        # Before transfer only history is replayed; final correction barrier stays global.
+        self.assertFalse(phases[0])
+        self.assertEqual(transfer.call_args.args[0]['_deferred_closed_actions'], [action])
+
+    def test_only_complete_same_client_paid_history_can_supply_a_closure_proof(self):
+        from copy import deepcopy
+        from unittest.mock import MagicMock, patch
+        from arissto_sync.loans import _prepare_deferred_closed_transfer_loans
+        base = self.action()
+        native = {'id':1,'clientId':2,'status':{'id':300},'summary':{'principalOutstanding':'0.00'}}
+        transfer = {'client_id':2,'effective_date':'2024-11-27','_deferred_closed_actions':[base]}
+        with patch('arissto_sync.loans._verify_complete_historical_replay') as verify, \
+             patch('arissto_sync.loans._find_loan',return_value=native):
+            proof = _prepare_deferred_closed_transfer_loans(MagicMock(),transfer)['deferredClosedLoans']
+            self.assertEqual(proof,[{'loanId':1,'loanExternalId':'ARISSTO:CRD:1',
+                'terminalExternalId':'ARISSTO:CRD-MOV:1','terminalDate':'2024-10-16'}])
+            verify.assert_called_once()
+            for field, value in [('source_state','1'),('principal_balance','1')]:
+                bad = deepcopy(transfer);bad['_deferred_closed_actions'][0]['lifecycle']['expected'][field]=value
+                with self.assertRaisesRegex(RuntimeError,'invalid_source_closure'):
+                    _prepare_deferred_closed_transfer_loans(MagicMock(),bad)
+            native['clientId']=3
+            with self.assertRaisesRegex(RuntimeError,'identity_or_principal'):
+                _prepare_deferred_closed_transfer_loans(MagicMock(),transfer)
+
+    def test_explicit_proof_excludes_only_that_closed_loan_from_active_inventory(self):
+        from contextlib import contextmanager
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock,patch
+        from arissto_sync.loans import _expected_native_transfer_loan_ids
+        conn=MagicMock();conn.execute.return_value.fetchall.return_value=[('ARISSTO:CRD:1',1,300,0)]
+        @contextmanager
+        def pg(_): yield conn
+        event={'client_id':2,'active_source_loans':[],
+               'deferredClosedLoans':[{'loanExternalId':'ARISSTO:CRD:1'}]}
+        with patch('arissto_sync.loans.postgres_connection',pg):
+            self.assertEqual(_expected_native_transfer_loan_ids(SimpleNamespace(target=SimpleNamespace(pg_url='pg')),event,verify_pretransfer_balance=True),[])
+            conn.execute.return_value.fetchall.return_value.append(('ARISSTO:CRD:2',2,300,0))
+            with self.assertRaisesRegex(RuntimeError,'active_loan_set_mismatch'):
+                _expected_native_transfer_loan_ids(SimpleNamespace(target=SimpleNamespace(pg_url='pg')),event,verify_pretransfer_balance=True)

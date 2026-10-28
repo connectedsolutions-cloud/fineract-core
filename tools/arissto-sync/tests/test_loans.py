@@ -4269,7 +4269,7 @@ class LoanInspectionTests(unittest.TestCase):
         ]
         for label, disposition, planned_reasons, rebuilt_reasons, accepted in cases:
             with self.subTest(label=label):
-                lifecycle = {"refinance": None, "events": [], "interest_recalculation_policy": "source-exact-off-v1"}
+                lifecycle = {"refinance": None, "events": [], "expected": {"source_state": "1"}, "interest_recalculation_policy": "source-exact-off-v1"}
                 if label not in {"frozen missing metrics", "newly missing metrics"}:
                     lifecycle["final_metric_alignment"] = {"revision": 1}
                 source_hash = _stable_hash({
@@ -4286,7 +4286,7 @@ class LoanInspectionTests(unittest.TestCase):
                     "block": "loans", "target_fingerprint": "sandbox",
                     "source_fingerprint": "arissto", "contract_hash": self.contract.digest,
                     "document": {
-                        "component_alignment_plan_revision": 10, "historical_replay_policy": "source-exact-off-v1", "final_metric_alignment_revision": 1, "accrual_control_revision": 1,
+                        "component_alignment_plan_revision": 10, "historical_replay_policy": "source-exact-off-v1", "final_metric_alignment_revision": 2, "accrual_control_revision": 1,
                         "source_observed_at": "2026-10-26T15:00:00Z",
                         "applicable": True, "product_writer_registered": True,
                         "loan_writer_registered": True, "collateral_writer_registered": True,
@@ -4326,7 +4326,7 @@ class LoanInspectionTests(unittest.TestCase):
             "block": "loans", "target_fingerprint": "sandbox", "source_fingerprint": "arissto",
             "contract_hash": self.contract.digest,
             "document": {
-                "component_alignment_plan_revision": 10, "historical_replay_policy": "source-exact-off-v1", "final_metric_alignment_revision": 1, "accrual_control_revision": 1,
+                "component_alignment_plan_revision": 10, "historical_replay_policy": "source-exact-off-v1", "final_metric_alignment_revision": 2, "accrual_control_revision": 1,
                         "source_observed_at": "2026-10-26T15:00:00Z",
                 "applicable": True,
                 "product_writer_registered": True,

@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "final_metric_alignment_policy": "source-active-only-v1",
   "terminal_adjustment_policy": "closed-after-outgoing-refinance-later-repayment-v1",
   "source": {
     "product_table": "CRD_LINEA_CREDITO",

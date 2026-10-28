@@ -23,7 +23,7 @@ class HistoricalOffTests(unittest.TestCase):
         for flag in (None, True):
             with self.subTest(flag=flag), self.assertRaisesRegex(RuntimeError, 'interest_recalculation'):
                 _validate_existing_loan({**loan, 'isInterestRecalculationEnabled': flag}, action, 3)
-        _validate_existing_loan({**loan, 'isInterestRecalculationEnabled': False}, action, 3)
+        _validate_existing_loan({**loan, 'isInterestRecalculationEnabled': False, 'status': {'id':300}}, action, 3)
 
     def test_off_refinance_prepares_source_charges_without_quote_or_credit(self):
         predecessor = {'id': 1}
@@ -41,19 +41,21 @@ class HistoricalOffTests(unittest.TestCase):
                 'external_id': f'ARISSTO:CRD:{key}', 'action': 'create-loan', 'depends_on': ['product:1'],
                 'source_hash': f'h{key}', 'product_action_key': 'product:1', 'target_id': None,
                 'lifecycle': {'interest_recalculation_policy': HISTORICAL_REPLAY_POLICY,
-                              'migration_cutover_date': '2026-10-27', 'events': []}}
+                              'expected': {'source_state':'1'}, 'migration_cutover_date': '2026-10-27', 'events': []}}
 
-    def coordinator(self, failed=None, prior_missing=False, native_invalid=None, retry_subset=False):
+    def coordinator(self, failed=None, prior_missing=False, native_invalid=None, retry_subset=False, inactive=False):
         fixture = fixtures.LoanInspectionTests(); fixture.setUp(); self.addCleanup(fixture.doCleanups)
         product = {'source_key': 'product:1', 'entity_type': 'product', 'entity_source_key': '1',
                    'source_company_id': '001', 'action': 'create-product', 'depends_on': [], 'source_hash': 'p',
                    'external_id': 'ARISSTO:CRD-LINE:1', 'payload': {},
                    'crosswalk': {'repair_after_product_resolution': True}, 'target_id': None}
         loans = [self.action(1), self.action(2)]
+        if inactive:
+            loans[1]["lifecycle"]["expected"]["source_state"] = "3"
         if prior_missing:
             loans[0]['action'] = 'unchanged-loan';loans[0]['target_id'] = 1
         plan = {'id': 'p', 'document': {'actions': [product, *loans],
-                 'final_metric_alignment_revision': 1, 'source_observed_at': '2026-10-27T15:00:00Z'}}
+                 'final_metric_alignment_revision': 2, 'source_observed_at': '2026-10-27T15:00:00Z'}}
         state = MagicMock(); state.start_run.return_value = 'run'
         outcomes = {}
         state.record_item.side_effect = lambda run, key, action, digest, status, *rest: outcomes.update({key: {
@@ -80,12 +82,19 @@ class HistoricalOffTests(unittest.TestCase):
             stack.enter_context(patch('arissto_sync.loans._apply_loan_lifecycle', side_effect=history))
             stack.enter_context(patch('arissto_sync.loans._verify_complete_historical_replay', side_effect=native_check))
             stack.enter_context(patch('arissto_sync.loans._find_loan', side_effect=lambda api, external: {
-                'id': int(external.rsplit(':', 1)[1]), 'isInterestRecalculationEnabled': False}))
+                'id': int(external.rsplit(':', 1)[1]), 'isInterestRecalculationEnabled': False, 'status': {'id':300}}))
             final = stack.enter_context(patch('arissto_sync.loans._finalize_loan_history', side_effect=lambda api, loan, action, run: log.append('final:' + action['source_key'])))
             metrics = stack.enter_context(patch('arissto_sync.loan_metric_alignment.align', return_value={'changed': True}))
             result = apply_loan_plan(SimpleNamespace(target=SimpleNamespace(fingerprint='target')),
                                     state, fixture.contract, 'p', only_keys={'loan:2'} if retry_subset else None, controls=LoanApplyControls(workers=1, pause_seconds=0, recovery_attempts=1))
         return result[1], final.call_count, metrics.call_count, log, state
+
+    def test_closed_loan_replays_and_finalizes_without_metric_adjustment(self):
+        counts, final, metrics, log, _ = self.coordinator(inactive=True)
+        self.assertEqual((final, metrics), (2, 1))
+        self.assertEqual(counts['metrics_skipped_inactive'], 1)
+        self.assertIn('check:loan:2', log)
+        self.assertIn('final:loan:2', log)
 
     def test_one_failed_history_prevents_every_final_correction(self):
         counts, final, metrics, _, state = self.coordinator(failed='loan:2')

@@ -53,6 +53,13 @@ for loans 101, 283, 553 and 921, keeping the October 27 payment excluded.
 
 ## Historical replay design review — October 27
 
+The [failure-pattern repair](loan-failure-pattern-repair-oct27.md) restricts final
+metric adjustment to source-active loans, separates native observation parsing
+from strict target validation, and proves deferred source closures during
+historical office transfers. It preserves recalculation off and the global final
+correction barrier. Final metric plan revision 2 supersedes revision 1.
+
+
 The requested [fresh/clean recalculation-off result](investigations/historical-off-clean-run-result-oct27.json)
 is recorded in the [progress tracker](loan-sync-updates-progress-oct27.md):
 11 services completed, Loans failed reconciliation and 6 dependents were blocked.

@@ -121,8 +121,8 @@ public class FinalLoanMetricAlignmentService {
                 || recurring.getChargeTimeType() != 8) {
             throw invalid("Invalid recurring insurance definition");
         }
-        Map<String, BigDecimal> targets = amounts(request.getAsJsonObject("targets"));
-        Map<String, BigDecimal> expected = amounts(request.getAsJsonObject("expected"));
+        Map<String, BigDecimal> targets = amounts(request.getAsJsonObject("targets"), true);
+        Map<String, BigDecimal> expected = amounts(request.getAsJsonObject("expected"), false);
         LocalDate sourceDay = firstDay.minusDays(1);
         Map<String, BigDecimal> before = FinalLoanMetrics.read(loan, sourceDay, insuranceIds);
         String hash = digest(JSON.toJson(new TreeMap<>(Map.of("loanId", loanId, "source", text(request, "sourceLoanExternalId"),
@@ -211,13 +211,17 @@ public class FinalLoanMetricAlignmentService {
         }
     }
 
-    private static Map<String, BigDecimal> amounts(JsonObject object) {
+    private static Map<String, BigDecimal> amounts(JsonObject object, boolean target) {
         if (object == null) {
             throw invalid("Expected and target vectors are required");
         }
         Map<String, BigDecimal> result = new LinkedHashMap<>();
         object.entrySet().forEach(e -> result.put(e.getKey(), e.getValue().getAsBigDecimal()));
-        FinalLoanMetrics.validate(result);
+        if (target) {
+            FinalLoanMetrics.validate(result);
+        } else {
+            FinalLoanMetrics.validateObservation(result);
+        }
         return FinalLoanMetrics.normalize(result);
     }
 

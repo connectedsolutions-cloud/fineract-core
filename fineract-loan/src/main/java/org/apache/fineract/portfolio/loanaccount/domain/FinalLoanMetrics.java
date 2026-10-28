@@ -76,14 +76,21 @@ public final class FinalLoanMetrics {
         return value == null ? ZERO : value.setScale(2, RoundingMode.HALF_EVEN);
     }
 
-    public static void validate(Map<String, BigDecimal> values) {
+    public static void validateObservation(Map<String, BigDecimal> values) {
         if (!values.keySet().equals(Set.copyOf(KEYS))) {
             throw new IllegalArgumentException("Exactly eight metric amounts are required");
         }
         for (BigDecimal value : values.values()) {
-            if (value == null || value.signum() < 0 || value.stripTrailingZeros().scale() > 2) {
-                throw new IllegalArgumentException("Metrics must be nonnegative currency amounts with at most two decimal places");
+            if (value == null || value.stripTrailingZeros().scale() > 2) {
+                throw new IllegalArgumentException("Metrics must be currency amounts with at most two decimal places");
             }
+        }
+    }
+
+    public static void validate(Map<String, BigDecimal> values) {
+        validateObservation(values);
+        if (values.values().stream().anyMatch(value -> value.signum() < 0)) {
+            throw new IllegalArgumentException("Target metrics must be nonnegative");
         }
         if (values.get("duePrincipal").compareTo(values.get("outstandingPrincipal")) > 0) {
             throw new IllegalArgumentException("Due principal cannot exceed outstanding principal");

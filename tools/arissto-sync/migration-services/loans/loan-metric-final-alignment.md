@@ -1,5 +1,11 @@
 # Final loan metric reconciliation
 
+Current historical-off scope: metric adjustment is restricted to frozen Arissto
+active loans (state `1`). Closed and pending loans skip metric reads/writes and
+target freezing. See [the failure-pattern repair](loan-failure-pattern-repair-oct27.md)
+for plan revision 2 and observation validation. Historical all-loan canary
+evidence below predates this scope change.
+
 **Actual loan sync and COB verified locally — 2026-10-26:** the
 [normal CLI acceptance](loan-flow-cob-acceptance.md) planned, applied and
 reconciled 1572/1826 with recalculation enabled, then passed six native COB
