@@ -1,5 +1,70 @@
 # Loan sync updates and progress — October 27, 2026
 
+## Final result of the fresh/clean recalculation-off attempt
+
+The requested diagnostic run **finished failed** on October 27 at 20:11:20
+America/El_Salvador (October 28 02:11:20 UTC). All **18 selected services** have
+terminal dispositions: **11 completed and reconciled, Loans failed, 6 were
+blocked by dependencies**. No service was silently removed. This is a completed
+clean-run test, **not an accepted full migration**. No additional reset or retry
+was performed after the terminal result.
+
+[Final machine-readable result](investigations/historical-off-clean-run-result-oct27.json)
+records the actual workflow/child identities, service outcomes, native policy and
+source-boundary checks. Workflow run `e942a4ece71b4833b478a265b4296159` belongs to
+fresh/clean cycle `sandbox-2026-10-27-full-clean-recalc-off-a` and immutable plan
+`5359676d1cd44c9a9fca6f0147981662`. **Arissto through: 2026-10-26.
+Fineract starts: 2026-10-27.** Target remains local `sandbox` / `fineract_sandbox`.
+
+| Service | Final result | Evidence / disposition |
+| --- | --- | --- |
+| `clients` | **completed** | Reconciliation matched 1,072. |
+| `employees` | **completed** | Reconciliation matched 43. |
+| `client-staff-assignments` | **completed** | Reconciliation matched 1,072. |
+| `client-pep` | **completed** | Reconciliation matched 1,072. |
+| `client-family-references` | **completed** | Reconciliation matched 2,058. |
+| `client-personal-family-references` | **completed** | Reconciliation matched 4,287. |
+| `membership-share-capital` | **completed** | Reconciliation matched 70,445. |
+| `loans` | **failed** | final_metrics_due_exceeds_outstanding |
+| `delinquency-history` | **blocked** | Blocked by unsuccessful dependencies: loans |
+| `savings-deposits` | **completed** | Reconciliation matched 165. |
+| `savings-account-parties` | **completed** | Reconciliation matched 165. |
+| `native-share-capital` | **completed** | Reconciliation matched 57. |
+| `aml-alerts` | **completed** | Reconciliation matched 10,222. |
+| `dte-history` | **blocked** | Blocked by unsuccessful dependencies: loans |
+| `mobile-collections` | **blocked** | Blocked by unsuccessful dependencies: loans |
+| `accounting-journal-entries` | **blocked** | Blocked by unsuccessful dependencies: loans, mobile-collections |
+| `native-share-yield` | **blocked** | Blocked by unsuccessful dependencies: accounting-journal-entries |
+| `cheque-history` | **blocked** | Blocked by unsuccessful dependencies: accounting-journal-entries |
+
+Loan apply completed with **2,249 succeeded, 9 recovered, 1 failed, 17 blocked
+and 476 planned quarantines**. The recorded failed root is `loan:101`; the
+verified first transfer conflict involves source-closed loans `115`, `363` and
+`688`. Official loan reconciliation then aborted with
+`final_metrics_due_exceeds_outstanding`, with **31 native loans** matching that
+invalid observed-vector pattern and API confirmation on representative `96`.
+No complete official loan reconciliation report was saved.
+
+The actual complete-plan barrier deferred corrections for **all 2,276 eligible
+loans**. Final native checks found **2 products and 2,268 loans, all recalculation
+false**, and **1,220 refinance settlement rows**. Interim refinance credits,
+terminal corrections, final metric alignments, and source movement transactions
+on/after October 27 are all **zero**. Scheduler remains **paused**; native cutoff
+is **ACTIVE at 2026-10-27 / America/El_Salvador**. Runtime source hashes are
+unchanged from the start. Focused loan/workflow checks passed **372 tests** and
+the guarded backend startup compiled the changed native source successfully.
+
+The 977 workflow failure-ledger rows are **not 977 distinct runtime bugs**:
+they include the 476 planned quarantines recorded again at apply, blocked
+cohort/dependency records, and the reconciliation exception. The two current
+runtime issue groups are recorded below. Fixing them and accepting the complete
+migration remain open under durable implementation record **47**. The prior
+cycle's evidence archive and the durable tracker were preserved across reset.
+
+Historical in-progress observations below remain timestamped evidence; this
+terminal result supersedes their statements that the run is still active.
+
+
 ## Current direction — address the shared replay design
 
 **Implementation for the requested clean run:** historical policy `source-exact-off-v1`
@@ -76,7 +141,7 @@ services preceding Loans completed and reconciled. Loan child plan
 `d0c58102d06d4c5f8a897971f3828132` freezes revision 10 / `source-exact-off-v1`:
 2,752 source identities, 2,276 eligible create actions and 476 explicit
 quarantines. No eligible event is on/after October 27. Loan child run
-`a16c564d59804e2bb2426599e41bf026` is actively replaying; it is not accepted.
+`a16c564d59804e2bb2426599e41bf026` finished apply with errors; the final result above governs acceptance.
 
 The [in-progress native observation](investigations/historical-off-clean-run-in-progress-oct27.json)
 records 2 native products and 186 native loans, all with recalculation false,
@@ -103,8 +168,8 @@ Official loan reconciliation then failed with `final_metrics_due_exceeds_outstan
 The old cycle's SQLite snapshot is compressed under the new run's ignored
 `.arissto-sync/evidence/` directory, outside automatic cycle retention. Durable
 change record **47** owns this implementation and pending verification across
-all 2,752 planned source loan identities. The run continues under the existing
-control plane; runtime writer files have not been changed during replay.
+all 2,752 planned source loan identities. The attempt ran through the existing control plane; runtime writer files were
+not changed during replay.
 
 ## Evidence baseline
 

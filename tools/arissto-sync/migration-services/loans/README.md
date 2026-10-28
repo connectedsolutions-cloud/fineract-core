@@ -53,6 +53,13 @@ for loans 101, 283, 553 and 921, keeping the October 27 payment excluded.
 
 ## Historical replay design review — October 27
 
+The requested [fresh/clean recalculation-off result](investigations/historical-off-clean-run-result-oct27.json)
+is recorded in the [progress tracker](loan-sync-updates-progress-oct27.md):
+11 services completed, Loans failed reconciliation and 6 dependents were blocked.
+Native products/loans are off, source boundaries were preserved, and corrections
+were deferred across the incomplete plan. The full migration remains unaccepted.
+
+
 The [evidence-based design direction](historical-replay-design-decision-oct27.md)
 is **recalculation off during historical import**, complete-history and refinance
 chain reconciliation, then explicit corrections at the end of the complete loan

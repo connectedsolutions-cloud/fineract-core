@@ -1,5 +1,15 @@
 # Fresh/clean full sync with loan recalculation off — next-chat plan
 
+> **Execution record:** the operator subsequently authorized implementation and a
+> clean diagnostic run. Implementation `9d021d4efd` and the actual fresh/clean
+> 18-service attempt are recorded in the [progress tracker](loan-sync-updates-progress-oct27.md)
+> and [final result](investigations/historical-off-clean-run-result-oct27.json).
+> The attempt finished failed (11 completed, Loans failed, 6 dependent blocks).
+> Native recalculation is off and no interim credits/final corrections were
+> posted. Historical transfer-state and observed metric-vector issues remain
+> open; this run does not establish full migration acceptance. The preparation
+> and authorization wording below describes the original planning conversation.
+
 ## Outcome and authorization
 
 Prepare and then execute a **fresh/clean local sync of all 18 services**, with

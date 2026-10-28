@@ -1,0 +1,413 @@
+{
+  "observed_at": "2026-10-28T02:13:05.805145+00:00",
+  "mode": "fresh-clean",
+  "workflow": "local-full-sync",
+  "cycle": "sandbox-2026-10-27-full-clean-recalc-off-a",
+  "workflow_plan_id": "5359676d1cd44c9a9fca6f0147981662",
+  "workflow_run_id": "e942a4ece71b4833b478a265b4296159",
+  "loan_plan_id": "d0c58102d06d4c5f8a897971f3828132",
+  "loan_run_id": "a16c564d59804e2bb2426599e41bf026",
+  "status": "failed",
+  "runner_alive": false,
+  "started_at": "2026-10-28T00:55:57.314388+00:00",
+  "finished_at": "2026-10-28T02:11:20.961948+00:00",
+  "source_through_date": "2026-10-26",
+  "fineract_starts": "2026-10-27",
+  "target": {
+    "name": "local",
+    "tenant": "sandbox",
+    "database": "fineract_sandbox",
+    "fingerprint": "b9f6834b66790744"
+  },
+  "migration_accepted": false,
+  "step_counts": {
+    "completed": 11,
+    "failed": 1,
+    "blocked": 6
+  },
+  "steps": [
+    {
+      "service_id": "clients",
+      "status": "completed",
+      "phase": "completed",
+      "plan_id": "7cc8d772327747b694ed8bfac73fbd11",
+      "child_run_id": "2be50059c7c744c286b09b13ede29341",
+      "error_code": null,
+      "error_message": null,
+      "reconciliation_ok": true,
+      "apply_counts": {
+        "create": 1072
+      },
+      "reconciliation_counts": {
+        "matched": 1072
+      }
+    },
+    {
+      "service_id": "employees",
+      "status": "completed",
+      "phase": "completed",
+      "plan_id": "df1d624d3e3f4a05a7b06e596d6907f6",
+      "child_run_id": "dcfbc679c1a444e7a29aa08a6683c5b4",
+      "error_code": null,
+      "error_message": null,
+      "reconciliation_ok": true,
+      "apply_counts": {
+        "unchanged": 43
+      },
+      "reconciliation_counts": {
+        "matched": 43
+      }
+    },
+    {
+      "service_id": "client-staff-assignments",
+      "status": "completed",
+      "phase": "completed",
+      "plan_id": "4f434dcf62e74fb6915779286208151d",
+      "child_run_id": "37657cef40b449d99de670d4d6b4fd9b",
+      "error_code": null,
+      "error_message": null,
+      "reconciliation_ok": true,
+      "apply_counts": {
+        "create": 1072
+      },
+      "reconciliation_counts": {
+        "matched": 1072
+      }
+    },
+    {
+      "service_id": "client-pep",
+      "status": "completed",
+      "phase": "completed",
+      "plan_id": "0c6db09277e04fba85f3a421962f4fb5",
+      "child_run_id": "fdae76a5882c45d89b1a26a51a6fb0ed",
+      "error_code": null,
+      "error_message": null,
+      "reconciliation_ok": true,
+      "apply_counts": {
+        "create": 472,
+        "unchanged": 600
+      },
+      "reconciliation_counts": {
+        "matched": 1072
+      }
+    },
+    {
+      "service_id": "client-family-references",
+      "status": "completed",
+      "phase": "completed",
+      "plan_id": "3f7127aca35c4d9b852693324cf84f74",
+      "child_run_id": "c800913f5df44ad5b363e83dfb77dbf8",
+      "error_code": null,
+      "error_message": null,
+      "reconciliation_ok": true,
+      "apply_counts": {
+        "create": 2058
+      },
+      "reconciliation_counts": {
+        "matched": 2058
+      }
+    },
+    {
+      "service_id": "client-personal-family-references",
+      "status": "completed",
+      "phase": "completed",
+      "plan_id": "e329d34b9a9a4bbdaffc04f4e51b0e28",
+      "child_run_id": "7bc4000ba1844c0e8502cc1b11e5a7cb",
+      "error_code": null,
+      "error_message": null,
+      "reconciliation_ok": true,
+      "apply_counts": {
+        "create": 4287
+      },
+      "reconciliation_counts": {
+        "matched": 4287
+      }
+    },
+    {
+      "service_id": "membership-share-capital",
+      "status": "completed",
+      "phase": "completed",
+      "plan_id": "47bcae4fbda44c35b72d3dc07663b7a0",
+      "child_run_id": "7c9709be13ed49adbb0468f8df550a81",
+      "error_code": null,
+      "error_message": null,
+      "reconciliation_ok": true,
+      "apply_counts": {
+        "succeeded": 70445
+      },
+      "reconciliation_counts": {
+        "matched": 70445
+      }
+    },
+    {
+      "service_id": "loans",
+      "status": "failed",
+      "phase": "reconcile",
+      "plan_id": "d0c58102d06d4c5f8a897971f3828132",
+      "child_run_id": "a16c564d59804e2bb2426599e41bf026",
+      "error_code": "RuntimeError",
+      "error_message": "final_metrics_due_exceeds_outstanding",
+      "reconciliation_ok": null,
+      "apply_counts": null,
+      "reconciliation_counts": null
+    },
+    {
+      "service_id": "delinquency-history",
+      "status": "blocked",
+      "phase": "dependency-gate",
+      "plan_id": null,
+      "child_run_id": null,
+      "error_code": "upstream-dependency-failed",
+      "error_message": "Blocked by unsuccessful dependencies: loans",
+      "reconciliation_ok": null,
+      "apply_counts": null,
+      "reconciliation_counts": null
+    },
+    {
+      "service_id": "savings-deposits",
+      "status": "completed",
+      "phase": "completed",
+      "plan_id": "9ed525b199d447e1b25d0c899eae72be",
+      "child_run_id": "7e6083b0ec2d4e748c48a8fdb23e0a2f",
+      "error_code": null,
+      "error_message": null,
+      "reconciliation_ok": true,
+      "apply_counts": {
+        "succeeded": 165
+      },
+      "reconciliation_counts": {
+        "matched": 165
+      }
+    },
+    {
+      "service_id": "savings-account-parties",
+      "status": "completed",
+      "phase": "completed",
+      "plan_id": "156a2600ebcf457d8b192c4ea9c5e32a",
+      "child_run_id": "a74819390a0d4c8cbec08fe1abdafeb0",
+      "error_code": null,
+      "error_message": null,
+      "reconciliation_ok": true,
+      "apply_counts": {
+        "replace": 165
+      },
+      "reconciliation_counts": {
+        "matched": 165
+      }
+    },
+    {
+      "service_id": "native-share-capital",
+      "status": "completed",
+      "phase": "completed",
+      "plan_id": "42a3d29fd230483cae22c191e22a33a8",
+      "child_run_id": "a9975374817841f9a5c733f9d96b3cea",
+      "error_code": null,
+      "error_message": null,
+      "reconciliation_ok": true,
+      "apply_counts": {
+        "succeeded": 57
+      },
+      "reconciliation_counts": {
+        "matched": 57
+      }
+    },
+    {
+      "service_id": "aml-alerts",
+      "status": "completed",
+      "phase": "completed",
+      "plan_id": "6fefb740512f4625a7efe79c2de0c26a",
+      "child_run_id": "41f7dbf349354031a8f1d5edc758a117",
+      "error_code": null,
+      "error_message": null,
+      "reconciliation_ok": true,
+      "apply_counts": {
+        "succeeded": 10222
+      },
+      "reconciliation_counts": {
+        "matched": 10222
+      }
+    },
+    {
+      "service_id": "dte-history",
+      "status": "blocked",
+      "phase": "dependency-gate",
+      "plan_id": null,
+      "child_run_id": null,
+      "error_code": "upstream-dependency-failed",
+      "error_message": "Blocked by unsuccessful dependencies: loans",
+      "reconciliation_ok": null,
+      "apply_counts": null,
+      "reconciliation_counts": null
+    },
+    {
+      "service_id": "mobile-collections",
+      "status": "blocked",
+      "phase": "dependency-gate",
+      "plan_id": null,
+      "child_run_id": null,
+      "error_code": "upstream-dependency-failed",
+      "error_message": "Blocked by unsuccessful dependencies: loans",
+      "reconciliation_ok": null,
+      "apply_counts": null,
+      "reconciliation_counts": null
+    },
+    {
+      "service_id": "accounting-journal-entries",
+      "status": "blocked",
+      "phase": "dependency-gate",
+      "plan_id": null,
+      "child_run_id": null,
+      "error_code": "upstream-dependency-failed",
+      "error_message": "Blocked by unsuccessful dependencies: loans, mobile-collections",
+      "reconciliation_ok": null,
+      "apply_counts": null,
+      "reconciliation_counts": null
+    },
+    {
+      "service_id": "native-share-yield",
+      "status": "blocked",
+      "phase": "dependency-gate",
+      "plan_id": null,
+      "child_run_id": null,
+      "error_code": "upstream-dependency-failed",
+      "error_message": "Blocked by unsuccessful dependencies: accounting-journal-entries",
+      "reconciliation_ok": null,
+      "apply_counts": null,
+      "reconciliation_counts": null
+    },
+    {
+      "service_id": "cheque-history",
+      "status": "blocked",
+      "phase": "dependency-gate",
+      "plan_id": null,
+      "child_run_id": null,
+      "error_code": "upstream-dependency-failed",
+      "error_message": "Blocked by unsuccessful dependencies: accounting-journal-entries",
+      "reconciliation_ok": null,
+      "apply_counts": null,
+      "reconciliation_counts": null
+    }
+  ],
+  "test_count_passed": 372,
+  "implementation_commit": "9d021d4efd",
+  "guarded_backend_compile_and_startup_succeeded": true,
+  "loan_run_status": "completed-with-errors",
+  "loan_summary": {
+    "collateral_products_succeeded": 1,
+    "final_corrections_deferred": 2276,
+    "loans_blocked": 17,
+    "loans_failed": 1,
+    "loans_quarantined": 476,
+    "loans_recovered": 9,
+    "loans_succeeded": 2249,
+    "succeeded": 2
+  },
+  "loan_entity_outcomes": {
+    "succeeded": 2249,
+    "quarantined": 476,
+    "failed": 1,
+    "blocked": 17,
+    "recovered": 9
+  },
+  "loan_reconciliation_record_exists": false,
+  "eligible_post_boundary_events": 0,
+  "planned_quarantine_reason_counts": {
+    "missing_final_metric_source_snapshot": 31,
+    "refinance_chain_quarantined": 497,
+    "mora_schedule_balance_mismatch": 6,
+    "historical_source_freeze_terminal_unsupported": 39,
+    "reviewed_voided_refinance_attempt_omitted": 22,
+    "source_events_after_fineract_accounting_boundary": 91,
+    "reviewed_source_error": 1,
+    "source_exact_remaining_schedule_signature_mismatch": 5,
+    "source_mora_cutover_snapshot_missing": 3
+  },
+  "scheduler": {
+    "active": false
+  },
+  "accounting_cutoff": {
+    "cutoffDate": "2026-10-27",
+    "timezoneId": "America/El_Salvador",
+    "lifecycleState": "ACTIVE",
+    "configurationRevision": 2,
+    "configurationHash": "c52b21a5f2ca8bacf22d14ff4acc5fcba1d811ee862ec7687ac034a455db7338",
+    "activatedAt": "2026-10-27T18:57:53.115938-06:00",
+    "activatedBy": 1
+  },
+  "verified_database": "fineract_sandbox",
+  "native_product_flags": [
+    {
+      "enabled": false,
+      "count": 2
+    }
+  ],
+  "native_loan_flags": [
+    {
+      "enabled": false,
+      "count": 2268
+    }
+  ],
+  "native_refinance_settlement_count": 1220,
+  "interim_refinance_credit_count": 0,
+  "terminal_correction_count": 0,
+  "final_metric_alignment_count": 0,
+  "post_boundary_source_movement_count": 0,
+  "native_due_exceeds_outstanding": {
+    "count": 31,
+    "all_source_ids": [
+      "96",
+      "113",
+      "182",
+      "253",
+      "314",
+      "321",
+      "327",
+      "344",
+      "397",
+      "425",
+      "471",
+      "537",
+      "725",
+      "850",
+      "851",
+      "860",
+      "879",
+      "906",
+      "941",
+      "1046",
+      "1072",
+      "1143",
+      "1173",
+      "1289",
+      "1310",
+      "1447",
+      "1483",
+      "1605",
+      "1639",
+      "1855",
+      "2039"
+    ],
+    "representative_api_confirmed_source_id": "96"
+  },
+  "runtime_code_drift": [],
+  "issues": [
+    {
+      "group": "historical-office-transfer-phase-conflict",
+      "recorded_root": "loan:101",
+      "blocked_related_actions": 17,
+      "verified_source_closed_before_transfer": [
+        "115",
+        "363",
+        "688"
+      ],
+      "status": "unresolved; no interim credits or inventory guard relaxation"
+    },
+    {
+      "group": "native-metric-observation-invariant-aborts-reconciliation",
+      "error": "final_metrics_due_exceeds_outstanding",
+      "native_affected_count": 31,
+      "api_confirmed_source_id": "96",
+      "status": "unresolved; no complete official loan reconciliation record"
+    }
+  ]
+}
