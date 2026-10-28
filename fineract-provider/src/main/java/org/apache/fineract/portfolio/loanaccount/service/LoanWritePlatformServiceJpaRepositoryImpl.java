@@ -2362,7 +2362,13 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             }
             hasLegacyCrossClientEvidence |= optionalBoolean(row, LoanApiConstants.legacyCrossClientSettlement);
         }
-        if (hasLegacyCrossClientEvidence) {
+        final boolean historicalOff = !loan.getLoanProductRelatedDetail().isInterestRecalculationEnabled()
+                && !loan.getExternalId().isEmpty() && isSourceExactScheduleExternalId(loan.getExternalId().getValue());
+        if (hasLegacyCrossClientEvidence || historicalOff) {
+            if (predecessorIds.isEmpty() || Set.copyOf(predecessorIds).size() != predecessorIds.size()) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.refinancing.predecessors.invalid",
+                        "Historical refinancing requires distinct full-close predecessors");
+            }
             loan.setIsTopup(true);
             loan.setTopupLoanDetails(new LoanTopupDetails(loan, predecessorIds));
         }

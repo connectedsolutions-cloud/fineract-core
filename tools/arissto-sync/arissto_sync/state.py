@@ -388,6 +388,15 @@ class State:
             sql += " AND status='failed'"
         return [dict(row) for row in self.conn.execute(sql, (run_id,))]
 
+    def latest_plan_run_items(self, plan_id: str) -> list[dict[str, Any]]:
+        """Latest actual result per key; a failed final phase overrides replay success."""
+        rows = self.conn.execute(
+            "SELECT i.* FROM runs r JOIN items i ON i.run_id=r.id "
+            "WHERE r.plan_id=? ORDER BY r.started_at,i.rowid", (plan_id,),
+        )
+        latest = {row["source_key"]: dict(row) for row in rows}
+        return list(latest.values())
+
     def plan_run_items(self, plan_id: str) -> list[dict[str, Any]]:
         """Return durable progress per source key across a frozen plan's retry chain.
 

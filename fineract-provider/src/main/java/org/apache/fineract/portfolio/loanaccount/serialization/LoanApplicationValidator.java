@@ -2004,16 +2004,16 @@ public final class LoanApplicationValidator {
     }
 
     public Map<Long, BigDecimal> validateRefinancingLoans(final Loan loan, final LocalDate disbursementDate) {
-        return validateRefinancingLoans(loan, disbursementDate, Set.of());
+        return validateRefinancingLoans(loan, disbursementDate, Set.of(), false);
     }
 
     public Map<Long, BigDecimal> validateSourceExactRefinancingLoans(final Loan loan, final LocalDate disbursementDate,
             final Set<Long> legacyCrossClientPredecessorIds) {
-        return validateRefinancingLoans(loan, disbursementDate, legacyCrossClientPredecessorIds);
+        return validateRefinancingLoans(loan, disbursementDate, legacyCrossClientPredecessorIds, true);
     }
 
     private Map<Long, BigDecimal> validateRefinancingLoans(final Loan loan, final LocalDate disbursementDate,
-            final Set<Long> legacyCrossClientPredecessorIds) {
+            final Set<Long> legacyCrossClientPredecessorIds, final boolean sourceExact) {
         final Map<Long, BigDecimal> settlements = new LinkedHashMap<>();
         for (Long loanIdToClose : loan.getTopupLoanDetails().getLoanIdsToClose()) {
             if (loan.getId() != null && loan.getId().equals(loanIdToClose)) {
@@ -2045,7 +2045,11 @@ public final class LoanApplicationValidator {
                                 + " should be after last transaction date of loan to be closed " + lastUserTransactionOnLoanToClose);
             }
 
-            final BigDecimal loanOutstanding = loanReadPlatformService
+            // The guarded source-exact disbursement validates and transfers the
+            // recorded allocation. Ordinary prepayment includes future schedule
+            // interest when recalculation is off and is not a historical payoff.
+            final BigDecimal loanOutstanding = sourceExact && !loan.getLoanProductRelatedDetail().isInterestRecalculationEnabled()
+                    ? BigDecimal.ZERO : loanReadPlatformService
                     .retrieveLoanPrePaymentTemplate(LoanTransactionType.REPAYMENT, loanIdToClose, disbursementDate).getAmount();
             settlements.put(loanIdToClose, loanOutstanding);
         }

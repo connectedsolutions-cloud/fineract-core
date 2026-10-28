@@ -38,15 +38,9 @@ DEFAULT_LOAN_WORKERS = 2
 DEFAULT_FINERACT_PAUSE_SECONDS = 30.0
 DEFAULT_FINERACT_RECOVERY_ATTEMPTS = 3
 MAX_LOAN_WORKERS = 4
-NATIVE_INTEREST_RECALCULATION = {
-    "isInterestRecalculationEnabled": True,
-    "interestRecalculationCompoundingMethod": 0,
-    "rescheduleStrategyMethod": 1,
-    "recalculationRestFrequencyType": 2,
-    "recalculationRestFrequencyInterval": 1,
-    "preClosureInterestCalculationStrategy": 1,
-    "isArrearsBasedOnOriginalSchedule": True,
-}
+HISTORICAL_REPLAY_POLICY = "source-exact-off-v1"
+NATIVE_INTEREST_RECALCULATION = {"isInterestRecalculationEnabled": False}
+
 TRANSIENT_FINERACT_STATUSES = {429, 500, 502, 503, 504}
 CLOSED_REFINANCE_HISTORICAL_SCHEDULE_LOANS = (
     281, 283, 284, 285, 286, 315, 331, 632, 634, 635,
@@ -330,7 +324,7 @@ class LoanContract:
             raise ValueError("Collateral undercoverage policy must be reviewed")
         product_contract = value["product_contract"]
         if product_contract.get("interest_recalculation") != NATIVE_INTEREST_RECALCULATION:
-            raise ValueError("Loans require daily interest recalculation without compounding")
+            raise ValueError("Historical loans require interest recalculation disabled")
         if product_contract.get("target_baseline") != "empty-business-data":
             raise ValueError("Loans product planning must assume an empty business-data target")
         if product_contract.get("product_ownership") != "loans-service-creates-native-products":
@@ -879,7 +873,7 @@ def loan_product_contract_view(value: dict[str, Any], *, planned: bool) -> dict[
     for name in enum_fields:
         view[name] = _enum_id(value.get(name))
     view["transactionProcessingStrategyCode"] = value.get("transactionProcessingStrategyCode")
-    view["isInterestRecalculationEnabled"] = bool(value.get("isInterestRecalculationEnabled", False))
+    view["isInterestRecalculationEnabled"] = value.get("isInterestRecalculationEnabled")
     if view["isInterestRecalculationEnabled"]:
         recalculation = value if planned else (value.get("interestRecalculationData") or {})
         for request_name, response_name in (
@@ -3051,28 +3045,15 @@ def _build_loan_lifecycle_action(
     terminal_adjustment = None
     payoff_candidates = [
         event for event in events
-        if event["role"] in {"repayment", "adjusted-repayment", "mobile-collection-repayment"}
-        and not event["source_reversed"]
+        if event["role"] in {"repayment", "adjusted-repayment", "mobile-collection-repayment", "native-refinance-payoff"}
+        and not event.get("source_reversed")
     ]
-    # An outgoing refinance may be a partial paydown. If Arissto records a later
-    # repayment and now reports the predecessor closed, that later close still
-    # needs the same bounded source-exact terminal bridge as an ordinary loan.
-    # Do not backdate a bridge ahead of the refinance settlement itself.
-    last_refinance_payoff_index = max(
-        (index for index, event in enumerate(events)
-         if event["role"] == "native-refinance-payoff"),
-        default=None,
-    )
-    terminal_repayment_after_refinance = (
-        bool(payoff_candidates)
-        and last_refinance_payoff_index is not None
-        and events.index(payoff_candidates[-1]) > last_refinance_payoff_index
-    )
+    # Freeze a bounded end-phase correction for every source-closed loan,
+    # including full/partial refinance predecessors. It is never posted here.
     if (
         _clean(loan.get("source_state")) == "3"
         and _amount(loan.get("SALDO_TOTAL")) == 0
         and (not has_disbursement_reversal or has_effective_disbursement)
-        and (not refinance_outgoing or terminal_repayment_after_refinance)
     ):
         if payoff_candidates:
             payoff = payoff_candidates[-1]
@@ -4183,7 +4164,7 @@ def _build_loan_lifecycle_action(
         "schedule": effective_schedule,
         "source_schedule_provenance": source_schedule_provenance,
         "same_day_terminal_aggregation": same_day_terminal_aggregation,
-        "interest_recalculation_policy": "daily-native-v1",
+        "interest_recalculation_policy": HISTORICAL_REPLAY_POLICY,
         "schedule_reconciliation_policy": (
             "reviewed-manual-adjustment" if reviewed_schedule_exception
             else "historical-reference-only" if reviewed_reference_only_schedule
@@ -4253,8 +4234,18 @@ def _build_loan_lifecycle_action(
             "pair_count", "repayment_pair_count", "disbursement_pair_count", "issues"
         )},
     }
+    if lifecycle.get("refinance"):
+        for settlement in _refinance_settlements(lifecycle["refinance"]):
+            settlement["historical_replay_policy"] = HISTORICAL_REPLAY_POLICY
     from .loan_metric_alignment import freeze as freeze_final_metrics
     lifecycle["final_metric_alignment"] = freeze_final_metrics(loan, lifecycle["expected"], target["resources"], migration_cutover_date, events)
+    if lifecycle.get("refinance"):
+        application_payload.pop("isTopup", None)
+        application_payload.pop("loanIdToClose", None)
+        application_payload.pop("loanIdsToClose", None)
+        application_payload.pop("sourceExactRefinancingQuoteDate", None)
+        lifecycle["approval_payload"].pop("sourceExactRefinancingQuoteDate", None)
+        lifecycle["refinance_application_policy"] = "guarded-disbursement-settlements-v1"
     if refinance_quote_date_policy is not None and application_payload.get("isTopup"):
         application_payload["sourceExactRefinancingQuoteDate"] = effective_disbursement_date
         lifecycle["approval_payload"]["sourceExactRefinancingQuoteDate"] = effective_disbursement_date
@@ -4527,16 +4518,8 @@ def compose_loan_plan(
                     and sorted(int(row["id"]) for row in payload["charges"]) == sorted([insurance_id, mora_id])
                 )
                 permitted_mora_fields = {"charges", "penaltyToIncomeAccountMappings"} if mora_charge_backfill else set()
-                # The approved creation policy enables recalculation. Enabling a
-                # previously disabled product changes defaults for new loans;
-                # existing loan contracts remain separately persisted.
-                recalculation_enablement = (
-                    not actual_view["isInterestRecalculationEnabled"]
-                    and payload["isInterestRecalculationEnabled"]
-                    and (actual_view["charges"] == sorted(int(row["id"]) for row in payload["charges"])
-                         or mora_charge_backfill)
-                )
-                permitted_recalculation_fields = set(NATIVE_INTEREST_RECALCULATION) if recalculation_enablement else set()
+                # Historical replay never converts existing recalculation-enabled products.
+                permitted_recalculation_fields: set[str] = set()
                 if (fields.issubset(migration_enablement_fields | {"numberingCode", "name"}
                                     | missing_term_roles | permitted_mora_fields | permitted_recalculation_fields)
                         and numbering_code_backfill and legacy_name_rename
@@ -4665,7 +4648,8 @@ def compose_loan_plan(
     blockers = sorted(set(readiness_blockers or []) | set(conflicts))
     return {
         "version": 1,
-        "component_alignment_plan_revision": 9,
+        "component_alignment_plan_revision": 10,
+        "historical_replay_policy": HISTORICAL_REPLAY_POLICY,
         "final_metric_alignment_revision": 1,
         "accrual_control_revision": 1,
         "source_observed_at": datetime.now(timezone.utc).isoformat(),
@@ -4937,11 +4921,23 @@ def _loan_apply_guard(
     if settings.target.name == "prod" and production_confirmation != settings.target.fingerprint:
         raise RuntimeError(f"Production apply requires --confirm-production {settings.target.fingerprint}")
     document = plan["document"]
-    if (document.get("component_alignment_plan_revision") != 9
+    if (document.get("component_alignment_plan_revision") != 10
+            or document.get("historical_replay_policy") != HISTORICAL_REPLAY_POLICY
             or document.get("final_metric_alignment_revision") != 1
             or document.get("accrual_control_revision") != 1
             or not document.get("source_observed_at")):
         raise RuntimeError("loan_plan_predates_dated_component_and_event_guards")
+    for action in document.get("actions", []):
+        if action.get("entity_type") == "product" and action.get("payload", {}).get("isInterestRecalculationEnabled") is not False:
+            raise RuntimeError("loan_plan_product_recalculation_not_off")
+        if action.get("entity_type") == "loan" and action.get("action") != "quarantine-loan":
+            lifecycle = action.get("lifecycle") or {}
+            if lifecycle.get("interest_recalculation_policy") != HISTORICAL_REPLAY_POLICY:
+                raise RuntimeError("loan_plan_historical_policy_not_off")
+            if lifecycle.get("refinance") and any(
+                    settlement.get("historical_replay_policy") != HISTORICAL_REPLAY_POLICY
+                    for settlement in _refinance_settlements(lifecycle["refinance"])):
+                raise RuntimeError("loan_plan_refinance_policy_not_off")
     if "client_office_transfers" not in document:
         raise RuntimeError("loan_plan_predates_client_office_transfer_chronology")
     retention = document.get("carry_forward_retention")
@@ -5312,9 +5308,7 @@ def _resolve_or_create_loan_product(
             capability_payload["penaltyToIncomeAccountMappings"] = action["payload"]["penaltyToIncomeAccountMappings"]
             capability_payload["currencyCode"] = action["payload"]["currencyCode"]
         if action.get("recalculation_enablement"):
-            if current_mapping_view["isInterestRecalculationEnabled"]:
-                raise RuntimeError("loan_product_recalculation_changed_after_plan")
-            capability_payload.update(NATIVE_INTEREST_RECALCULATION)
+            raise RuntimeError("historical_replay_cannot_enable_product_recalculation")
         capability_payload["locale"] = action["payload"].get("locale", "en")
         api.request(
             "PUT", f"loanproducts/{int(existing['id'])}", capability_payload,
@@ -6190,7 +6184,7 @@ def _prepare_refinance_predecessor(
         # guarded API refuses to clear a selection used by native journals.
         api.request("POST", f"loans/{loan_id}/source-exact-term-portfolio-account/reset", {})
         predecessor = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
-    if full_close:
+    if full_close and refinance.get("historical_replay_policy") != HISTORICAL_REPLAY_POLICY:
         predecessor = _ensure_refinance_prepayment_ready(api, predecessor, refinance, attempt_key)
     else:
         predecessor = _ensure_refinance_settlement_charges(api, predecessor, refinance, attempt_key)
@@ -6807,6 +6801,9 @@ def _validate_existing_loan(
     if (action["lifecycle"].get("interest_recalculation_policy") == "daily-native-v1"
             and loan.get("isInterestRecalculationEnabled") is not True):
         conflicts.append("interest_recalculation")
+    if (action["lifecycle"].get("interest_recalculation_policy") == HISTORICAL_REPLAY_POLICY
+            and loan.get("isInterestRecalculationEnabled") is not False):
+        conflicts.append("interest_recalculation")
     if int(loan.get("loanProductId") or (loan.get("loanProduct") or {}).get("id") or -1) != int(product_id):
         conflicts.append("product")
     if int(loan.get("clientId") or (loan.get("client") or {}).get("id") or -1) != int(payload["clientId"]):
@@ -7232,7 +7229,7 @@ def _apply_loan_lifecycle(
             ]
             if not closing_predecessors:
                 raise RuntimeError("refinance_without_full_close_settlement")
-            if not any(
+            if lifecycle.get("interest_recalculation_policy") != HISTORICAL_REPLAY_POLICY and not any(
                 settlement.get("legacy_cross_client_evidence")
                 for _, settlement in closing_predecessors
             ):
@@ -7245,10 +7242,10 @@ def _apply_loan_lifecycle(
                 payload.pop("isTopup", None)
                 payload.pop("loanIdsToClose", None)
                 payload.pop("loanIdToClose", None)
-            # The non-posting calculator validates loanIdToClose with the same
-            # refinancing rule as application creation. Prepare every predecessor
-            # before preview so replay-created interest and fees cannot reject
-            # an otherwise source-valid successor amount.
+                payload.pop("sourceExactRefinancingQuoteDate", None)
+            # Prepare dated source charge ownership before preview/disbursement.
+            # The historical-off application carries no operational top-up IDs;
+            # its graph is installed atomically by guarded source-exact disbursement.
             for predecessor, settlement in closing_predecessors:
                 _prepare_refinance_predecessor(
                     api, predecessor, settlement, attempt_key, full_close=True,
@@ -7511,6 +7508,13 @@ def _apply_loan_lifecycle(
                                 f"{predecessor_status}:{residual}"
                             )
                         continue
+                    if lifecycle.get("interest_recalculation_policy") == HISTORICAL_REPLAY_POLICY:
+                        payment = _find_loan_transaction(api, predecessor, settlement["payoff_external_id"])
+                        if payment is None or not _transaction_date_matches(payment, {"date": settlement["payoff_date"]}):
+                            raise RuntimeError("historical_refinance_payment_missing_or_wrong_date")
+                        _verify_transaction_amount(payment, {"external_id": settlement["payoff_external_id"], "amount": settlement["payoff_amount"]})
+                        _verify_repayment_allocation(payment, {"allocation": settlement["payoff_allocation"]})
+                        continue
                     final_bridge = _find_loan_transaction(
                         api, predecessor, settlement["final_adjustment_external_id"]
                     )
@@ -7710,6 +7714,75 @@ def _apply_loan_lifecycle(
     if not finalize:
         return loan_id, recovered
 
+    if lifecycle.get("interest_recalculation_policy") == HISTORICAL_REPLAY_POLICY:
+        _verify_historical_insurance_charge_settlement(loan, lifecycle, cutover_settlement_event_ids, api=api)
+        return loan_id, recovered
+    return _finalize_loan_history(api, loan, action, attempt_key, recovered, defer_term_selection)
+
+
+def _verify_complete_historical_replay(api: FineractApi, action: dict[str, Any]) -> None:
+    lifecycle = action["lifecycle"]
+    loan = _find_loan(api, action["external_id"])
+    if loan is None or loan.get("isInterestRecalculationEnabled") is not False:
+        raise RuntimeError("historical_replay_native_loan_missing_or_recalculation_on")
+    cutoff = lifecycle["migration_cutover_date"]
+    reversals = {e["original_external_id"] for e in lifecycle["events"]
+                 if e["role"] in {"repayment-reversal", "disbursement-reversal"}}
+    refinance = lifecycle.get("refinance")
+    for event in lifecycle["events"]:
+        if event["date"] >= cutoff:
+            raise RuntimeError("historical_replay_event_outside_source_window")
+        if event["role"] in {"repayment-reversal", "disbursement-reversal"}:
+            original = _find_loan_transaction(api, loan, event["original_external_id"])
+            if original is None or not _target_transaction_is_reversed(original):
+                raise RuntimeError("historical_replay_reversal_missing")
+            if event["role"] == "repayment-reversal" and not _target_reversal_date_matches(original, event):
+                raise RuntimeError("historical_replay_reversal_date_mismatch")
+            continue
+        transaction = _find_reconciliation_transaction(api, loan, event)
+        is_refinance = bool(refinance and event["role"] == "disbursement"
+                            and event["external_id"] == refinance["disbursement_external_id"])
+        if transaction is None and not is_refinance:
+            raise RuntimeError("historical_replay_event_missing:" + event["external_id"])
+        represented = _amount((transaction or {}).get("amount"))
+        if transaction is not None:
+            if not _transaction_date_matches(transaction, event):
+                raise RuntimeError("historical_replay_event_date_mismatch:" + event["external_id"])
+            if _target_transaction_is_reversed(transaction) != (event["external_id"] in reversals):
+                raise RuntimeError("historical_replay_event_reversal_mismatch:" + event["external_id"])
+            if event["role"] != "disbursement":
+                _verify_repayment_allocation(transaction, event)
+        if is_refinance:
+            for settlement in _refinance_settlements(refinance):
+                transfer_id = settlement.get("transfer_external_id") or settlement["topup_transfer_external_id"]
+                transfer = _find_loan_transaction(api, loan, transfer_id)
+                if transfer is None or not _transaction_date_matches(transfer, event):
+                    raise RuntimeError("historical_refinance_transfer_missing_or_wrong_date")
+                _verify_transaction_amount(transfer, {"external_id": transfer_id, "amount": settlement["payoff_amount"]})
+                represented += _amount(transfer["amount"])
+                predecessor = _find_loan(api, settlement["predecessor_external_id"])
+                if predecessor is None:
+                    raise RuntimeError("historical_refinance_predecessor_missing")
+                for bridge_id in (settlement["adjustment_external_id"], settlement["final_adjustment_external_id"]):
+                    if _find_loan_transaction(api, predecessor, bridge_id) is not None:
+                        raise RuntimeError("historical_refinance_interim_bridge_present")
+                payment = _find_loan_transaction(api, predecessor, settlement["payoff_external_id"])
+                if payment is None or not _transaction_date_matches(payment, {"date": settlement["payoff_date"]}):
+                    raise RuntimeError("historical_refinance_payoff_missing_or_wrong_date")
+                _verify_repayment_allocation(payment, {"allocation": settlement["payoff_allocation"]})
+                _verify_transaction_amount(payment, {"external_id": settlement["payoff_external_id"], "amount": settlement["payoff_amount"]})
+        if represented != _amount(event["amount"]):
+            raise RuntimeError("historical_replay_event_amount_mismatch:" + event["external_id"])
+
+
+def _finalize_loan_history(
+    api: FineractApi, loan: dict[str, Any], action: dict[str, Any], attempt_key: str | None,
+    recovered: bool = True, defer_term_selection: bool = True,
+) -> tuple[int, bool]:
+    lifecycle = action["lifecycle"]
+    loan_id = int(loan["id"])
+    cutover_charge = lifecycle.get("cutover_insurance_charge")
+    cutover_settlement_event_ids = _full_resync_cutover_insurance_events(loan, action)
     if cutover_charge is not None and not action.get("full_resync_insurance_guard"):
         loan = _ensure_cutover_insurance_charge(api, loan, action, attempt_key)
 
@@ -7779,7 +7852,7 @@ def _apply_loan_lifecycle(
             else:
                 loan = _ensure_source_exact_accrual_catchup(api, loan, action, attempt_key)
                 loan = _ensure_source_exact_freeze_history(api, loan, action, attempt_key)
-            if lifecycle.get("interest_recalculation_policy") != "daily-native-v1":
+            if not lifecycle.get("final_metric_alignment") and lifecycle.get("interest_recalculation_policy") != "daily-native-v1":
                 _assert_active_cutover_components(loan, lifecycle)
     if defer_term_selection:
         loan = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
@@ -8738,18 +8811,54 @@ def apply_loan_plan(
                 unresolved = ",".join(sorted(pending)[:10])
                 raise RuntimeError(f"loan_dependency_graph_cannot_progress:{unresolved}")
 
+    correction_ready = True
+    required_actions = loan_actions
     if document.get("final_metric_alignment_revision") == 1:
+        required_actions = [a for a in document["actions"]
+                            if a.get("entity_type") == "loan" and a["action"] != "quarantine-loan"]
+        replay_results = {row["source_key"]: row for row in state.latest_plan_run_items(plan_id)}
+        replay_results.update({row["source_key"]: row for row in state.run_items(run_id)})
+        successful = {"succeeded", "recovered", "unchanged", "retained", "reconciled"}
+        incomplete = [a["source_key"] for a in required_actions
+                      if replay_results.get(a["source_key"], {}).get("status") not in successful]
+        correction_ready = (not incomplete and not counts["products_failed"] and not counts["collateral_products_failed"]
+                            and not counts["loans_failed"] and not counts["loans_blocked"])
+        if not correction_ready:
+            counts["final_corrections_deferred"] = len(required_actions)
+
+    if correction_ready and document.get("final_metric_alignment_revision") == 1:
         from .loan_metric_alignment import align as align_final_metrics
         final_api = FineractApi(settings.target)
-        for action in loan_actions:
+        for candidate in required_actions:
+            if candidate["action"] == "retained-loan" or candidate["lifecycle"].get("interest_recalculation_policy") != HISTORICAL_REPLAY_POLICY:
+                continue
+            try:
+                _verify_complete_historical_replay(final_api, candidate)
+            except Exception as exc:
+                correction_ready = False
+                key = candidate["source_key"]
+                prior = replay_results.get(key, {})
+                if loan_outcomes.get(key) is True:
+                    counts["loans_" + prior.get("status", "succeeded")] -= 1
+                counts["loans_failed"] += 1
+                state.record_item(run_id, key, candidate["action"], candidate["source_hash"], "failed",
+                                  prior.get("target_id"), "replay_barrier:" + str(exc).splitlines()[0][:3800])
+        if not correction_ready:
+            counts["final_corrections_deferred"] = len(required_actions)
+        for action in required_actions if correction_ready else []:
             key = action["source_key"]
-            if loan_outcomes.get(key) is not True:
+            if action["action"] == "retained-loan":
                 continue
             previous = next((row for row in state.run_items(run_id) if row["source_key"] == key), None)
             try:
                 native = _find_loan(final_api, action["external_id"])
                 if native is None:
                     raise RuntimeError("final_metric_loan_missing")
+                if action["lifecycle"].get("interest_recalculation_policy") == HISTORICAL_REPLAY_POLICY:
+                    if native.get("isInterestRecalculationEnabled") is not False:
+                        raise RuntimeError("final_metric_loan_recalculation_not_off")
+                    _finalize_loan_history(final_api, native, action, run_id)
+                    native = _find_loan(final_api, action["external_id"])
                 controls = action["lifecycle"].get("accrual_controls")
                 if controls:
                     native = _ensure_source_exact_freeze_history(final_api, native, action, run_id)
@@ -8767,7 +8876,7 @@ def apply_loan_plan(
                 state.record_item(run_id, key, action["action"], action["source_hash"], "failed",
                     previous.get("target_id") if previous else None, "final_metrics:" + str(exc).splitlines()[0][:3900])
 
-    run_status = "completed-with-errors" if counts["collateral_products_failed"] or counts["products_failed"] or counts["loans_failed"] else (
+    run_status = "completed-with-errors" if counts["collateral_products_failed"] or counts["products_failed"] or counts["loans_failed"] or counts["loans_blocked"] or not correction_ready else (
         "completed-with-quarantine" if counts["loans_quarantined"] else "completed"
     )
     state.finish_run(run_id, run_status, dict(counts))
@@ -8795,6 +8904,9 @@ def reconcile_loans(
     adjustments: list[dict[str, Any]] = []
     counts: Counter[str] = Counter()
     failed_or_quarantined = []
+    if run.get("summary", {}).get("final_corrections_deferred"):
+        mismatches.append({"kind": "complete_replay_barrier_not_passed",
+                           "required_loans": run["summary"]["final_corrections_deferred"]})
     expected_asset_external_ids = sorted({
         collateral["asset_external_id"]
         for action in actions.values()
@@ -8989,6 +9101,9 @@ def reconcile_loans(
                 })
             else:
                 counts["legacy_timelines"] += 1
+        if (lifecycle.get("interest_recalculation_policy") == HISTORICAL_REPLAY_POLICY
+                and loan.get("isInterestRecalculationEnabled") is not False):
+            mismatches.append({"source_key": item["source_key"], "kind": "interest_recalculation_not_off"})
         expected = lifecycle["expected"]
         terminal_disbursement_reversal = bool(lifecycle["events"]) and (
             lifecycle["events"][-1]["role"] == "disbursement-reversal"

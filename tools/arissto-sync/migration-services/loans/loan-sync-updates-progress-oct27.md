@@ -2,6 +2,19 @@
 
 ## Current direction — address the shared replay design
 
+**Implementation for the requested clean run:** historical policy `source-exact-off-v1`
+is frozen in revision 10 plans. Both native flags must read back false; old plans
+and enabled native contracts fail closed. Guarded source-exact disbursement now
+initializes staged historical refinance relationships and uses recorded source
+allocations without ordinary future-interest quote substitution or either interim
+credit bridge. Final corrective writes wait for every eligible frozen-plan
+history and a complete native event read pass. A failed, blocked or missing chain
+prevents corrections even on successful siblings or a scoped retry. Focused
+Python checks: **267 passed**. Full native/workflow acceptance remains pending.
+The operator has authorized the guarded fresh/clean 18-service run to discover
+remaining errors; no partial acceptance or post-migration activation is implied.
+
+
 **Execution request, October 27:** the [readiness assessment](recalculation-off-execution-readiness-oct27.md)
 stopped before reset/planning at the handoff's unsupported historical refinance
 gate. Native creation/approval/disbursement still validate ordinary prepayment

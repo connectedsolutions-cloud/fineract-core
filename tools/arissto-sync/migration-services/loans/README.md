@@ -59,13 +59,19 @@ chain reconciliation, then explicit corrections at the end of the complete loan
 service. Future recalculation activation must preserve the accepted history and
 start from the Fineract-owned boundary.
 
-This direction is **pending implementation**. Current code still enables daily
-recalculation, can insert pre-refinance bridges/per-loan terminal corrections,
-and runs its final-metric loop for successful outcomes even when other chains
-failed. Its final loop is not yet the global success barrier required by this
-review. Product/loan settings and the existing sandbox were not changed. Further
-experiments and baseline construction were stopped at the operator's request;
-no complete new lifecycle baseline is claimed.
+The historical-off implementation now freezes `source-exact-off-v1` in revision
+10 loan plans and rejects old on-mode plans. Product and loan readback must be
+explicitly false. Refinance successors are staged without ordinary top-up quote
+validation; guarded source-exact disbursement installs the predecessor graph and
+uses the recorded allocation for transfers and net cash. Historical replay uses
+neither prepayment nor residual goodwill bridges. Final corrective insurance,
+terminal adjustments and metric alignment wait for all eligible frozen-plan
+histories, followed by a complete native event readback pass. Failed, blocked or
+missing histories stop corrections across the plan, including scoped retries.
+
+Focused Python checks pass; complete native/workflow acceptance is pending the
+requested fresh/clean run. Existing source-boundary quarantines and strict final
+reconciliation remain. Post-migration activation stays outside this run.
 
 ## Stable identity
 
@@ -630,14 +636,13 @@ advance.
 
 ### Recalculation default for the next cycle
 
-All newly created sync products and their loans enable daily interest
-recalculation without compounding, including loans created for historical
-repayment replay. Insurance remains enabled. The [activation contract](interest-recalculation-default.md)
-defines the settings, compatibility checks, retry behavior and evidence.
-The 2026-10-26 user decision separates this feature from future metric alignment:
-exact Arissto/Fineract interest or derived-schedule parity is not an activation gate.
-The old blanket active-loan alignment quarantine is removed. No cycle was launched
-as part of this change; create a new reviewed plan for the next cycle.
+New historical migration products and loans have interest recalculation **off**.
+Insurance and source interest terms remain enabled. Incompatible enabled products
+or loans conflict rather than being toggled in place. The October 26 enable-only
+policy is superseded for historical migration; its
+[activation record](interest-recalculation-default.md) remains historical evidence.
+See the [handoff](recalculation-off-full-sync-handoff-plan.md) and
+[design decision](historical-replay-design-decision-oct27.md) for the run boundary.
 
 ### Historical ordinary-interest recalculation experiment
 

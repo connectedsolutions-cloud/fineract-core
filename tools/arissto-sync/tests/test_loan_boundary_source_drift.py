@@ -24,7 +24,7 @@ class LoanBoundarySourceDriftTests(unittest.TestCase):
         self.history = {'movements': [self.movement('prior', '2026-10-26')],
                         'refinance_incoming': [{'old_credit_id': 553, 'new_credit_id': 921}],
                         'charge_details': []}
-        self.lifecycle = {'refinance': {'settlement_classifier': 'historical-post-payoff-state-v2'},
+        self.lifecycle = {'interest_recalculation_policy': 'source-exact-off-v1', 'refinance': {'historical_replay_policy': 'source-exact-off-v1', 'settlement_classifier': 'historical-post-payoff-state-v2'},
                           'events': [{'external_id': 'prior', 'date': '2026-10-26', 'role': 'repayment'}],
                           'migration_cutover_date': '2026-10-27', 'expected': {'source_state': '1'},
                           'final_metric_alignment': {'revision': 1}}
@@ -37,7 +37,7 @@ class LoanBoundarySourceDriftTests(unittest.TestCase):
         self.state = MagicMock()
         self.plan = {'block': 'loans', 'target_fingerprint': 'sandbox', 'source_fingerprint': 'source',
                      'contract_hash': self.contract.digest, 'document': {
-                         'component_alignment_plan_revision': 9, 'final_metric_alignment_revision': 1,
+                         'component_alignment_plan_revision': 10, 'historical_replay_policy': 'source-exact-off-v1', 'final_metric_alignment_revision': 1,
                          'accrual_control_revision': 1, 'source_observed_at': '2026-10-27T17:33:57Z',
                          'applicable': True, 'product_writer_registered': True, 'loan_writer_registered': True,
                          'collateral_writer_registered': True, 'schema_signature': 's',

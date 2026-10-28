@@ -957,14 +957,15 @@ class LoanInspectionTests(unittest.TestCase):
             "interestCalculationPeriodType", "accountingRule", "daysInMonthType", "daysInYearType",
         ):
             response[field] = {"id": payload[field]}
-        response["interestRecalculationData"] = {
-            "interestRecalculationCompoundingType": {"id": payload["interestRecalculationCompoundingMethod"]},
-            "rescheduleStrategyType": {"id": payload["rescheduleStrategyMethod"]},
-            "recalculationRestFrequencyType": {"id": payload["recalculationRestFrequencyType"]},
-            "recalculationRestFrequencyInterval": payload["recalculationRestFrequencyInterval"],
-            "preClosureInterestCalculationStrategy": {"id": payload["preClosureInterestCalculationStrategy"]},
-            "isArrearsBasedOnOriginalSchedule": payload["isArrearsBasedOnOriginalSchedule"],
-        }
+        if payload["isInterestRecalculationEnabled"]:
+            response["interestRecalculationData"] = {
+                "interestRecalculationCompoundingType": {"id": payload["interestRecalculationCompoundingMethod"]},
+                "rescheduleStrategyType": {"id": payload["rescheduleStrategyMethod"]},
+                "recalculationRestFrequencyType": {"id": payload["recalculationRestFrequencyType"]},
+                "recalculationRestFrequencyInterval": payload["recalculationRestFrequencyInterval"],
+                "preClosureInterestCalculationStrategy": {"id": payload["preClosureInterestCalculationStrategy"]},
+                "isArrearsBasedOnOriginalSchedule": payload["isArrearsBasedOnOriginalSchedule"],
+            }
         response["loanScheduleType"] = {"code": payload["loanScheduleType"]}
         response["loanScheduleProcessingType"] = {"code": payload["loanScheduleProcessingType"]}
         response["accountingMappings"] = {
@@ -2724,7 +2725,7 @@ class LoanInspectionTests(unittest.TestCase):
             )
         self.assertEqual(action["source_hash"], canonical_plan["actions"][1]["source_hash"])
         self.assertEqual(canonical_plan["actions"][1]["action"], "recover-loan")
-        self.assertEqual(canonical_plan["actions"][1]["lifecycle"]["interest_recalculation_policy"], "daily-native-v1")
+        self.assertEqual(canonical_plan["actions"][1]["lifecycle"]["interest_recalculation_policy"], "source-exact-off-v1")
 
     def test_proof_namespace_covers_reversal_and_refinance_identifiers(self):
         lifecycle = {
@@ -2801,7 +2802,7 @@ class LoanInspectionTests(unittest.TestCase):
         before_later_payment = _build_loan_lifecycle_action(
             self.contract, loan, lifecycle, target, payload,
         )
-        self.assertIsNone(before_later_payment["lifecycle"]["terminal_adjustment"])
+        self.assertEqual(before_later_payment["lifecycle"]["terminal_adjustment"]["date"], "2026-06-21")
 
         lifecycle["movements"].append({
             "ID_CREDITO": 2068, "ID_MOVIMIENTO_CARTERA": "103", "CODIGO_SISTEMA": 14,
@@ -2869,8 +2870,8 @@ class LoanInspectionTests(unittest.TestCase):
                 self.assertEqual(
                     frozen["approval_payload"]["expectedDisbursementDate"], contractual_date,
                 )
-                self.assertEqual(frozen["application_payload"]["sourceExactRefinancingQuoteDate"], payoff_date)
-                self.assertEqual(frozen["approval_payload"]["sourceExactRefinancingQuoteDate"], payoff_date)
+                self.assertNotIn("sourceExactRefinancingQuoteDate", frozen["application_payload"])
+                self.assertNotIn("sourceExactRefinancingQuoteDate", frozen["approval_payload"])
                 self.assertEqual(
                     frozen["native_creation_override"]["expected_contractual_origin_date"],
                     contractual_date,
@@ -2920,8 +2921,8 @@ class LoanInspectionTests(unittest.TestCase):
                                  "2026-10-08")
                 self.assertEqual(frozen["approval_payload"]["expectedDisbursementDate"],
                                  "2026-10-08")
-                self.assertEqual(frozen["application_payload"]["sourceExactRefinancingQuoteDate"], "2026-08-28")
-                self.assertEqual(frozen["approval_payload"]["sourceExactRefinancingQuoteDate"], "2026-08-28")
+                self.assertNotIn("sourceExactRefinancingQuoteDate", frozen["application_payload"])
+                self.assertNotIn("sourceExactRefinancingQuoteDate", frozen["approval_payload"])
                 self.assertEqual(frozen["refinance_quote_date_policy"]["classification"],
                                  "source-proven-refinance-quote-date")
                 lifecycle["refinance_incoming"][0]["later_posted_payment_count"] = 1
@@ -2969,8 +2970,8 @@ class LoanInspectionTests(unittest.TestCase):
                          "2026-06-12")
         self.assertEqual(frozen["approval_payload"]["expectedDisbursementDate"],
                          "2026-06-12")
-        self.assertEqual(frozen["application_payload"]["sourceExactRefinancingQuoteDate"], "2026-06-11")
-        self.assertEqual(frozen["approval_payload"]["sourceExactRefinancingQuoteDate"], "2026-06-11")
+        self.assertNotIn("sourceExactRefinancingQuoteDate", frozen["application_payload"])
+        self.assertNotIn("sourceExactRefinancingQuoteDate", frozen["approval_payload"])
         self.assertEqual(frozen["refinance_quote_date_policy"]["payoff_movement_ids"],
                          ["91", "92"])
         self.assertEqual(frozen["refinance_quote_date_policy"]["payoff_amount_total"],
@@ -3687,6 +3688,8 @@ class LoanInspectionTests(unittest.TestCase):
         lifecycle["application"]["FECHA_APROBADO"] = "2026-07-01"
         lifecycle["application"]["FECHA_RESOLUCION"] = "2026-07-02"
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        # Explicit legacy-policy coverage; current historical replay is tested separately.
+        built["lifecycle"]["interest_recalculation_policy"] = "daily-native-v1"
         built["lifecycle"]["mora_terms"]["fineract_starts_on"] = "2026-06-21"
         action = {"entity_source_key": "2068", "external_id": "ARISSTO:CRD:2068", "lifecycle": built["lifecycle"]}
         pending = {"id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
@@ -3763,6 +3766,8 @@ class LoanInspectionTests(unittest.TestCase):
     def test_full_resync_repayment_preserves_source_fee_charge_and_rebases_cutover(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        # Explicit legacy-policy coverage; current historical replay is tested separately.
+        built["lifecycle"]["interest_recalculation_policy"] = "daily-native-v1"
         repayment = built["lifecycle"]["events"][-1]
         built["lifecycle"]["migration_cutover_date"] = repayment["date"]
         built["lifecycle"]["cutover_insurance_charge"]["amount"] = "0.10"
@@ -3870,6 +3875,8 @@ class LoanInspectionTests(unittest.TestCase):
     def test_lifecycle_writer_skips_accrual_catchup_after_disbursement_reversal(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        # Explicit legacy-policy coverage; current historical replay is tested separately.
+        built["lifecycle"]["interest_recalculation_policy"] = "daily-native-v1"
         disbursement = built["lifecycle"]["events"][0]
         built["lifecycle"].update({
             "events": [
@@ -3923,6 +3930,8 @@ class LoanInspectionTests(unittest.TestCase):
     def test_lifecycle_writer_verifies_hidden_paid_charge_for_existing_repayment(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        # Explicit legacy-policy coverage; current historical replay is tested separately.
+        built["lifecycle"]["interest_recalculation_policy"] = "daily-native-v1"
         built["lifecycle"]["cutover_insurance_charge"] = None
         built["lifecycle"]["recurring_insurance_charge"] = None
         built["lifecycle"]["mora_terms"]["fineract_starts_on"] = "2026-06-21"
@@ -3963,6 +3972,8 @@ class LoanInspectionTests(unittest.TestCase):
     def test_lifecycle_writer_does_not_persist_charges_for_reversed_source_repayment(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        # Explicit legacy-policy coverage; current historical replay is tested separately.
+        built["lifecycle"]["interest_recalculation_policy"] = "daily-native-v1"
         repayment_event = built["lifecycle"]["events"][-1]
         repayment_event["source_reversed"] = True
         built["lifecycle"]["events"] = [repayment_event]
@@ -4003,6 +4014,8 @@ class LoanInspectionTests(unittest.TestCase):
     def test_lifecycle_writer_writes_source_exact_variations_before_approval(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        # Explicit legacy-policy coverage; current historical replay is tested separately.
+        built["lifecycle"]["interest_recalculation_policy"] = "daily-native-v1"
         built["lifecycle"]["cutover_insurance_charge"] = None
         built["lifecycle"]["recurring_insurance_charge"] = None
         built["lifecycle"]["events"] = []
@@ -4099,6 +4112,8 @@ class LoanInspectionTests(unittest.TestCase):
     def test_lifecycle_writer_prepares_refinance_before_source_exact_preview(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        # Explicit legacy-policy coverage; current historical replay is tested separately.
+        built["lifecycle"]["interest_recalculation_policy"] = "daily-native-v1"
         built["lifecycle"]["cutover_insurance_charge"] = None
         built["lifecycle"]["recurring_insurance_charge"] = None
         built["lifecycle"]["events"] = []
@@ -4149,6 +4164,8 @@ class LoanInspectionTests(unittest.TestCase):
     def test_lifecycle_writer_only_closes_full_predecessor_for_mixed_consolidation(self):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        # Explicit legacy-policy coverage; current historical replay is tested separately.
+        built["lifecycle"]["interest_recalculation_policy"] = "daily-native-v1"
         built["lifecycle"]["cutover_insurance_charge"] = None
         built["lifecycle"]["recurring_insurance_charge"] = None
         built["lifecycle"]["events"] = []
@@ -4252,7 +4269,7 @@ class LoanInspectionTests(unittest.TestCase):
         ]
         for label, disposition, planned_reasons, rebuilt_reasons, accepted in cases:
             with self.subTest(label=label):
-                lifecycle = {"refinance": None, "events": []}
+                lifecycle = {"refinance": None, "events": [], "interest_recalculation_policy": "source-exact-off-v1"}
                 if label not in {"frozen missing metrics", "newly missing metrics"}:
                     lifecycle["final_metric_alignment"] = {"revision": 1}
                 source_hash = _stable_hash({
@@ -4269,7 +4286,7 @@ class LoanInspectionTests(unittest.TestCase):
                     "block": "loans", "target_fingerprint": "sandbox",
                     "source_fingerprint": "arissto", "contract_hash": self.contract.digest,
                     "document": {
-                        "component_alignment_plan_revision": 9, "final_metric_alignment_revision": 1, "accrual_control_revision": 1,
+                        "component_alignment_plan_revision": 10, "historical_replay_policy": "source-exact-off-v1", "final_metric_alignment_revision": 1, "accrual_control_revision": 1,
                         "source_observed_at": "2026-10-26T15:00:00Z",
                         "applicable": True, "product_writer_registered": True,
                         "loan_writer_registered": True, "collateral_writer_registered": True,
@@ -4309,7 +4326,7 @@ class LoanInspectionTests(unittest.TestCase):
             "block": "loans", "target_fingerprint": "sandbox", "source_fingerprint": "arissto",
             "contract_hash": self.contract.digest,
             "document": {
-                "component_alignment_plan_revision": 9, "final_metric_alignment_revision": 1, "accrual_control_revision": 1,
+                "component_alignment_plan_revision": 10, "historical_replay_policy": "source-exact-off-v1", "final_metric_alignment_revision": 1, "accrual_control_revision": 1,
                         "source_observed_at": "2026-10-26T15:00:00Z",
                 "applicable": True,
                 "product_writer_registered": True,
@@ -4328,7 +4345,7 @@ class LoanInspectionTests(unittest.TestCase):
         with (
             patch("arissto_sync.loans.source_fingerprint", return_value="arissto"),
             patch("arissto_sync.loans._plan_scope_inspections") as inspect,
-            self.assertRaisesRegex(RuntimeError, "predates the historical refinancing classifier"),
+            self.assertRaisesRegex(RuntimeError, "historical_policy_not_off|predates the historical refinancing classifier"),
         ):
             _loan_apply_guard(settings, state, self.contract, "old-plan", None)
         inspect.assert_not_called()
@@ -4362,6 +4379,8 @@ class LoanInspectionTests(unittest.TestCase):
         })
         lifecycle["movements"][-1].update({"CODIGO_SISTEMA": 4, "ID_TRANSACCION": "00001"})
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        # Explicit legacy-policy coverage; current historical replay is tested separately.
+        built["lifecycle"]["interest_recalculation_policy"] = "daily-native-v1"
         self.assertEqual(built["lifecycle"]["events"][-1]["role"], "repayment")
         self.assertEqual(
             built["lifecycle"]["terminal_adjustment"]["external_id"],
@@ -4592,6 +4611,8 @@ class LoanInspectionTests(unittest.TestCase):
     def test_reconcile_validates_balances_transactions_and_balanced_journal(self, _projection):
         loan, lifecycle, target, payload = self.lifecycle_fixture()
         built = _build_loan_lifecycle_action(self.contract, loan, lifecycle, target, payload)
+        # Explicit legacy-policy coverage; current historical replay is tested separately.
+        built["lifecycle"]["interest_recalculation_policy"] = "daily-native-v1"
         built["lifecycle"]["migration_cutover_date"] = "2026-06-21"
         built["lifecycle"]["expected"]["due_principal_balance"] = "0.00"
         action = {
@@ -5021,37 +5042,19 @@ class LoanInspectionTests(unittest.TestCase):
         self.assertEqual(plan["actions"][0]["action"], "update-product")
         self.assertTrue(plan["actions"][0]["mora_charge_backfill"])
 
-    def test_disabled_product_gets_enable_only_recalculation_plan(self):
+    def test_enabled_product_cannot_be_converted_by_historical_replay(self):
         settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target"), source=SimpleNamespace())
         source_product = self.product("00010", "001", "M-MICROCREDITO MULTIDESTINO")
         resources = self.target_resources()
         payload = build_loan_product_payload(self.contract, source_product, resources)
         existing = self.api_product(payload)
-        existing["isInterestRecalculationEnabled"] = False
-        existing.pop("interestRecalculationData")
+        existing["isInterestRecalculationEnabled"] = True
         target = {"resources": resources, "products": {"00010": existing}, "crosswalks": {}}
         with patch("arissto_sync.loans.source_fingerprint", return_value="source"):
             plan = compose_loan_plan(settings, self.contract, [self.loan(2068, "00010")], [source_product], target)
-        self.assertTrue(plan["applicable"])
-        action = plan["actions"][0]
-        self.assertEqual(action["action"], "update-product")
-        self.assertTrue(action["recalculation_enablement"])
-        updated = self.api_product(payload)
-        api = MagicMock()
-        with patch("arissto_sync.loans._find_loan_product", side_effect=[existing, updated]), patch("arissto_sync.loans.ensure_standard_loan_product_bucket"):
-            _resolve_or_create_loan_product(api, action, existing)
-        request = api.request.call_args.args[2]
-        self.assertTrue(request["isInterestRecalculationEnabled"])
-        self.assertEqual(request["interestRecalculationCompoundingMethod"], 0)
-        # Retry after the product update was accepted must not issue another PUT.
-        api.reset_mock()
-        with patch("arissto_sync.loans._find_loan_product", return_value=updated), patch("arissto_sync.loans.ensure_standard_loan_product_bucket"):
-            _resolve_or_create_loan_product(api, action, existing)
-        api.request.assert_not_called()
-        drifted = copy.deepcopy(existing)
-        drifted["principal"] = "99999"
-        with patch("arissto_sync.loans._find_loan_product", return_value=drifted), self.assertRaisesRegex(RuntimeError, "changed_after_enablement_plan"):
-            _resolve_or_create_loan_product(api, action, existing)
+        self.assertFalse(plan["applicable"])
+        self.assertEqual(plan["actions"][0]["action"], "conflict-product")
+        self.assertFalse(plan["actions"][0]["recalculation_enablement"])
 
     def test_unrelated_product_name_remains_a_conflict(self):
         settings = SimpleNamespace(target=SimpleNamespace(fingerprint="target"), source=SimpleNamespace())
@@ -5275,17 +5278,11 @@ class LoanInspectionTests(unittest.TestCase):
     def test_recalculation_product_drift_is_blocking(self):
         payload = build_loan_product_payload(self.contract,
             self.product("00001", "002", "C-CONSUMO MULTIDESTINOS"), self.target_resources())
-        self.assertTrue(payload["isInterestRecalculationEnabled"])
-        for field, value in (("rescheduleStrategyType", {"id": 2}),
-                             ("recalculationRestFrequencyType", {"id": 3}),
-                             ("interestRecalculationCompoundingType", {"id": 1}),
-                             ("isArrearsBasedOnOriginalSchedule", False)):
+        self.assertIs(payload["isInterestRecalculationEnabled"], False)
+        for flag in (True, None):
             response = self.api_product(payload)
-            response["interestRecalculationData"][field] = value
-            self.assertTrue(loan_product_conflicts(payload, response), field)
-        response = self.api_product(payload)
-        response["isInterestRecalculationEnabled"] = False
-        self.assertTrue(loan_product_conflicts(payload, response))
+            response["isInterestRecalculationEnabled"] = flag
+            self.assertTrue(loan_product_conflicts(payload, response))
 
     def test_cutover_interest_skips_historical_refinance_predecessor(self):
         action = {"external_id": "PROOF:alignment:ARISSTO:CRD:1884",
