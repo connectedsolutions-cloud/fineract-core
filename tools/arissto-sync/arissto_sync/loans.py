@@ -269,6 +269,8 @@ class LoanContract:
         value = json.loads(path.read_text(encoding="utf-8"))
         if value.get("version") != 1:
             raise ValueError("Loans mapping requires version 1")
+        if value.get("source_window_projection_policy") != "dated-source-with-paid-refinance-proof-v2":
+            raise ValueError("Loans mapping requires the dated-source paid-refinance projection policy")
         if value.get("cutover_insurance_balance_policy") != "dated-source-snapshot-v1":
             raise ValueError("Loans mapping requires dated-source cutover insurance balances")
         if value.get("final_metric_alignment_policy") != "source-active-only-v1":
@@ -1864,6 +1866,15 @@ def extract_loan_lifecycle_rows(
                    (SELECT TOP (1) p.ID_ESTADO_CARTERA FROM dbo.CRD_MOVIMIENTO_PRE_POS p
                     WHERE p.ID_CRD_MOVIMIENTO=old.ID_CRD_MOVIMIENTO AND p.PRE_POS='2')
                        AS predecessor_post_payoff_state,
+                   (SELECT COUNT(*) FROM dbo.CRD_MOVIMIENTO_PRE_POS p
+                    WHERE p.ID_CRD_MOVIMIENTO=old.ID_CRD_MOVIMIENTO AND p.PRE_POS='2')
+                       AS predecessor_post_payoff_snapshot_count,
+                   (SELECT TOP (1) p.ID_CRD_MOVIMIENTO_PRE_POS FROM dbo.CRD_MOVIMIENTO_PRE_POS p
+                    WHERE p.ID_CRD_MOVIMIENTO=old.ID_CRD_MOVIMIENTO AND p.PRE_POS='2')
+                       AS predecessor_post_payoff_snapshot_id,
+                   (SELECT TOP (1) p.SALDO_PAGADO_CAPITAL FROM dbo.CRD_MOVIMIENTO_PRE_POS p
+                    WHERE p.ID_CRD_MOVIMIENTO=old.ID_CRD_MOVIMIENTO AND p.PRE_POS='2')
+                       AS predecessor_post_payoff_paid_principal,
                    (SELECT COUNT(*) FROM [dbo].[{source['movement_table']}] later
                     WHERE later.ID_CREDITO=old.ID_CREDITO
                       AND later.FECHA_OPERACION>old.FECHA_OPERACION

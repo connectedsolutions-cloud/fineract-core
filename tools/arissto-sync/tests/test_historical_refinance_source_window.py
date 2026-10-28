@@ -1,6 +1,10 @@
 """Historical top-up evidence must survive projection; later cash must not."""
 import copy
 import unittest
+import json
+import tempfile
+from pathlib import Path
+from arissto_sync.loans import LoanContract
 
 from arissto_sync.loan_source_window import bound_active_loan_histories
 
@@ -73,6 +77,61 @@ class HistoricalRefinanceSourceWindowTests(unittest.TestCase):
         self.assertEqual(window['excluded_movement_ids'], ['later'])
         self.assertEqual(window['refinance_evidence']['predecessor_source_key'], '1')
         self.assertEqual(window['refinance_evidence']['predecessor_snapshot_id'], '501')
+
+    def fully_paid_post_snapshot(self):
+        self.link.update(predecessor_post_payoff_state=1,
+                         predecessor_post_payoff_snapshot_count=1,
+                         predecessor_post_payoff_snapshot_id=700,
+                         predecessor_post_payoff_paid_principal='40')
+
+    def test_post_active_flag_with_exact_fully_paid_snapshot_projects_closed_refinance(self):
+        self.fully_paid_post_snapshot()
+        before = copy.deepcopy(self.link)
+        self.apply()
+        self.assertNotIn('_post_cutover_source_events', self.loan)
+        proof = self.loan['_bounded_source_window']['refinance_evidence']
+        self.assertEqual(proof['post_payoff_snapshot_id'], '700')
+        self.assertTrue(proof['principal_fully_paid_at_payoff'])
+        self.assertEqual(proof['terminal_state_policy'], 'fully-paid-post-snapshot-and-closed-cutover-v1')
+        self.assertEqual([m['ID_MOVIMIENTO_CARTERA'] for m in self.history['movements']], ['disbursement', 'prior'])
+        self.assertEqual(self.link, before)
+
+    def test_prior_projection_contract_cannot_be_reused_as_the_new_plan(self):
+        path = Path(__file__).resolve().parents[1] / 'config/loans.json'
+        raw = json.loads(path.read_text())
+        self.assertEqual(raw['source_window_projection_policy'], 'dated-source-with-paid-refinance-proof-v2')
+        original = LoanContract.load(path).digest
+        for old in [None, 'single-same-owner-historical-topup-v1']:
+            with tempfile.TemporaryDirectory() as directory:
+                changed = copy.deepcopy(raw)
+                changed['source_window_projection_policy'] = old
+                target = Path(directory) / 'loans.json'
+                target.write_text(json.dumps(changed))
+                with self.assertRaisesRegex(ValueError, 'paid-refinance projection'):
+                    LoanContract.load(target)
+                self.assertNotEqual(LoanContract(changed).digest, original)
+
+    def test_post_active_flag_cannot_admit_partial_or_ambiguous_payment(self):
+        for field, value in [('predecessor_post_payoff_snapshot_count', 0),
+                             ('predecessor_post_payoff_snapshot_count', 2),
+                             ('predecessor_post_payoff_snapshot_id', None),
+                             ('predecessor_post_payoff_paid_principal', None),
+                             ('predecessor_post_payoff_paid_principal', '39.99'),
+                             ('predecessor_post_payoff_paid_principal', '40.01')]:
+            with self.subTest(field=field, value=value):
+                self.setUp(); self.fully_paid_post_snapshot(); self.link[field] = value
+                self.assert_rejected_unchanged()
+
+    def test_fully_paid_post_proof_keeps_current_and_cutover_closure_guards(self):
+        changes = [lambda: self.predecessor.update(source_state='1'),
+                   lambda: self.predecessor['_mora_cutover_snapshot'].update(ID_ESTADO_CARTERA=1),
+                   lambda: self.link.update(later_posted_payment_count=1),
+                   lambda: self.link.update(same_owner=0),
+                   lambda: self.link.update(predecessor_current_balance='1')]
+        for change in changes:
+            with self.subTest(change=change):
+                self.setUp(); self.fully_paid_post_snapshot(); change()
+                self.assert_rejected_unchanged()
 
     def test_projection_is_idempotent_and_input_order_independent(self):
         expected_loans, expected_histories = copy.deepcopy((self.loans, self.histories))

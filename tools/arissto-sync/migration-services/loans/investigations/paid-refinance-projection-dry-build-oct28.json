@@ -1,0 +1,343 @@
+{
+  "read_only": true,
+  "source_through_date": "2026-10-26",
+  "fineract_starts": "2026-10-27",
+  "scope": 323,
+  "quarantined_before": 323,
+  "quarantined_after": 136,
+  "newly_admissible": [
+    "loan:18",
+    "loan:583",
+    "loan:705",
+    "loan:910",
+    "loan:937",
+    "loan:947",
+    "loan:1003",
+    "loan:1106",
+    "loan:1157",
+    "loan:1220",
+    "loan:1236",
+    "loan:1396",
+    "loan:1415",
+    "loan:1466",
+    "loan:1469",
+    "loan:1514",
+    "loan:1535",
+    "loan:1537",
+    "loan:1549",
+    "loan:1582",
+    "loan:1696",
+    "loan:1727",
+    "loan:1741",
+    "loan:1745",
+    "loan:1854",
+    "loan:1873",
+    "loan:1928",
+    "loan:1933",
+    "loan:1952",
+    "loan:1973",
+    "loan:1986",
+    "loan:1987",
+    "loan:1988",
+    "loan:2007",
+    "loan:2013",
+    "loan:2015",
+    "loan:2023",
+    "loan:2027",
+    "loan:2052",
+    "loan:2078",
+    "loan:2084",
+    "loan:2086",
+    "loan:2091",
+    "loan:2107",
+    "loan:2112",
+    "loan:2113",
+    "loan:2114",
+    "loan:2115",
+    "loan:2124",
+    "loan:2134",
+    "loan:2139",
+    "loan:2142",
+    "loan:2143",
+    "loan:2148",
+    "loan:2151",
+    "loan:2153",
+    "loan:2163",
+    "loan:2168",
+    "loan:2170",
+    "loan:2172",
+    "loan:2186",
+    "loan:2187",
+    "loan:2193",
+    "loan:2201",
+    "loan:2202",
+    "loan:2203",
+    "loan:2208",
+    "loan:2209",
+    "loan:2213",
+    "loan:2219",
+    "loan:2220",
+    "loan:2229",
+    "loan:2235",
+    "loan:2237",
+    "loan:2239",
+    "loan:2244",
+    "loan:2246",
+    "loan:2250",
+    "loan:2251",
+    "loan:2261",
+    "loan:2269",
+    "loan:2303",
+    "loan:2308",
+    "loan:2310",
+    "loan:2312",
+    "loan:2313",
+    "loan:2316",
+    "loan:2317",
+    "loan:2330",
+    "loan:2344",
+    "loan:2360",
+    "loan:2363",
+    "loan:2364",
+    "loan:2366",
+    "loan:2375",
+    "loan:2376",
+    "loan:2379",
+    "loan:2380",
+    "loan:2386",
+    "loan:2388",
+    "loan:2389",
+    "loan:2397",
+    "loan:2400",
+    "loan:2401",
+    "loan:2407",
+    "loan:2413",
+    "loan:2415",
+    "loan:2418",
+    "loan:2421",
+    "loan:2422",
+    "loan:2434",
+    "loan:2436",
+    "loan:2441",
+    "loan:2448",
+    "loan:2457",
+    "loan:2464",
+    "loan:2468",
+    "loan:2469",
+    "loan:2470",
+    "loan:2476",
+    "loan:2478",
+    "loan:2485",
+    "loan:2489",
+    "loan:2490",
+    "loan:2512",
+    "loan:2514",
+    "loan:2515",
+    "loan:2518",
+    "loan:2525",
+    "loan:2527",
+    "loan:2532",
+    "loan:2534",
+    "loan:2541",
+    "loan:2546",
+    "loan:2553",
+    "loan:2554",
+    "loan:2566",
+    "loan:2567",
+    "loan:2574",
+    "loan:2575",
+    "loan:2578",
+    "loan:2579",
+    "loan:2589",
+    "loan:2590",
+    "loan:2593",
+    "loan:2595",
+    "loan:2600",
+    "loan:2602",
+    "loan:2603",
+    "loan:2614",
+    "loan:2615",
+    "loan:2618",
+    "loan:2622",
+    "loan:2623",
+    "loan:2625",
+    "loan:2630",
+    "loan:2634",
+    "loan:2643",
+    "loan:2644",
+    "loan:2647",
+    "loan:2648",
+    "loan:2651",
+    "loan:2652",
+    "loan:2655",
+    "loan:2656",
+    "loan:2659",
+    "loan:2661",
+    "loan:2669",
+    "loan:2686",
+    "loan:2687",
+    "loan:2688",
+    "loan:2689",
+    "loan:2694",
+    "loan:2707",
+    "loan:2708",
+    "loan:2710",
+    "loan:2713",
+    "loan:2726",
+    "loan:2728",
+    "loan:2738",
+    "loan:2740",
+    "loan:2743",
+    "loan:2744",
+    "loan:2746",
+    "loan:2747",
+    "loan:2755",
+    "loan:2758"
+  ],
+  "still_quarantined": {
+    "loan:1613": [
+      "source_events_after_fineract_accounting_boundary",
+      "missing_final_metric_source_snapshot"
+    ],
+    "loan:1646": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:1670": [
+      "source_events_after_fineract_accounting_boundary",
+      "missing_final_metric_source_snapshot"
+    ],
+    "loan:1820": [
+      "reviewed_voided_refinance_attempt_omitted"
+    ],
+    "loan:1882": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:1890": [
+      "source_events_after_fineract_accounting_boundary",
+      "missing_final_metric_source_snapshot"
+    ],
+    "loan:1937": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2019": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2149": [
+      "reviewed_voided_refinance_attempt_omitted"
+    ],
+    "loan:2155": [
+      "source_events_after_fineract_accounting_boundary",
+      "missing_final_metric_source_snapshot"
+    ],
+    "loan:2158": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2171": [
+      "reviewed_voided_refinance_attempt_omitted"
+    ],
+    "loan:2252": [
+      "source_events_after_fineract_accounting_boundary",
+      "missing_final_metric_source_snapshot"
+    ],
+    "loan:2410": [
+      "source_events_after_fineract_accounting_boundary",
+      "missing_final_metric_source_snapshot"
+    ],
+    "loan:2426": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2435": [
+      "source_events_after_fineract_accounting_boundary",
+      "source_exact_remaining_schedule_signature_mismatch"
+    ],
+    "loan:2495": [
+      "reviewed_voided_refinance_attempt_omitted"
+    ],
+    "loan:2499": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2550": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2556": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2558": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2559": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2561": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2562": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2563": [
+      "source_exact_remaining_schedule_signature_mismatch"
+    ],
+    "loan:2587": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2592": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2604": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2609": [
+      "source_events_after_fineract_accounting_boundary",
+      "missing_final_metric_source_snapshot"
+    ],
+    "loan:2627": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2633": [
+      "source_events_after_fineract_accounting_boundary",
+      "source_exact_remaining_schedule_signature_mismatch"
+    ],
+    "loan:2646": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2654": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2664": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2668": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2679": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2682": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2683": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2692": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2742": [
+      "source_events_after_fineract_accounting_boundary"
+    ],
+    "loan:2761": [
+      "source_events_after_fineract_accounting_boundary",
+      "source_mora_cutover_snapshot_missing",
+      "missing_final_metric_source_snapshot"
+    ],
+    "loan:2762": [
+      "source_events_after_fineract_accounting_boundary",
+      "source_mora_cutover_snapshot_missing",
+      "missing_final_metric_source_snapshot"
+    ],
+    "loan:2763": [
+      "source_events_after_fineract_accounting_boundary",
+      "source_mora_cutover_snapshot_missing",
+      "missing_final_metric_source_snapshot"
+    ]
+  }
+}

@@ -49,7 +49,6 @@ def _historical_refinance_proof(loan: dict, history: dict, loans: dict[int, dict
     if (successor_id != int(loan["ID_CREDITO"]) or predecessor_id == successor_id
             or not payoff_day < cutoff or _text(link.get("same_owner")) != "1"
             or _text(link.get("payoff_reversed")) not in {"", "0"}
-            or _text(link.get("predecessor_post_payoff_state")) != "3"
             or _text(link.get("predecessor_current_state")) != "3"
             or link.get("later_posted_payment_count") != 0
             or link.get("predecessor_current_balance") is None
@@ -73,6 +72,25 @@ def _historical_refinance_proof(loan: dict, history: dict, loans: dict[int, dict
             or snapshot.get("MONTO_DESEMBOLSADO") is None
             or _money(snapshot["MONTO_DESEMBOLSADO"]) <= 0
             or _money(snapshot["SALDO_PAGADO_CAPITAL"]) != _money(snapshot["MONTO_DESEMBOLSADO"])):
+        return None
+
+    # Arissto can capture the POST row before the separate closed-state flag
+    # update. Prove full principal settlement at that exact payoff snapshot;
+    # never confuse a state-1 partial paydown with a fully closed predecessor.
+    post_state = _text(link.get("predecessor_post_payoff_state"))
+    terminal_proof = {}
+    if post_state == "1":
+        paid = link.get("predecessor_post_payoff_paid_principal")
+        if (link.get("predecessor_post_payoff_snapshot_count") != 1
+                or not link.get("predecessor_post_payoff_snapshot_id") or paid is None
+                or _money(paid) != _money(snapshot["MONTO_DESEMBOLSADO"])):
+            return None
+        terminal_proof = {
+            "terminal_state_policy": "fully-paid-post-snapshot-and-closed-cutover-v1",
+            "post_payoff_snapshot_id": str(link["predecessor_post_payoff_snapshot_id"]),
+            "principal_fully_paid_at_payoff": True,
+        }
+    elif post_state != "3":
         return None
 
     current_zero_fields = (
@@ -152,6 +170,7 @@ def _historical_refinance_proof(loan: dict, history: dict, loans: dict[int, dict
         "successor_snapshot_id": str(successor_snapshot["ID_CRD_HISTORICO_DIARIO"]),
         "predecessor_closed_at_source_day": True,
         "predecessor_insurance_policy": insurance_policy,
+        **terminal_proof,
     }
 
 

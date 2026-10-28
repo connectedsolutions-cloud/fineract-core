@@ -1,0 +1,447 @@
+{
+  "source_read_only": true,
+  "proofs": [
+    {
+      "source_key": "loan:1937",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:1986",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2007",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2013",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2134",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2148",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2151",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2153",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2155",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2158",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2201",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2202",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2269",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2360",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2407",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2410",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2527",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2532",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2541",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2553",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2562",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2575",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2590",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2593",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2595",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2603",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2609",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2615",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2618",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2622",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2627",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2630",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2634",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2644",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2646",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2647",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2648",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2651",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2652",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2655",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2661",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2669",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2683",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2686",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2687",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2688",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2689",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2694",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2707",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2708",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2710",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2713",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2726",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2728",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2738",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2740",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2742",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2743",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2744",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2746",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2747",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2755",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    },
+    {
+      "source_key": "loan:2758",
+      "post_row_exists": true,
+      "post_principal_zero": false,
+      "post_paid_principal_equals_disbursed": true,
+      "predecessor_current_closed": true
+    }
+  ],
+  "interpretation": "POST state1 alone does not contradict a full principal payoff; paid principal equals original disbursement in all63 current source comparisons, with closed current and dated predecessors. No process ordering is asserted."
+}
