@@ -99,7 +99,7 @@ class HistoricalRefinanceSourceWindowTests(unittest.TestCase):
     def test_prior_projection_contract_cannot_be_reused_as_the_new_plan(self):
         path = Path(__file__).resolve().parents[1] / 'config/loans.json'
         raw = json.loads(path.read_text())
-        self.assertEqual(raw['source_window_projection_policy'], 'dated-source-real-history-v3')
+        self.assertEqual(raw['source_window_projection_policy'], 'dated-source-real-history-v4')
         original = LoanContract.load(path).digest
         for old in [None, 'single-same-owner-historical-topup-v1']:
             with tempfile.TemporaryDirectory() as directory:

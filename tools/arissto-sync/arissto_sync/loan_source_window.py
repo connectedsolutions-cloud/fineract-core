@@ -3,6 +3,7 @@
 Historical revisions and paired repayment reversals remain in the retained
 history. Unsupported after-boundary changes keep the existing quarantine.
 """
+from copy import deepcopy
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
@@ -59,6 +60,49 @@ def _historically_reversed_payment_ids(movements: list[dict], cutoff: str,
            for pair in pairing["pairs"]):
         return None
     return {pair["original_movement_id"] for pair in pairing["pairs"]}
+
+
+def _dated_cash_projection(movements: list[dict], cutoff: str,
+                           supported: dict[str, str], future_payoffs: set[str] | None = None) -> tuple[list[dict], set[str], list[str]] | None:
+    """Keep repayment status as of S, including originals reversed only after S."""
+    def role(row: dict) -> str:
+        return supported.get(f'{row.get("CODIGO_SISTEMA")}:{_text(row.get("ID_TRANSACCION"))}', "")
+    try:
+        for row in movements:
+            date.fromisoformat(_day(row.get("FECHA_OPERACION")))
+    except (ValueError, TypeError):
+        return None
+    has_reversals = any(_text(row.get("REVERSION")) not in {"", "0"} or "reversal" in role(row)
+                        for row in movements)
+    pairs = []
+    if has_reversals:
+        from .loans import pair_loan_reversals
+        try:
+            pairing = pair_loan_reversals(movements)
+        except (KeyError, TypeError, ValueError):
+            return None
+        if pairing["issue_count"] or pairing["duplicate_original_count"]:
+            return None
+        pairs = pairing["pairs"]
+        if any(pair["kind"] != "repayment" for pair in pairs):
+            return None
+    by_id = {_text(row.get("ID_MOVIMIENTO_CARTERA")): row for row in movements}
+    paired_notes = {pair["reversal_movement_id"] for pair in pairs}
+    later = [row for row in movements if _day(row.get("FECHA_OPERACION")) >= cutoff]
+    if any(role(row) not in {"repayment", "mobile-collection-repayment", "adjusted-repayment"}
+           and not (role(row) == "refinance-payoff-candidate"
+                    and _text(row.get("ID_MOVIMIENTO_CARTERA")) in (future_payoffs or set()))
+           and not (role(row) == "repayment-reversal"
+                    and _text(row.get("ID_MOVIMIENTO_CARTERA")) in paired_notes) for row in later):
+        return None
+    reversed_ids = {pair["original_movement_id"] for pair in pairs
+                    if _day(by_id[pair["reversal_movement_id"]].get("FECHA_OPERACION")) < cutoff}
+    restored_ids = {pair["original_movement_id"] for pair in pairs
+                    if _day(by_id[pair["reversal_movement_id"]].get("FECHA_OPERACION")) >= cutoff
+                    and _day(by_id[pair["original_movement_id"]].get("FECHA_OPERACION")) < cutoff}
+    prior = [{**row, "REVERSION": 0} if _text(row.get("ID_MOVIMIENTO_CARTERA")) in restored_ids else row
+             for row in movements if _day(row.get("FECHA_OPERACION")) < cutoff]
+    return prior, reversed_ids, sorted(restored_ids)
 
 
 def _single_historical_refinance_proof(loan: dict, history: dict, loans: dict[int, dict],
@@ -250,16 +294,127 @@ def _historical_refinance_proof(loan: dict, history: dict, loans: dict[int, dict
             "all_predecessors_closed_at_source_day": True, "payoffs_within_disbursement": True}
 
 
+_ARCHIVED_CONTRACT_FIELDS = (
+    "PLAZO_APROBADO", "INTERES_MONTO_APROBADO", "INTERES_MORA_APROBADO", "DIA_PAGO",
+    "FLAT", "ID_TIPO_PLAN_PAGO", "MONTO_CUOTA_APROBADO", "MONTO_CUOTA_NORMAL_APROBADO",
+    "FECHA_OTORGAMIENTO", "FECHA_VENCIMIENTO", "FECHA_REESTRUCTURACION",
+)
+
+
+def _restore_source_day_schedule(loan: dict, history: dict, cutoff: str) -> tuple[dict, dict] | None:
+    """The first later revision archives the replaced plan, corroborated by dated terms."""
+    counts = loan.get("_post_cutover_source_events") or {}
+    if "revisions" not in counts:
+        return loan, history
+    snapshot = loan.get("_mora_cutover_snapshot") or {}
+    summary = history.get("schedule_adjustment_summary") or {}
+    rows = summary.get("adjustments") or []
+    if int(summary.get("adjustment_count") or 0) != len(rows):
+        return None
+    try:
+        ordered = sorted(rows, key=lambda row: (str(row["DT_CREO"]), int(row["ID_REESTRUCTURACION"])))
+        for row in ordered:
+            date.fromisoformat(_day(row["DT_CREO"]))
+        future = [row for row in ordered if _day(row["DT_CREO"]) >= cutoff
+                  or row.get("FECHA_REESTRUCTURACION") and _day(row["FECHA_REESTRUCTURACION"]) >= cutoff]
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not future or len(future) != counts["revisions"] or _day(future[0]["DT_CREO"]) < cutoff:
+        return None
+    anchor = future[0]
+    if any(field not in snapshot or field not in anchor or snapshot[field] != anchor[field]
+           for field in _ARCHIVED_CONTRACT_FIELDS):
+        return None
+    archive = (summary.get("archived_schedules") or {}).get(str(anchor["ID_REESTRUCTURACION"])) or []
+    try:
+        ordered_archive = sorted(archive, key=lambda row: int(row["NO_CUOTA"]))
+        if (not ordered_archive or [int(row["NO_CUOTA"]) for row in ordered_archive] != list(range(1,len(archive)+1))
+                or any(_money(row.get("MONTO_CAPITAL")) < 0 for row in archive)):
+            return None
+        for row in archive:
+            date.fromisoformat(_day(row["FECHA_PAGO"]))
+    except (KeyError, TypeError, ValueError):
+        return None
+    projected_loan, projected_history = deepcopy(loan), deepcopy(history)
+    for field in _ARCHIVED_CONTRACT_FIELDS + ("FECHA_PRIMER_PAGO", "ID_FRECUENCIA", "MONTO_APROBADO"):
+        if field in loan and field in snapshot:
+            projected_loan[field] = snapshot[field]
+    future_ids = {str(row["ID_REESTRUCTURACION"]) for row in future}
+    retained = [row for row in ordered if str(row["ID_REESTRUCTURACION"]) not in future_ids]
+    projected_history["schedule_adjustment_summary"] = {
+        "adjustment_count": len(retained), "adjustments": retained,
+        "last_adjustment_created_at": retained[-1]["DT_CREO"] if retained else None,
+        "archived_schedules": {key:value for key,value in (summary.get("archived_schedules") or {}).items()
+                               if key not in future_ids},
+    }
+    # Native restructuring is not replayed: this is the historical plan as of S.
+    projected_history["schedule"] = [{**row, "ID_CREDITO": loan["ID_CREDITO"],
+                                       "ID_REESTRUCTURACION": None} for row in ordered_archive]
+    projected_loan["_source_day_schedule_proof"] = {
+        "policy": "first-later-revision-archive-with-dated-contract-v1",
+        "archive_adjustment_id": str(anchor["ID_REESTRUCTURACION"]),
+        "source_snapshot_id": str(snapshot["ID_CRD_HISTORICO_DIARIO"]),
+        "excluded_revision_ids": sorted(future_ids),
+        "dated_contract_fields": list(_ARCHIVED_CONTRACT_FIELDS),
+    }
+    del projected_loan["_post_cutover_source_events"]["revisions"]
+    return projected_loan, projected_history
+
+
+def _exclude_future_refinance_links(lifecycles: dict[int, dict], cutoff: str) -> None:
+    """A verified future payoff/disbursement edge is provenance outside the S graph."""
+    proven = []
+    for old_id, history in lifecycles.items():
+        for link in history.get("refinance_outgoing") or []:
+            try:
+                new_id = int(link["new_credit_id"])
+                if int(link["old_credit_id"]) != old_id:
+                    continue
+                payoff_day = date.fromisoformat(_day(link["payoff_date"])).isoformat()
+                if payoff_day < cutoff:
+                    continue
+            except (KeyError, TypeError, ValueError):
+                continue
+            successor = lifecycles.get(new_id) or {}
+            if link not in (successor.get("refinance_incoming") or []):
+                continue
+            payoffs = [row for row in history.get("movements") or []
+                       if _text(row.get("ID_MOVIMIENTO_CARTERA")) == _text(link.get("payoff_movement_id"))]
+            disbursements = [row for row in successor.get("movements") or []
+                            if _text(row.get("ID_MOVIMIENTO_CARTERA")) == _text(link.get("disbursement_movement_id"))]
+            if (len(payoffs) != 1 or len(disbursements) != 1
+                    or any(_day(row.get("FECHA_OPERACION")) != payoff_day for row in payoffs + disbursements)
+                    or _text(payoffs[0].get("ID_TRANSACCION")) != "00019"
+                    or _text(disbursements[0].get("ID_TRANSACCION")) != "00002"
+                    or any(str(row.get("CODIGO_SISTEMA")) != "4" for row in payoffs + disbursements)):
+                continue
+            proven.append((old_id,new_id,link))
+    for old_id,new_id,link in proven:
+        for key,direction in [(old_id,"refinance_outgoing"),(new_id,"refinance_incoming")]:
+            lifecycles[key][direction].remove(link)
+            lifecycles[key].setdefault("after_boundary_refinance_links",[]).append(link)
+
+
 def bound_active_loan_histories(loans: list[dict], lifecycles: dict[int, dict], cutoff: str,
                                 supported_transactions: dict[str, str]) -> None:
+    _exclude_future_refinance_links(lifecycles, cutoff)
     source_day = (date.fromisoformat(cutoff) - timedelta(days=1)).isoformat()
     loans_by_id = {int(loan["ID_CREDITO"]): loan for loan in loans}
-    for loan in loans:
+    for original_loan in loans:
+        loan = original_loan
+        original_history = lifecycles.get(int(loan["ID_CREDITO"])) or {}
+        restored = _restore_source_day_schedule(loan, original_history, cutoff)
+        if restored is None:
+            continue
+        loan, history = restored
         counts = loan.get("_post_cutover_source_events") or {}
-        history = lifecycles.get(int(loan["ID_CREDITO"])) or {}
         snapshot = loan.get("_mora_cutover_snapshot") or {}
-        if (not counts or set(counts) != {"movements"} or loan.get("_mora_cutover_snapshot_missing")
-                or _text(loan.get("source_state")) != "1" or _text(snapshot.get("ID_ESTADO_CARTERA")) != "1"
+        future_payoffs = {_text(link.get("payoff_movement_id"))
+                          for link in history.get("after_boundary_refinance_links") or []
+                          if int(link["old_credit_id"]) == int(loan["ID_CREDITO"])}
+        if (not (counts or loan.get("_source_day_schedule_proof")) or set(counts) - {"movements"} or loan.get("_mora_cutover_snapshot_missing")
+                or (_text(loan.get("source_state")) != "1" and not (_text(loan.get("source_state")) == "3" and future_payoffs))
+                or _text(snapshot.get("ID_ESTADO_CARTERA")) != "1"
                 or _day(snapshot.get("source_day")) != source_day
                 or not _adjustments_are_historical(history, cutoff)):
             continue
@@ -270,17 +425,14 @@ def bound_active_loan_histories(loans: list[dict], lifecycles: dict[int, dict], 
             continue
         movements = history.get("movements") or []
         later = [row for row in movements if _day(row.get("FECHA_OPERACION")) >= cutoff]
-        prior = [row for row in movements if _day(row.get("FECHA_OPERACION")) < cutoff]
         def role(row: dict) -> str:
             return supported_transactions.get(f'{row.get("CODIGO_SISTEMA")}:{_text(row.get("ID_TRANSACCION"))}', "")
-        payment_roles = {"repayment", "mobile-collection-repayment"}
-        reversed_ids = _historically_reversed_payment_ids(movements, cutoff, supported_transactions)
-        if (not later or len(later) != counts["movements"]
-                or any(role(row) not in payment_roles for row in later)
-                or reversed_ids is None
-                or any(not _day(row.get("FECHA_OPERACION")) for row in movements)):
+        projection = _dated_cash_projection(movements, cutoff, supported_transactions, future_payoffs)
+        if len(later) != counts.get("movements", 0) or projection is None:
             continue
-        payments = [row for row in prior if role(row) in payment_roles | {"adjusted-repayment"}
+        prior, reversed_ids, restored_ids = projection
+        payment_roles = {"repayment", "mobile-collection-repayment", "adjusted-repayment"}
+        payments = [row for row in prior if role(row) in payment_roles
                     and _text(row.get("ID_MOVIMIENTO_CARTERA")) not in reversed_ids]
         # A dated close plus exact paid counters corroborates completeness of
         # retained principal/interest cash history; never just discard a guard.
@@ -291,6 +443,7 @@ def bound_active_loan_histories(loans: list[dict], lifecycles: dict[int, dict], 
         if snapshot.get("MONTO_DESEMBOLSADO") is None:
             continue
         later_ids = {_text(row["ID_MOVIMIENTO_CARTERA"]) for row in later}
+        loan["source_state"] = "1"
         history["movements"] = prior
         history["charge_details"] = [row for row in history.get("charge_details") or []
                                      if _text(row.get("ID_MOVIMIENTO_CARTERA")) not in later_ids]
@@ -303,8 +456,16 @@ def bound_active_loan_histories(loans: list[dict], lifecycles: dict[int, dict], 
             "policy": "active-close-before-later-payments-v1", "source_through_date": source_day,
             "fineract_starts": cutoff, "excluded_movement_count": len(later),
             "excluded_movement_ids": sorted(later_ids), "paid_counters_corroborated": True,
+            "reversals_effective_after_source_day": restored_ids,
         }
         if refinance_proof:
             loan["_bounded_source_window"]["policy"] = "active-historical-refinance-before-later-payments-v1"
             loan["_bounded_source_window"]["refinance_evidence"] = refinance_proof
+        if loan.get("_source_day_schedule_proof"):
+            loan["_bounded_source_window"]["schedule_evidence"] = loan.pop("_source_day_schedule_proof")
         del loan["_post_cutover_source_events"]
+        if loan is not original_loan:
+            original_loan.clear()
+            original_loan.update(loan)
+            original_history.clear()
+            original_history.update(history)

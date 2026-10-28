@@ -439,7 +439,7 @@ class SourceExactRemainingScheduleTests(unittest.TestCase):
         lifecycle["recurring_insurance_charge"] = None
         lifecycle["mora_terms"]["fineract_starts_on"] = "2026-06-21"
         pending = {
-            "id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
+            "id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": False, "clientId": 900, "principal": 350,
             "status": {"id": 100}, "transactions": [],
             "repaymentSchedule": self.fixture.calculated_schedule(lifecycle),
         }
@@ -449,7 +449,7 @@ class SourceExactRemainingScheduleTests(unittest.TestCase):
         api = MagicMock()
         api.calculate_loan_schedule.return_value = self.fixture.calculated_schedule(lifecycle)
         api.request.side_effect = [{"resourceId": 55}, {}, approved, {}, active, active]
-        action = {"external_id": "ARISSTO:CRD:2068", "lifecycle": lifecycle}
+        action = {"external_id": "ARISSTO:CRD:2068", "entity_source_key": "2068", "lifecycle": lifecycle}
         with (
             patch("arissto_sync.loans._find_loan", side_effect=[None, pending]),
             patch("arissto_sync.loans._ensure_source_exact_pending_schedule",
@@ -481,7 +481,7 @@ class SourceExactRemainingScheduleTests(unittest.TestCase):
         lifecycle["application_payload"]["expectedDisbursementDate"] = contractual_date
         lifecycle["approval_payload"]["expectedDisbursementDate"] = contractual_date
         pending = {
-            "id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": True, "clientId": 900, "principal": 350,
+            "id": 55, "loanProductId": 90, "isInterestRecalculationEnabled": False, "clientId": 900, "principal": 350,
             "status": {"id": 100}, "transactions": [],
             "repaymentSchedule": self.fixture.calculated_schedule(lifecycle),
         }
@@ -491,7 +491,7 @@ class SourceExactRemainingScheduleTests(unittest.TestCase):
         api = MagicMock()
         api.calculate_loan_schedule.return_value = self.fixture.calculated_schedule(lifecycle)
         api.request.side_effect = [{"resourceId": 55}, {}, approved, {}, active, active]
-        action = {"external_id": "ARISSTO:CRD:date-drift", "lifecycle": lifecycle}
+        action = {"external_id": "ARISSTO:CRD:date-drift", "entity_source_key": "2068", "lifecycle": lifecycle}
         with (
             patch("arissto_sync.loans._find_loan", side_effect=[None, pending]),
             patch("arissto_sync.loans._ensure_source_exact_pending_schedule", return_value=pending),
@@ -500,3 +500,36 @@ class SourceExactRemainingScheduleTests(unittest.TestCase):
         ):
             self.assertEqual(_apply_loan_lifecycle(api, action, 90, finalize=False), (55, False))
         restore.assert_called_once()
+
+    def test_full_archive_anchor_survives_later_interest_edits(self):
+        with patch(__name__+'._build_loan_lifecycle_action',wraps=_build_loan_lifecycle_action) as build:
+            self.planned(9999,'172.00','118.69','53.31',later=(('2026-09-30','3.37','1.63'),))
+            _,loan,source,target,product=build.call_args.args
+        summary=source['schedule_adjustment_summary']
+        first=summary['adjustments'][0]
+        archive=[dict(row) for row in source['schedule']]
+        archive[0].update(FECHA_PAGO='2026-09-01',MONTO_CAPITAL='54.31')
+        archive[1]['FECHA_PAGO']='2026-09-08'
+        summary['archived_schedules'][str(first['ID_REESTRUCTURACION'])]=archive
+        summary['archived_schedules'][str(summary['adjustments'][-1]['ID_REESTRUCTURACION'])][0]['MONTO_INTERES']='9.00'
+        actual=_build_loan_lifecycle_action(self.fixture.contract,loan,source,target,product)
+        policy=actual['lifecycle']['source_exact_remaining_schedule_policy']
+        self.assertIsNotNone(policy)
+        self.assertEqual(policy['bridge_principal'],'53.31')
+        self.assertEqual(policy['adjustment_proof']['classification'],'source-full-archive-dated-principal-replacement')
+        archive[0]['MONTO_CAPITAL']='53.31'
+        rejected=_build_loan_lifecycle_action(self.fixture.contract,loan,source,target,product)
+        self.assertIn('source_exact_remaining_schedule_signature_mismatch',rejected['quarantine_reasons'])
+
+    def test_identical_financial_bridges_keep_all_corroborating_anchors(self):
+        with patch(__name__+'._build_loan_lifecycle_action',wraps=_build_loan_lifecycle_action) as build:
+            self.planned(9999,'172.00','118.69','53.31',later=(('2026-09-30','3.37','1.63'),))
+            _,loan,source,target,product=build.call_args.args
+        summary=source['schedule_adjustment_summary']
+        archive=[dict(row) for row in source['schedule']]
+        archive[0].update(FECHA_PAGO='2026-09-01',MONTO_CAPITAL='54.31')
+        archive[1]['FECHA_PAGO']='2026-09-08'
+        summary['archived_schedules'][str(summary['adjustments'][0]['ID_REESTRUCTURACION'])]=archive
+        actual=_build_loan_lifecycle_action(self.fixture.contract,loan,source,target,product)
+        policy=actual['lifecycle']['source_exact_remaining_schedule_policy']
+        self.assertEqual(policy['adjustment_proof']['corroborating_adjustment_ids'],[1000,1001])

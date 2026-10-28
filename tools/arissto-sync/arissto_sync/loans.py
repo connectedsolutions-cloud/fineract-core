@@ -271,7 +271,7 @@ class LoanContract:
             raise ValueError("Loans mapping requires version 1")
         if value.get("source_freeze_history_policy") != "active-and-repaid-history-v2":
             raise ValueError("Loans mapping requires active and repaid source freeze history")
-        if value.get("source_window_projection_policy") != "dated-source-real-history-v3":
+        if value.get("source_window_projection_policy") != "dated-source-real-history-v4":
             raise ValueError("Loans mapping requires the dated-source paid-refinance projection policy")
         if value.get("cutover_insurance_balance_policy") != "dated-source-snapshot-v1":
             raise ValueError("Loans mapping requires dated-source cutover insurance balances")
@@ -1993,6 +1993,10 @@ def extract_loan_mora_cutover_snapshots(
                        h.CRD_CONGELADO,h.FECHA_CONGELAMIENTO,
                        h.SALDO_INTERES,h.SALDO_PAGADO_CAPITAL,h.SALDO_PAGADO_INTERES,h.SALDO_PAGADO_SEGURO,h.SALDO_PAGADO_OTROS,h.MONTO_DESEMBOLSADO,h.SALDO_RECARGOS,
                        h.SALDO_SEGURO,h.SALDO_TOTAL,h.ID_ESTADO_CARTERA,
+                       h.PLAZO_APROBADO,h.INTERES_MONTO_APROBADO,h.DIA_PAGO,h.FLAT,h.ID_TIPO_PLAN_PAGO,
+                       h.MONTO_CUOTA_APROBADO,h.MONTO_CUOTA_NORMAL_APROBADO,h.FECHA_OTORGAMIENTO,
+                       h.FECHA_VENCIMIENTO,h.FECHA_REESTRUCTURACION,h.FECHA_PRIMER_PAGO,h.ID_FRECUENCIA,
+                       h.MONTO_APROBADO,
                        h.ID_CRD_HISTORICO_DIARIO,CAST(c.FECHA_OPERACION AS date) AS source_day,
                        ROW_NUMBER() OVER (PARTITION BY h.ID_CREDITO ORDER BY c.FECHA_OPERACION DESC,h.ID_CRD_HISTORICO_DIARIO DESC) AS source_rank
                 FROM dbo.CRD_HISTORICO_DIARIO h
@@ -2717,6 +2721,29 @@ def _repeated_schedule_adjustment_candidates(
     return candidates
 
 
+def _repaid_schedule_balance_reference(loan: dict[str, Any], cutoff: str | None) -> dict[str, Any] | None:
+    """A stale historical mora running balance is not a future COB obligation."""
+    snapshot = loan.get("_mora_cutover_snapshot") or {}
+    if (not cutoff or _clean(loan.get("source_state")) != "3"
+            or _clean(snapshot.get("ID_ESTADO_CARTERA")) != "3"
+            or loan.get("_post_cutover_source_events") or loan.get("_mora_cutover_snapshot_missing")
+            or not snapshot.get("ID_CRD_HISTORICO_DIARIO")
+            or str(snapshot.get("source_day"))[:10] != (date.fromisoformat(cutoff)-timedelta(days=1)).isoformat()
+            or snapshot.get("MONTO_DESEMBOLSADO") is None or _amount(snapshot["MONTO_DESEMBOLSADO"]) <= 0
+            or snapshot.get("SALDO_PAGADO_CAPITAL") is None
+            or _amount(snapshot["SALDO_PAGADO_CAPITAL"]) != _amount(snapshot["MONTO_DESEMBOLSADO"])):
+        return None
+    for field in ("SALDO_TOTAL", "SALDO_INTERES", "SALDO_MORA", "SALDO_RECARGOS"):
+        if snapshot.get(field) is None or _amount(snapshot[field]) != 0:
+            return None
+    if any(_amount(loan.get(field)) != 0 for field in ("ULTIMO_SALDO", "SALDO_TOTAL", "SALDO_MORA")):
+        return None
+    return {"classification": "fully-repaid-historical-mora-schedule-balance-variance",
+            "source_snapshot_id": str(snapshot["ID_CRD_HISTORICO_DIARIO"]),
+            "source_through_date": str(snapshot["source_day"])[:10],
+            "principal_fully_paid": True, "no_dated_debt": True}
+
+
 def _build_loan_lifecycle_action(
     contract: LoanContract,
     loan: dict[str, Any],
@@ -2799,6 +2826,7 @@ def _build_loan_lifecycle_action(
         quarantines.append("native_restructure_proof_pending")
     if loan.get("_mora_cutover_snapshot_missing"):
         quarantines.append("source_mora_cutover_snapshot_missing")
+    historical_schedule_balance_reference = None
     # The COB calculator derives Arissto's before/after balances from the
     # native repayment schedule. Admit only source plans where that identity
     # is exact; a reworked source plan needs its balances migrated explicitly.
@@ -2809,7 +2837,9 @@ def _build_loan_lifecycle_action(
             if (row.get("SALDO_ANTERIOR") is None or row.get("SALDO_ACTUAL") is None
                     or _amount(row["SALDO_ANTERIOR"]) != scheduled_balance
                     or _amount(row["SALDO_ACTUAL"]) != next_balance):
-                quarantines.append("mora_schedule_balance_mismatch")
+                historical_schedule_balance_reference = _repaid_schedule_balance_reference(loan, migration_cutover_date)
+                if historical_schedule_balance_reference is None:
+                    quarantines.append("mora_schedule_balance_mismatch")
                 break
             scheduled_balance = next_balance
     if len(refinance_incoming) > 1:
@@ -3945,7 +3975,7 @@ def _build_loan_lifecycle_action(
             for event in events
             if event["role"] in {
                 "repayment", "adjusted-repayment", "mobile-collection-repayment",
-                "repayment-reversal", "source-exact-component-reallocation",
+                "repayment-reversal", "source-exact-component-reallocation", "native-refinance-payoff",
             }
         )
         interest_paid = sum(
@@ -3955,7 +3985,7 @@ def _build_loan_lifecycle_action(
             for event in events
             if event["role"] in {
                 "repayment", "adjusted-repayment", "mobile-collection-repayment",
-                "repayment-reversal", "source-exact-component-reallocation",
+                "repayment-reversal", "source-exact-component-reallocation", "native-refinance-payoff",
             }
         )
         bridge_principal = principal - current_schedule_principal
@@ -4049,6 +4079,32 @@ def _build_loan_lifecycle_action(
                     "archived_schedule_hash": _stable_hash(archived_signature),
                     "current_schedule_hash": _stable_hash(current_signature),
                 }))
+        # The first real replacement can precede later schedule edits. Prove
+        # its full-principal archive and then the exact dated paid/unpaid split;
+        # later edits need not repeat obsolete interest or installment dates.
+        archived_by_adjustment = schedule_adjustment_summary.get("archived_schedules") or {}
+        if len(adjustments) == int(schedule_adjustment_summary.get("adjustment_count") or 0):
+            for index, anchor in enumerate(adjustments):
+                created = anchor.get("DT_CREO")
+                archived = archived_by_adjustment.get(str(anchor["ID_REESTRUCTURACION"])) or []
+                if (not isinstance(created, datetime) or created.date() > first_due or not archived
+                        or sum((_amount(row.get("MONTO_CAPITAL")) for row in archived), Decimal("0.00")) != principal):
+                    continue
+                tail_archives = [archived_by_adjustment.get(str(row["ID_REESTRUCTURACION"])) or []
+                                 for row in adjustments[index:]]
+                if any(not rows or sum((_amount(row.get("MONTO_CAPITAL")) for row in rows), Decimal("0.00"))
+                       not in {principal,current_schedule_principal} for rows in tail_archives):
+                    continue
+                if any(at == created for at,_ in candidate_adjustments):
+                    continue
+                candidate_adjustments.append((created, {
+                    "classification": "source-full-archive-dated-principal-replacement",
+                    "anchor_adjustment_id": int(anchor["ID_REESTRUCTURACION"]),
+                    "adjustment_created_at": created.isoformat(),
+                    "archive_provenance": "superseded-full-principal",
+                    "archived_schedule_hash": _stable_hash(_adjustment_schedule_signature(archived)),
+                    "current_schedule_hash": _stable_hash(_adjustment_schedule_signature(schedule)),
+                }))
         distinct_candidates = {}
         for created_at, proof in candidate_adjustments:
             if created_at not in distinct_candidates or proof is not None:
@@ -4071,7 +4127,7 @@ def _build_loan_lifecycle_action(
                 for event in events:
                     if event["role"] not in {
                         "repayment", "adjusted-repayment", "mobile-collection-repayment",
-                        "repayment-reversal", "source-exact-component-reallocation",
+                        "repayment-reversal", "source-exact-component-reallocation", "native-refinance-payoff",
                     }:
                         continue
                     created_at = movement_created_at.get(_clean(event.get("source_movement_id")))
@@ -4104,9 +4160,15 @@ def _build_loan_lifecycle_action(
                 )
                 if matches_signature:
                     matches.append((historical_interest, proof))
-            # Interest-only activity can make two anchors produce the same
-            # principal split. Do not guess which historical interest belongs
-            # in the bridge when that evidence is ambiguous.
+            # Several source revisions with no intervening cash can prove the
+            # same bridge. Keep every corroborating anchor; different historical
+            # interest totals remain ambiguous and are never selected by guess.
+            if len(matches) > 1 and len({amount for amount, _ in matches}) == 1:
+                amount, proof = matches[0]
+                proof = {**(proof or {}), "corroborating_adjustment_ids": sorted({
+                    candidate["anchor_adjustment_id"] for _, candidate in matches
+                    if candidate and "anchor_adjustment_id" in candidate})}
+                matches = [(amount, proof)]
             if len(matches) == 1:
                 reviewed_post_adjustment = True
                 interest_paid, adjustment_proof = matches[0]
@@ -4160,6 +4222,8 @@ def _build_loan_lifecycle_action(
     )
     lifecycle = {
         "application_payload": application_payload,
+        "historical_schedule_balance_reference": historical_schedule_balance_reference,
+        "after_boundary_refinance_links": (source_lifecycle or {}).get("after_boundary_refinance_links") or [],
         "contractual_maturity_date": contractual_maturity_date,
         "term_account_contract": term_account_contract,
         "source_maturity_pending": source_maturity_pending,
@@ -9461,6 +9525,9 @@ def reconcile_loans(
             )
             (variances if reviewed_schedule_exception else mismatches).append(difference)
 
+        if lifecycle.get("historical_schedule_balance_reference"):
+            variances.append({"source_key": item["source_key"], "kind": "historical_mora_schedule_balance",
+                "classification": "fully_repaid_historical_reference_variance"})
         freeze_events = lifecycle.get("source_freeze_events") or []
         if freeze_events:
             prefix = action["external_id"].split("ARISSTO:CRD:", 1)[0]

@@ -86,3 +86,51 @@ plans from silently using changed behavior. The local running Fineract process
 has not been reloaded and no financial writes have been made for these changes.
 
 Detailed IDs and remaining reasons: [read-only admission evidence](investigations/real-history-admission-oct28.json).
+
+
+## Complete source-day reconstruction
+
+The complete read-only composition admits **2,726 real histories**:
+2,196 closed,521 active and9 pending. **438 histories are newly admissible**;
+all2,288 previously accepted histories remain eligible. The remaining26 source
+records are exactly22 voided attempts, superseded application2120, and the3
+originations after S (2761–2763). There are no remaining in-scope real-history
+quarantine roots. Native import/reconciliation is still pending.
+
+The v4 reconstruction freezes exact repayment reversal timing. A pre-S payment
+reversed after S remains effective at S; an entirely later pair is excluded.
+Canonical exact-component pairing is required. Later adjusted repayments can be
+excluded with the same complete paid-counter corroboration as ordinary cash.
+
+Six later schedule revision cases (1890,2550,2559,2587,2668,2682) have a first
+future archive whose comparable contract fields exactly match the S daily row.
+Restore that archive and dated header terms, retaining excluded revision IDs
+and snapshot identity as proof. Never infer maturity from the last installment.
+Reconstruction is staged on copies; failed contract/cash proof leaves input
+unchanged. Later payoff/disbursement source links are outside the S graph,
+with both movement identities, dates and lifecycle directions verified and the
+complete edge preserved as provenance. This prevents future originations from
+excluding earlier real loans.
+
+The six mora-balance cases26,83,317,340,359,435 are proved closed in both header
+and exact dated state, fully principal-paid, with no dated debt or later source
+events. Their stale before/after schedule balances remain disclosed historical
+reference variances. Cash history and native financial reconciliation stay
+mandatory; the active forward-COB balance identity is unchanged.
+
+Remaining-plan proofs now include the native refinance payoff in principal
+conservation. They can use an earlier full-principal archive with exact dated
+paid/unpaid conservation when later revisions edit interest/dates. Multiple
+anchors are accepted only when they prove identical bridge economics, retaining
+every corroborating ID; conflicting historical interest remains rejected.
+This resolves2427,2563,2573,2633 without per-loan filter exceptions.
+
+Focused reconstruction, existing-payment recovery and orchestration validation:
+**185 tests pass**. An additional331 loan/orchestration/state tests pass with
+`TMPDIR=/private/tmp`; the default macOS temporary directory caused SQLite I/O
+errors in the broad run. Two old repayment-recovery mock families were updated
+to the approved recalculation-off contract. The unrelated savings minimum-
+balance assertion still fails in the broad suite and is outside this change.
+Native freeze-history validation remains6 passing tests.
+
+See [complete admission evidence](investigations/complete-real-history-admission-oct28.json).

@@ -2,13 +2,12 @@
 
 ## October 28 — real-history quarantine recovery in progress
 
-The user requests all real loan histories through October26; voided/superseded
-applications remain provenance only. The first source-proven filter repair
-admits fully paid refinancing POST snapshots even when their state flag is1,
-using unique POST identity, full paid principal, dated/current closure and the
-existing full history/ownership proof. Read-only323-record composition admits
-187 additional real histories;305 focused tests pass. Native execution and
-remaining quarantine fixes are pending. See [the recovery record](loan-quarantine-recovery-oct28.md).
+The repaired read-only plan admits all2,726 real histories through October26:
+438 more than the accepted2,288, with zero eligibility regressions. The26
+remaining exclusions are23 provenance-only records and3 later originations.
+Source-day reconstruction, historical closed-freeze support and dated schedule
+replacement proofs are implemented; native import/reconciliation remains
+pending. See [the recovery record](loan-quarantine-recovery-oct28.md).
 
 
 

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "source_freeze_history_policy": "active-and-repaid-history-v2",
-  "source_window_projection_policy": "dated-source-real-history-v3",
+  "source_window_projection_policy": "dated-source-real-history-v4",
   "cutover_insurance_balance_policy": "dated-source-snapshot-v1",
   "final_metric_alignment_policy": "source-active-only-v1",
   "terminal_adjustment_policy": "closed-after-outgoing-refinance-later-repayment-v1",

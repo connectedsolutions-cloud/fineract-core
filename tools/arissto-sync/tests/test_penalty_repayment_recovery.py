@@ -26,7 +26,7 @@ class PenaltyRepaymentRecoveryTests(unittest.TestCase):
                    'principalPortion': '8.00', 'interestPortion': '0.69', 'feeChargesPortion': '0.00',
                    'penaltyChargesPortion': '1.31', 'loanChargePaidByList': []}
         self.loan = {'id': 55, 'loanProductId': 90, 'clientId': 900, 'principal': 350,
-                     'isInterestRecalculationEnabled': True, 'status': {'id': 300}, 'charges': [],
+                     'isInterestRecalculationEnabled': False, 'status': {'id': 300}, 'charges': [],
                      'transactions': [self.tx], 'repaymentSchedule': fixture.calculated_schedule(lifecycle)}
         self.api = MagicMock()
         self.api.request.side_effect = self.request
