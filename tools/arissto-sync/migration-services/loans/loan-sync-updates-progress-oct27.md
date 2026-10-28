@@ -1653,3 +1653,15 @@ reconciliation compared the transformed continuation schedule with original
 settlement rows. The strict continuation validator and 329 focused tests are
 recorded in [the repair investigation](loan-failure-pattern-repair-oct27.md#october-28--final-apply-accepted-continuation-reconciliation-correction).
 Reconciliation acceptance and the remaining workflow services are pending.
+
+
+### October 28 — loan gate accepted
+
+Official reconciliation now passes: zero blocking mismatches, 2,288 eligible
+loans, 429 active continuation schedules and accrual controls, 1,859 inactive
+metric skips, and 464 explicit quarantines. All 11 insurance and 19 terminal
+cases passed native readback. The 38,644 disclosed schedule/reference variances
+remain visible; acceptance does not claim original settlement-schedule parity.
+Change records 48–54 are resolved for this loan scope. The composed 18-service
+workflow has advanced to delinquency history; whole-workflow acceptance remains
+pending. See [accepted loan evidence](investigations/loan-recovery-reconciliation-accepted-oct28.json).

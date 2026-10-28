@@ -1,0 +1,24 @@
+{
+  "loan_run": "a0fce5b52e544fad901318f4b98fd0cc",
+  "loan_plan": "7d8308469e774c8db104850ece10d9b8",
+  "reconciled_at": "2026-10-28T14:41:25.466598+00:00",
+  "ok": true,
+  "counts": {
+    "accrual_controls_reconciled": 429,
+    "client_office_transfers_expected": 4,
+    "client_office_transfers_matched": 4,
+    "collateral_assets": 34,
+    "continuation_schedules_reconciled": 429,
+    "guarantor_relationships": 259,
+    "legacy_timelines": 46,
+    "loans": 2288,
+    "metrics_skipped_inactive": 1859,
+    "mora_terms": 2288,
+    "products": 3,
+    "quarantined": 464,
+    "staff_assignments": 2288
+  },
+  "blocking_count": 0,
+  "variance_count": 38644,
+  "whole_workflow_acceptance_pending": true
+}

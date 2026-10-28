@@ -308,7 +308,7 @@ remain strict requirements where the frozen policy requires exact schedules.
 
 The corrected read-only validator separately checks one additional baseline
 at S, native active/off flags, matching metric identity/version/continuation,
-latest persisted source-day and before/after target audit, all final principal
+latest persisted source-day and target/after audit, all final principal
 projections, paid baseline amounts, absence of unearned collectible interest,
 nonnegative components, chronological contiguous installment numbers, absence
 of additional future rows, exact contractual calendars and future forecasts.
@@ -330,3 +330,20 @@ rerun before the workflow or these changes are accepted.
 
 Evidence: [insurance/terminal native proof](investigations/insurance-terminal-native-recovery-oct28.json),
 [continuation structure](investigations/continuation-schedule-structure-oct28.json).
+
+
+## October 28 — official loan reconciliation accepted
+
+Workflow attempt 5 reused completed child run `a0fce5b52e544fad901318f4b98fd0cc`
+without another loan replay or backend reload. Official reconciliation passed
+**zero blocking mismatches**, all 2,288 eligible loans and 429 continuation
+schedules. It retained 38,644 disclosed schedule/reference variances, including
+37,315 differences validated as final continuation projections; this acceptance
+is not exact parity with the original settlement schedule. All 429 active
+accrual controls, four office transfers, 259 guarantor relationships, 34
+collateral assets and 2,288 staff/mora assignments passed. The 464 quarantines
+remain explicit, and 1,859 inactive loans skip metric methods.
+
+Durable change records 48–54 are resolved for the loan recovery scope. The
+whole 18-service workflow is still pending; downstream services proceed only
+after this accepted loan gate. See [accepted reconciliation summary](investigations/loan-recovery-reconciliation-accepted-oct28.json).
