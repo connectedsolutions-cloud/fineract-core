@@ -289,5 +289,27 @@
     "terminal_correction_count": 0,
     "final_metric_alignment_count": 0,
     "source_post_boundary_transaction_count": 0
+  },
+  "reconciliation_due_exceeds_outstanding": {
+    "source_count": 31,
+    "representative_source_keys": [
+      "ARISSTO:CRD:96",
+      "ARISSTO:CRD:113",
+      "ARISSTO:CRD:182",
+      "ARISSTO:CRD:253",
+      "ARISSTO:CRD:314",
+      "ARISSTO:CRD:321",
+      "ARISSTO:CRD:327",
+      "ARISSTO:CRD:344",
+      "ARISSTO:CRD:397",
+      "ARISSTO:CRD:425",
+      "ARISSTO:CRD:471",
+      "ARISSTO:CRD:537"
+    ],
+    "api_confirmed_source_key": "loan:96",
+    "native_loan_id": 103,
+    "error": "final_metrics_due_exceeds_outstanding",
+    "amounts_omitted": true,
+    "interpretation": "Observed native due-principal sum exceeds native summary outstanding before final corrections. Current reconciliation validates observed vectors with the target-vector invariant and aborts the report rather than recording a per-loan mismatch. Final correction expected-state validation needs separate review; no invalid final target is accepted."
   }
 }

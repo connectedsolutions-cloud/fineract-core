@@ -87,6 +87,7 @@ observations, not final portfolio counts or complete-chain acceptance.
 | Current clean-run observation | Affected loans | Status / next verification |
 | --- | --- | --- |
 | Historical office-transfer active-loan inventory mismatches after historical-off replay. | Recorded root `loan:101`; 17 related actions blocked in the transfer cohort. Source/native inventories for the four transfer clients are preserved in the observation. | **Verified phase conflict; replay continues elsewhere.** The frozen plan shows loans `115`, `363`, `688` source-closed before the November 27, 2024 transfer, while native readback leaves them Active because corrections are deferred. This includes an ordinary terminal repayment as well as refinance payoffs. Python and native transfer guards independently require the exact active-loan inventory. Do not weaken inventory validation or post interim credits to force it through; review an explicit source-state transfer proof/ownership contract after this attempt finishes. |
+| Final-metric reconciliation aborts on an observed native vector with due principal above summary outstanding. | 31 native loans in a read-only SQL screen matching `FinalLoanMetrics.read`; API confirmed representative `loan:96` (native 103). Other representative IDs: `113`, `182`, `253`, `314`. | **New clean-run reconciliation failure:** `final_metrics_due_exceeds_outstanding`; no complete reconciliation report was recorded. The same invariant is used for targets and observations. Record invalid observations as blocking per-loan mismatches and review expected-state validation for guarded correction; do not relax valid-final-target requirements or mark the native state reconciled. Runtime writer unchanged while the workflow continues. |
 | Historical recalculation-off and source-exact refinance execution. | All native products/loans observed so far; 13 recorded native settlements. | **Runtime exercised, full acceptance pending.** Native flags are false and both interim bridge counts remain zero. The complete-plan correction barrier and strict final reconciliation remain enforced. |
 
 Loan apply has now finished **completed-with-errors**: 2,249 loans succeeded,
@@ -97,8 +98,7 @@ and 476 planned quarantines. The actual complete-plan gate recorded
 interim refinance credits, terminal corrections, final metric alignments, or
 source movement transactions dated on/after October 27. Partially replayed
 blocked-cohort loans explain why native loan count exceeds successful outcomes.
-Official reconciliation and the remaining workflow steps are still running;
-these results do not accept the loan service or the complete migration.
+Official loan reconciliation then failed with `final_metrics_due_exceeds_outstanding`; no complete loan report was recorded. Delinquency is dependency-blocked and the independent Savings Deposits step is running. These results do not accept the loan service or the complete migration.
 
 The old cycle's SQLite snapshot is compressed under the new run's ignored
 `.arissto-sync/evidence/` directory, outside automatic cycle retention. Durable
