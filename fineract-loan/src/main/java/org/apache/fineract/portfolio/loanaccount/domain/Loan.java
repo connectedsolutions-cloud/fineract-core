@@ -80,6 +80,7 @@ import org.apache.fineract.portfolio.fund.domain.Fund;
 import org.apache.fineract.portfolio.group.domain.Group;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.LoanRepaymentScheduleTransactionProcessor;
 import org.apache.fineract.portfolio.loanaccount.loanschedule.domain.LoanApplicationTerms;
+import org.apache.fineract.portfolio.loanaccount.service.SourceExactTerminalAdjustmentContext;
 import org.apache.fineract.portfolio.loanproduct.domain.LoanProduct;
 import org.apache.fineract.portfolio.loanproduct.domain.LoanProductRelatedDetail;
 import org.apache.fineract.portfolio.loanproduct.domain.LoanSupportedInterestRefundTypes;
@@ -836,7 +837,11 @@ public class Loan extends AbstractAuditableWithUTCDateTimeCustom<Long> {
 
     public void updateLoanScheduleDependentDerivedFields() {
         if (this.getLoanRepaymentScheduleInstallmentsSize() > 0) {
-            this.expectedMaturityDate = determineExpectedMaturityDate();
+            // A balance-only historical terminal credit must not replace the already
+            // selected contractual term with a differing legacy schedule endpoint.
+            if (!SourceExactTerminalAdjustmentContext.preservesExpectedDates(this)) {
+                this.expectedMaturityDate = determineExpectedMaturityDate();
+            }
             this.actualMaturityDate = determineExpectedMaturityDate();
         }
     }

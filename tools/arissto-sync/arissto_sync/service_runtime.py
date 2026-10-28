@@ -380,7 +380,8 @@ class ServiceRuntime:
         if block == LOANS_BLOCK:
             loan_plan = self.state.plan(plan_id)
             keys = loan_retry_keys(
-                loan_plan["document"]["actions"], self.state.plan_run_items(plan_id)
+                loan_plan["document"]["actions"],
+                self.state.latest_plan_run_items(plan_id, preserve_attempted_results=True)
             )
             if not keys:
                 # Apply already recovered every planned loan and only strict

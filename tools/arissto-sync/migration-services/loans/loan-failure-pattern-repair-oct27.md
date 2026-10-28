@@ -120,3 +120,70 @@ are not accepted variances. The runner is terminal before the verifier change.
 The expanded Python suite passes 432 tests. The next supported same-cycle resume
 can retry the failed refinance dependency scope under the same immutable child
 plan, then revalidate the entire 2,288-history barrier before any final correction.
+
+
+## Final attempt and source-outage boundary
+
+The cashless repair passed the entire 2,288-history native barrier. Final
+correction run `84feecf5f7574b9c9b89e48fd5d15e37` finished with 30 failures in
+three shared patterns: 11 historical closure adjustments rejected before the
+client's later office transfer, 8 expected-maturity/selected-account conflicts,
+and 11 insurance-template identity mismatches. Its guarded alignment reconciled
+418 active loans (384 changed); native alignment rows for closed/pending loans
+are zero. Native readback still shows 2 off products and 2,288 off loans, zero
+interim refinance credits, zero imported source movements on/after October 27,
+and a paused scheduler. The full migration is not accepted. The
+[sanitized run report](investigations/loan-pattern-repair-resumed-result-oct27.json)
+records counts, exact source IDs and target IDs without financial amounts.
+
+After the user reported possible Arissto downtime, one read-only `source-check`
+failed with an OperationalError timeout. Fresh source comparison stopped. No
+new sync/retry or guarded backend reload was launched after that observation.
+The already-running attempt completed its target-only finalization and exited.
+Current source availability has not been rechecked since the timeout.
+
+### Local-only repairs, not runtime acceptance
+
+The terminal-adjustment handler now establishes a scoped context under the
+existing authenticated operational-migration permission. The native guard
+requires exact source loan/adjustment identities and an ACTIVE accounting cutoff
+with the adjustment strictly before Fineract ownership. An earlier office date
+is permitted only for an off-mode, source-exact goodwill terminal adjustment on
+a paid-principal loan, with an unreversed source repayment on that exact day,
+no later unreversed native activity, and an unambiguous chain of accepted native
+client transfers reconstructing the loan's historical office. Ordinary repayment
+and office-date validation remains in effect outside that proof.
+
+During this guarded off-mode balance refresh, a valid selected contractual
+expected maturity remains unchanged. The legacy schedule endpoint must not
+silently replace the already selected source contract and trigger the entity's
+366-day-account reclassification invariant. The original invariant still rejects
+ordinary expected-date revisions; it is not disabled, cleared or reclassified.
+Mifos general/account details display the native expectedMaturityDate directly;
+its field meaning and labels are preserved and no frontend input was introduced.
+
+The local retry adapter previously used sticky replay successes: all 30 later
+correction failures disappeared from its retry roots. It now uses the latest
+attempted outcomes. A blocked, unattempted row cannot erase a failed root;
+blocked dependants remain visible for dependency closure. The complete replay
+barrier keeps its actual-latest view and cannot treat a blocked loan as complete.
+
+433 Python and 22 Java tests pass. The native test set exercises guarded office
+history, source-date and identity rejection, unchanged ordinary reclassification,
+contract date preservation, and scope cleanup. A stale reversal-handler test
+stub was updated to the existing source-exact reversal method; reversal runtime
+behavior was not changed. These repairs were made after the writer exited and
+remain pending controlled runtime validation. No source-dependent insurance
+mapping change was made.
+
+### Remaining work after Arissto becomes reachable
+
+Compare the 11 frozen insurance templates against dated source insurance
+snapshots before changing their basis. Preserve **Arissto through 2026-10-26 /
+Fineract starts 2026-10-27**, immutable plans, native transaction ownership and
+the same disposable sandbox lifetime. Do not edit a saved financial plan in
+SQLite. If a financial template changes, generate the supported replacement
+child plan through the workflow control plane. Then use a reviewed same-cycle
+resume with guarded native reload to validate the local terminal repairs and
+finish strict loan reconciliation. Do not release the scheduler or mark this
+migration accepted from unit tests or partial correction counts.

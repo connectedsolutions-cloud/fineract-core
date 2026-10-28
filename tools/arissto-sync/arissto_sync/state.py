@@ -388,13 +388,24 @@ class State:
             sql += " AND status='failed'"
         return [dict(row) for row in self.conn.execute(sql, (run_id,))]
 
-    def latest_plan_run_items(self, plan_id: str) -> list[dict[str, Any]]:
-        """Latest actual result per key; a failed final phase overrides replay success."""
+    def latest_plan_run_items(self, plan_id: str, *, preserve_attempted_results: bool = False) -> list[dict[str, Any]]:
+        """Latest actual result per key; a failed final phase overrides replay success.
+
+        Retry selection may preserve a failed root across an unattempted blocked
+        row. The global correction barrier always uses the default actual view.
+        """
         rows = self.conn.execute(
             "SELECT i.* FROM runs r JOIN items i ON i.run_id=r.id "
             "WHERE r.plan_id=? ORDER BY r.started_at,i.rowid", (plan_id,),
         )
-        latest = {row["source_key"]: dict(row) for row in rows}
+        latest = {}
+        for row in rows:
+            item = dict(row)
+            previous = latest.get(item["source_key"])
+            if (preserve_attempted_results and item["status"] == "blocked"
+                    and previous is not None and previous["status"] == "failed"):
+                continue
+            latest[item["source_key"]] = item
         return list(latest.values())
 
     def plan_run_items(self, plan_id: str) -> list[dict[str, Any]]:

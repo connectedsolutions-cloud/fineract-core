@@ -97,6 +97,7 @@ import org.apache.fineract.portfolio.loanaccount.serialization.LoanChargeValidat
 import org.apache.fineract.portfolio.loanaccount.serialization.LoanDownPaymentTransactionValidator;
 import org.apache.fineract.portfolio.loanaccount.serialization.LoanForeclosureValidator;
 import org.apache.fineract.portfolio.loanaccount.serialization.LoanTransactionValidator;
+import org.apache.fineract.portfolio.loanaccount.service.HistoricalLoanTerminalAdjustmentGuard;
 import org.apache.fineract.portfolio.loanaccount.service.InterestRefundService;
 import org.apache.fineract.portfolio.loanaccount.service.InterestRefundServiceDelegate;
 import org.apache.fineract.portfolio.loanaccount.service.LoanAccrualsProcessingService;
@@ -112,6 +113,7 @@ import org.apache.fineract.portfolio.loanaccount.service.LoanTransactionService;
 import org.apache.fineract.portfolio.loanaccount.service.LoanUtilService;
 import org.apache.fineract.portfolio.loanaccount.service.ReprocessLoanTransactionsService;
 import org.apache.fineract.portfolio.loanaccount.service.SourceExactRefinancingRepairContext;
+import org.apache.fineract.portfolio.loanaccount.service.SourceExactTerminalAdjustmentContext;
 import org.apache.fineract.portfolio.loanproduct.domain.LoanSupportedInterestRefundTypes;
 import org.apache.fineract.portfolio.note.domain.Note;
 import org.apache.fineract.portfolio.note.domain.NoteRepository;
@@ -147,6 +149,7 @@ public class LoanAccountDomainServiceJpa implements LoanAccountDomainService {
     private final LoanAccrualsProcessingService loanAccrualsProcessingService;
     private final InterestRefundServiceDelegate interestRefundServiceDelegate;
     private final LoanTransactionValidator loanTransactionValidator;
+    private final HistoricalLoanTerminalAdjustmentGuard historicalTerminalAdjustmentGuard;
     private final LoanForeclosureValidator loanForeclosureValidator;
     private final LoanDownPaymentTransactionValidator loanDownPaymentTransactionValidator;
     private final LoanChargeService loanChargeService;
@@ -253,6 +256,13 @@ public class LoanAccountDomainServiceJpa implements LoanAccountDomainService {
             final String reversalMovementIds, final String repaymentMovementId, final String feeChargeExternalId,
             final boolean transientChargeAllocation) {
         checkClientOrGroupActive(loan);
+        if (SourceExactTerminalAdjustmentContext.isActive()) {
+            if (sourceExactAllocation == null || !repaymentTransactionType.isGoodwillCredit()) {
+                throw new IllegalArgumentException("Historical terminal scope requires source-exact goodwill allocation");
+            }
+            historicalTerminalAdjustmentGuard.validateRequest(loan, transactionDate, txnExternalId);
+            loan.validateTermPortfolioAccountSelection();
+        }
 
         LoanBusinessEvent repaymentEvent = getLoanRepaymentTypeBusinessEvent(repaymentTransactionType, isRecoveryRepayment, loan);
         businessEventNotifierService.notifyPreBusinessEvent(repaymentEvent);
@@ -308,8 +318,10 @@ public class LoanAccountDomainServiceJpa implements LoanAccountDomainService {
                     event);
         }
         loanDownPaymentTransactionValidator.validateRepaymentTypeAccountStatus(loan, newRepaymentTransaction, event);
-        loanTransactionValidator.validateActivityNotBeforeClientOrGroupTransferDate(loan, event,
-                newRepaymentTransaction.getTransactionDate());
+        if (!historicalTerminalAdjustmentGuard.permitsPriorOfficeDate(loan, newRepaymentTransaction, sourceExactAllocation != null)) {
+            loanTransactionValidator.validateActivityNotBeforeClientOrGroupTransferDate(loan, event,
+                    newRepaymentTransaction.getTransactionDate());
+        }
         makeRepayment(loan, newRepaymentTransaction, scheduleGeneratorDTO);
 
         if (loan.isInterestBearingAndInterestRecalculationEnabled()) {

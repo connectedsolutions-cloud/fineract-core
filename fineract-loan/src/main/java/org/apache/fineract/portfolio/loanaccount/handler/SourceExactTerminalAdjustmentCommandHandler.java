@@ -26,6 +26,7 @@ import org.apache.fineract.infrastructure.DataIntegrityErrorHandler;
 import org.apache.fineract.infrastructure.core.api.JsonCommand;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.portfolio.loanaccount.service.LoanWritePlatformService;
+import org.apache.fineract.portfolio.loanaccount.service.SourceExactTerminalAdjustmentContext;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.jpa.JpaSystemException;
 import org.springframework.stereotype.Service;
@@ -43,7 +44,7 @@ public class SourceExactTerminalAdjustmentCommandHandler implements NewCommandSo
     @Transactional
     @Override
     public CommandProcessingResult processCommand(final JsonCommand command) {
-        return operationalMigrationService.execute(() -> {
+        return operationalMigrationService.execute(() -> SourceExactTerminalAdjustmentContext.execute(() -> {
             try {
                 return writePlatformService.makeSourceExactLoanGoodwillCredit(command.getLoanId(), command);
             } catch (final JpaSystemException | DataIntegrityViolationException exception) {
@@ -51,6 +52,6 @@ public class SourceExactTerminalAdjustmentCommandHandler implements NewCommandSo
                         "loan.source.exact.terminal.adjustment", "Source-exact terminal adjustment");
                 return CommandProcessingResult.empty();
             }
-        });
+        }));
     }
 }

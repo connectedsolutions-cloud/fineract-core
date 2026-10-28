@@ -1,0 +1,221 @@
+{
+  "observed_at": "2026-10-28T03:30:08.485692+00:00",
+  "workflow_run_id": "e942a4ece71b4833b478a265b4296159",
+  "workflow_status": "failed",
+  "runner_live": false,
+  "loan_run_id": "84feecf5f7574b9c9b89e48fd5d15e37",
+  "loan_plan_id": "75aa8b92014c4995ab88a2b30bc4239f",
+  "loan_run_status": "completed-with-errors",
+  "apply_counts": {
+    "accrual_controls_reconciled": 418,
+    "loans_failed": 30,
+    "loans_recovered": 3,
+    "metrics_adjusted": 384,
+    "metrics_reconciled": 418,
+    "metrics_skipped_inactive": 1840,
+    "unchanged": 1
+  },
+  "failure_patterns": {
+    "historical-terminal-before-client-office-transfer": 11,
+    "insurance-template-vs-frozen-target": 11,
+    "selected-expected-term-replaced-by-balance-refresh": 8
+  },
+  "failed_actions": [
+    {
+      "source_key": "loan:101",
+      "target_id": null,
+      "pattern": "historical-terminal-before-client-office-transfer"
+    },
+    {
+      "source_key": "loan:115",
+      "target_id": null,
+      "pattern": "historical-terminal-before-client-office-transfer"
+    },
+    {
+      "source_key": "loan:2",
+      "target_id": null,
+      "pattern": "historical-terminal-before-client-office-transfer"
+    },
+    {
+      "source_key": "loan:2069",
+      "target_id": null,
+      "pattern": "insurance-template-vs-frozen-target"
+    },
+    {
+      "source_key": "loan:2340",
+      "target_id": null,
+      "pattern": "insurance-template-vs-frozen-target"
+    },
+    {
+      "source_key": "loan:2351",
+      "target_id": null,
+      "pattern": "insurance-template-vs-frozen-target"
+    },
+    {
+      "source_key": "loan:2419",
+      "target_id": null,
+      "pattern": "insurance-template-vs-frozen-target"
+    },
+    {
+      "source_key": "loan:2480",
+      "target_id": null,
+      "pattern": "insurance-template-vs-frozen-target"
+    },
+    {
+      "source_key": "loan:2483",
+      "target_id": null,
+      "pattern": "insurance-template-vs-frozen-target"
+    },
+    {
+      "source_key": "loan:2529",
+      "target_id": null,
+      "pattern": "insurance-template-vs-frozen-target"
+    },
+    {
+      "source_key": "loan:2582",
+      "target_id": null,
+      "pattern": "insurance-template-vs-frozen-target"
+    },
+    {
+      "source_key": "loan:2584",
+      "target_id": null,
+      "pattern": "insurance-template-vs-frozen-target"
+    },
+    {
+      "source_key": "loan:2628",
+      "target_id": null,
+      "pattern": "insurance-template-vs-frozen-target"
+    },
+    {
+      "source_key": "loan:2716",
+      "target_id": null,
+      "pattern": "insurance-template-vs-frozen-target"
+    },
+    {
+      "source_key": "loan:283",
+      "target_id": null,
+      "pattern": "historical-terminal-before-client-office-transfer"
+    },
+    {
+      "source_key": "loan:363",
+      "target_id": null,
+      "pattern": "historical-terminal-before-client-office-transfer"
+    },
+    {
+      "source_key": "loan:553",
+      "target_id": null,
+      "pattern": "historical-terminal-before-client-office-transfer"
+    },
+    {
+      "source_key": "loan:623",
+      "target_id": null,
+      "pattern": "historical-terminal-before-client-office-transfer"
+    },
+    {
+      "source_key": "loan:635",
+      "target_id": null,
+      "pattern": "selected-expected-term-replaced-by-balance-refresh"
+    },
+    {
+      "source_key": "loan:636",
+      "target_id": null,
+      "pattern": "selected-expected-term-replaced-by-balance-refresh"
+    },
+    {
+      "source_key": "loan:639",
+      "target_id": null,
+      "pattern": "selected-expected-term-replaced-by-balance-refresh"
+    },
+    {
+      "source_key": "loan:640",
+      "target_id": null,
+      "pattern": "selected-expected-term-replaced-by-balance-refresh"
+    },
+    {
+      "source_key": "loan:648",
+      "target_id": null,
+      "pattern": "selected-expected-term-replaced-by-balance-refresh"
+    },
+    {
+      "source_key": "loan:687",
+      "target_id": null,
+      "pattern": "historical-terminal-before-client-office-transfer"
+    },
+    {
+      "source_key": "loan:688",
+      "target_id": null,
+      "pattern": "historical-terminal-before-client-office-transfer"
+    },
+    {
+      "source_key": "loan:805",
+      "target_id": null,
+      "pattern": "historical-terminal-before-client-office-transfer"
+    },
+    {
+      "source_key": "loan:940",
+      "target_id": null,
+      "pattern": "historical-terminal-before-client-office-transfer"
+    },
+    {
+      "source_key": "loan:983",
+      "target_id": null,
+      "pattern": "selected-expected-term-replaced-by-balance-refresh"
+    },
+    {
+      "source_key": "loan:992",
+      "target_id": null,
+      "pattern": "selected-expected-term-replaced-by-balance-refresh"
+    },
+    {
+      "source_key": "loan:995",
+      "target_id": null,
+      "pattern": "selected-expected-term-replaced-by-balance-refresh"
+    }
+  ],
+  "native_evidence": {
+    "product_recalculation_flags": [
+      [
+        false,
+        2
+      ]
+    ],
+    "loan_recalculation_flags": [
+      [
+        false,
+        2288
+      ]
+    ],
+    "inactive_metric_alignment_rows": 0,
+    "active_metric_alignment_rows": 418,
+    "terminal_adjustment_rows": 1699,
+    "interim_refinance_credit_rows": 0,
+    "source_movements_on_or_after_fineract_starts": 0,
+    "scheduler_active": false,
+    "fineract_starts": "2026-10-27"
+  },
+  "source_available": false,
+  "source_check_result": "connection-timeout",
+  "source_dependent_changes_stopped": true,
+  "new_sync_or_retry_started_after_source_outage": false,
+  "migration_accepted": false,
+  "target": {
+    "name": "local",
+    "tenant": "sandbox",
+    "database": "fineract_sandbox",
+    "fingerprint": "b9f6834b66790744"
+  },
+  "source_through_date": "2026-10-26",
+  "source_availability_last_checked_at": "2026-10-28T03:14:51.936625+00:00",
+  "current_source_availability": "not-rechecked-after-timeout",
+  "local_only_repairs_after_run": {
+    "historical_office_date_guard": "implemented;unit-tests-passed;runtime-validation-pending",
+    "selected_expected_term_preservation": "implemented;unit-tests-passed;runtime-validation-pending",
+    "correction_retry_roots": "implemented;regression-test-passed;not-run-against-target",
+    "insurance_templates": "unchanged;fresh-source-comparison-required"
+  },
+  "tests": {
+    "focused_python": 433,
+    "native_java": 22
+  },
+  "live_sync_acceptance": false
+}

@@ -32,6 +32,7 @@ import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.portfolio.loanaccount.service.LoanChargeWritePlatformService;
 import org.apache.fineract.portfolio.loanaccount.service.LoanWritePlatformService;
+import org.apache.fineract.portfolio.loanaccount.service.SourceExactTerminalAdjustmentContext;
 import org.apache.fineract.useradministration.domain.AppUser;
 import org.junit.jupiter.api.Test;
 
@@ -51,7 +52,7 @@ class SourceExactRemainingLoanLifecycleCommandHandlerTest {
         when(securityContext.authenticatedUser()).thenReturn(user);
         when(command.getLoanId()).thenReturn(42L);
         when(command.entityId()).thenReturn(7L);
-        when(writePlatformService.adjustLoanTransaction(42L, 7L, command)).thenAnswer(invocation -> {
+        when(writePlatformService.reverseSourceExactLoanTransaction(42L, 7L, command)).thenAnswer(invocation -> {
             assertThat(postingContext.getOrigin()).isEqualTo(AccountingPostingOrigin.ARISSTO_OPERATIONAL_MIGRATION);
             return expected;
         });
@@ -99,11 +100,13 @@ class SourceExactRemainingLoanLifecycleCommandHandlerTest {
         when(command.getLoanId()).thenReturn(42L);
         when(writePlatformService.makeSourceExactLoanGoodwillCredit(42L, command)).thenAnswer(invocation -> {
             assertThat(postingContext.getOrigin()).isEqualTo(AccountingPostingOrigin.ARISSTO_OPERATIONAL_MIGRATION);
+            assertThat(SourceExactTerminalAdjustmentContext.isActive()).isTrue();
             return expected;
         });
 
         assertThat(handler.processCommand(command)).isSameAs(expected);
         assertThat(postingContext.getOrigin()).isEqualTo(AccountingPostingOrigin.NATIVE_OPERATION);
+        assertThat(SourceExactTerminalAdjustmentContext.isActive()).isFalse();
         verify(user).validateHasPermissionTo(AccountingOperationalMigrationService.PERMISSION);
     }
 

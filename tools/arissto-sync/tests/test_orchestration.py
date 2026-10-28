@@ -585,7 +585,7 @@ class WorkflowDefinitionTests(unittest.TestCase):
                 "summary": {"loans_recovered": 2},
             },
             plan=lambda _plan_id: {"document": {"actions": [{"source_key": "loan:1"}]}},
-            plan_run_items=lambda _plan_id: [{"source_key": "loan:1", "status": "recovered"}],
+            latest_plan_run_items=lambda _plan_id, **_options: [{"source_key": "loan:1", "status": "recovered"}],
         )
 
         with patch("arissto_sync.service_runtime.apply_loan_plan") as apply:
