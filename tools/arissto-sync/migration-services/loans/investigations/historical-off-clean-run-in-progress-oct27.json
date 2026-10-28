@@ -251,5 +251,18 @@
     "native_guard": "TransferWritePlatformServiceJpaRepositoryImpl.proposeAndAcceptClientTransfer independently compares exact active set",
     "cause": "The historical-off replay intentionally returns before terminal corrections, including the old pretransfer finalize=True exception. Source-closed loans therefore remain natively Active at the transfer boundary. This affects ordinary terminal repayments as well as refinance payoffs.",
     "proposed_followup": "Review explicit source-state transfer proof/ownership semantics without interim financial corrections or ignoring unowned active loans. No implementation change during active run."
+  },
+  "latest_policy_boundary_observation": {
+    "observed_at": "2026-10-28T01:38:02.889252+00:00",
+    "native_loan_flags": [
+      {
+        "enabled": false,
+        "count": 1117
+      }
+    ],
+    "native_refinance_settlement_count": 61,
+    "interim_refinance_credit_count": 0,
+    "source_post_boundary_transaction_count": 0,
+    "final_metric_alignment_count": 0
   }
 }
