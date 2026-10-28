@@ -142,6 +142,7 @@ class CutoverInsuranceBaselineRecoveryTests(unittest.TestCase):
         built = _build_loan_lifecycle_action(fixture.contract, row, history, target, payload)
         lifecycle = built['lifecycle']
         lifecycle.update(events=[], cutover_insurance_charge=self.template, recurring_insurance_charge=None,
+                         interest_recalculation_policy='daily-native-v1',
                          terminal_adjustment=None, final_metric_alignment=self.frozen)
         lifecycle['mora_terms']['fineract_starts_on'] = '2026-06-21'
         action = {**self.action, 'entity_source_key': '515', 'lifecycle': lifecycle}

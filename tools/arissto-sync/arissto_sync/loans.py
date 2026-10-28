@@ -7169,6 +7169,48 @@ def _refinance_fee_charge_external_id(settlement: dict[str, Any]) -> str | None:
     return str(fee_charges[0]["external_id"])
 
 
+def _recover_aligned_historical_loan(
+    api: FineractApi, loan: dict[str, Any], action: dict[str, Any],
+) -> bool:
+    """Preserve a proven final baseline instead of reinstalling its old schedule.
+
+    An immutable replacement child plan may revisit every existing loan. Final
+    alignment deliberately changes schedule rows, so only complete native
+    history plus the exact frozen baseline permits a read-only recovery here.
+    Ordinary unaligned or inactive loans still follow the normal replay path.
+    """
+    lifecycle = action["lifecycle"]
+    from .loan_metric_alignment import amounts, eligible
+    if (lifecycle.get("interest_recalculation_policy") != HISTORICAL_REPLAY_POLICY
+            or not eligible(lifecycle) or not lifecycle.get("final_metric_alignment")):
+        return False
+    frozen = lifecycle["final_metric_alignment"]
+    observation = api.request("GET", f"loans/{int(loan['id'])}/migration-metrics", query={
+        key: frozen[key] for key in ("cutoffDate", "insuranceChargeId", "recurringInsuranceChargeId")
+    })
+    version = observation.get("alignmentVersion")
+    if type(version) is int and version == 0 and observation.get("continuationReady") is False:
+        return False
+    if (type(version) is not int or version <= 0 or observation.get("continuationReady") is not True
+            or observation.get("loanId") != int(loan["id"])
+            or loan.get("externalId") != action["external_id"]
+            or loan.get("isInterestRecalculationEnabled") is not False
+            or int((loan.get("status") or {}).get("id") or -1) != 300
+            or frozen.get("revision") != 1
+            or observation.get("cutoffDate") != frozen["cutoffDate"]
+            or frozen["cutoffDate"] != lifecycle.get("migration_cutover_date")):
+        raise RuntimeError("aligned_historical_recovery_identity_or_continuation_mismatch")
+    if amounts(observation["metrics"]) != amounts(frozen["targets"]):
+        raise RuntimeError("aligned_historical_recovery_metrics_drift")
+    _verify_complete_historical_replay(api, action)
+    _verify_loan_term_account_contract(loan, lifecycle, selected=True)
+    if lifecycle.get("cutover_insurance_charge"):
+        # This path proves the original zeroed charge and current baseline;
+        # an already aligned observation cannot enter initial provisioning.
+        _ensure_cutover_insurance_charge(api, loan, action, None)
+    return True
+
+
 def _apply_loan_lifecycle(
     api: FineractApi, action: dict[str, Any], product_id: int, attempt_key: str | None = None,
     collateral_product_id: int | None = None,
@@ -7301,6 +7343,8 @@ def _apply_loan_lifecycle(
             for event in lifecycle.get("events") or []
         ),
     )
+    if recovered and _recover_aligned_historical_loan(api, existing, action):
+        return loan_id, True
     opening_interest_already_posted = (
         lifecycle.get("interest_recalculation_policy") != "daily-native-v1"
         and lifecycle["expected"]["source_state"] == "1"

@@ -260,3 +260,28 @@ terminal fixes also require the documented guarded backend reload before the
 next attempt. Native and source read-only checks verified the exact sandbox
 database, active matching cutoff, paused scheduler, 2,288 off-mode loans and
 no active workflows before the recovery action.
+
+
+## October 28 — preserve accepted baselines when replacing a child plan
+
+The dated insurance contract invalidates the old child plan, so resumed planning
+can revisit previously aligned active loans. Native final metric alignment
+deliberately replaces historical schedule projections with a continuation
+baseline. Reinstalling the original source schedule would undo that state.
+
+A recovered source-active historical-off loan now takes a read-only recovery
+path only after native alignment identity/version/continuation, all eight frozen
+metrics, the complete frozen event/reversal/refinance history, selected term GLs
+and dates, and any opening insurance baseline all pass. Initial unaligned loans
+continue normal replay; inactive source loans never invoke metric recovery.
+Drift fails closed before schedule reinstall or provisional term reset. Final
+portfolio history and reconciliation gates still run after recovery.
+
+The enforced GET-only audit passed **418/418** existing baselines (19 generated,
+380 variable, 12 active exact and 7 remaining-schedule writers). Focused engine
+regressions passed **311 tests**, including 9 new read-only recovery tests.
+The broader 961-test suite reports 14 failures and 12 errors in penalty replay,
+remaining-schedule fixtures and the savings minimum-balance expectation. All
+26 outcomes reproduce against the committed pre-change runtime in memory; they
+are not accepted as a passing broad suite. Runtime acceptance remains pending
+the resumed workflow. See [read-only evidence](investigations/aligned-historical-recovery-readonly-oct28.json).
