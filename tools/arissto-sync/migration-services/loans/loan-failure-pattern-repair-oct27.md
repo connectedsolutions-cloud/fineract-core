@@ -347,3 +347,32 @@ remain explicit, and 1,859 inactive loans skip metric methods.
 Durable change records 48–54 are resolved for the loan recovery scope. The
 whole 18-service workflow is still pending; downstream services proceed only
 after this accepted loan gate. See [accepted reconciliation summary](investigations/loan-recovery-reconciliation-accepted-oct28.json).
+
+
+## October 28 — full 18-service workflow accepted
+
+Workflow `e942a4ece71b4833b478a265b4296159` completed all **18/18 services**,
+with a successful recorded reconciliation and zero blocking mismatches for
+each latest child run. This is resumed completion in the same disposable
+sandbox/cycle; no additional tenant reset occurred. Historical failed attempts
+remain in the ledger and do not represent current service failures.
+
+All 11 insurance and 19 terminal cases are recovered. Loan acceptance covers
+2,288 eligible loans, 429 active metric/continuation schedules and accrual
+controls, 1,859 inactive metric skips and 464 planned loan quarantines. The
+38,644 documented loan schedule/reference variances remain disclosed; this
+is not exact parity with original settlement schedules. Accounting retains its
+14 planned quarantines and 30 reference-only journals. Registry testing status
+for cheque history is unchanged by this local acceptance run.
+
+Final native readback confirms interest recalculation remains off on both
+products and all 2,288 loans; 429 active baselines, zero inactive alignment
+rows, zero interim refinance credits, zero imported source movements on/after
+Fineract starts. The accounting boundary remains ACTIVE at **Fineract starts
+2026-10-27**, with **Arissto through 2026-10-26**. The scheduler remains paused;
+no release or production deployment was authorized. Arissto connection and
+read-only permissions passed at acceptance. Focused Python checks passed 329
+tests; the broader suite's 26 previously reproduced failures/errors are not
+presented as a passing suite.
+
+See [full service acceptance evidence](investigations/full-sync-recovery-accepted-oct28.json).
