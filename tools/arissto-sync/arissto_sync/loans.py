@@ -4223,7 +4223,8 @@ def _build_loan_lifecycle_action(
     lifecycle = {
         "application_payload": application_payload,
         "historical_schedule_balance_reference": historical_schedule_balance_reference,
-        "after_boundary_refinance_links": (source_lifecycle or {}).get("after_boundary_refinance_links") or [],
+        "after_boundary_refinance_links": json.loads(json.dumps(
+            (source_lifecycle or {}).get("after_boundary_refinance_links") or [], default=_json_default)),
         "contractual_maturity_date": contractual_maturity_date,
         "term_account_contract": term_account_contract,
         "source_maturity_pending": source_maturity_pending,

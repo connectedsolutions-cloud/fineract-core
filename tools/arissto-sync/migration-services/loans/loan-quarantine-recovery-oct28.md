@@ -134,3 +134,26 @@ balance assertion still fails in the broad suite and is outside this change.
 Native freeze-history validation remains6 passing tests.
 
 See [complete admission evidence](investigations/complete-real-history-admission-oct28.json).
+
+
+## Controlled full re-sync started
+
+The accepted completed18-service run remains the baseline. Checkpoints were
+bootstrapped for `local-full-resync` from accepted client run
+`2be50059c7c744c286b09b13ede29341`, employee run
+`dcfbc679c1a444e7a29aa08a6683c5b4`, and loan run
+`a0fce5b52e544fad901318f4b98fd0cc` in the existing cycle
+`sandbox-2026-10-27-full-clean-recalc-off-a`.
+
+Reviewed immutable parent plan `959818becd5a41b09d56c94c3b1ddbb7` selects only
+`clients → employees → loans`, full re-sync against local sandbox fingerprint
+`b9f6834b66790744`, inheriting active S=2026-10-26 / T=2026-10-27. It does not
+reset the target or advance the boundary. The guarded orchestrator reloaded the
+owned native runtime and verified scheduler paused before start. Runtime
+controls remain2 loan workers,3 recovery attempts, and the frozen guarded
+restart policy. Started workflow `a78ea9e871b94ca28fc8e6ee30d6d09d`.
+
+Final broad regression result: **1,005/1,006 pass**, with only the unrelated
+savings minimum-balance assertion failing. All affected loan/runtime tests pass.
+Trackers55,56,57 remain open pending native acceptance. Do not describe the
+new population as imported until this run and native reconciliation pass.

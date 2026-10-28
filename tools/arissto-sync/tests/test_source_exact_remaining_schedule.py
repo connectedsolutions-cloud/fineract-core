@@ -533,3 +533,16 @@ class SourceExactRemainingScheduleTests(unittest.TestCase):
         actual=_build_loan_lifecycle_action(self.fixture.contract,loan,source,target,product)
         policy=actual['lifecycle']['source_exact_remaining_schedule_policy']
         self.assertEqual(policy['adjustment_proof']['corroborating_adjustment_ids'],[1000,1001])
+
+    def test_future_refinance_provenance_is_json_safe_without_losing_decimal_precision(self):
+        import json
+        loan,source,target,product=self.fixture.lifecycle_fixture()
+        source['after_boundary_refinance_links']=[{
+            'payoff_amount':Decimal('123.45'),'payoff_date':datetime(2026,10,27),
+            'payoff_insurance_details':[{'MONTO_COBRADO':Decimal('0.07')}]}]
+        result=_build_loan_lifecycle_action(self.fixture.contract,loan,source,target,product)
+        encoded=json.loads(json.dumps(result))
+        evidence=encoded['lifecycle']['after_boundary_refinance_links'][0]
+        self.assertEqual(evidence['payoff_amount'],'123.45')
+        self.assertEqual(evidence['payoff_date'],'2026-10-27T00:00:00')
+        self.assertEqual(evidence['payoff_insurance_details'][0]['MONTO_COBRADO'],'0.07')
