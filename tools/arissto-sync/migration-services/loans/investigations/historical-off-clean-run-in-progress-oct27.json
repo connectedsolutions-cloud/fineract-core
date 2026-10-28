@@ -1,0 +1,227 @@
+{
+  "observed_at": "2026-10-28T01:24:31.912581+00:00",
+  "cycle": "sandbox-2026-10-27-full-clean-recalc-off-a",
+  "workflow_plan_id": "5359676d1cd44c9a9fca6f0147981662",
+  "workflow_run_id": "e942a4ece71b4833b478a265b4296159",
+  "loan_plan_id": "d0c58102d06d4c5f8a897971f3828132",
+  "loan_run_id": "a16c564d59804e2bb2426599e41bf026",
+  "source_through_date": "2026-10-26",
+  "fineract_starts": "2026-10-27",
+  "acceptance": "pending; active discovery run",
+  "tests_passed": 372,
+  "workflow": {
+    "status": "running",
+    "current_service": "loans",
+    "current_phase": "apply",
+    "runner_pid": 47588
+  },
+  "steps": [
+    {
+      "service_id": "clients",
+      "status": "completed",
+      "phase": "completed"
+    },
+    {
+      "service_id": "employees",
+      "status": "completed",
+      "phase": "completed"
+    },
+    {
+      "service_id": "client-staff-assignments",
+      "status": "completed",
+      "phase": "completed"
+    },
+    {
+      "service_id": "client-pep",
+      "status": "completed",
+      "phase": "completed"
+    },
+    {
+      "service_id": "client-family-references",
+      "status": "completed",
+      "phase": "completed"
+    },
+    {
+      "service_id": "client-personal-family-references",
+      "status": "completed",
+      "phase": "completed"
+    },
+    {
+      "service_id": "membership-share-capital",
+      "status": "completed",
+      "phase": "completed"
+    },
+    {
+      "service_id": "loans",
+      "status": "running",
+      "phase": "apply"
+    },
+    {
+      "service_id": "delinquency-history",
+      "status": "pending",
+      "phase": "not-started"
+    },
+    {
+      "service_id": "savings-deposits",
+      "status": "pending",
+      "phase": "not-started"
+    },
+    {
+      "service_id": "savings-account-parties",
+      "status": "pending",
+      "phase": "not-started"
+    },
+    {
+      "service_id": "native-share-capital",
+      "status": "pending",
+      "phase": "not-started"
+    },
+    {
+      "service_id": "aml-alerts",
+      "status": "pending",
+      "phase": "not-started"
+    },
+    {
+      "service_id": "dte-history",
+      "status": "pending",
+      "phase": "not-started"
+    },
+    {
+      "service_id": "mobile-collections",
+      "status": "pending",
+      "phase": "not-started"
+    },
+    {
+      "service_id": "accounting-journal-entries",
+      "status": "pending",
+      "phase": "not-started"
+    },
+    {
+      "service_id": "native-share-yield",
+      "status": "pending",
+      "phase": "not-started"
+    },
+    {
+      "service_id": "cheque-history",
+      "status": "pending",
+      "phase": "not-started"
+    }
+  ],
+  "loan_item_counts": {
+    "blocked": 17,
+    "failed": 1,
+    "quarantined": 476,
+    "recovered": 9,
+    "succeeded": 167
+  },
+  "failed_loans": [
+    {
+      "source_key": "loan:101",
+      "error_code": "client_office_transfer_active_loan_set_mismatch"
+    }
+  ],
+  "planned_loan_counts": {
+    "all": 2752,
+    "eligible": 2276,
+    "quarantined": 476,
+    "eligible_post_boundary_events": 0
+  },
+  "planned_policy": "source-exact-off-v1",
+  "plan_revision": 10,
+  "transfer_cohorts": [
+    {
+      "client_id": 339,
+      "effective_date": "2024-11-27",
+      "expected_active_source_loan_ids": [],
+      "native_loans": [
+        {
+          "external_id": "ARISSTO:CRD:115",
+          "status": 300
+        },
+        {
+          "external_id": "ARISSTO:CRD:363",
+          "status": 300
+        },
+        {
+          "external_id": "ARISSTO:CRD:688",
+          "status": 300
+        }
+      ]
+    },
+    {
+      "client_id": 709,
+      "effective_date": "2025-04-01",
+      "expected_active_source_loan_ids": [
+        987
+      ],
+      "native_loans": [
+        {
+          "external_id": "ARISSTO:CRD:687",
+          "status": 300
+        },
+        {
+          "external_id": "ARISSTO:CRD:805",
+          "status": 300
+        },
+        {
+          "external_id": "ARISSTO:CRD:2",
+          "status": 300
+        }
+      ]
+    },
+    {
+      "client_id": 324,
+      "effective_date": "2025-04-01",
+      "expected_active_source_loan_ids": [
+        921
+      ],
+      "native_loans": [
+        {
+          "external_id": "ARISSTO:CRD:101",
+          "status": 300
+        },
+        {
+          "external_id": "ARISSTO:CRD:283",
+          "status": 300
+        },
+        {
+          "external_id": "ARISSTO:CRD:553",
+          "status": 300
+        }
+      ]
+    },
+    {
+      "client_id": 587,
+      "effective_date": "2025-04-01",
+      "expected_active_source_loan_ids": [
+        990
+      ],
+      "native_loans": [
+        {
+          "external_id": "ARISSTO:CRD:623",
+          "status": 300
+        }
+      ]
+    }
+  ],
+  "native_product_flags": [
+    {
+      "enabled": false,
+      "count": 2
+    }
+  ],
+  "native_loan_flags": [
+    {
+      "enabled": false,
+      "count": 186
+    }
+  ],
+  "native_refinance_settlement_count": 13,
+  "interim_refinance_credit_count": 0,
+  "terminal_correction_count": 0,
+  "final_metric_alignment_count": 0,
+  "scheduler": {
+    "active": false
+  },
+  "transfer_mismatch_interpretation": "Hypothesis: source-closed refinance predecessors remain natively active while end-only corrections are deferred, conflicting with the historical office-transfer active-loan inventory guard. Native/source inventory evidence is recorded; no guard was weakened and no correction/retry was forced during this run."
+}

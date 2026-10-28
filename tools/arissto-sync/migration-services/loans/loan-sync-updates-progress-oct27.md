@@ -15,7 +15,7 @@ The operator has authorized the guarded fresh/clean 18-service run to discover
 remaining errors; no partial acceptance or post-migration activation is implied.
 
 
-**Execution request, October 27:** the [readiness assessment](recalculation-off-execution-readiness-oct27.md)
+**Initial execution assessment, before implementation:** the [readiness assessment](recalculation-off-execution-readiness-oct27.md)
 stopped before reset/planning at the handoff's unsupported historical refinance
 gate. Native creation/approval/disbursement still validate ordinary prepayment
 quotes, and the importer contains both prepayment and residual goodwill bridges.
@@ -42,8 +42,8 @@ post-migration activation must start at **Fineract starts** and preserve the
 accepted historical state. The current code has no verified forward-only
 activation for already-migrated loans.
 
-**Implementation remains open.** Existing code and product/loan flags are
-unchanged; there was no sandbox replay, write, reset, boundary change, or new
+**Historical design-review baseline (before `9d021d4efd`):** implementation
+remained open. At that point existing code and product/loan flags were unchanged; there was no sandbox replay, write, reset, boundary change, or new
 reconciliation. Additional tests/experiments and complete-lifecycle baseline
 construction were stopped following the operator's instruction to decide from
 existing evidence. The temporary isolated test services were stopped before any
@@ -58,6 +58,42 @@ row is added for each manifestation.
 
 
 Working tracker for issue discovery, diagnosis, implementation and verified recovery. Keep observations separate from hypotheses, and preserve earlier evidence when updating a status. This document complements the [durable change tracker](change-log.md); implemented loan-sync changes must still be recorded there with commit and affected-loan evidence.
+
+## Fresh/clean recalculation-off attempt
+
+Implementation `9d021d4efd` and test/documentation follow-up `ea1321dafe` preceded
+the guarded restore. Cycle `sandbox-2026-10-27-full-clean-recalc-off-a` uses the
+verified captured baseline and a new target lifetime. Immutable workflow plan
+`5359676d1cd44c9a9fca6f0147981662` selects all 18 services; workflow run
+`e942a4ece71b4833b478a265b4296159` retains **Arissto through 2026-10-26 /
+Fineract starts 2026-10-27**.
+
+The first runner attempt failed before any service step because the restored
+baseline scheduler was active. Supported `workflow resume --reload-local-fineract`
+paused and verified it, then continued the same run/cycle. Native API readback
+confirmed `active=false` and accounting cutoff `ACTIVE` at October 27. All seven
+services preceding Loans completed and reconciled. Loan child plan
+`d0c58102d06d4c5f8a897971f3828132` freezes revision 10 / `source-exact-off-v1`:
+2,752 source identities, 2,276 eligible create actions and 476 explicit
+quarantines. No eligible event is on/after October 27. Loan child run
+`a16c564d59804e2bb2426599e41bf026` is actively replaying; it is not accepted.
+
+The [in-progress native observation](investigations/historical-off-clean-run-in-progress-oct27.json)
+records 2 native products and 186 native loans, all with recalculation false,
+13 native refinance settlements, and zero interim refinance credits, terminal
+corrections or final metric alignments. These are timestamped intermediate
+observations, not final portfolio counts or complete-chain acceptance.
+
+| Current clean-run observation | Affected loans | Status / next verification |
+| --- | --- | --- |
+| Historical office-transfer active-loan inventory mismatches after historical-off replay. | Recorded root `loan:101`; 17 related actions blocked in the transfer cohort. Source/native inventories for the four transfer clients are preserved in the observation. | **New run confirms failure; replay continues elsewhere.** Hypothesis: source-closed refinance predecessors remain native Active while end-only corrections are deferred, so the historical transfer guard sees extra native active loans. Do not weaken inventory validation or post interim credits to force it through; determine the historical settlement/transfer phase contract after this attempt finishes. |
+| Historical recalculation-off and source-exact refinance execution. | All native products/loans observed so far; 13 recorded native settlements. | **Runtime exercised, full acceptance pending.** Native flags are false and both interim bridge counts remain zero. The complete-plan correction barrier and strict final reconciliation remain enforced. |
+
+The old cycle's SQLite snapshot is compressed under the new run's ignored
+`.arissto-sync/evidence/` directory, outside automatic cycle retention. Durable
+change record **47** owns this implementation and pending verification across
+all 2,752 planned source loan identities. The run continues under the existing
+control plane; runtime writer files have not been changed during replay.
 
 ## Evidence baseline
 
