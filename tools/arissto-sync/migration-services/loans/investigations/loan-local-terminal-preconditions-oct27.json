@@ -1,0 +1,313 @@
+{
+  "observed_at": "2026-10-28T03:49:37.490306+00:00",
+  "source_accessed": false,
+  "frozen_plan_used": "75aa8b92014c4995ab88a2b30bc4239f",
+  "native_writes": false,
+  "checks": [
+    {
+      "source_key": "loan:101",
+      "pattern": "historical-terminal-before-client-office-transfer",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "principal_paid": true,
+        "before_joining_date": true,
+        "source_payoff_on_closure_day": true,
+        "no_later_unreversed_native_activity": true,
+        "native_office_history_matches": true,
+        "loan_office_follows_current_client": true
+      },
+      "all_predicates_confirmed": true
+    },
+    {
+      "source_key": "loan:115",
+      "pattern": "historical-terminal-before-client-office-transfer",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "principal_paid": true,
+        "before_joining_date": true,
+        "source_payoff_on_closure_day": true,
+        "no_later_unreversed_native_activity": true,
+        "native_office_history_matches": true,
+        "loan_office_follows_current_client": true
+      },
+      "all_predicates_confirmed": true
+    },
+    {
+      "source_key": "loan:2",
+      "pattern": "historical-terminal-before-client-office-transfer",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "principal_paid": true,
+        "before_joining_date": true,
+        "source_payoff_on_closure_day": true,
+        "no_later_unreversed_native_activity": true,
+        "native_office_history_matches": true,
+        "loan_office_follows_current_client": true
+      },
+      "all_predicates_confirmed": true
+    },
+    {
+      "source_key": "loan:283",
+      "pattern": "historical-terminal-before-client-office-transfer",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "principal_paid": true,
+        "before_joining_date": true,
+        "source_payoff_on_closure_day": true,
+        "no_later_unreversed_native_activity": true,
+        "native_office_history_matches": true,
+        "loan_office_follows_current_client": true
+      },
+      "all_predicates_confirmed": true
+    },
+    {
+      "source_key": "loan:363",
+      "pattern": "historical-terminal-before-client-office-transfer",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "principal_paid": true,
+        "before_joining_date": true,
+        "source_payoff_on_closure_day": true,
+        "no_later_unreversed_native_activity": true,
+        "native_office_history_matches": true,
+        "loan_office_follows_current_client": true
+      },
+      "all_predicates_confirmed": true
+    },
+    {
+      "source_key": "loan:553",
+      "pattern": "historical-terminal-before-client-office-transfer",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "principal_paid": true,
+        "before_joining_date": true,
+        "source_payoff_on_closure_day": true,
+        "no_later_unreversed_native_activity": true,
+        "native_office_history_matches": true,
+        "loan_office_follows_current_client": true
+      },
+      "all_predicates_confirmed": true
+    },
+    {
+      "source_key": "loan:623",
+      "pattern": "historical-terminal-before-client-office-transfer",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "principal_paid": true,
+        "before_joining_date": true,
+        "source_payoff_on_closure_day": true,
+        "no_later_unreversed_native_activity": true,
+        "native_office_history_matches": true,
+        "loan_office_follows_current_client": true
+      },
+      "all_predicates_confirmed": true
+    },
+    {
+      "source_key": "loan:635",
+      "pattern": "selected-expected-term-replaced-by-balance-refresh",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "selected_contract_dates_current": true,
+        "selected_portfolio_account_present": true,
+        "legacy_schedule_endpoint_differs": true
+      },
+      "all_predicates_confirmed": true
+    },
+    {
+      "source_key": "loan:636",
+      "pattern": "selected-expected-term-replaced-by-balance-refresh",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "selected_contract_dates_current": true,
+        "selected_portfolio_account_present": true,
+        "legacy_schedule_endpoint_differs": true
+      },
+      "all_predicates_confirmed": true
+    },
+    {
+      "source_key": "loan:639",
+      "pattern": "selected-expected-term-replaced-by-balance-refresh",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "selected_contract_dates_current": true,
+        "selected_portfolio_account_present": true,
+        "legacy_schedule_endpoint_differs": true
+      },
+      "all_predicates_confirmed": true
+    },
+    {
+      "source_key": "loan:640",
+      "pattern": "selected-expected-term-replaced-by-balance-refresh",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "selected_contract_dates_current": true,
+        "selected_portfolio_account_present": true,
+        "legacy_schedule_endpoint_differs": true
+      },
+      "all_predicates_confirmed": true
+    },
+    {
+      "source_key": "loan:648",
+      "pattern": "selected-expected-term-replaced-by-balance-refresh",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "selected_contract_dates_current": true,
+        "selected_portfolio_account_present": true,
+        "legacy_schedule_endpoint_differs": true
+      },
+      "all_predicates_confirmed": true
+    },
+    {
+      "source_key": "loan:687",
+      "pattern": "historical-terminal-before-client-office-transfer",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "principal_paid": true,
+        "before_joining_date": true,
+        "source_payoff_on_closure_day": true,
+        "no_later_unreversed_native_activity": true,
+        "native_office_history_matches": true,
+        "loan_office_follows_current_client": true
+      },
+      "all_predicates_confirmed": true
+    },
+    {
+      "source_key": "loan:688",
+      "pattern": "historical-terminal-before-client-office-transfer",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "principal_paid": true,
+        "before_joining_date": true,
+        "source_payoff_on_closure_day": true,
+        "no_later_unreversed_native_activity": true,
+        "native_office_history_matches": true,
+        "loan_office_follows_current_client": true
+      },
+      "all_predicates_confirmed": true
+    },
+    {
+      "source_key": "loan:805",
+      "pattern": "historical-terminal-before-client-office-transfer",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "principal_paid": true,
+        "before_joining_date": true,
+        "source_payoff_on_closure_day": true,
+        "no_later_unreversed_native_activity": true,
+        "native_office_history_matches": true,
+        "loan_office_follows_current_client": true
+      },
+      "all_predicates_confirmed": true
+    },
+    {
+      "source_key": "loan:940",
+      "pattern": "historical-terminal-before-client-office-transfer",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "principal_paid": true,
+        "before_joining_date": true,
+        "source_payoff_on_closure_day": true,
+        "no_later_unreversed_native_activity": true,
+        "native_office_history_matches": true,
+        "loan_office_follows_current_client": true
+      },
+      "all_predicates_confirmed": true
+    },
+    {
+      "source_key": "loan:983",
+      "pattern": "selected-expected-term-replaced-by-balance-refresh",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "selected_contract_dates_current": true,
+        "selected_portfolio_account_present": true,
+        "legacy_schedule_endpoint_differs": true
+      },
+      "all_predicates_confirmed": true
+    },
+    {
+      "source_key": "loan:992",
+      "pattern": "selected-expected-term-replaced-by-balance-refresh",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "selected_contract_dates_current": true,
+        "selected_portfolio_account_present": true,
+        "legacy_schedule_endpoint_differs": true
+      },
+      "all_predicates_confirmed": true
+    },
+    {
+      "source_key": "loan:995",
+      "pattern": "selected-expected-term-replaced-by-balance-refresh",
+      "predicates": {
+        "native_cutoff_active": true,
+        "terminal_date_source_owned": true,
+        "recalculation_off": true,
+        "source_exact_adjustment_identity": true,
+        "selected_contract_dates_current": true,
+        "selected_portfolio_account_present": true,
+        "legacy_schedule_endpoint_differs": true
+      },
+      "all_predicates_confirmed": true
+    }
+  ],
+  "summary": {
+    "historical-terminal-before-client-office-transfer": 11,
+    "selected-expected-term-replaced-by-balance-refresh": 8
+  },
+  "all_19_native_preconditions_confirmed": true,
+  "runtime_acceptance": false
+}

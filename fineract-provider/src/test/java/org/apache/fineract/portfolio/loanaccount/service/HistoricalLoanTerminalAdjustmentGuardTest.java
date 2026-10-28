@@ -57,7 +57,8 @@ class HistoricalLoanTerminalAdjustmentGuardTest {
         Client client = mock(Client.class); Office office = mock(Office.class);
         when(loan.getClient()).thenReturn(client); when(loan.getClientId()).thenReturn(1L);
         when(client.getOfficeJoiningDate()).thenReturn(MOVED); when(client.getOffice()).thenReturn(office);
-        when(office.getId()).thenReturn(2L); when(loan.getOfficeId()).thenReturn(1L);
+        when(office.getId()).thenReturn(2L); when(loan.getOfficeId()).thenReturn(2L);
+        Office originalOffice = mock(Office.class); when(originalOffice.getId()).thenReturn(1L);
         var summary = mock(LoanSummary.class); when(loan.getSummary()).thenReturn(summary);
         when(summary.getTotalPrincipalOutstanding()).thenReturn(BigDecimal.ZERO);
         LoanTransaction adjustment = mock(LoanTransaction.class), payoff = mock(LoanTransaction.class);
@@ -65,21 +66,32 @@ class HistoricalLoanTerminalAdjustmentGuardTest {
         when(adjustment.getExternalId()).thenReturn(new ExternalId("ARISSTO:CRD-CUTOVER:1"));
         when(payoff.getTransactionDate()).thenReturn(DAY); when(payoff.isRepayment()).thenReturn(true);
         when(payoff.getExternalId()).thenReturn(new ExternalId("ARISSTO:CRD-MOV:1"));
+        when(payoff.getOffice()).thenReturn(originalOffice);
         when(loan.getLoanTransactions()).thenReturn(List.of(payoff));
         when(jdbc.query(anyString(), ArgumentMatchers.<RowMapper<HistoricalLoanTerminalAdjustmentGuard.OfficeTransfer>>any(), eq(1L)))
                 .thenReturn(List.of(new HistoricalLoanTerminalAdjustmentGuard.OfficeTransfer(1L, 2L, MOVED)));
-        assertFalse(guard.permitsPriorOfficeDate(loan, adjustment, true));
+        assertNull(guard.resolvePriorOffice(loan, DAY, adjustment.getExternalId(), true, true));
         SourceExactTerminalAdjustmentContext.execute(() -> {
-            assertTrue(guard.permitsPriorOfficeDate(loan, adjustment, true));
-            assertFalse(guard.permitsPriorOfficeDate(loan, adjustment, false));
+            assertEquals(2L, loan.getOfficeId());
+            assertSame(originalOffice, guard.resolvePriorOffice(loan, DAY, adjustment.getExternalId(), true, true));
+            Office otherOffice = mock(Office.class); when(otherOffice.getId()).thenReturn(3L);
+            LoanTransaction ambiguousPayoff = mock(LoanTransaction.class);
+            when(ambiguousPayoff.isRepayment()).thenReturn(true);
+            when(ambiguousPayoff.getTransactionDate()).thenReturn(DAY);
+            when(ambiguousPayoff.getExternalId()).thenReturn(new ExternalId("ARISSTO:CRD-MOV:2"));
+            when(ambiguousPayoff.getOffice()).thenReturn(otherOffice);
+            when(loan.getLoanTransactions()).thenReturn(List.of(payoff, ambiguousPayoff));
+            assertNull(guard.resolvePriorOffice(loan, DAY, adjustment.getExternalId(), true, true));
+            when(loan.getLoanTransactions()).thenReturn(List.of(payoff));
+            assertNull(guard.resolvePriorOffice(loan, DAY, adjustment.getExternalId(), false, true));
             when(loan.isInterestRecalculationEnabled()).thenReturn(true);
-            assertFalse(guard.permitsPriorOfficeDate(loan, adjustment, true));
+            assertNull(guard.resolvePriorOffice(loan, DAY, adjustment.getExternalId(), true, true));
             when(loan.isInterestRecalculationEnabled()).thenReturn(false);
             when(summary.getTotalPrincipalOutstanding()).thenReturn(BigDecimal.ONE);
-            assertFalse(guard.permitsPriorOfficeDate(loan, adjustment, true));
+            assertNull(guard.resolvePriorOffice(loan, DAY, adjustment.getExternalId(), true, true));
             when(summary.getTotalPrincipalOutstanding()).thenReturn(BigDecimal.ZERO);
             when(payoff.isReversed()).thenReturn(true);
-            assertFalse(guard.permitsPriorOfficeDate(loan, adjustment, true));
+            assertNull(guard.resolvePriorOffice(loan, DAY, adjustment.getExternalId(), true, true));
             when(payoff.isReversed()).thenReturn(false);
             assertThrows(RuntimeException.class, () -> guard.validateRequest(loan, cutoff.getCutoffDate(), adjustment.getExternalId()));
             assertThrows(RuntimeException.class, () -> guard.validateRequest(loan, DAY, new ExternalId("ARISSTO:CRD-CUTOVER:2")));

@@ -28,6 +28,7 @@ import org.apache.fineract.accounting.cutoff.AccountingCutoffLifecycleState;
 import org.apache.fineract.infrastructure.core.domain.ExternalId;
 import org.apache.fineract.infrastructure.core.exception.GeneralPlatformDomainRuleException;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
+import org.apache.fineract.organisation.office.domain.Office;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -53,37 +54,41 @@ public class HistoricalLoanTerminalAdjustmentGuard {
         }
     }
 
-    public boolean permitsPriorOfficeDate(Loan loan, LoanTransaction adjustment, boolean sourceExact) {
-        if (!SourceExactTerminalAdjustmentContext.isActive() || !sourceExact || !adjustment.isGoodwillCredit()
+    public Office resolvePriorOffice(Loan loan, LocalDate day, ExternalId adjustmentId, boolean sourceExact, boolean goodwill) {
+        if (!SourceExactTerminalAdjustmentContext.isActive() || !sourceExact || !goodwill
                 || !SourceExactTerminalAdjustmentContext.isArisstoLoan(loan) || loan.isInterestRecalculationEnabled()
                 || loan.getClient() == null || loan.getClient().getOfficeJoiningDate() == null
-                || !adjustment.getTransactionDate().isBefore(loan.getClient().getOfficeJoiningDate())
+                || !day.isBefore(loan.getClient().getOfficeJoiningDate())
                 || loan.getSummary().getTotalPrincipalOutstanding() == null
                 || loan.getSummary().getTotalPrincipalOutstanding().abs().compareTo(new BigDecimal("0.01")) > 0) {
-            return false;
+            return null;
         }
-        validateRequest(loan, adjustment.getTransactionDate(), adjustment.getExternalId());
-        boolean payoffFound = false;
+        validateRequest(loan, day, adjustmentId);
+        Office payoffOffice = null;
         for (LoanTransaction transaction : loan.getLoanTransactions()) {
             if (transaction.isReversed()) continue;
-            if (transaction.getTransactionDate().isAfter(adjustment.getTransactionDate())) return false;
+            if (transaction.getTransactionDate().isAfter(day)) return null;
             String id = transaction.getExternalId().getValue();
-            if (transaction.isRepayment() && transaction.getTransactionDate().equals(adjustment.getTransactionDate())
+            if (transaction.isRepayment() && transaction.getTransactionDate().equals(day)
                     && id != null && id.matches("(?:PROOF:[a-z0-9][a-z0-9-]{0,23}:)?ARISSTO:CRD-MOV:[0-9]+")) {
-                payoffFound = true;
+                Office office = transaction.getOffice();
+                if (office == null || payoffOffice != null && !payoffOffice.getId().equals(office.getId())) return null;
+                payoffOffice = office;
             }
         }
-        if (!payoffFound) return false;
+        if (payoffOffice == null) return null;
         List<OfficeTransfer> history = jdbc.query(
                 "SELECT from_office_id,to_office_id,proposed_transfer_date FROM m_client_transfer_details "
                         + "WHERE client_id=? AND transfer_type=2 ORDER BY proposed_transfer_date DESC,id DESC",
                 (rs, row) -> new OfficeTransfer(rs.getLong(1), rs.getLong(2), rs.getDate(3) == null ? null : rs.getDate(3).toLocalDate()),
                 loan.getClientId());
-        return historicalOfficeMatches(loan.getClient().getOffice().getId(), loan.getOfficeId(),
-                adjustment.getTransactionDate(), history);
+        // Loan.getOffice() follows the client's current office. The immutable
+        // recorded terminal repayment is the authority for this historical posting's office.
+        return historicalOfficeMatches(loan.getClient().getOffice().getId(), payoffOffice.getId(), day, history)
+                ? payoffOffice : null;
     }
 
-    static boolean historicalOfficeMatches(Long currentOffice, Long loanOffice, LocalDate day, List<OfficeTransfer> history) {
+    static boolean historicalOfficeMatches(Long currentOffice, Long receiptOffice, LocalDate day, List<OfficeTransfer> history) {
         boolean crossed = false;
         var dates = new HashSet<LocalDate>();
         for (OfficeTransfer transfer : history) {
@@ -93,7 +98,7 @@ public class HistoricalLoanTerminalAdjustmentGuard {
             currentOffice = transfer.fromOffice();
             crossed = true;
         }
-        return crossed && currentOffice.equals(loanOffice);
+        return crossed && currentOffice.equals(receiptOffice);
     }
 
     record OfficeTransfer(Long fromOffice, Long toOffice, LocalDate day) {}

@@ -23,152 +23,152 @@
   "failed_actions": [
     {
       "source_key": "loan:101",
-      "target_id": null,
+      "target_id": "1",
       "pattern": "historical-terminal-before-client-office-transfer"
     },
     {
       "source_key": "loan:115",
-      "target_id": null,
+      "target_id": "3",
       "pattern": "historical-terminal-before-client-office-transfer"
     },
     {
       "source_key": "loan:2",
-      "target_id": null,
+      "target_id": "9",
       "pattern": "historical-terminal-before-client-office-transfer"
     },
     {
       "source_key": "loan:2069",
-      "target_id": null,
+      "target_id": "2061",
       "pattern": "insurance-template-vs-frozen-target"
     },
     {
       "source_key": "loan:2340",
-      "target_id": null,
+      "target_id": "2263",
       "pattern": "insurance-template-vs-frozen-target"
     },
     {
       "source_key": "loan:2351",
-      "target_id": null,
+      "target_id": "1577",
       "pattern": "insurance-template-vs-frozen-target"
     },
     {
       "source_key": "loan:2419",
-      "target_id": null,
+      "target_id": "1590",
       "pattern": "insurance-template-vs-frozen-target"
     },
     {
       "source_key": "loan:2480",
-      "target_id": null,
+      "target_id": "1009",
       "pattern": "insurance-template-vs-frozen-target"
     },
     {
       "source_key": "loan:2483",
-      "target_id": null,
+      "target_id": "2086",
       "pattern": "insurance-template-vs-frozen-target"
     },
     {
       "source_key": "loan:2529",
-      "target_id": null,
+      "target_id": "1920",
       "pattern": "insurance-template-vs-frozen-target"
     },
     {
       "source_key": "loan:2582",
-      "target_id": null,
+      "target_id": "2183",
       "pattern": "insurance-template-vs-frozen-target"
     },
     {
       "source_key": "loan:2584",
-      "target_id": null,
+      "target_id": "2093",
       "pattern": "insurance-template-vs-frozen-target"
     },
     {
       "source_key": "loan:2628",
-      "target_id": null,
+      "target_id": "2261",
       "pattern": "insurance-template-vs-frozen-target"
     },
     {
       "source_key": "loan:2716",
-      "target_id": null,
+      "target_id": "2268",
       "pattern": "insurance-template-vs-frozen-target"
     },
     {
       "source_key": "loan:283",
-      "target_id": null,
+      "target_id": "2",
       "pattern": "historical-terminal-before-client-office-transfer"
     },
     {
       "source_key": "loan:363",
-      "target_id": null,
+      "target_id": "4",
       "pattern": "historical-terminal-before-client-office-transfer"
     },
     {
       "source_key": "loan:553",
-      "target_id": null,
+      "target_id": "5",
       "pattern": "historical-terminal-before-client-office-transfer"
     },
     {
       "source_key": "loan:623",
-      "target_id": null,
+      "target_id": "10",
       "pattern": "historical-terminal-before-client-office-transfer"
     },
     {
       "source_key": "loan:635",
-      "target_id": null,
+      "target_id": "1229",
       "pattern": "selected-expected-term-replaced-by-balance-refresh"
     },
     {
       "source_key": "loan:636",
-      "target_id": null,
+      "target_id": "1230",
       "pattern": "selected-expected-term-replaced-by-balance-refresh"
     },
     {
       "source_key": "loan:639",
-      "target_id": null,
+      "target_id": "1231",
       "pattern": "selected-expected-term-replaced-by-balance-refresh"
     },
     {
       "source_key": "loan:640",
-      "target_id": null,
+      "target_id": "393",
       "pattern": "selected-expected-term-replaced-by-balance-refresh"
     },
     {
       "source_key": "loan:648",
-      "target_id": null,
+      "target_id": "1235",
       "pattern": "selected-expected-term-replaced-by-balance-refresh"
     },
     {
       "source_key": "loan:687",
-      "target_id": null,
+      "target_id": "7",
       "pattern": "historical-terminal-before-client-office-transfer"
     },
     {
       "source_key": "loan:688",
-      "target_id": null,
+      "target_id": "6",
       "pattern": "historical-terminal-before-client-office-transfer"
     },
     {
       "source_key": "loan:805",
-      "target_id": null,
+      "target_id": "8",
       "pattern": "historical-terminal-before-client-office-transfer"
     },
     {
       "source_key": "loan:940",
-      "target_id": null,
+      "target_id": "2270",
       "pattern": "historical-terminal-before-client-office-transfer"
     },
     {
       "source_key": "loan:983",
-      "target_id": null,
+      "target_id": "539",
       "pattern": "selected-expected-term-replaced-by-balance-refresh"
     },
     {
       "source_key": "loan:992",
-      "target_id": null,
+      "target_id": "543",
       "pattern": "selected-expected-term-replaced-by-balance-refresh"
     },
     {
       "source_key": "loan:995",
-      "target_id": null,
+      "target_id": "545",
       "pattern": "selected-expected-term-replaced-by-balance-refresh"
     }
   ],
@@ -211,11 +211,31 @@
     "historical_office_date_guard": "implemented;unit-tests-passed;runtime-validation-pending",
     "selected_expected_term_preservation": "implemented;unit-tests-passed;runtime-validation-pending",
     "correction_retry_roots": "implemented;regression-test-passed;not-run-against-target",
-    "insurance_templates": "unchanged;fresh-source-comparison-required"
+    "insurance_templates": "unchanged;fresh-source-comparison-required",
+    "historical_office_receipt_authority": "Corrected native-model lookup: resolve office from terminal source repayment, validate accepted transfer history, construct terminal credit in that office; runtime acceptance pending."
   },
   "tests": {
     "focused_python": 433,
     "native_java": 22
   },
-  "live_sync_acceptance": false
+  "live_sync_acceptance": false,
+  "native_identity_enriched_at": "2026-10-28T03:48:07.472548+00:00",
+  "source_connection_recheck": {
+    "ok": false,
+    "timeout": true,
+    "error": "OperationalError",
+    "observed_at": "2026-10-28T03:48:07.472703+00:00"
+  },
+  "local_native_precondition_audit": {
+    "observed_at": "2026-10-28T03:49:37.490306+00:00",
+    "source_accessed": false,
+    "frozen_plan_used": "75aa8b92014c4995ab88a2b30bc4239f",
+    "native_writes": false,
+    "summary": {
+      "historical-terminal-before-client-office-transfer": 11,
+      "selected-expected-term-replaced-by-balance-refresh": 8
+    },
+    "all_19_native_preconditions_confirmed": true,
+    "runtime_acceptance": false
+  }
 }

@@ -47,8 +47,8 @@ validates the Arissto identities, recalculation-off flag, paid principal, an
 unreversed native terminal repayment on the exact date, and absence of later
 native activity at/after transfer. Missing, duplicate, cross-client or overlapping
 proofs fail the exact inventory check. Every other native active loan must be
-present in the source transfer balances. Proven source-closed loans keep their
-historical office and receive no branch transfer transaction pair.
+present in the source transfer balances. Proven source-closed histories receive no branch transfer transaction pair;
+their original native transactions retain their recorded offices.
 
 This changes no loan balance and posts no early credit, waiver or terminal
 correction. The global replay/readback barrier still precedes final closure
@@ -140,7 +140,8 @@ After the user reported possible Arissto downtime, one read-only `source-check`
 failed with an OperationalError timeout. Fresh source comparison stopped. No
 new sync/retry or guarded backend reload was launched after that observation.
 The already-running attempt completed its target-only finalization and exited.
-Current source availability has not been rechecked since the timeout.
+A subsequent connection-only recheck also timed out; no source comparison or
+sync/retry was resumed.
 
 ### Local-only repairs, not runtime acceptance
 
@@ -195,3 +196,32 @@ all 2,752 source identities and existing native IDs. Read-only inspection of the
 preserved retry chain now exposes all 30 failed roots, where the earlier sticky
 view exposed zero. No recovery execution was performed to verify that selection
 against the target while source comparison is unavailable.
+
+
+## Local native-model audit after the source timeout
+
+Read-only inspection confirmed that `Loan.getOfficeId()` and `Loan.getOffice()`
+follow the client's current office. There is no persisted `m_loan.office_id`.
+The first terminal guard therefore compared the reconstructed historical office
+with the wrong native property, and its original mock allowed an impossible
+loan/client office combination. The guard now resolves the office recorded on
+the unreversed source terminal repayment, proves it against accepted client
+transfer history, and constructs the new terminal credit using that exact office.
+Conflicting terminal receipt offices are rejected. The client and its current
+office are not changed. Ordinary repayments continue using the current office.
+
+The updated native tests reproduce a current client/loan office different from
+the historical repayment office and require the historical office object to be
+returned; they also reject ambiguous receipt offices. The provider's seven
+focused tests pass. A separate read-only local audit confirms every guard
+precondition across all 11 office-date cases and confirms valid selected source
+contract dates differing from the legacy schedule endpoint in all 8 maturity
+cases. Its [19-case predicate evidence](investigations/loan-local-terminal-preconditions-oct27.json)
+contains stable IDs and booleans, without financial amounts. This is local
+precondition evidence, not completed runtime acceptance.
+
+All 30 failed-action native IDs were enriched from exact local loan external
+identities; the same known IDs were restored in durable tracker rows whose
+later failure records had omitted target IDs. The insurance templates remain
+unchanged, and the later Arissto connection-only recheck also timed out. No
+source comparison, sync/retry, tenant reset or guarded native reload followed it.

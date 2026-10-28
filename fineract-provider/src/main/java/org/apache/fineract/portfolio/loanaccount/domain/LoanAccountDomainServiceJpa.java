@@ -276,13 +276,16 @@ public class LoanAccountDomainServiceJpa implements LoanAccountDomainService {
          * .validateRepaymentDateWithMeetingDate(transactionDate, calendarInstance); }
          */
 
+        final var historicalOffice = historicalTerminalAdjustmentGuard.resolvePriorOffice(loan, transactionDate, txnExternalId,
+                sourceExactAllocation != null, repaymentTransactionType.isGoodwillCredit());
         final Money repaymentAmount = Money.of(loan.getCurrency(), transactionAmount);
         LoanTransaction newRepaymentTransaction;
         if (isRecoveryRepayment) {
             newRepaymentTransaction = LoanTransaction.recoveryRepayment(loan.getOffice(), repaymentAmount, paymentDetail, transactionDate,
                     txnExternalId);
         } else {
-            newRepaymentTransaction = LoanTransaction.repaymentType(repaymentTransactionType, loan.getOffice(), repaymentAmount,
+            newRepaymentTransaction = LoanTransaction.repaymentType(repaymentTransactionType,
+                    historicalOffice == null ? loan.getOffice() : historicalOffice, repaymentAmount,
                     paymentDetail, transactionDate, txnExternalId, chargeRefundChargeType);
         }
         if (sourceExactAllocation != null) {
@@ -318,7 +321,7 @@ public class LoanAccountDomainServiceJpa implements LoanAccountDomainService {
                     event);
         }
         loanDownPaymentTransactionValidator.validateRepaymentTypeAccountStatus(loan, newRepaymentTransaction, event);
-        if (!historicalTerminalAdjustmentGuard.permitsPriorOfficeDate(loan, newRepaymentTransaction, sourceExactAllocation != null)) {
+        if (historicalOffice == null) {
             loanTransactionValidator.validateActivityNotBeforeClientOrGroupTransferDate(loan, event,
                     newRepaymentTransaction.getTransactionDate());
         }
