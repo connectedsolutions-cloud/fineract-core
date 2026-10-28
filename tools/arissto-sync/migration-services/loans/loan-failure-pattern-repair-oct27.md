@@ -62,10 +62,25 @@ Read-only checks against that failed sandbox verified the three closure proofs
 at its first failing office transfer. Later incomplete cohorts still fail the
 proof readback, as required, until their source history is replayed.
 
-390 focused Python tests pass, including active/closed metric scope, raw-versus-
+430 focused Python tests pass, including active/closed metric scope, raw-versus-
 target validation, final barrier ordering, closed-source transfer proofs and
-unowned active inventory rejection. Native FinalLoanMetrics,
+unowned active inventory rejection. Eight native FinalLoanMetrics,
 FinalLoanMetricAlignmentService and deferred-closure transfer tests pass.
 Native provider compilation also passes. Complete workflow acceptance remains
 pending the controlled resumed run; these checks do not establish migration
 acceptance or authorize scheduler release.
+
+
+Implementation commit: `ad32e90e4827fcf8b7fb4069d1759c71c093e4b1`.
+Durable change-tracker entry 48 includes all 2,752 source loan identities and
+existing native IDs where known. The pre-resume cycle database was backed up
+under the cycle evidence directory before the guarded backend reload.
+The supported resume targets the same workflow run
+`e942a4ece71b4833b478a265b4296159`, local `sandbox:fineract_sandbox`, retaining
+**Arissto through 2026-10-26 / Fineract starts 2026-10-27**. The changed contract
+hash requires a fresh immutable child loan plan; the old child is not replayable.
+The scheduler remains subject to the guarded pause verification on reload.
+
+Mifos account details still read `loanDetails.isInterestRecalculationEnabled`
+and conditionally display recalculation fields; this repair introduces no new
+frontend field or activation flow.
