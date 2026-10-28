@@ -223,5 +223,33 @@
   "scheduler": {
     "active": false
   },
-  "transfer_mismatch_interpretation": "Hypothesis: source-closed refinance predecessors remain natively active while end-only corrections are deferred, conflicting with the historical office-transfer active-loan inventory guard. Native/source inventory evidence is recorded; no guard was weakened and no correction/retry was forced during this run."
+  "transfer_mismatch_interpretation": "Hypothesis: source-closed refinance predecessors remain natively active while end-only corrections are deferred, conflicting with the historical office-transfer active-loan inventory guard. Native/source inventory evidence is recorded; no guard was weakened and no correction/retry was forced during this run.",
+  "verified_transfer_phase_conflict": {
+    "transfer_effective_date": "2024-11-27",
+    "expected_active_source_loans": [],
+    "source_closed_before_transfer": [
+      {
+        "source_key": "loan:115",
+        "source_state": "3",
+        "source_close_date": "2023-12-09",
+        "native_status_observed": 300
+      },
+      {
+        "source_key": "loan:363",
+        "source_state": "3",
+        "source_close_date": "2024-07-15",
+        "native_status_observed": 300
+      },
+      {
+        "source_key": "loan:688",
+        "source_state": "3",
+        "source_close_date": "2024-10-16",
+        "native_status_observed": 300
+      }
+    ],
+    "python_guard": "_expected_native_transfer_loan_ids compares exact active set",
+    "native_guard": "TransferWritePlatformServiceJpaRepositoryImpl.proposeAndAcceptClientTransfer independently compares exact active set",
+    "cause": "The historical-off replay intentionally returns before terminal corrections, including the old pretransfer finalize=True exception. Source-closed loans therefore remain natively Active at the transfer boundary. This affects ordinary terminal repayments as well as refinance payoffs.",
+    "proposed_followup": "Review explicit source-state transfer proof/ownership semantics without interim financial corrections or ignoring unowned active loans. No implementation change during active run."
+  }
 }
