@@ -285,3 +285,48 @@ remaining-schedule fixtures and the savings minimum-balance expectation. All
 26 outcomes reproduce against the committed pre-change runtime in memory; they
 are not accepted as a passing broad suite. Runtime acceptance remains pending
 the resumed workflow. See [read-only evidence](investigations/aligned-historical-recovery-readonly-oct28.json).
+
+
+## October 28 — final apply accepted; continuation reconciliation correction
+
+Loan child plan `7d8308469e774c8db104850ece10d9b8`, run
+`a0fce5b52e544fad901318f4b98fd0cc`, recovered all 2,288 eligible loans with
+zero failed items and 464 planned quarantines. All 429 active metric vectors
+and accrual controls reconciled; 1,859 inactive loans skipped metrics. Nine
+metric writes were needed. The 11 insurance cases and 19 terminal cases all
+passed independent GET-only history, selected-term and native-state checks.
+Native evidence: 429 active baselines, zero inactive metric rows, 1,718 terminal
+adjustments, zero interim refinance credits, zero on/after-boundary source
+movements, recalculation off on both products and all 2,288 loans, scheduler
+paused. Dates stay **Arissto through 2026-10-26 / Fineract starts 2026-10-27**.
+
+The workflow nevertheless stopped in loan reconciliation: 33,219 original
+settlement-schedule comparisons treated the approved final continuation
+projection as an exact copy of the pre-alignment source schedule. No other
+blocking mismatch kind was present. The source calendar and future forecasts
+remain strict requirements where the frozen policy requires exact schedules.
+
+The corrected read-only validator separately checks one additional baseline
+at S, native active/off flags, matching metric identity/version/continuation,
+latest persisted source-day and before/after target audit, all final principal
+projections, paid baseline amounts, absence of unearned collectible interest,
+nonnegative components, chronological contiguous installment numbers, absence
+of additional future rows, exact contractual calendars and future forecasts.
+The existing 19 reviewed reference-policy exceptions remain disclosed; they
+do not exempt native structural or monetary invariants. Historical supplementary
+rows are distinguished by their persisted additional flag and must be pre-T.
+
+Only after that full proof are original schedule differences classified as
+`verified_final_continuation_schedule_variance`. A missing or corrupt baseline,
+calendar, forecast, audit or metric remains blocking. Other repayment, reversal,
+refinance, ownership, term, collateral, staff, accrual and accounting checks
+remain unchanged. No target financial state is changed by this validator.
+
+Read-only structural acceptance passed 429/429 native schedules. This structural
+audit reused frozen metric targets as inputs and does not claim to replace the
+official native metrics API checks. Focused regressions passed 329 tests, with
+18 continuation tests and corruption controls. Official reconciliation must be
+rerun before the workflow or these changes are accepted.
+
+Evidence: [insurance/terminal native proof](investigations/insurance-terminal-native-recovery-oct28.json),
+[continuation structure](investigations/continuation-schedule-structure-oct28.json).

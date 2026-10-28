@@ -1641,3 +1641,15 @@ to force acceptance. Do not treat these partial loans or the
 parent portfolio as ready for handoff.
 
 Evidence: [remaining LS-01 investigation and retry](investigations/ls01-remaining-cohort-investigation-retry-oct27.json).
+
+
+## October 28 recovery checkpoint
+
+The dated insurance fix and native terminal corrections passed full loan apply:
+2,288 recovered, zero failed, 464 quarantined; 429 active metrics/accrual controls
+reconciled and 1,859 inactive metric skips. Independent readback passed all 11
+insurance and 19 terminal cases. The workflow remains incomplete because final
+reconciliation compared the transformed continuation schedule with original
+settlement rows. The strict continuation validator and 329 focused tests are
+recorded in [the repair investigation](loan-failure-pattern-repair-oct27.md#october-28--final-apply-accepted-continuation-reconciliation-correction).
+Reconciliation acceptance and the remaining workflow services are pending.

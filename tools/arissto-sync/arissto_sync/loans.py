@@ -9051,6 +9051,8 @@ def reconcile_loans(
             item = dict(zip(columns, row))
             collateral_target_rows[str(item["asset_external_id"])].append(item)
 
+    from . import loan_continuation_schedule
+    continuation_rows = loan_continuation_schedule.load(settings, list(actions.values()))
     for item in items:
         action = actions.get(item["source_key"])
         if action is None:
@@ -9080,6 +9082,7 @@ def reconcile_loans(
                 mismatches.append({"source_key": item["source_key"], "kind": "accrual_control_state", "detail": str(exc),
                     "classification": "blocking_cutover_operational_state"})
         from .loan_metric_alignment import eligible as metric_eligible
+        observed = None
         if not metric_eligible(lifecycle):
             counts["metrics_skipped_inactive"] += 1
         elif lifecycle.get("final_metric_alignment"):
@@ -9397,16 +9400,27 @@ def reconcile_loans(
                         })
         source_schedule = _source_exact_expected_schedule(lifecycle)
         schedule_differences = _loan_schedule_differences(source_schedule, repayment_schedule)
+        continuation_proven = False
+        if loan_continuation_schedule.required(lifecycle):
+            try:
+                loan_continuation_schedule.verify(loan, action, observed or {},
+                    continuation_rows.get(action["external_id"], []), source_schedule)
+                continuation_proven = True
+                counts["continuation_schedules_reconciled"] += 1
+            except (RuntimeError, ValueError, KeyError, ArithmeticError, TypeError) as exc:
+                mismatches.append({"source_key": item["source_key"], "kind": "continuation_schedule",
+                    "error": str(exc).splitlines()[0], "classification": "blocking_continuation_schedule"})
         schedule_reconciliation_policy = lifecycle.get("schedule_reconciliation_policy")
         native_recalculation = lifecycle.get("interest_recalculation_policy") == "daily-native-v1"
-        reviewed_schedule_exception = native_recalculation or schedule_reconciliation_policy in {
+        reviewed_schedule_exception = continuation_proven or native_recalculation or schedule_reconciliation_policy in {
             "reviewed-manual-adjustment", "historical-reference-only",
             "unordered-source-schedule-dates",
         }
         for difference in schedule_differences:
             difference["source_key"] = item["source_key"]
             difference["classification"] = (
-                "native_recalculated_schedule_variance" if native_recalculation
+                "verified_final_continuation_schedule_variance" if continuation_proven
+                else "native_recalculated_schedule_variance" if native_recalculation
                 else "historical_reference_only_schedule_variance"
                 if schedule_reconciliation_policy == "historical-reference-only"
                 else "unordered_source_schedule_date_variance"

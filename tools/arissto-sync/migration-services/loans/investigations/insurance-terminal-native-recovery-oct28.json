@@ -1,0 +1,348 @@
+{
+  "observed_at": "2026-10-28T14:24:54.296711+00:00",
+  "source_through_date": "2026-10-26",
+  "fineract_starts": "2026-10-27",
+  "loan_plan": "7d8308469e774c8db104850ece10d9b8",
+  "loan_run": "a0fce5b52e544fad901318f4b98fd0cc",
+  "cases": [
+    {
+      "source_key": "loan:101",
+      "target_id": 1,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    },
+    {
+      "source_key": "loan:115",
+      "target_id": 3,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    },
+    {
+      "source_key": "loan:2",
+      "target_id": 9,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    },
+    {
+      "source_key": "loan:2069",
+      "target_id": 2061,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "insurance",
+      "all_eight_metrics_match": true,
+      "continuation_ready": true,
+      "alignment_version_positive": true
+    },
+    {
+      "source_key": "loan:2340",
+      "target_id": 2263,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "insurance",
+      "all_eight_metrics_match": true,
+      "continuation_ready": true,
+      "alignment_version_positive": true
+    },
+    {
+      "source_key": "loan:2351",
+      "target_id": 1577,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "insurance",
+      "all_eight_metrics_match": true,
+      "continuation_ready": true,
+      "alignment_version_positive": true
+    },
+    {
+      "source_key": "loan:2419",
+      "target_id": 1590,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "insurance",
+      "all_eight_metrics_match": true,
+      "continuation_ready": true,
+      "alignment_version_positive": true
+    },
+    {
+      "source_key": "loan:2480",
+      "target_id": 1009,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "insurance",
+      "all_eight_metrics_match": true,
+      "continuation_ready": true,
+      "alignment_version_positive": true
+    },
+    {
+      "source_key": "loan:2483",
+      "target_id": 2086,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "insurance",
+      "all_eight_metrics_match": true,
+      "continuation_ready": true,
+      "alignment_version_positive": true
+    },
+    {
+      "source_key": "loan:2529",
+      "target_id": 1920,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "insurance",
+      "all_eight_metrics_match": true,
+      "continuation_ready": true,
+      "alignment_version_positive": true
+    },
+    {
+      "source_key": "loan:2582",
+      "target_id": 2183,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "insurance",
+      "all_eight_metrics_match": true,
+      "continuation_ready": true,
+      "alignment_version_positive": true
+    },
+    {
+      "source_key": "loan:2584",
+      "target_id": 2093,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "insurance",
+      "all_eight_metrics_match": true,
+      "continuation_ready": true,
+      "alignment_version_positive": true
+    },
+    {
+      "source_key": "loan:2628",
+      "target_id": 2261,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "insurance",
+      "all_eight_metrics_match": true,
+      "continuation_ready": true,
+      "alignment_version_positive": true
+    },
+    {
+      "source_key": "loan:2716",
+      "target_id": 2268,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "insurance",
+      "all_eight_metrics_match": true,
+      "continuation_ready": true,
+      "alignment_version_positive": true
+    },
+    {
+      "source_key": "loan:283",
+      "target_id": 2,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    },
+    {
+      "source_key": "loan:363",
+      "target_id": 4,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    },
+    {
+      "source_key": "loan:553",
+      "target_id": 5,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    },
+    {
+      "source_key": "loan:623",
+      "target_id": 10,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    },
+    {
+      "source_key": "loan:635",
+      "target_id": 1229,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    },
+    {
+      "source_key": "loan:636",
+      "target_id": 1230,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    },
+    {
+      "source_key": "loan:639",
+      "target_id": 1231,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    },
+    {
+      "source_key": "loan:640",
+      "target_id": 393,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    },
+    {
+      "source_key": "loan:648",
+      "target_id": 1235,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    },
+    {
+      "source_key": "loan:687",
+      "target_id": 7,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    },
+    {
+      "source_key": "loan:688",
+      "target_id": 6,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    },
+    {
+      "source_key": "loan:805",
+      "target_id": 8,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    },
+    {
+      "source_key": "loan:940",
+      "target_id": 2270,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    },
+    {
+      "source_key": "loan:983",
+      "target_id": 539,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    },
+    {
+      "source_key": "loan:992",
+      "target_id": 543,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    },
+    {
+      "source_key": "loan:995",
+      "target_id": 545,
+      "complete_history": true,
+      "selected_terms": true,
+      "recalculation_off": true,
+      "group": "terminal",
+      "exact_terminal_adjustment_present": true,
+      "native_closed": true
+    }
+  ],
+  "native_evidence": {
+    "database": "fineract_sandbox",
+    "product_flags": [
+      [
+        false,
+        2
+      ]
+    ],
+    "loan_flags": [
+      [
+        false,
+        2288
+      ]
+    ],
+    "metric_baselines": 429,
+    "inactive_metric_rows": 0,
+    "terminal_adjustments": 1718,
+    "interim_refinance_credits": 0,
+    "source_movements_on_after_boundary": 0,
+    "scheduler_active": false,
+    "fineract_starts": "2026-10-27"
+  },
+  "plan_comparison": {
+    "eligible_keys_equal": true,
+    "historical_event_changes": 0,
+    "metric_target_changes": 0
+  },
+  "official_workflow_acceptance_pending": true
+}
