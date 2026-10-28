@@ -1,5 +1,11 @@
 # Historical replay and post-migration recalculation — October 27 decision
 
+> Implementation update: commit `9d021d4efd` implements the historical-off
+> direction, guarded refinance staging and complete-plan replay barrier. The
+> earlier audit and investigation status below is preserved as historical
+> evidence. Full native acceptance follows the requested clean run; consult the
+> [progress tracker](loan-sync-updates-progress-oct27.md) for its current result.
+
 ## Direction and implementation status
 
 Use **interest recalculation OFF during historical migration**. Replay the

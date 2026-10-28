@@ -10,7 +10,7 @@ allocations without ordinary future-interest quote substitution or either interi
 credit bridge. Final corrective writes wait for every eligible frozen-plan
 history and a complete native event read pass. A failed, blocked or missing chain
 prevents corrections even on successful siblings or a scoped retry. Focused
-Python checks: **267 passed**. Full native/workflow acceptance remains pending.
+Python plus workflow/control-plane checks: **372 passed**. Full native/workflow acceptance remains pending.
 The operator has authorized the guarded fresh/clean 18-service run to discover
 remaining errors; no partial acceptance or post-migration activation is implied.
 

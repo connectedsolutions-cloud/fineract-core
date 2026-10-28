@@ -1078,12 +1078,14 @@ class WorkflowDefinitionTests(unittest.TestCase):
             patch("arissto_sync.orchestration.subprocess.run") as run,
             patch("arissto_sync.orchestration._restart_local_fineract") as restart,
             patch("arissto_sync.orchestration._start_local_for_liquibase") as migrate,
+            patch("arissto_sync.orchestration.assert_no_pending_access_snapshot") as protected_ready,
         ):
             report = reset_local_fineract(
                 settings, "sandbox", "sandbox:fineract_sandbox",
                 reset_controls, restart_controls,
             )
 
+        protected_ready.assert_called_once_with("sandbox")
         self.assertEqual(report, {"performed": True, "tenant": "sandbox", "target": "local"})
         self.assertEqual(run.call_count, 4)
         self.assertEqual(run.call_args_list[0].args[0], ["stop-fineract", "--local"])

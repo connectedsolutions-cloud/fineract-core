@@ -1,5 +1,12 @@
 # Recalculation-off execution readiness — October 27
 
+> Historical pre-implementation assessment. The operator subsequently authorized
+> fixing the prerequisites and launching a clean discovery run. Implementation
+> commit `9d021d4efd` adds historical OFF, staged source-exact refinance and the
+> complete-plan correction barrier. See the [progress tracker](loan-sync-updates-progress-oct27.md)
+> for current acceptance; the original findings below remain evidence of the
+> behavior before that implementation.
+
 ## Requested execution and result
 
 The operator requested execution of the prior conversation's handoff in thread
