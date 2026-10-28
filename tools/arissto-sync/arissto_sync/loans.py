@@ -269,7 +269,9 @@ class LoanContract:
         value = json.loads(path.read_text(encoding="utf-8"))
         if value.get("version") != 1:
             raise ValueError("Loans mapping requires version 1")
-        if value.get("source_window_projection_policy") != "dated-source-with-paid-refinance-proof-v2":
+        if value.get("source_freeze_history_policy") != "active-and-repaid-history-v2":
+            raise ValueError("Loans mapping requires active and repaid source freeze history")
+        if value.get("source_window_projection_policy") != "dated-source-real-history-v3":
             raise ValueError("Loans mapping requires the dated-source paid-refinance projection policy")
         if value.get("cutover_insurance_balance_policy") != "dated-source-snapshot-v1":
             raise ValueError("Loans mapping requires dated-source cutover insurance balances")
@@ -4411,13 +4413,27 @@ def _guard_unmapped_loan_events(
     freeze_events = loan.get("_source_freeze_events") or []
     if freeze_events:
         lifecycle = lifecycle_action.get("lifecycle")
-        if lifecycle is None or lifecycle["expected"]["source_state"] != "1":
+        if lifecycle and lifecycle.get("financial_reconstruction_omitted"):
+            # Fully voided/superseded records stay provenance only.
+            lifecycle["source_freeze_events"] = freeze_events
+        elif lifecycle and lifecycle["expected"]["source_state"] == "3":
+            from .loan_accrual_controls import freeze as validate_history
+            try:
+                # Closed snapshot flags are not active handoff obligations. Keep
+                # source history and chronology, without final metric controls.
+                validate_history({}, lifecycle["migration_cutover_date"], freeze_events)
+                lifecycle["source_freeze_events"] = freeze_events
+                lifecycle["source_freeze_history_mode"] = "repaid-history-v2"
+            except (ValueError, KeyError) as exc:
+                lifecycle_action["quarantine_reasons"].append(str(exc))
+        elif lifecycle is None or lifecycle["expected"]["source_state"] != "1":
             lifecycle_action["quarantine_reasons"] = sorted(set(
                 lifecycle_action["quarantine_reasons"]
                 + ["historical_source_freeze_terminal_unsupported"]
             ))
         else:
             lifecycle["source_freeze_events"] = freeze_events
+        if lifecycle:
             lifecycle_action["lifecycle_hash"] = _stable_hash(_loan_source_hash_view(lifecycle))
     lifecycle = lifecycle_action.get("lifecycle")
     if lifecycle is not None and lifecycle.get("migration_cutover_date") and lifecycle["expected"]["source_state"] == "1":
@@ -7924,6 +7940,9 @@ def _finalize_loan_history(
                 loan = _ensure_source_exact_freeze_history(api, loan, action, attempt_key)
             if not lifecycle.get("final_metric_alignment") and lifecycle.get("interest_recalculation_policy") != "daily-native-v1":
                 _assert_active_cutover_components(loan, lifecycle)
+        elif (int((loan.get("status") or {}).get("id") or -1) == 600
+                and lifecycle.get("source_freeze_history_mode") == "repaid-history-v2"):
+            loan = _ensure_source_exact_freeze_history(api, loan, action, attempt_key)
     if defer_term_selection:
         loan = api.request("GET", f"loans/{loan_id}", query={"associations": "all"})
         if int((loan.get("status") or {}).get("id") or -1) not in {100, 200}:

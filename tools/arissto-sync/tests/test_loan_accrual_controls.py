@@ -1,8 +1,8 @@
 from copy import deepcopy
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from arissto_sync.loan_accrual_controls import freeze, verify
-from arissto_sync.loans import _guard_unmapped_loan_events, _ensure_source_exact_freeze_history
+from arissto_sync.loans import _guard_unmapped_loan_events, _ensure_source_exact_freeze_history, _finalize_loan_history
 
 
 class AccrualControlTests(unittest.TestCase):
@@ -37,6 +37,43 @@ class AccrualControlTests(unittest.TestCase):
         loan['_mora_cutover_snapshot']['CRD_CONGELADO']='0'
         actual=_guard_unmapped_loan_events(deepcopy(action),loan)
         self.assertIn('source_accrual_control_snapshot_history_conflict',actual['quarantine_reasons'])
+
+    def test_closed_history_is_preserved_without_active_metric_or_accrual_controls(self):
+        action={'lifecycle':{'expected':{'source_state':'3'},'migration_cutover_date':'2026-10-20'},'quarantine_reasons':[]}
+        loan={'_source_freeze_events':self.events()[:1], '_mora_cutover_snapshot':{'CRD_CONGELADO':'0'}}
+        actual=_guard_unmapped_loan_events(deepcopy(action),loan)
+        self.assertEqual(actual['quarantine_reasons'],[])
+        self.assertEqual(actual['lifecycle']['source_freeze_events'],loan['_source_freeze_events'])
+        self.assertEqual(actual['lifecycle']['source_freeze_history_mode'],'repaid-history-v2')
+        self.assertNotIn('accrual_controls',actual['lifecycle'])
+        self.assertNotIn('final_metric_alignment',actual['lifecycle'])
+
+    def test_invalid_closed_history_still_rejects_before_native_import(self):
+        action={'lifecycle':{'expected':{'source_state':'3'},'migration_cutover_date':'2026-10-20'},'quarantine_reasons':[]}
+        for events in [self.events()[1:],self.events()[:1]*2,[{'source_event_id':1,'effective_date':'2026-10-20','blocked':True}]]:
+            with self.subTest(events=events):
+                actual=_guard_unmapped_loan_events(deepcopy(action),{'_source_freeze_events':events})
+                self.assertIn('invalid_source_accrual_control_history',actual['quarantine_reasons'])
+                self.assertNotIn('source_freeze_history_mode',actual['lifecycle'])
+
+    def test_voided_history_stays_provenance_without_terminal_import_mode(self):
+        action={'lifecycle':{'expected':{'source_state':'3'},'migration_cutover_date':'2026-10-20',
+                            'financial_reconstruction_omitted':True},'quarantine_reasons':['reviewed_voided_refinance_attempt_omitted']}
+        actual=_guard_unmapped_loan_events(deepcopy(action),{'_source_freeze_events':self.events()})
+        self.assertEqual(actual['quarantine_reasons'],['reviewed_voided_refinance_attempt_omitted'])
+        self.assertNotIn('source_freeze_history_mode',actual['lifecycle'])
+
+    def test_final_closed_history_import_does_not_run_active_catchup(self):
+        action={'external_id':'ARISSTO:CRD:1','lifecycle':{'events':[], 'expected':{'source_state':'3'},
+                'migration_cutover_date':'2026-10-20','source_freeze_history_mode':'repaid-history-v2',
+                'source_freeze_events':self.events()}}
+        loan={'id':1,'status':{'id':600},'transactions':[]}
+        api=MagicMock();api.request.return_value=loan
+        with patch('arissto_sync.loans._ensure_source_exact_freeze_history',return_value=loan) as history, \
+             patch('arissto_sync.loans._ensure_source_exact_accrual_catchup') as catchup, \
+             patch('arissto_sync.loans._ensure_source_mora_opening_charge') as mora:
+            self.assertEqual(_finalize_loan_history(api,loan,action,'attempt',defer_term_selection=False),(1,True))
+            history.assert_called_once();catchup.assert_not_called();mora.assert_not_called()
 
     def test_native_readback_checks_running_and_frozen_controls_without_writes(self):
         for paused in (False,True):

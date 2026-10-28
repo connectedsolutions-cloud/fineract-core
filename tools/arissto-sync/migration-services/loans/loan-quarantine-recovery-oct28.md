@@ -45,3 +45,44 @@ Evidence: [source predicates](investigations/paid-refinance-post-state-proof-oct
 The [original quarantine analysis](loan-quarantine-analysis-oct28.md) remains the
 frozen pre-repair baseline. Source evidence is recorded in the exploration
 [refinancing note](../../../../../../credesal-db-space/docs/learnings/refinanciamientos.md).
+
+
+## Real history admission and repaid freeze history
+
+The next read-only composition admits **2,665 / 2,752** records and excludes87:
+**377 newly admissible** compared with the accepted2,288, with **zero previously
+accepted loans newly excluded**. All38 real repaid loans with valid historical
+freeze restrictions now carry those events. This is planning evidence, not a
+claim that the new population has been written or reconciled in Fineract.
+
+Historical revisions created and effective before the boundary no longer block
+an unrelated later payment. Historical repayment reversals use the canonical
+exact-component LIFO pairing; paired originals remain in replay history but are
+excluded from paid-counter corroboration. Unpaired or mismatched reversals,
+future reversals, and disbursement reversals still require further proof.
+
+Consolidations prove every predecessor independently, reject duplicate legs and
+cap combined payoff at the successor disbursement. Source-authorized legacy
+cross-client links require the same liquidation, payoff movement and operator
+identity used by the canonical writer. A proved net-zero abandoned attempt does
+not erase an otherwise real loan's effective refinancing history.
+
+The native freeze-history command now accepts obligations-met loans closed
+strictly before T, with the same imported-source identity, boundary, chronology,
+and idempotence checks. Domain freeze/unfreeze methods update restriction flags
+and history only; closed status is preserved and there is no cash/GL replay or
+active final-metric alignment. An administrative restriction entered after the
+last financial movement is retained when still before T. No synthetic unfreeze
+is added. Voided records retain evidence only.
+
+Mifos inspection confirmed that the loan header and actions follow the native
+closed-obligations-met status. This change adds no new UI field or status; no
+separate freeze-history UI was found in the current Mifos flow.
+
+Validation: **347 Python loan tests** and **6 native freeze-history tests** pass.
+The projection policy is versioned as `dated-source-real-history-v3`; repaid
+history is versioned as `active-and-repaid-history-v2`, preventing old immutable
+plans from silently using changed behavior. The local running Fineract process
+has not been reloaded and no financial writes have been made for these changes.
+
+Detailed IDs and remaining reasons: [read-only admission evidence](investigations/real-history-admission-oct28.json).

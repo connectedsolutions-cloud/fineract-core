@@ -57,10 +57,15 @@ public class SourceExactFreezeHistoryService {
         cutoffValidation.requireExactActiveCutoff(cutoffDate);
 
         final Loan loan = loanRepository.findOneWithNotFoundDetection(loanId, true);
-        if (!loan.getStatus().isActive() || loan.getLastClosedBusinessDate() != null || loan.getDisbursementDate() == null
+        final boolean activeUnclosed = loan.getStatus().isActive() && loan.getLastClosedBusinessDate() == null;
+        final boolean historicalRepaid = loan.getStatus().isClosedObligationsMet() && loan.getClosedOnDate() != null
+                && loan.getClosedOnDate().isBefore(cutoffDate);
+        // The domain freeze/unfreeze methods append restrictions and update their
+        // flags only. They never reopen a repaid loan, reprocess cash or post GL.
+        if ((!activeUnclosed && !historicalRepaid) || loan.getDisbursementDate() == null
                 || loan.getExternalId().isEmpty() || !Objects.equals(loan.getExternalId().getValue(), sourceLoanExternalId)
                 || !sourceLoanExternalId.matches("(PROOF:[a-z0-9][a-z0-9-]{0,23}:)?ARISSTO:CRD:[0-9]+")) {
-            throw invalid("loan.state", "Historical freeze history requires an active unclosed source-exact Arissto loan");
+            throw invalid("loan.state", "Historical freeze history requires an active unclosed or pre-cutoff repaid source-exact Arissto loan");
         }
         final String prefix = sourceLoanExternalId.substring(0, sourceLoanExternalId.indexOf("ARISSTO:CRD:"));
         final List<SourceEvent> events = parseEvents(payload, prefix, loan.getDisbursementDate(), cutoffDate);

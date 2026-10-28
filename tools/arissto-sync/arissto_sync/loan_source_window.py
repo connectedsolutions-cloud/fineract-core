@@ -1,7 +1,7 @@
 """Conservatively reconstruct active source-day state before later ordinary payments.
 
-This is not a general temporal reconstruction of revised or reversed loans.
-Unsupported after-boundary history keeps the existing quarantine.
+Historical revisions and paired repayment reversals remain in the retained
+history. Unsupported after-boundary changes keep the existing quarantine.
 """
 from datetime import date, timedelta
 from decimal import Decimal
@@ -20,13 +20,55 @@ def _money(value: Any) -> Decimal:
     return Decimal(str(value or 0))
 
 
-def _historical_refinance_proof(loan: dict, history: dict, loans: dict[int, dict],
+def _adjustments_are_historical(history: dict, cutoff: str) -> bool:
+    """Past revisions remain part of history; only later/unproved revisions block projection."""
+    summary = history.get("schedule_adjustment_summary") or {}
+    count = int(summary.get("adjustment_count") or 0)
+    adjustments = summary.get("adjustments") or []
+    if count != len(adjustments):
+        return False
+    for row in adjustments:
+        try:
+            created = date.fromisoformat(_day(row.get("DT_CREO")))
+            effective = date.fromisoformat(_day(row["FECHA_REESTRUCTURACION"])) if row.get("FECHA_REESTRUCTURACION") else created
+        except (ValueError, TypeError):
+            return False
+        if created.isoformat() >= cutoff or effective.isoformat() >= cutoff:
+            return False
+    return True
+
+
+def _historically_reversed_payment_ids(movements: list[dict], cutoff: str,
+                                      supported: dict[str, str]) -> set[str] | None:
+    """Use the canonical exact-component pairing; never infer a reversal by total alone."""
+    def role(row: dict) -> str:
+        return supported.get(f'{row.get("CODIGO_SISTEMA")}:{_text(row.get("ID_TRANSACCION"))}', "")
+    if not any(_text(row.get("REVERSION")) not in {"", "0"} or "reversal" in role(row)
+               for row in movements):
+        return set()
+    from .loans import pair_loan_reversals
+    try:
+        pairing = pair_loan_reversals(movements)
+    except (KeyError, ValueError, TypeError):
+        return None
+    if pairing["issue_count"] or pairing["duplicate_original_count"]:
+        return None
+    by_id = {_text(row.get("ID_MOVIMIENTO_CARTERA")): row for row in movements}
+    if any(pair["kind"] != "repayment"
+           or _day(by_id[pair["reversal_movement_id"]].get("FECHA_OPERACION")) >= cutoff
+           for pair in pairing["pairs"]):
+        return None
+    return {pair["original_movement_id"] for pair in pairing["pairs"]}
+
+
+def _single_historical_refinance_proof(loan: dict, history: dict, loans: dict[int, dict],
                                 lifecycles: dict[int, dict], source_day: str,
                                 cutoff: str, supported: dict[str, str]) -> dict | None:
-    """Prove one same-owner top-up was completely settled before the boundary.
+    """Prove one historical payoff and its dated/current closed predecessor.
 
-    No outgoing refinance, consolidation, cross-owner settlement or temporal
-    reconstruction of the predecessor is admitted by this projection.
+    Source-authorized legacy cross-client links use the same liquidation proof
+    as the canonical writer. This function proves one leg; the wrapper proves
+    all consolidation legs and their combined disbursement conservation.
     """
     incoming = history.get("refinance_incoming") or []
     if history.get("refinance_outgoing"):
@@ -47,14 +89,13 @@ def _historical_refinance_proof(loan: dict, history: dict, loans: dict[int, dict
     snapshot = predecessor.get("_mora_cutover_snapshot") or {}
     successor_snapshot = loan.get("_mora_cutover_snapshot") or {}
     if (successor_id != int(loan["ID_CREDITO"]) or predecessor_id == successor_id
-            or not payoff_day < cutoff or _text(link.get("same_owner")) != "1"
+            or not payoff_day < cutoff
             or _text(link.get("payoff_reversed")) not in {"", "0"}
             or _text(link.get("predecessor_current_state")) != "3"
             or link.get("later_posted_payment_count") != 0
             or link.get("predecessor_current_balance") is None
             or _money(link["predecessor_current_balance"]) != 0
             or not _text(loan.get("client_source_key"))
-            or loan.get("client_source_key") != predecessor.get("client_source_key")
             or _text(predecessor.get("source_state")) != "3"
             or _text(snapshot.get("ID_ESTADO_CARTERA")) != "3"
             or _day(snapshot.get("source_day")) != source_day
@@ -63,8 +104,14 @@ def _historical_refinance_proof(loan: dict, history: dict, loans: dict[int, dict
             or not snapshot.get("ID_CRD_HISTORICO_DIARIO")
             or not successor_snapshot.get("ID_CRD_HISTORICO_DIARIO")
             or predecessor_history.get("omit_financial_reconstruction")
-            or predecessor_history.get("voided_refinance_attempts")
-            or (predecessor_history.get("schedule_adjustment_summary") or {}).get("adjustment_count")):
+            or not _adjustments_are_historical(predecessor_history, cutoff)):
+        return None
+    same_owner = loan.get("client_source_key") == predecessor.get("client_source_key")
+    if str(link.get("same_owner")).strip() != ("1" if same_owner else "0"):
+        return None
+    if not same_owner and (not predecessor.get("client_source_key")
+            or any(not _text(link.get(field)) for field in
+                   ("liquidation_id", "payoff_movement_id", "liquidation_operator_id"))):
         return None
     zero_fields = ("SALDO_TOTAL", "SALDO_INTERES", "SALDO_MORA", "SALDO_RECARGOS")
     if (any(snapshot.get(field) is None or _money(snapshot[field]) != 0 for field in zero_fields)
@@ -125,8 +172,7 @@ def _historical_refinance_proof(loan: dict, history: dict, loans: dict[int, dict
     except ValueError:
         return None
     if (not predecessor_movements or any(day >= cutoff for day in predecessor_days)
-            or any(_text(row.get("REVERSION")) not in {"", "0"} or "reversal" in role(row)
-                   for row in predecessor_movements)):
+            or _historically_reversed_payment_ids(predecessor_movements, cutoff, supported) is None):
         return None
     outgoing = predecessor_history.get("refinance_outgoing") or []
     # Both lifecycle views must contain the same unambiguous source link.
@@ -162,7 +208,8 @@ def _historical_refinance_proof(loan: dict, history: dict, loans: dict[int, dict
             or components["payoff_amount"] > _money(disbursement["MONTO"])):
         return None
     return {
-        "policy": "single-same-owner-historical-topup-v1",
+        "policy": ("single-same-owner-historical-topup-v1" if same_owner
+                   else "single-source-authorized-historical-topup-v2"),
         "predecessor_source_key": str(predecessor_id),
         "payoff_movement_id": payoff_id, "disbursement_movement_id": disbursement_id,
         "liquidation_id": _text(link["liquidation_id"]), "payoff_date": payoff_day,
@@ -172,6 +219,35 @@ def _historical_refinance_proof(loan: dict, history: dict, loans: dict[int, dict
         "predecessor_insurance_policy": insurance_policy,
         **terminal_proof,
     }
+
+
+def _historical_refinance_proof(loan: dict, history: dict, loans: dict[int, dict],
+                                lifecycles: dict[int, dict], source_day: str,
+                                cutoff: str, supported: dict[str, str]) -> dict | None:
+    incoming = history.get("refinance_incoming") or []
+    if len(incoming) <= 1:
+        return _single_historical_refinance_proof(loan, history, loans, lifecycles, source_day, cutoff, supported)
+    proofs = []
+    predecessors = set()
+    payoffs = Decimal(0)
+    for link in incoming:
+        try:
+            predecessor = int(link["old_credit_id"])
+        except (KeyError, TypeError, ValueError):
+            return None
+        if predecessor in predecessors:
+            return None
+        proof = _single_historical_refinance_proof(loan, {**history, "refinance_incoming": [link]},
+                                                   loans, lifecycles, source_day, cutoff, supported)
+        if proof is None:
+            return None
+        predecessors.add(predecessor)
+        proofs.append(proof)
+        payoffs += _money(link["payoff_amount"])
+    if payoffs > _money((loan.get("_mora_cutover_snapshot") or {}).get("MONTO_DESEMBOLSADO")):
+        return None
+    return {"policy": "complete-historical-consolidation-v2", "settlements": proofs,
+            "all_predecessors_closed_at_source_day": True, "payoffs_within_disbursement": True}
 
 
 def bound_active_loan_histories(loans: list[dict], lifecycles: dict[int, dict], cutoff: str,
@@ -185,7 +261,7 @@ def bound_active_loan_histories(loans: list[dict], lifecycles: dict[int, dict], 
         if (not counts or set(counts) != {"movements"} or loan.get("_mora_cutover_snapshot_missing")
                 or _text(loan.get("source_state")) != "1" or _text(snapshot.get("ID_ESTADO_CARTERA")) != "1"
                 or _day(snapshot.get("source_day")) != source_day
-                or (history.get("schedule_adjustment_summary") or {}).get("adjustment_count")):
+                or not _adjustments_are_historical(history, cutoff)):
             continue
         refinance_proof = _historical_refinance_proof(
             loan, history, loans_by_id, lifecycles, source_day, cutoff, supported_transactions,
@@ -198,12 +274,14 @@ def bound_active_loan_histories(loans: list[dict], lifecycles: dict[int, dict], 
         def role(row: dict) -> str:
             return supported_transactions.get(f'{row.get("CODIGO_SISTEMA")}:{_text(row.get("ID_TRANSACCION"))}', "")
         payment_roles = {"repayment", "mobile-collection-repayment"}
+        reversed_ids = _historically_reversed_payment_ids(movements, cutoff, supported_transactions)
         if (not later or len(later) != counts["movements"]
                 or any(role(row) not in payment_roles for row in later)
-                or any(_text(row.get("REVERSION")) not in {"", "0"} or "reversal" in role(row) for row in movements)
+                or reversed_ids is None
                 or any(not _day(row.get("FECHA_OPERACION")) for row in movements)):
             continue
-        payments = [row for row in prior if role(row) in payment_roles | {"adjusted-repayment"}]
+        payments = [row for row in prior if role(row) in payment_roles | {"adjusted-repayment"}
+                    and _text(row.get("ID_MOVIMIENTO_CARTERA")) not in reversed_ids]
         # A dated close plus exact paid counters corroborates completeness of
         # retained principal/interest cash history; never just discard a guard.
         if any(snapshot.get(counter) is None or sum((_money(row.get(component)) for row in payments), Decimal(0))

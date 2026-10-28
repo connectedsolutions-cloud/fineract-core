@@ -53,3 +53,44 @@ class LoanSourceWindowTests(unittest.TestCase):
     def test_no_later_events_does_not_change_existing_plan(self):
         del self.loan['_post_cutover_source_events'];before=copy.deepcopy((self.loan,self.history))
         self.apply();self.assertEqual((self.loan,self.history),before)
+
+    def test_proven_past_adjustments_do_not_exclude_later_ordinary_cash(self):
+        adjustment={'ID_REESTRUCTURACION':9,'DT_CREO':'2026-09-01','FECHA_REESTRUCTURACION':'2026-09-01'}
+        self.history['schedule_adjustment_summary']={'adjustment_count':1,'adjustments':[adjustment]}
+        before=copy.deepcopy(self.history['schedule_adjustment_summary'])
+        self.apply()
+        self.assertNotIn('_post_cutover_source_events',self.loan)
+        self.assertEqual(self.history['schedule_adjustment_summary'],before)
+        self.assertEqual([r['ID_MOVIMIENTO_CARTERA'] for r in self.history['movements']],['a'])
+
+    def test_later_or_unproved_adjustments_still_stop_projection(self):
+        for change in [{'DT_CREO':'2026-10-20'},{'FECHA_REESTRUCTURACION':'2026-10-20'},
+                       {'DT_CREO':None},{'DT_CREO':'invalid'}]:
+            self.setUp()
+            row={'ID_REESTRUCTURACION':9,'DT_CREO':'2026-09-01','FECHA_REESTRUCTURACION':'2026-09-01',**change}
+            self.history['schedule_adjustment_summary']={'adjustment_count':1,'adjustments':[row]}
+            before=copy.deepcopy((self.loan,self.history));self.apply()
+            self.assertEqual((self.loan,self.history),before)
+
+    def test_paired_past_reversal_is_preserved_but_not_counted_as_paid_cash(self):
+        original=self.movement('reversed','2026-10-17','7','1')
+        original.update(ID_CREDITO=1,REVERSION=1)
+        reversal={**original,'ID_MOVIMIENTO_CARTERA':'reversal','FECHA_OPERACION':'2026-10-18',
+                  'ID_TRANSACCION':'00004','REVERSION':None}
+        for row in self.history['movements']:row['ID_CREDITO']=1
+        self.history['movements'][:0]=[original,reversal]
+        self.apply()
+        self.assertNotIn('_post_cutover_source_events',self.loan)
+        self.assertEqual([r['ID_MOVIMIENTO_CARTERA'] for r in self.history['movements']],
+                         ['reversed','reversal','a'])
+        self.assertEqual(self.history['movements'][0]['REVERSION'],1)
+
+    def test_mismatched_past_reversal_does_not_remove_boundary_guard(self):
+        original=self.movement('reversed','2026-10-17','7','1')
+        original.update(ID_CREDITO=1,REVERSION=1)
+        reversal={**original,'ID_MOVIMIENTO_CARTERA':'reversal','FECHA_OPERACION':'2026-10-18',
+                  'ID_TRANSACCION':'00004','REVERSION':None,'MONTO_CAPITAL':'6'}
+        for row in self.history['movements']:row['ID_CREDITO']=1
+        self.history['movements'][:0]=[original,reversal]
+        before=copy.deepcopy((self.loan,self.history));self.apply()
+        self.assertEqual((self.loan,self.history),before)

@@ -99,7 +99,7 @@ class HistoricalRefinanceSourceWindowTests(unittest.TestCase):
     def test_prior_projection_contract_cannot_be_reused_as_the_new_plan(self):
         path = Path(__file__).resolve().parents[1] / 'config/loans.json'
         raw = json.loads(path.read_text())
-        self.assertEqual(raw['source_window_projection_policy'], 'dated-source-with-paid-refinance-proof-v2')
+        self.assertEqual(raw['source_window_projection_policy'], 'dated-source-real-history-v3')
         original = LoanContract.load(path).digest
         for old in [None, 'single-same-owner-historical-topup-v1']:
             with tempfile.TemporaryDirectory() as directory:
@@ -132,6 +132,58 @@ class HistoricalRefinanceSourceWindowTests(unittest.TestCase):
             with self.subTest(change=change):
                 self.setUp(); self.fully_paid_post_snapshot(); change()
                 self.assert_rejected_unchanged()
+
+    def test_source_authorized_cross_client_history_keeps_explicit_provenance(self):
+        self.predecessor['client_source_key']='B'
+        self.link.update(same_owner=0,liquidation_operator_id='operator')
+        self.apply()
+        self.assertNotIn('_post_cutover_source_events',self.loan)
+        self.assertEqual(self.loan['_bounded_source_window']['refinance_evidence']['policy'],
+                         'single-source-authorized-historical-topup-v2')
+
+    def test_cross_client_history_without_source_authorization_is_rejected(self):
+        self.predecessor['client_source_key']='B'
+        self.link.update(same_owner=0,liquidation_operator_id=None)
+        self.assert_rejected_unchanged()
+
+    def consolidation(self):
+        second=copy.deepcopy(self.predecessor)
+        second.update(ID_CREDITO=3)
+        second['_mora_cutover_snapshot'].update(ID_CRD_HISTORICO_DIARIO=503,
+                                             MONTO_DESEMBOLSADO='30',SALDO_PAGADO_CAPITAL='30')
+        link={**self.link,'old_credit_id':3,'payoff_movement_id':'payoff3',
+              'liquidation_id':'L2','payoff_amount':'30','payoff_principal':'30','payoff_interest':'0'}
+        self.loans.append(second)
+        self.histories[3]={'refinance_outgoing':[link],'movements':[
+            self.movement('old-disbursement3','2025-01-01','00002','30','30','0'),
+            self.movement('payoff3','2026-01-01','00019','30','30','0')]}
+        self.history['refinance_incoming'].append(link)
+        return second,link
+
+    def test_consolidation_proves_every_predecessor_and_conserves_borrower_cash(self):
+        self.consolidation()
+        before=copy.deepcopy(self.history['refinance_incoming'])
+        self.apply()
+        self.assertNotIn('_post_cutover_source_events',self.loan)
+        proof=self.loan['_bounded_source_window']['refinance_evidence']
+        self.assertEqual(proof['policy'],'complete-historical-consolidation-v2')
+        self.assertEqual({r['predecessor_source_key'] for r in proof['settlements']},{'1','3'})
+        self.assertTrue(proof['payoffs_within_disbursement'])
+        self.assertEqual(self.history['refinance_incoming'],before)
+
+    def test_consolidation_missing_or_repeated_predecessor_is_rejected_without_mutation(self):
+        self.consolidation();self.histories.pop(3)
+        self.assert_rejected_unchanged()
+        self.setUp();self.history['refinance_incoming'].append(copy.deepcopy(self.link))
+        self.assert_rejected_unchanged()
+
+    def test_consolidation_cannot_spend_more_than_the_single_disbursement(self):
+        _,link=self.consolidation()
+        self.link.update(payoff_amount='60',payoff_interest='20')
+        self.predecessor_history['movements'][-1].update(MONTO='60',MONTO_INTERES='20')
+        link.update(payoff_amount='60',payoff_interest='30')
+        self.histories[3]['movements'][-1].update(MONTO='60',MONTO_INTERES='30')
+        self.assert_rejected_unchanged()
 
     def test_projection_is_idempotent_and_input_order_independent(self):
         expected_loans, expected_histories = copy.deepcopy((self.loans, self.histories))

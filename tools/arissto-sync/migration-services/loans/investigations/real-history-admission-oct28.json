@@ -1,0 +1,1002 @@
+{
+  "read_only": true,
+  "source_through_date": "2026-10-26",
+  "fineract_starts": "2026-10-27",
+  "source_loans": 2752,
+  "eligible": 2665,
+  "quarantined": 87,
+  "previously_eligible": 2288,
+  "newly_admissible": [
+    "loan:1003",
+    "loan:1007",
+    "loan:1010",
+    "loan:1015",
+    "loan:1032",
+    "loan:1037",
+    "loan:1052",
+    "loan:1053",
+    "loan:1071",
+    "loan:1081",
+    "loan:1097",
+    "loan:1099",
+    "loan:1106",
+    "loan:112",
+    "loan:1120",
+    "loan:1137",
+    "loan:1150",
+    "loan:1157",
+    "loan:117",
+    "loan:1170",
+    "loan:1189",
+    "loan:1220",
+    "loan:1234",
+    "loan:1236",
+    "loan:1238",
+    "loan:1248",
+    "loan:1256",
+    "loan:1257",
+    "loan:1264",
+    "loan:1265",
+    "loan:1279",
+    "loan:1286",
+    "loan:1308",
+    "loan:1317",
+    "loan:1323",
+    "loan:1328",
+    "loan:1353",
+    "loan:1358",
+    "loan:136",
+    "loan:1396",
+    "loan:1407",
+    "loan:1415",
+    "loan:1434",
+    "loan:1457",
+    "loan:1462",
+    "loan:1466",
+    "loan:1469",
+    "loan:151",
+    "loan:1513",
+    "loan:1514",
+    "loan:1535",
+    "loan:1536",
+    "loan:1537",
+    "loan:1540",
+    "loan:1549",
+    "loan:1552",
+    "loan:1582",
+    "loan:1607",
+    "loan:1613",
+    "loan:1620",
+    "loan:163",
+    "loan:1631",
+    "loan:1646",
+    "loan:1668",
+    "loan:1670",
+    "loan:1691",
+    "loan:1696",
+    "loan:17",
+    "loan:1702",
+    "loan:171",
+    "loan:1725",
+    "loan:1726",
+    "loan:1727",
+    "loan:1736",
+    "loan:1741",
+    "loan:1742",
+    "loan:1745",
+    "loan:1773",
+    "loan:1791",
+    "loan:18",
+    "loan:1827",
+    "loan:1854",
+    "loan:1861",
+    "loan:1872",
+    "loan:1873",
+    "loan:1882",
+    "loan:1904",
+    "loan:1920",
+    "loan:1928",
+    "loan:1929",
+    "loan:1933",
+    "loan:1937",
+    "loan:1945",
+    "loan:1947",
+    "loan:1952",
+    "loan:1964",
+    "loan:1966",
+    "loan:1972",
+    "loan:1973",
+    "loan:198",
+    "loan:1986",
+    "loan:1987",
+    "loan:1988",
+    "loan:199",
+    "loan:1991",
+    "loan:2007",
+    "loan:2013",
+    "loan:2015",
+    "loan:2019",
+    "loan:2023",
+    "loan:2027",
+    "loan:2036",
+    "loan:2043",
+    "loan:2047",
+    "loan:2052",
+    "loan:2067",
+    "loan:2071",
+    "loan:2075",
+    "loan:2078",
+    "loan:2084",
+    "loan:2086",
+    "loan:2087",
+    "loan:2091",
+    "loan:2104",
+    "loan:2107",
+    "loan:2112",
+    "loan:2113",
+    "loan:2114",
+    "loan:2115",
+    "loan:2124",
+    "loan:2134",
+    "loan:2139",
+    "loan:2142",
+    "loan:2143",
+    "loan:2146",
+    "loan:2148",
+    "loan:2151",
+    "loan:2153",
+    "loan:2155",
+    "loan:2158",
+    "loan:2160",
+    "loan:2163",
+    "loan:2168",
+    "loan:2169",
+    "loan:2170",
+    "loan:2172",
+    "loan:2173",
+    "loan:2186",
+    "loan:2187",
+    "loan:2193",
+    "loan:2201",
+    "loan:2202",
+    "loan:2203",
+    "loan:2208",
+    "loan:2209",
+    "loan:2210",
+    "loan:2211",
+    "loan:2213",
+    "loan:2217",
+    "loan:2219",
+    "loan:2220",
+    "loan:2224",
+    "loan:2229",
+    "loan:2235",
+    "loan:2237",
+    "loan:2239",
+    "loan:2244",
+    "loan:2245",
+    "loan:2246",
+    "loan:2248",
+    "loan:2250",
+    "loan:2251",
+    "loan:2252",
+    "loan:2261",
+    "loan:2267",
+    "loan:2268",
+    "loan:2269",
+    "loan:2275",
+    "loan:2291",
+    "loan:2303",
+    "loan:2308",
+    "loan:2310",
+    "loan:2312",
+    "loan:2313",
+    "loan:2315",
+    "loan:2316",
+    "loan:2317",
+    "loan:2330",
+    "loan:2333",
+    "loan:2344",
+    "loan:2354",
+    "loan:2357",
+    "loan:2360",
+    "loan:2363",
+    "loan:2364",
+    "loan:2366",
+    "loan:2373",
+    "loan:2375",
+    "loan:2376",
+    "loan:2377",
+    "loan:2379",
+    "loan:2380",
+    "loan:2386",
+    "loan:2388",
+    "loan:2389",
+    "loan:2393",
+    "loan:2397",
+    "loan:2400",
+    "loan:2401",
+    "loan:2407",
+    "loan:2410",
+    "loan:2411",
+    "loan:2413",
+    "loan:2415",
+    "loan:2418",
+    "loan:2421",
+    "loan:2422",
+    "loan:2426",
+    "loan:2434",
+    "loan:2436",
+    "loan:2441",
+    "loan:2442",
+    "loan:2448",
+    "loan:2457",
+    "loan:2463",
+    "loan:2464",
+    "loan:2465",
+    "loan:2466",
+    "loan:2468",
+    "loan:2469",
+    "loan:2470",
+    "loan:2476",
+    "loan:2478",
+    "loan:2485",
+    "loan:2489",
+    "loan:2490",
+    "loan:2499",
+    "loan:2506",
+    "loan:2508",
+    "loan:2512",
+    "loan:2514",
+    "loan:2515",
+    "loan:2518",
+    "loan:2525",
+    "loan:2527",
+    "loan:2532",
+    "loan:2534",
+    "loan:2541",
+    "loan:2546",
+    "loan:2548",
+    "loan:255",
+    "loan:2553",
+    "loan:2554",
+    "loan:2558",
+    "loan:2561",
+    "loan:2562",
+    "loan:2566",
+    "loan:2567",
+    "loan:2569",
+    "loan:2570",
+    "loan:2574",
+    "loan:2575",
+    "loan:2578",
+    "loan:2579",
+    "loan:2589",
+    "loan:2590",
+    "loan:2592",
+    "loan:2593",
+    "loan:2595",
+    "loan:2600",
+    "loan:2602",
+    "loan:2603",
+    "loan:2604",
+    "loan:2605",
+    "loan:261",
+    "loan:2610",
+    "loan:2614",
+    "loan:2615",
+    "loan:2618",
+    "loan:2622",
+    "loan:2623",
+    "loan:2625",
+    "loan:2627",
+    "loan:2630",
+    "loan:2634",
+    "loan:2643",
+    "loan:2644",
+    "loan:2646",
+    "loan:2647",
+    "loan:2648",
+    "loan:2651",
+    "loan:2652",
+    "loan:2655",
+    "loan:2656",
+    "loan:2659",
+    "loan:2661",
+    "loan:2664",
+    "loan:2669",
+    "loan:2679",
+    "loan:2683",
+    "loan:2686",
+    "loan:2687",
+    "loan:2688",
+    "loan:2689",
+    "loan:2692",
+    "loan:2694",
+    "loan:2707",
+    "loan:2708",
+    "loan:2710",
+    "loan:2713",
+    "loan:272",
+    "loan:2726",
+    "loan:2728",
+    "loan:2738",
+    "loan:2740",
+    "loan:2743",
+    "loan:2744",
+    "loan:2746",
+    "loan:2747",
+    "loan:2755",
+    "loan:2758",
+    "loan:285",
+    "loan:297",
+    "loan:304",
+    "loan:318",
+    "loan:319",
+    "loan:343",
+    "loan:349",
+    "loan:361",
+    "loan:367",
+    "loan:369",
+    "loan:385",
+    "loan:419",
+    "loan:437",
+    "loan:444",
+    "loan:451",
+    "loan:456",
+    "loan:474",
+    "loan:494",
+    "loan:504",
+    "loan:564",
+    "loan:567",
+    "loan:571",
+    "loan:583",
+    "loan:598",
+    "loan:646",
+    "loan:658",
+    "loan:674",
+    "loan:695",
+    "loan:697",
+    "loan:705",
+    "loan:73",
+    "loan:733",
+    "loan:739",
+    "loan:748",
+    "loan:75",
+    "loan:786",
+    "loan:787",
+    "loan:800",
+    "loan:822",
+    "loan:828",
+    "loan:853",
+    "loan:883",
+    "loan:886",
+    "loan:888",
+    "loan:889",
+    "loan:899",
+    "loan:905",
+    "loan:909",
+    "loan:910",
+    "loan:92",
+    "loan:920",
+    "loan:923",
+    "loan:937",
+    "loan:947",
+    "loan:974",
+    "loan:998"
+  ],
+  "previously_eligible_now_excluded": [],
+  "closed_freeze_histories": [
+    "loan:1007",
+    "loan:1081",
+    "loan:1097",
+    "loan:1099",
+    "loan:1120",
+    "loan:1150",
+    "loan:1170",
+    "loan:1189",
+    "loan:1238",
+    "loan:1256",
+    "loan:1265",
+    "loan:1308",
+    "loan:1317",
+    "loan:1353",
+    "loan:1358",
+    "loan:1513",
+    "loan:1540",
+    "loan:1668",
+    "loan:1691",
+    "loan:1702",
+    "loan:1726",
+    "loan:1736",
+    "loan:2245",
+    "loan:2267",
+    "loan:318",
+    "loan:319",
+    "loan:343",
+    "loan:361",
+    "loan:369",
+    "loan:385",
+    "loan:494",
+    "loan:739",
+    "loan:748",
+    "loan:786",
+    "loan:853",
+    "loan:889",
+    "loan:905",
+    "loan:920"
+  ],
+  "quarantines": [
+    {
+      "source_key": "loan:26",
+      "reasons": [
+        "mora_schedule_balance_mismatch",
+        "refinance_chain_quarantined:loan:26:mora_schedule_balance_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:83",
+      "reasons": [
+        "mora_schedule_balance_mismatch",
+        "refinance_chain_quarantined:loan:83:mora_schedule_balance_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:99",
+      "reasons": [
+        "refinance_chain_quarantined:loan:435:mora_schedule_balance_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:108",
+      "reasons": [
+        "refinance_chain_quarantined:loan:26:mora_schedule_balance_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:184",
+      "reasons": [
+        "refinance_chain_quarantined:loan:359:mora_schedule_balance_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:317",
+      "reasons": [
+        "mora_schedule_balance_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:340",
+      "reasons": [
+        "mora_schedule_balance_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:346",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:359",
+      "reasons": [
+        "mora_schedule_balance_mismatch",
+        "refinance_chain_quarantined:loan:359:mora_schedule_balance_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:420",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:435",
+      "reasons": [
+        "mora_schedule_balance_mismatch",
+        "refinance_chain_quarantined:loan:435:mora_schedule_balance_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:465",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:500",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:549",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:576",
+      "reasons": [
+        "refinance_chain_quarantined:loan:435:mora_schedule_balance_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:638",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:645",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:934",
+      "reasons": [
+        "refinance_chain_quarantined:loan:83:mora_schedule_balance_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:1070",
+      "reasons": [
+        "refinance_chain_quarantined:loan:1890:source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:1890:missing_final_metric_source_snapshot"
+      ]
+    },
+    {
+      "source_key": "loan:1393",
+      "reasons": [
+        "refinance_chain_quarantined:loan:1890:source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:1890:missing_final_metric_source_snapshot"
+      ]
+    },
+    {
+      "source_key": "loan:1659",
+      "reasons": [
+        "refinance_chain_quarantined:loan:1890:source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:1890:missing_final_metric_source_snapshot"
+      ]
+    },
+    {
+      "source_key": "loan:1686",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:1765",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:1808",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:1809",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:1810",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:1820",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:1885",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2556:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:1890",
+      "reasons": [
+        "source_events_after_fineract_accounting_boundary",
+        "missing_final_metric_source_snapshot",
+        "refinance_chain_quarantined:loan:1890:source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:1890:missing_final_metric_source_snapshot"
+      ]
+    },
+    {
+      "source_key": "loan:1938",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:1943",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2556:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:1965",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2556:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:1979",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2559:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2045",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2609:source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:2609:missing_final_metric_source_snapshot"
+      ]
+    },
+    {
+      "source_key": "loan:2046",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2427:source_exact_remaining_schedule_signature_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:2049",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2556:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2057",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2556:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2106",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2559:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2120",
+      "reasons": [
+        "reviewed_source_error:superseded-undisbursed-shell:replacement-loan-2121"
+      ]
+    },
+    {
+      "source_key": "loan:2123",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2633:source_exact_remaining_schedule_signature_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:2130",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2556:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2140",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2556:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2149",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:2154",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:2171",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:2181",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2427:source_exact_remaining_schedule_signature_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:2190",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2556:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2240",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2427:source_exact_remaining_schedule_signature_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:2247",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2668:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2276",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2550:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2278",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2556:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2287",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2563:source_exact_remaining_schedule_signature_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:2289",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2609:source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:2609:missing_final_metric_source_snapshot"
+      ]
+    },
+    {
+      "source_key": "loan:2299",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2633:source_exact_remaining_schedule_signature_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:2302",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2556:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2334",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2427:source_exact_remaining_schedule_signature_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:2369",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2556:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2385",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2556:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2404",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2668:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2427",
+      "reasons": [
+        "source_exact_remaining_schedule_signature_mismatch",
+        "refinance_chain_quarantined:loan:2427:source_exact_remaining_schedule_signature_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:2435",
+      "reasons": [
+        "source_events_after_fineract_accounting_boundary",
+        "source_exact_remaining_schedule_signature_mismatch",
+        "refinance_chain_quarantined:loan:2435:source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:2435:source_exact_remaining_schedule_signature_mismatch",
+        "refinance_chain_quarantined:loan:2763:source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:2763:source_mora_cutover_snapshot_missing",
+        "refinance_chain_quarantined:loan:2763:missing_final_metric_source_snapshot"
+      ]
+    },
+    {
+      "source_key": "loan:2458",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2563:source_exact_remaining_schedule_signature_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:2495",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:2496",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2633:source_exact_remaining_schedule_signature_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:2516",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2682:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2523",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2668:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2550",
+      "reasons": [
+        "source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:2550:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2556",
+      "reasons": [
+        "source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:2556:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2559",
+      "reasons": [
+        "source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:2559:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2563",
+      "reasons": [
+        "source_exact_remaining_schedule_signature_mismatch",
+        "refinance_chain_quarantined:loan:2563:source_exact_remaining_schedule_signature_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:2573",
+      "reasons": [
+        "source_exact_remaining_schedule_signature_mismatch",
+        "refinance_chain_quarantined:loan:2573:source_exact_remaining_schedule_signature_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:2587",
+      "reasons": [
+        "source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2609",
+      "reasons": [
+        "source_events_after_fineract_accounting_boundary",
+        "missing_final_metric_source_snapshot",
+        "refinance_chain_quarantined:loan:2609:source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:2609:missing_final_metric_source_snapshot"
+      ]
+    },
+    {
+      "source_key": "loan:2611",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2668:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2621",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:2633",
+      "reasons": [
+        "source_exact_remaining_schedule_signature_mismatch",
+        "refinance_chain_quarantined:loan:2633:source_exact_remaining_schedule_signature_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:2654",
+      "reasons": [
+        "source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:2654:source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:2761:source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:2761:source_mora_cutover_snapshot_missing",
+        "refinance_chain_quarantined:loan:2761:missing_final_metric_source_snapshot"
+      ]
+    },
+    {
+      "source_key": "loan:2668",
+      "reasons": [
+        "source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:2668:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2682",
+      "reasons": [
+        "source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:2682:source_events_after_fineract_accounting_boundary"
+      ]
+    },
+    {
+      "source_key": "loan:2723",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:2725",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:2727",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2573:source_exact_remaining_schedule_signature_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:2729",
+      "reasons": [
+        "reviewed_voided_refinance_attempt_omitted"
+      ]
+    },
+    {
+      "source_key": "loan:2742",
+      "reasons": [
+        "refinance_chain_quarantined:loan:2563:source_exact_remaining_schedule_signature_mismatch"
+      ]
+    },
+    {
+      "source_key": "loan:2761",
+      "reasons": [
+        "source_events_after_fineract_accounting_boundary",
+        "source_mora_cutover_snapshot_missing",
+        "missing_final_metric_source_snapshot",
+        "refinance_chain_quarantined:loan:2654:source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:2761:source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:2761:source_mora_cutover_snapshot_missing",
+        "refinance_chain_quarantined:loan:2761:missing_final_metric_source_snapshot"
+      ]
+    },
+    {
+      "source_key": "loan:2762",
+      "reasons": [
+        "source_events_after_fineract_accounting_boundary",
+        "source_mora_cutover_snapshot_missing",
+        "missing_final_metric_source_snapshot"
+      ]
+    },
+    {
+      "source_key": "loan:2763",
+      "reasons": [
+        "source_events_after_fineract_accounting_boundary",
+        "source_mora_cutover_snapshot_missing",
+        "missing_final_metric_source_snapshot",
+        "refinance_chain_quarantined:loan:2435:source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:2435:source_exact_remaining_schedule_signature_mismatch",
+        "refinance_chain_quarantined:loan:2763:source_events_after_fineract_accounting_boundary",
+        "refinance_chain_quarantined:loan:2763:source_mora_cutover_snapshot_missing",
+        "refinance_chain_quarantined:loan:2763:missing_final_metric_source_snapshot"
+      ]
+    }
+  ]
+}
