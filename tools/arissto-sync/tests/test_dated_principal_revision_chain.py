@@ -159,7 +159,7 @@ class RevisionChainTests(unittest.TestCase):
         self.contract = fixture.contract
         self.loan, self.source, self.target, self.product = fixture.lifecycle_fixture()
         self.loan.update(ID_CREDITO=2499, MONTO_APROBADO="172.00", MONTO_DESEMBOLSADO="172.00",
-                         NO_CUOTAS_APROBADO=30, ID_FRECUENCIA=1,
+                         NO_CUOTAS_APROBADO=15, ID_FRECUENCIA=1,
                          FECHA_OTORGAMIENTO="2026-10-28", FECHA_VENCIMIENTO="2026-11-12",
                          ULTIMO_SALDO="93.76", SALDO_INTERES="0.64", SALDO_INTERES_PENDIENTE="0.00",
                          SALDO_MORA="0.00", SALDO_SEGURO="0.00", SALDO_TOTAL="94.40")
@@ -213,6 +213,7 @@ class RevisionChainTests(unittest.TestCase):
         projection = lifecycle["compatibility_projection"]
         self.assertEqual((projection["approved_installment_count"],projection["current_source_installment_count"],
                           projection["native_installment_count"]),(30,15,16))
+        self.assertEqual(projection["current_header_installment_count"], 15)
         self.assertEqual(projection["actual_refinance_date"], "2026-08-28")
         self.assertEqual(projection["current_contractual_origin_date"], "2026-10-28")
         self.assertEqual((projection["arissto_through"],projection["fineract_starts"]),("2026-10-29","2026-10-30"))

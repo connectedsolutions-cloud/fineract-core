@@ -4329,7 +4329,8 @@ def _build_loan_lifecycle_action(
         projected_count = len(effective_schedule) + 1
         compatibility_projection = {
             "policy": "dated-principal-revision-chain-v1",
-            "approved_installment_count": int(loan.get("NO_CUOTAS_APROBADO") or application_installments or installment_count),
+            "approved_installment_count": int(application_installments or loan.get("NO_CUOTAS_APROBADO") or installment_count),
+            "current_header_installment_count": int(loan.get("NO_CUOTAS_APROBADO") or installment_count),
             "current_source_installment_count": len(effective_schedule),
             "native_installment_count": projected_count,
             "original_application_date": source_submitted_date,

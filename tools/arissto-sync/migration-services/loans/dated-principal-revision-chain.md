@@ -50,6 +50,8 @@ This is not another unconditional loan-ID bypass.
 The compatibility descriptor preserves original application and actual
 refinance dates, reviewed and current origin, current maturity, approved/source/
 projected installment counts, refinance links, and the accounting boundary.
+The original approved count comes from the application before the mutable
+portfolio header; the current header count is retained separately.
 Immutable plans separately record when the source was observed. The descriptor,
 revision proof, warnings and raw archives are part of the plan and source hash.
 
