@@ -19,8 +19,10 @@ recovery checks.
 The [dated principal revision-chain projection](dated-principal-revision-chain.md)
 admits evidenced multi-stage remaining-principal plans while retaining refinance
 identity, dated payments, archive anomalies and exact final metric controls.
-It includes the October revision of loan 2499; offline tests pass, while target
-execution and future native-servicing acceptance remain pending.
+It includes the October revision of loan 2499. The
+[scoped sandbox acceptance](loan-2499-chain-acceptance-2026-10-30.md) passed import,
+native metric readback and unchanged retry; future native-servicing acceptance
+remains pending.
 
 The [component alignment guide](alignment.md) defines the date-normalization
 and historical integration work for mora, interest pauses, interest

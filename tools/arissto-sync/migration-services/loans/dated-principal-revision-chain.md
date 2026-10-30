@@ -1,9 +1,10 @@
 # Dated principal revision-chain projection
 
 Implemented 2026-10-30. This is a migration-only admission policy in the loans
-service. Offline regression proof is complete; a disposable-target import,
-native readback and future-servicing acceptance have **not** been performed.
-No sync, reset, plan approval or target mutation is authorized by this note.
+service. The [scoped sandbox import and unchanged retry](loan-2499-chain-acceptance-2026-10-30.md)
+passed native readback and reconciliation for 2210 → 2354 → 2499.
+Future-servicing acceptance remains pending. This note does not authorize
+additional syncs, resets, plan approvals or target mutations.
 
 ## Scope and proof
 
@@ -107,6 +108,6 @@ and loan tests. Before declaring the component imported, regenerate and review
 the immutable plan at the selected target boundary using the supported workflow
 mode; execute only when authorized. Require native 16-row readback, exactly-once
 22-payment history, all eight native metric reads, complete-component
-reconciliation and separate next collection/accrual smoke tests. No backend
-change was needed for the offline representation; target compatibility remains
-to be demonstrated by that controlled execution.
+reconciliation and separate next collection/accrual smoke tests. The controlled 2499-chain execution proved compatibility with the existing
+backend, including native metric readback and unchanged retry. Future native
+servicing remains a separate acceptance gate.
