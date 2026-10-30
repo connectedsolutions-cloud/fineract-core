@@ -714,8 +714,10 @@ original principal less the current schedule total; the source balance must
 equal original principal less all payments. Historical interest remains in the
 bridge, while later movements are replayed after it in source order. The
 historical portion must end before the first current due date. A missing
-timestamp, changed adjustment amount, ambiguous anchor, unmatched payment
-split, or balance remains quarantined. The proven examples include `2357`,
+timestamp, ambiguous anchor, unmatched payment split, or balance remains
+quarantined. Changed adjustment amounts remain quarantined unless the
+[dated principal revision-chain projection](dated-principal-revision-chain.md)
+proves every principal transition and records the stale header as a warning. The proven examples include `2357`,
 `2427`, `2494`, `2499`, and `2561`; their source evidence is in the
 [loan research note](../../../../../../credesal-db-space/docs/learnings/prestamos.md#pagos-posteriores-a-la-regeneración-del-plan).
 
@@ -821,7 +823,12 @@ the successor's expected start is not replaced. The actual disbursement
 transaction still uses the source `4/00002` movement date. The quote field is
 accepted only for source-identified top-ups and is bounded by submission and
 the contractual start. Existing reviewed overrides for `2357`, `2427`, `2498`, and `2499`
-remain bounded by their saved signatures. Native Fineract loans are unaffected.
+remain bounded by their saved financial signatures. Their contractual origin
+may move to the latest revision creation day only when the dated principal
+revision-chain proof succeeds; the reviewed origin remains frozen as provenance.
+This does not change actual payoff/disbursement dates or relax predecessor,
+successor, linked disbursement, principal or payoff checks. Native Fineract loans
+are unaffected.
 Recovery requires the existing loan's expected date to equal the frozen
 application date; changing an existing target needs a separate reviewed repair
 because loan accounting may already be posted.

@@ -16,6 +16,12 @@ The [October 27 progress tracker](loan-sync-updates-progress-oct27.md) groups
 interrupted-cycle issues and records diagnosis, repair evidence and remaining
 recovery checks.
 
+The [dated principal revision-chain projection](dated-principal-revision-chain.md)
+admits evidenced multi-stage remaining-principal plans while retaining refinance
+identity, dated payments, archive anomalies and exact final metric controls.
+It includes the October revision of loan 2499; offline tests pass, while target
+execution and future native-servicing acceptance remain pending.
+
 The [component alignment guide](alignment.md) defines the date-normalization
 and historical integration work for mora, interest pauses, interest
 reductions, due principal, schedules, accrued interest and related events.

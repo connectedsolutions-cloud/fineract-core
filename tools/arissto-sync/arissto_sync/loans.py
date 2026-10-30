@@ -547,6 +547,7 @@ class LoanContract:
                 "predecessor_source_key": predecessor,
                 "expected_effective_disbursement_date": effective,
                 "expected_contractual_origin_date": contractual,
+                "contractual_origin_policy": "reviewed-date-or-proven-revision-v1",
                 "expected_principal": principal,
                 "expected_payoff_amount": payoff,
             }
@@ -2744,6 +2745,92 @@ def _repaid_schedule_balance_reference(loan: dict[str, Any], cutoff: str | None)
             "principal_fully_paid": True, "no_dated_debt": True}
 
 
+def _dated_principal_revision_chain(
+    summary: dict[str, Any], schedule: list[dict[str, Any]],
+    events: list[dict[str, Any]], movements: list[dict[str, Any]], principal: Decimal,
+) -> dict[str, Any] | None:
+    """Prove successive remaining plans without trusting stale revision amounts.
+
+    An archive is the superseded plan, not the replacement created at its header
+    timestamp. Every transition must conserve dated principal. Raw archives are
+    evidence only; invalid old dates/interest never enter the operative schedule.
+    """
+    adjustments = summary.get("adjustments") or []
+    if len(adjustments) < 2 or len(adjustments) != int(summary.get("adjustment_count") or 0):
+        return None
+    if any(not isinstance(row.get("DT_CREO"), datetime) for row in adjustments):
+        return None
+    if len({row["DT_CREO"].tzinfo for row in adjustments}) != 1:
+        return None
+    adjustments = sorted(adjustments, key=lambda row: row["DT_CREO"])
+    times = [row["DT_CREO"] for row in adjustments]
+    if (len(set(times)) != len(times)
+            or len({row["ID_REESTRUCTURACION"] for row in adjustments}) != len(times)):
+        return None
+    if (not schedule or [int(row["NO_CUOTA"]) for row in schedule] != list(range(1, len(schedule) + 1))
+            or any(_amount(row.get(key)) < 0 for row in schedule for key in ("MONTO_CAPITAL", "MONTO_INTERES"))):
+        return None
+    due_dates = [_iso_date(row["FECHA_PAGO"], "revision schedule due") for row in schedule]
+    if any(b <= a for a, b in zip(due_dates, due_dates[1:])) or times[-1].date().isoformat() >= due_dates[0]:
+        return None
+    roles = {"repayment", "adjusted-repayment", "mobile-collection-repayment",
+             "repayment-reversal", "source-exact-component-reallocation", "native-refinance-payoff"}
+    paid_events = [event for event in events if event["role"] in roles]
+    created_by_id = {_clean(row.get("ID_MOVIMIENTO_CARTERA")): row.get("DT_CREO") for row in movements}
+    dated = []
+    for event in paid_events:
+        created = created_by_id.get(_clean(event.get("source_movement_id")))
+        # Equal timestamps cannot establish which transaction the revision saw.
+        if (not isinstance(created, datetime) or created.tzinfo != times[0].tzinfo
+                or created in times):
+            return None
+        dated.append((created, event))
+    archives = summary.get("archived_schedules") or {}
+    previous_remaining = principal
+    stages = []
+    warnings = []
+    for revision in adjustments:
+        at = revision["DT_CREO"]
+        archive = archives.get(str(revision["ID_REESTRUCTURACION"])) or []
+        archived_principal = sum((_amount(row.get("MONTO_CAPITAL")) for row in archive), Decimal("0.00"))
+        if not archive or archived_principal != previous_remaining:
+            return None
+        archive_dates = [_iso_date(row["FECHA_PAGO"], "archived revision due") for row in archive]
+        if (any(b <= a for a, b in zip(archive_dates, archive_dates[1:]))
+                or any(_amount(row.get("MONTO_INTERES")) < 0 for row in archive)):
+            warnings.append({"code": "archived_schedule_anomaly", "revision_id": int(revision["ID_REESTRUCTURACION"])})
+        historical = [event for created, event in dated if created < at]
+        if any(event["date"] > at.date().isoformat() for event in historical):
+            return None
+        paid = sum(((-1 if event["role"] == "repayment-reversal" else 1)
+                    * _amount(event.get("allocation", {}).get("principal")) for event in historical), Decimal("0.00"))
+        remaining = principal - paid
+        if not Decimal("0.00") < remaining <= previous_remaining:
+            return None
+        reported = revision.get("MONTO_REESTRUCTURADO")
+        if reported is not None and _amount(reported) != remaining:
+            warnings.append({"code": "stale_revision_header_amount", "revision_id": int(revision["ID_REESTRUCTURACION"]),
+                             "reported": format(_amount(reported), "f"), "derived": format(remaining, "f")})
+        stages.append({"revision_id": int(revision["ID_REESTRUCTURACION"]), "created_at": at.isoformat(),
+                       "archived_principal": format(archived_principal, "f"), "remaining_principal": format(remaining, "f")})
+        previous_remaining = remaining
+    current_principal = sum((_amount(row.get("MONTO_CAPITAL")) for row in schedule), Decimal("0.00"))
+    # Only the multi-stage signature needs this compatibility path. Simpler
+    # cases retain their existing classifiers and their existing audit shape.
+    if current_principal != previous_remaining or len({stage["remaining_principal"] for stage in stages}) < 2:
+        return None
+    return {
+        "classification": "source-dated-principal-revision-chain-v1",
+        "anchor_adjustment_id": int(adjustments[-1]["ID_REESTRUCTURACION"]),
+        "adjustment_created_at": times[-1].isoformat(), "stages": stages, "warnings": warnings,
+        "current_schedule_hash": _stable_hash(schedule),
+        "source_evidence_hash": _stable_hash({"summary": summary, "payment_creation_times": dated}),
+        "source_evidence": json.loads(json.dumps({"summary": summary,
+            "payment_creation_times": [{"movement_id": event.get("source_movement_id"), "created_at": created}
+                                       for created, event in dated]}, default=_json_default)),
+    }
+
+
 def _build_loan_lifecycle_action(
     contract: LoanContract,
     loan: dict[str, Any],
@@ -3313,16 +3400,28 @@ def _build_loan_lifecycle_action(
         principal = _amount(loan.get("MONTO_DESEMBOLSADO"))
     if principal == 0:
         principal = _amount(application_principal)
+    revision_chain = _dated_principal_revision_chain(
+        schedule_adjustment_summary, schedule, events, movements, principal,
+    )
     native_expected_disbursement_date = contractual_origin_date
     refinance_quote_date_policy = None
     if native_creation_override.get("expected_disbursement_source") == "effective-financial-disbursement":
         reviewed_link = refinance_incoming[0] if len(refinance_incoming) == 1 else None
         reviewed_signature_matches = (
             reviewed_link is not None
+            and str(reviewed_link["new_credit_id"]) == str(loan_id)
+            and any(event.get("role") == "disbursement"
+                    and _clean(event.get("source_movement_id")) == _clean(reviewed_link.get("disbursement_movement_id"))
+                    and event.get("date") == effective_disbursement_date
+                    and _amount(event.get("amount")) == principal for event in events)
+            and int(reviewed_link.get("later_posted_payment_count") or 0) == 0
             and str(reviewed_link["old_credit_id"]) == native_creation_override["predecessor_source_key"]
             and _iso_date(reviewed_link["payoff_date"], "reviewed refinance payoff") == effective_disbursement_date
             and effective_disbursement_date == native_creation_override["expected_effective_disbursement_date"]
-            and contractual_origin_date == native_creation_override["expected_contractual_origin_date"]
+            and (contractual_origin_date == native_creation_override["expected_contractual_origin_date"]
+                 or (revision_chain is not None
+                     and native_creation_override.get("contractual_origin_policy") == "reviewed-date-or-proven-revision-v1"
+                     and contractual_origin_date == revision_chain["adjustment_created_at"][:10]))
             and principal == _amount(native_creation_override["expected_principal"])
             and _amount(reviewed_link["payoff_amount"]) == _amount(native_creation_override["expected_payoff_amount"])
             and _amount(reviewed_link["payoff_amount"]) <= principal
@@ -4105,6 +4204,10 @@ def _build_loan_lifecycle_action(
                     "archived_schedule_hash": _stable_hash(_adjustment_schedule_signature(archived)),
                     "current_schedule_hash": _stable_hash(_adjustment_schedule_signature(schedule)),
                 }))
+        if revision_chain is not None:
+            candidate_adjustments.append((
+                datetime.fromisoformat(revision_chain["adjustment_created_at"]), revision_chain,
+            ))
         distinct_candidates = {}
         for created_at, proof in candidate_adjustments:
             if created_at not in distinct_candidates or proof is not None:
@@ -4134,7 +4237,10 @@ def _build_loan_lifecycle_action(
                     if not isinstance(created_at, datetime):
                         missing_created_at = True
                         break
-                    if created_at <= adjustment_created_at:
+                    if created_at == adjustment_created_at:
+                        missing_created_at = True
+                        break
+                    if created_at < adjustment_created_at:
                         historical_events.append(event)
                         sign = -1 if event["role"] == "repayment-reversal" else 1
                         historical_principal += sign * _amount(event.get("allocation", {}).get("principal"))
@@ -4216,6 +4322,29 @@ def _build_loan_lifecycle_action(
             else:
                 term_account_contract["maturity_date_policy"] = "class-equivalent-source-schedule-variance"
                 term_account_contract["source_schedule_maturity_date"] = final_source_due
+    compatibility_projection = None
+    if (remaining_schedule_policy is not None and revision_chain is not None
+            and (remaining_schedule_policy.get("adjustment_proof") or {}).get("classification")
+            == "source-dated-principal-revision-chain-v1"):
+        projected_count = len(effective_schedule) + 1
+        compatibility_projection = {
+            "policy": "dated-principal-revision-chain-v1",
+            "approved_installment_count": int(loan.get("NO_CUOTAS_APROBADO") or application_installments or installment_count),
+            "current_source_installment_count": len(effective_schedule),
+            "native_installment_count": projected_count,
+            "original_application_date": source_submitted_date,
+            "actual_refinance_date": effective_disbursement_date,
+            "reviewed_contractual_origin_date": native_creation_override.get("expected_contractual_origin_date"),
+            "current_contractual_origin_date": contractual_origin_date,
+            "current_maturity_date": contractual_maturity_date,
+            "arissto_through": (date.fromisoformat(migration_cutover_date) - timedelta(days=1)).isoformat()
+                if migration_cutover_date else None,
+            "fineract_starts": migration_cutover_date,
+            "writer_command": "sourceExactResyncSchedule",
+            "refinance_links": json.loads(json.dumps(refinance_incoming, default=_json_default)),
+        }
+        projected_term, _, _ = _frequency_terms(int(loan.get("ID_FRECUENCIA") or 0), projected_count)
+        application_payload.update(numberOfRepayments=projected_count, loanTermFrequency=projected_term)
     reviewed_native_schedule = (
         reviewed_schedule_exception or reviewed_reference_only_schedule
         or unordered_source_schedule
@@ -4320,6 +4449,11 @@ def _build_loan_lifecycle_action(
             "pair_count", "repayment_pair_count", "disbursement_pair_count", "issues"
         )},
     }
+    if compatibility_projection is not None:
+        lifecycle["compatibility_projection"] = compatibility_projection
+        compatibility_projection["replacement_schedule_hash"] = _source_exact_schedule_hash(
+            _source_exact_installments({"lifecycle": lifecycle}))
+        _validate_compatibility_projection({"lifecycle": lifecycle})
     if lifecycle.get("refinance"):
         for settlement in _refinance_settlements(lifecycle["refinance"]):
             settlement["historical_replay_policy"] = HISTORICAL_REPLAY_POLICY
@@ -6613,11 +6747,36 @@ def _target_schedule_rows_for_hash(repayment_schedule: dict[str, Any]) -> list[d
     return rows
 
 
+def _validate_compatibility_projection(action: dict[str, Any]) -> None:
+    """Check the frozen writer contract before target reads or mutations."""
+    lifecycle = action["lifecycle"]
+    projection = lifecycle.get("compatibility_projection")
+    if projection is None:
+        return
+    rows = _source_exact_installments(action)
+    if (projection.get("policy") != "dated-principal-revision-chain-v1"
+            or projection.get("writer_command") != "sourceExactResyncSchedule"
+            or lifecycle.get("schedule_writer") != "fineract-source-exact-remaining-schedule-v1"
+            or len(rows) != projection.get("native_installment_count")
+            or len(rows) != lifecycle["application_payload"]["numberOfRepayments"]
+            or _source_exact_schedule_hash(rows) != projection.get("replacement_schedule_hash")
+            or sum((_amount(row["principal"]) for row in rows), Decimal("0.00"))
+                != _amount(lifecycle["application_payload"]["principal"])
+            or projection.get("fineract_starts") != lifecycle.get("migration_cutover_date")):
+        raise RuntimeError("loan_compatibility_projection_contract_changed")
+    for index, row in enumerate(rows):
+        if (row["installmentNumber"] != index + 1 or row["fromDate"] >= row["dueDate"]
+                or (index and row["fromDate"] != rows[index - 1]["dueDate"])
+                or any(_amount(row[key]) < 0 for key in ("principal", "interest"))):
+            raise RuntimeError("loan_compatibility_projection_row_invalid")
+
+
 def _ensure_source_exact_initial_manual_schedule(
     api: FineractApi, loan: dict[str, Any], action: dict[str, Any], attempt_key: str | None,
 ) -> dict[str, Any]:
     """Replace an unserviced native schedule with exact source components."""
     lifecycle = action["lifecycle"]
+    _validate_compatibility_projection(action)
     if _has_native_recalculated_history(loan, lifecycle):
         return loan
     expected = _source_exact_expected_schedule(lifecycle)
@@ -7311,6 +7470,7 @@ def _apply_loan_lifecycle(
     lifecycle = action.get("lifecycle")
     if not lifecycle:
         raise RuntimeError("loan_plan_missing_frozen_lifecycle")
+    _validate_compatibility_projection(action)
     replay_events = lifecycle["events"] if events_override is None else events_override
     first_fineract_date = lifecycle.get("migration_cutover_date")
     defer_term_selection = bool(first_fineract_date and replay_events) and all(
