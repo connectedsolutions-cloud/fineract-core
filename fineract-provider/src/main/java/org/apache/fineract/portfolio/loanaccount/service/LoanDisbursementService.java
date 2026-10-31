@@ -254,8 +254,11 @@ public class LoanDisbursementService {
             /*
              * create a Charge applied transaction if Up front Accrual, None or Cash based accounting is enabled
              */
-            if (isDisbursementCharge || isTrancheDisbursementCharge) {
-                if (totalFeeChargesDueAtDisbursement.isGreaterThanZero() && !charge.getChargePaymentMode().isPaymentModeAccountTransfer()) {
+            boolean refinancingCashierCharge = org.apache.fineract.portfolio.loanaccount.domain.RefinancingOriginationContext.applies(
+                    loan.getId()) && charge.getChargeTimeType().isAvailableAtCashier() && !charge.isWaived() && !charge.isFullyPaid();
+            if (isDisbursementCharge || isTrancheDisbursementCharge || refinancingCashierCharge) {
+                if ((totalFeeChargesDueAtDisbursement.isGreaterThanZero() || refinancingCashierCharge)
+                        && !charge.getChargePaymentMode().isPaymentModeAccountTransfer()) {
                     charge.markAsFullyPaid();
                     // Add "Loan Charge Paid By" details to this transaction
                     final LoanChargePaidBy loanChargePaidBy = new LoanChargePaidBy(chargesPayment, charge, charge.amount(),
@@ -299,7 +302,9 @@ public class LoanDisbursementService {
                 }
             }
             if (!taxPayments.isEmpty() && cutoffPolicyService.shouldGenerateAccounting(disbursedOn)) {
-                final String transactionId = AccountingProcessorHelper.LOAN_TRANSACTION_IDENTIFIER + chargesPayment.getId();
+                final String transactionId = org.apache.fineract.portfolio.loanaccount.domain.RefinancingOriginationContext
+                        .applies(loan.getId()) ? chargesPayment.getId().toString()
+                                : AccountingProcessorHelper.LOAN_TRANSACTION_IDENTIFIER + chargesPayment.getId();
                 final Long paymentTypeId = paymentDetail != null && paymentDetail.getPaymentType() != null
                         ? paymentDetail.getPaymentType().getId()
                         : null;

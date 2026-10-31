@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+ <changeSet id="0439_active_loan_arrears_metrics" author="credesal" dbms="postgresql">
+ <sql splitStatements="false" stripComments="false"><![CDATA[
+-- Generated installer for the Credesal Detalle de Saldos de Préstamos y Morosidad report.
+-- PostgreSQL only. Run against the target tenant database.
+
+
+INSERT INTO stretchy_report (
+    report_name,
+    report_type,
+    report_subtype,
+    report_category,
+    report_sql,
+    description,
+    core_report,
+    use_report,
+    self_service_user_report
+)
+VALUES (
+    'Detalle de Saldos de Préstamos y Morosidad',
+    'Table',
+    'VisualLoanArrears',
+    'Loan',
+    $report$
+WITH selected_offices AS (
+ SELECT child.id FROM m_office root JOIN m_office child ON child.hierarchy LIKE root.hierarchy || '%'
+ WHERE credesal_report_office_is_root(root.id, '${officeId}', '${currentUserHierarchy}')
+   AND child.hierarchy LIKE '${currentUserHierarchy}' || '%'
+), resolved_cutoff AS (
+ SELECT LEAST('${endDate}'::date, COALESCE((SELECT date FROM m_business_date WHERE type='BUSINESS_DATE'),
+             (CURRENT_TIMESTAMP AT TIME ZONE 'America/El_Salvador')::date)) AS snapshot_date
+), portfolio AS (
+ SELECT l.id, l.account_no, l.external_id, c.display_name AS borrower,
+        o.id AS office_id, o.name AS office_name, o.hierarchy AS office_hierarchy,
+        p.id AS product_id,p.name AS credit_line,
+        CASE WHEN l.expected_maturedon_date-COALESCE(l.expected_disbursedon_date,l.disbursedon_date)<=366 THEN 1 ELSE 2 END AS term_order,
+        CASE WHEN l.expected_maturedon_date-COALESCE(l.expected_disbursedon_date,l.disbursedon_date)<=366 THEN 'CORTO PLAZO' ELSE 'LARGO PLAZO' END AS term_type,
+        COALESCE(tag.classification,'SIN CLASIFICAR') AS classification,
+        CASE tag.classification WHEN 'A1' THEN 1 WHEN 'A2' THEN 2 WHEN 'B' THEN 3 WHEN 'C1' THEN 4
+             WHEN 'C2' THEN 5 WHEN 'D1' THEN 6 WHEN 'D2' THEN 7 WHEN 'E' THEN 8 ELSE 9 END AS risk_order,
+        l.principal_amount AS disbursed_amount, l.disbursedon_date, l.expected_maturedon_date,
+        metrics.*, ref.overdue_interest, ref.past_due_principal,
+        month_pay.principal_paid_month, month_pay.interest_paid_month
+ FROM m_loan l JOIN m_client c ON c.id=l.client_id
+ JOIN selected_offices selected ON selected.id=c.office_id
+ JOIN m_office o ON o.id=c.office_id JOIN m_product_loan p ON p.id=l.product_id
+ CROSS JOIN resolved_cutoff cutoff
+ CROSS JOIN LATERAL credesal_native_loan_metrics(l.id,cutoff.snapshot_date) metrics
+ LEFT JOIN LATERAL (
+   SELECT r.classification FROM m_loan_delinquency_tag_history h
+   JOIN m_delinquency_range r ON r.id=h.delinquency_range_id
+   WHERE h.loan_id=l.id AND h.addedon_date<=cutoff.snapshot_date
+     AND (h.liftedon_date IS NULL OR h.liftedon_date>cutoff.snapshot_date)
+   ORDER BY h.addedon_date DESC,h.id DESC LIMIT 1
+ ) tag ON TRUE
+ LEFT JOIN LATERAL (
+   SELECT COALESCE(SUM(GREATEST(COALESCE(s.interest_amount,0)-COALESCE(s.interest_completed_derived,0)
+     -COALESCE(s.interest_waived_derived,0)-COALESCE(s.interest_writtenoff_derived,0),0)),0) AS overdue_interest,
+     COALESCE(SUM(GREATEST(s.principal_amount-COALESCE(s.principal_completed_derived,0)
+     -COALESCE(s.principal_writtenoff_derived,0),0)),0) AS past_due_principal
+   FROM m_loan_repayment_schedule s WHERE s.loan_id=l.id AND s.duedate<cutoff.snapshot_date
+ ) ref ON TRUE
+ LEFT JOIN LATERAL (
+   SELECT COALESCE(SUM(t.principal_portion_derived),0) AS principal_paid_month,
+          COALESCE(SUM(t.interest_portion_derived),0) AS interest_paid_month
+   FROM m_loan_transaction t WHERE t.loan_id=l.id AND t.transaction_type_enum=2 AND NOT t.is_reversed
+     AND t.transaction_date BETWEEN date_trunc('month',cutoff.snapshot_date)::date AND cutoff.snapshot_date
+ ) month_pay ON TRUE
+ WHERE l.loan_status_id=300 AND l.currency_code='USD' AND l.disbursedon_date<=cutoff.snapshot_date
+   AND '${startDate}'::date<=cutoff.snapshot_date
+   AND (NULLIF(BTRIM('${loanProductId}'),'') IS NULL OR '${loanProductId}'='-1'
+        OR l.product_id::text=ANY(string_to_array('${loanProductId}',',')))
+), filtered_portfolio AS (
+ SELECT * FROM portfolio WHERE NULLIF(BTRIM('${riskClass}'),'') IS NULL OR '${riskClass}'='-1'
+   OR classification=ANY(string_to_array('${riskClass}',','))
+), grouped AS (
+ SELECT term_order,term_type,office_hierarchy,office_id,office_name,product_id,credit_line,risk_order,classification,
+ GROUPING(term_order) AS grand_group,GROUPING(office_id) AS term_group,
+ GROUPING(product_id) AS office_group,GROUPING(classification) AS line_group,
+ COUNT(*) AS loan_count,COUNT(*) FILTER(WHERE projection_available) AS available_count,
+ COUNT(*) FILTER(WHERE classification IN ('A2','B','C1','C2','D1','D2','E')) AS loans_in_arrears,
+ SUM(disbursed_amount) AS disbursed_amount,
+ CASE WHEN BOOL_AND(projection_available) THEN SUM(overdue_interest) END AS overdue_interest,
+ CASE WHEN BOOL_AND(projection_available) THEN COALESCE(SUM(outstanding_principal) FILTER(WHERE classification IN ('A2','B','C1','C2','D1','D2','E')),0) END AS affected,
+ CASE WHEN BOOL_AND(projection_available) THEN COALESCE(SUM(outstanding_principal) FILTER(WHERE past_due_principal<=0.01),0) END AS current_portfolio,
+ CASE WHEN BOOL_AND(projection_available) THEN COALESCE(SUM(outstanding_principal) FILTER(WHERE past_due_principal>0.01),0) END AS overdue_portfolio,
+ CASE WHEN BOOL_AND(projection_available) THEN SUM(paid_principal) END AS paid_principal,
+ CASE WHEN BOOL_AND(projection_available) THEN SUM(outstanding_principal) END AS outstanding_principal,
+ CASE WHEN BOOL_AND(projection_available) THEN SUM(paid_interest) END AS paid_interest,
+ CASE WHEN BOOL_AND(projection_available) THEN SUM(accrued_interest) END AS accrued_interest,
+ CASE WHEN BOOL_AND(projection_available) THEN SUM(due_principal) END AS due_principal,
+ CASE WHEN BOOL_AND(projection_available) THEN SUM(mora) END AS mora,
+ CASE WHEN BOOL_AND(projection_available) THEN SUM(insurance_paid) END AS insurance_paid,
+ CASE WHEN BOOL_AND(projection_available) THEN SUM(insurance_owed) END AS insurance_owed,
+ CASE WHEN BOOL_AND(projection_available) THEN SUM(future_insurance) END AS future_insurance
+ FROM filtered_portfolio
+ GROUP BY GROUPING SETS (
+ (term_order,term_type,office_hierarchy,office_id,office_name,product_id,credit_line,risk_order,classification),
+ (term_order,term_type,office_hierarchy,office_id,office_name,product_id,credit_line),
+ (term_order,term_type,office_hierarchy,office_id,office_name), (term_order,term_type), ())
+ HAVING COUNT(*)>0
+), rows AS (
+ SELECT *,CASE WHEN grand_group=1 THEN 'TOTAL_GENERAL' WHEN term_group=1 THEN 'TOTAL_PLAZO'
+ WHEN office_group=1 THEN 'TOTAL_SUCURSAL' WHEN line_group=1 THEN 'TOTAL_LINEA' ELSE 'CLASIFICACION' END AS row_type
+ FROM grouped
+)
+SELECT ROW_NUMBER() OVER(ORDER BY term_order NULLS LAST,office_hierarchy COLLATE "C" NULLS LAST,
+ product_id NULLS LAST,line_group,risk_order NULLS LAST) AS "Orden",
+ row_type AS "Tipo Fila",term_type AS "Tipo Plazo",office_id AS "Id Oficina",office_name AS "Sucursal",
+ product_id AS "Id Línea Crédito",credit_line AS "Línea Crédito",classification AS "CLSF",
+ loan_count AS "Cantidad Préstamos",loans_in_arrears AS "Cantidad Préstamos en Mora",
+ disbursed_amount AS "Monto Desembolsado",affected AS "Cartera Afectada",overdue_interest AS "Interés Vencido",
+ current_portfolio AS "Cartera Vigente",overdue_portfolio AS "Cartera Vencida",
+ CASE WHEN (SELECT BOOL_AND(projection_available) FROM filtered_portfolio) THEN
+ COALESCE(ROUND(outstanding_principal*100/NULLIF((SELECT SUM(outstanding_principal) FROM filtered_portfolio),0),4),0) END AS "Porcentaje Cartera %",
+ CASE WHEN (SELECT BOOL_AND(projection_available) FROM filtered_portfolio) THEN
+ COALESCE(ROUND(overdue_portfolio*100/NULLIF((SELECT SUM(outstanding_principal) FROM filtered_portfolio),0),4),0) END AS "Porcentaje Vencido %",
+ paid_principal AS "Capital Pagado",
+ outstanding_principal AS "Saldo Capital",
+ paid_interest AS "Interés Pagado",
+ accrued_interest AS "Interés Devengado Pendiente",
+ due_principal AS "Capital Vencido",
+ mora AS "Mora",
+ insurance_paid AS "Seguro Pagado",
+ insurance_owed AS "Seguro Adeudado",
+ future_insurance AS "Seguro Futuro",
+ snapshot_date AS "Fecha Corte", TO_CHAR('${startDate}'::date,'YYYY-MM') AS "Período",
+ available_count AS "Préstamos con Métricas Disponibles", loan_count-available_count AS "Préstamos sin Métricas Disponibles"
+ FROM rows CROSS JOIN resolved_cutoff
+ ORDER BY "Orden"
+$report$,
+    'Cartera y morosidad en USD por plazo, sucursal, línea de crédito y clasificación con las ocho métricas nativas; seguro futuro separado; columnas de referencia fuera de paridad.',
+    FALSE,
+    TRUE,
+    FALSE
+)
+ON CONFLICT (report_name) DO UPDATE
+SET report_type = EXCLUDED.report_type,
+    report_subtype = EXCLUDED.report_subtype,
+    report_category = EXCLUDED.report_category,
+    report_sql = EXCLUDED.report_sql,
+    description = EXCLUDED.description,
+    core_report = EXCLUDED.core_report,
+    use_report = EXCLUDED.use_report,
+    self_service_user_report = EXCLUDED.self_service_user_report;
+
+INSERT INTO stretchy_parameter (
+    id, parameter_name, parameter_variable, parameter_label,
+    "parameter_displayType", "parameter_FormatType", parameter_default, parameter_sql
+)
+SELECT COALESCE((SELECT MAX(id) FROM stretchy_parameter), 0) + 1,
+       'CredesalLoanProductMulti', 'loanProductId', 'Loan Product',
+       'multiselect', 'number', 'optional',
+       $options$SELECT id, name FROM m_product_loan WHERE currency_code = 'USD' ORDER BY name$options$
+ WHERE NOT EXISTS (SELECT 1 FROM stretchy_parameter WHERE parameter_name = 'CredesalLoanProductMulti');
+
+INSERT INTO stretchy_parameter (
+    id, parameter_name, parameter_variable, parameter_label,
+    "parameter_displayType", "parameter_FormatType", parameter_default, parameter_sql
+)
+SELECT COALESCE((SELECT MAX(id) FROM stretchy_parameter), 0) + 1,
+       'CredesalLoanRiskClassMulti', 'riskClass', 'Classification',
+       'multiselect', 'string', 'optional',
+       $options$SELECT code AS id, code AS name FROM (VALUES
+           ('A1', 1), ('A2', 2), ('B', 3), ('C1', 4),
+           ('C2', 5), ('D1', 6), ('D2', 7), ('E', 8)
+       ) AS classes(code, sort_order) ORDER BY sort_order$options$
+ WHERE NOT EXISTS (SELECT 1 FROM stretchy_parameter WHERE parameter_name = 'CredesalLoanRiskClassMulti');
+
+DELETE FROM stretchy_report_parameter
+ WHERE report_id = (
+     SELECT id FROM stretchy_report
+      WHERE report_name = 'Detalle de Saldos de Préstamos y Morosidad'
+ );
+
+INSERT INTO stretchy_report_parameter (
+    report_id,
+    parameter_id,
+    report_parameter_name
+)
+SELECT report.id,
+       parameter.id,
+       parameter.parameter_variable
+  FROM stretchy_report report
+  CROSS JOIN stretchy_parameter parameter
+ WHERE report.report_name = 'Detalle de Saldos de Préstamos y Morosidad'
+   AND parameter.parameter_name IN (
+       'OfficeIdSelectOne', 'startDateSelect', 'endDateSelect',
+       'CredesalLoanProductMulti', 'CredesalLoanRiskClassMulti'
+   );
+
+DO $validation$
+BEGIN
+    IF (
+        SELECT COUNT(*)
+          FROM stretchy_report_parameter usage
+          JOIN stretchy_report report ON report.id = usage.report_id
+         WHERE report.report_name = 'Detalle de Saldos de Préstamos y Morosidad'
+           AND usage.report_parameter_name IN ('officeId', 'startDate', 'endDate', 'loanProductId', 'riskClass')
+    ) <> 5 THEN
+        RAISE EXCEPTION 'Detalle de Saldos de Préstamos y Morosidad requires office, dates, product and classification parameters';
+    END IF;
+END
+$validation$;
+
+INSERT INTO m_permission (
+    grouping,
+    code,
+    entity_name,
+    action_name,
+    can_maker_checker
+)
+SELECT 'report',
+       'READ_Detalle de Saldos de Préstamos y Morosidad',
+       'Detalle de Saldos de Préstamos y Morosidad',
+       'READ',
+       FALSE
+ WHERE NOT EXISTS (
+     SELECT 1 FROM m_permission
+      WHERE code = 'READ_Detalle de Saldos de Préstamos y Morosidad'
+ );
+
+
+ ]]></sql></changeSet>
+</databaseChangeLog>

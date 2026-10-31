@@ -877,10 +877,12 @@ public class LoanReadPlatformServiceImpl implements LoanReadPlatformService, Loa
         final ApplicationCurrency appCurrency = applicationCurrencyRepository.findOneWithNotFoundDetection(loan.getCurrency());
         final BigDecimal availableDisbursementAmountWithOverApplied = delinquencyReadPlatformService
                 .calculateAvailableDisbursementAmountWithOverApplied(loan);
-        return LoanTransactionData.loanTransactionDataForDisbursalTemplate(transactionType,
+        final LoanTransactionData template = LoanTransactionData.loanTransactionDataForDisbursalTemplate(transactionType,
                 loan.getExpectedDisbursedOnLocalDateForTemplate(), loan.getDisburseAmountForTemplate(), loan.getNetDisbursalAmount(),
                 paymentOptions, loan.retriveLastEmiAmount(), loan.getNextPossibleRepaymentDateForRescheduling(), appCurrency.toData(),
                 availableDisbursementAmountWithOverApplied);
+        template.setCanApplyRefinancingSurplusAsRepayment(LoanRefinancingSurplusService.isEligible(loan));
+        return template;
     }
 
     @Override

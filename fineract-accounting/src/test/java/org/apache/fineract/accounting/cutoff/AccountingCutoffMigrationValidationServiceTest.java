@@ -47,4 +47,18 @@ class AccountingCutoffMigrationValidationServiceTest {
 
         assertThatThrownBy(() -> service.requireExactActiveCutoff(CUTOFF)).isInstanceOf(GeneralPlatformDomainRuleException.class);
     }
+
+    @Test
+    void openingAdjustmentMustBeSourceOwned() {
+        AccountingCutoffConfigurationRepository repository = mock(AccountingCutoffConfigurationRepository.class);
+        AccountingCutoffConfiguration configuration = AccountingCutoffConfiguration.draft(CUTOFF, "America/El_Salvador", "hash");
+        configuration.activate(1L, null, "active-hash");
+        when(repository.findByIdForUpdate(AccountingCutoffConfiguration.SINGLETON_ID)).thenReturn(Optional.of(configuration));
+        AccountingCutoffMigrationValidationService service = new AccountingCutoffMigrationValidationService(repository);
+
+        service.requireSourceOwnedDate(CUTOFF.minusDays(1));
+        assertThatThrownBy(() -> service.requireSourceOwnedDate(CUTOFF)).isInstanceOf(GeneralPlatformDomainRuleException.class);
+        assertThatThrownBy(() -> service.requireSourceOwnedDate(CUTOFF.plusDays(1)))
+                .isInstanceOf(GeneralPlatformDomainRuleException.class);
+    }
 }

@@ -311,7 +311,7 @@ class ClientContract:
                     raise ClientDataIssue(f"missing_required:{destination}")
                 core[destination] = value
 
-        if self.import_active:
+        if self.import_active_for(row):
             activation = self.raw.get("activation") or {}
             activation_date = normalize(row.get(activation.get("source")), "date")
             if activation_date is None:
@@ -325,6 +325,13 @@ class ClientContract:
             # Fineract requires submittedOnDate <= activationDate. Use the same
             # approved record-creation date for a deterministic import timeline.
             core["submittedOnDate"] = activation_date
+
+        pending = self.status_action(row) == "pending"
+        if pending:
+            # Applicants have a submission timeline, never an activation date.
+            registration = normalize(row.get((self.raw.get("activation") or {}).get("source")), "date")
+            if registration:
+                core["submittedOnDate"] = registration
 
         client_type_tag = None
         if self.raw.get("client_type_tag"):
@@ -370,7 +377,8 @@ class ClientContract:
             values.update({"name": name, "addressTypeId": catalogs.named_id("ADDRESS_TYPE", address["address_type"])})
             addresses.append(values)
         return {"core": core, "datatables": datatables, "absent_datatables": absent_datatables,
-                "identifiers": identifiers, "addresses": addresses, "client_type_tag": client_type_tag}
+                "identifiers": identifiers, "addresses": addresses, "client_type_tag": client_type_tag,
+                **({"expected_status": 100} if pending else {})}
 
     def client_type_tag_name(self, row: dict[str, Any]) -> str:
         config = self.raw.get("client_type_tag") or {}
@@ -414,11 +422,13 @@ class ClientContract:
         return hashlib.sha256(json.dumps(self.payload(row, catalogs), sort_keys=True, default=str).encode()).hexdigest()
 
     def status_action(self, row: dict[str, Any]) -> str | None:
-        value = str(row[self.raw["source"]["status_key"]]).strip()
+        value = str(row.get(self.raw["source"]["status_key"], "")).strip()
         return self.raw["status"].get(value)
 
     def create_values(self, row: dict[str, Any]) -> dict[str, Any]:
         values = dict(self.raw.get("create_defaults") or {})
+        if self.status_action(row) == "pending":
+            values["active"] = False
         source = self.raw["source"]
         branch = str(row[source["branch_key"]]).strip()
         office_id = self.raw.get("office_mapping", {}).get(branch)
@@ -428,6 +438,9 @@ class ClientContract:
         if values.get("active"):
             values.update({"dateFormat": "yyyy-MM-dd", "locale": "en"})
         return values
+
+    def import_active_for(self, row: dict[str, Any]) -> bool:
+        return self.import_active and self.status_action(row) != "pending"
 
     @property
     def import_active(self) -> bool:

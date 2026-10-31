@@ -358,8 +358,8 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
                 + " union (select " + ctm.loansTxnSchema() + " where loan_txn.is_reversed = false and c.id = ? and loan.currency_code = ? "
                 + "and loan_txn.transaction_date >= c.start_date and (c.end_date IS NULL or loan_txn.transaction_date <= " + nextDay + ")"
                 + " and renum.enum_value IN ('REPAYMENT_AT_DISBURSEMENT','REPAYMENT', 'RECOVERY_REPAYMENT','DISBURSEMENT', 'CHARGE_PAYMENT', 'WAIVE_CHARGES', 'WAIVE_INTEREST', 'WRITEOFF') "
-                + " and (loan_txn.payment_detail_id IS NULL OR payType.is_cash_payment = true) " + " AND acnttrans.id IS NULL ) "
-                + " union (select " + ctm.clientTxnSchema()
+                + " and NOT EXISTS (SELECT 1 FROM m_loan_refinancing_operation_transaction refi WHERE refi.transaction_id=loan_txn.id) and (loan_txn.payment_detail_id IS NULL OR payType.is_cash_payment = true) "
+                + " AND acnttrans.id IS NULL ) " + " union (select " + ctm.clientTxnSchema()
                 + " where cli_txn.is_reversed = false and c.id = ? and cli_txn.currency_code = ? " + "and cli_txn.transaction_date "
                 + " >= c.start_date and (c.end_date IS NULL or cli_txn.transaction_date <= " + nextDay
                 + ") and renum.enum_value IN ('PAY_CHARGE', 'WAIVE_CHARGE') "
@@ -687,7 +687,8 @@ public class TellerManagementReadPlatformServiceImpl implements TellerManagement
             sqlBuilder.append(" and loan.currency_code = ? ");
             sqlBuilder.append("    and loan_txn.transaction_date >= c.start_date and (c.end_date IS NULL or loan_txn.transaction_date <= "
                     + nextDay + ")");
-            sqlBuilder.append("    and (loan_txn.payment_detail_id IS NULL OR payType.is_cash_payment = true) ");
+            sqlBuilder.append(
+                    "    and NOT EXISTS (SELECT 1 FROM m_loan_refinancing_operation_transaction refi WHERE refi.transaction_id=loan_txn.id) and (loan_txn.payment_detail_id IS NULL OR payType.is_cash_payment = true) ");
             sqlBuilder.append("    AND acnttrans.id IS NULL  ");
             sqlBuilder.append("    ) ");
             sqlBuilder.append("    UNION ");

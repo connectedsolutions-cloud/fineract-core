@@ -53,6 +53,7 @@ import org.apache.fineract.portfolio.loanaccount.data.DisbursementData;
 import org.apache.fineract.portfolio.loanaccount.data.HolidayDetailDTO;
 import org.apache.fineract.portfolio.loanaccount.data.LoanTermVariationsData;
 import org.apache.fineract.portfolio.loanaccount.data.OutstandingAmountsDTO;
+import org.apache.fineract.portfolio.loanaccount.domain.CredesalInterestPausePeriods;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanCharge;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanInterestRecalcualtionAdditionalDetails;
@@ -2906,6 +2907,16 @@ public abstract class AbstractCumulativeLoanScheduleGenerator implements LoanSch
         }
         int totalNumberOfDays = DateUtils.getExactDifferenceInDays(startDate, dueDate);
         int daysToBeAccrued = DateUtils.getExactDifferenceInDays(startDate, targetDate);
+        final var pauses = CredesalInterestPausePeriods.fromLoan(loan);
+        if (!pauses.isEmpty()) {
+            final long totalChargeableDays = CredesalInterestPausePeriods.chargeableDays(startDate, dueDate, pauses);
+            if (totalChargeableDays == 0) {
+                return zero;
+            }
+            final long elapsedChargeableDays = CredesalInterestPausePeriods.chargeableDays(startDate, targetDate, pauses);
+            return Money.of(currency, interest.multiply(BigDecimal.valueOf(elapsedChargeableDays))
+                    .divide(BigDecimal.valueOf(totalChargeableDays), MathContext.DECIMAL128));
+        }
         double interestPerDay = interest.doubleValue() / totalNumberOfDays;
         interestPortion = BigDecimal.valueOf(interestPerDay * daysToBeAccrued);
         return Money.of(currency, interestPortion);

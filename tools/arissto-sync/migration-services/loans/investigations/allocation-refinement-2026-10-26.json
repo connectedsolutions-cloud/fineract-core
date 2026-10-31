@@ -1,0 +1,2675 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-10-27T14:52:11.925247+00:00",
+  "updated_at": "2026-10-27T15:33:16.170631+00:00",
+  "evidence_sha256": "972fa8cc51757a26f62e7679c69d7e496884d1845f7fd1d3a499ec4c579f1f5d",
+  "baseline": {
+    "cycle": "sandbox-2026-10-26-full-clean-a",
+    "run_id": "d48a6841f13c4c48ae6682cab2d9950a",
+    "plan_id": "8098f714e10b4363934545537026a714",
+    "target_fingerprint": "b9f6834b66790744",
+    "recorded_run_status": "running",
+    "accounting_boundary": {
+      "source_through_date": "2026-10-26",
+      "date": "2026-10-27"
+    },
+    "failures": [
+      {
+        "source_key": "loan:3",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:9",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:10",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:15",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:18",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:19",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:23",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:40",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": true,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:41",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": true,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:67",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": true,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:71",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:87",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:98",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:100",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": true,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:102",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:131",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:138",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": true,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:152",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": true,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:174",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:175",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:176",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:179",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:203",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:229",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": true,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:232",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:234",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:235",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:238",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:247",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": true,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:287",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:320",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:325",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:331",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:351",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:353",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:354",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:370",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:383",
+        "pattern": "principal+penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": true,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:387",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": true,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:389",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:390",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:394",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:395",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:400",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:426",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:427",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": true,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:429",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": true,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:431",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": true,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:441",
+        "pattern": "principal+penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:442",
+        "pattern": "principal+penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:473",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:489",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:490",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:517",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:542",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:543",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:546",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:557",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:561",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:570",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:575",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:584",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:595",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:627",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:629",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:653",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:662",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:677",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:680",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:689",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:698",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:699",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:713",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:745",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:766",
+        "pattern": "principal+penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:856",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:881",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:884",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:894",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:901",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": true,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:902",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:903",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:904",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:907",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:916",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:924",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:928",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:936",
+        "pattern": "interest",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:938",
+        "pattern": "interest",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:939",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:945",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": true,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:953",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:960",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": true,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:964",
+        "pattern": "interest",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:971",
+        "pattern": "interest",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:972",
+        "pattern": "interest",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:983",
+        "pattern": "interest",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1011",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1024",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": null,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1027",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1036",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1040",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": true,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1059",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:1084",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1117",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": true,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1144",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:1180",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1257",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1270",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:1293",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:1319",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:1321",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1330",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:1398",
+        "pattern": "principal+penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:1438",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1458",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": null,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1463",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:1478",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1507",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1539",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:1610",
+        "pattern": "principal+interest+fees",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1615",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:1641",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1669",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1670",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1671",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1704",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:1743",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1781",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1828",
+        "pattern": "principal+penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:1889",
+        "pattern": "principal+penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1895",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": null,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:1899",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1915",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:1934",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": null,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:1940",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:1942",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:1957",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:2060",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:2262",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": null,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:2396",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:2430",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:2435",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:2519",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": null,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:2538",
+        "pattern": "penalties",
+        "first_repayment_before_first_frozen_due": false,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": true
+      },
+      {
+        "source_key": "loan:2586",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": null,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:2588",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": null,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:2653",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": true,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:2704",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": null,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:2705",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": null,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      },
+      {
+        "source_key": "loan:2706",
+        "pattern": "principal+interest",
+        "first_repayment_before_first_frozen_due": null,
+        "refinance": false,
+        "source_freeze_events": false,
+        "terminal_adjustment_planned": false
+      }
+    ]
+  },
+  "patterns": {
+    "interest": {
+      "status": "untriaged",
+      "owner": "",
+      "hypothesis": "",
+      "findings": [
+        {
+          "at": "2026-10-27T14:52:47.274412+00:00",
+          "note": "Baseline classification: 6 failed loans; 0 have first frozen repayment before first frozen due date. Component signature is an observation, not a proven cause."
+        }
+      ],
+      "next_check": "Trace collectible interest, accrual dates and full-schedule capacity; distinguish from terminal closure errors.",
+      "fix_references": [],
+      "change_tracker_ids": [],
+      "verification_evidence": [],
+      "loans": {
+        "loan:936": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:938": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:964": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:971": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:972": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:983": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        }
+      },
+      "history": [
+        {
+          "at": "2026-10-27T14:52:47.274423+00:00",
+          "source_key": null,
+          "status": null,
+          "note": "Baseline classification: 6 failed loans; 0 have first frozen repayment before first frozen due date. Component signature is an observation, not a proven cause.",
+          "evidence": null,
+          "hypothesis": null,
+          "next_check": null,
+          "owner": null,
+          "fix_reference": null,
+          "change_tracker_id": null
+        }
+      ]
+    },
+    "penalties": {
+      "status": "untriaged",
+      "owner": "",
+      "hypothesis": "Provisional: penalty charge timing, materialization or visibility may differ during reprocessing; remainder alone does not identify which.",
+      "findings": [
+        {
+          "at": "2026-10-27T14:52:47.275426+00:00",
+          "note": "Baseline classification: 72 failed loans; 0 have first frozen repayment before first frozen due date. Component signature is an observation, not a proven cause."
+        }
+      ],
+      "next_check": "Trace charge identity, materialization, charged/paid amounts and visibility during recalculation.",
+      "fix_references": [],
+      "change_tracker_ids": [],
+      "verification_evidence": [],
+      "loans": {
+        "loan:19": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:40": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:41": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:67": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:71": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:87": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:100": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:102": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:138": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:152": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:174": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:175": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:176": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:203": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:229": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:235": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:247": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:287": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:325": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:351": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:353": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:370": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:387": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:389": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:390": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:394": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:395": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:426": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:427": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:429": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:431": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:473": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:517": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:542": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:543": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:557": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:561": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:570": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:584": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:595": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:627": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:629": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:662": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:689": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:713": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:745": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:902": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:960": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1011": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1027": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1144": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1257": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1293": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1319": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1321": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1463": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1478": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1507": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1539": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1615": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1641": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1669": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1670": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1704": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1895": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1899": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1915": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1934": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1940": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:2060": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:2262": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:2538": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        }
+      },
+      "history": [
+        {
+          "at": "2026-10-27T14:52:47.275428+00:00",
+          "source_key": null,
+          "status": null,
+          "note": "Baseline classification: 72 failed loans; 0 have first frozen repayment before first frozen due date. Component signature is an observation, not a proven cause.",
+          "evidence": null,
+          "hypothesis": null,
+          "next_check": null,
+          "owner": null,
+          "fix_reference": null,
+          "change_tracker_id": null
+        },
+        {
+          "at": "2026-10-27T14:52:47.281541+00:00",
+          "source_key": null,
+          "status": null,
+          "note": null,
+          "evidence": null,
+          "hypothesis": "Provisional: penalty charge timing, materialization or visibility may differ during reprocessing; remainder alone does not identify which.",
+          "next_check": null,
+          "owner": null,
+          "fix_reference": null,
+          "change_tracker_id": null
+        }
+      ]
+    },
+    "principal+interest": {
+      "status": "untriaged",
+      "owner": "",
+      "hypothesis": "Provisional: early-date repayments may encounter an incomplete recalculation schedule; identify the actual failing event and processor context before attributing cause.",
+      "findings": [
+        {
+          "at": "2026-10-27T14:52:47.276469+00:00",
+          "note": "Baseline classification: 42 failed loans; 25 have first frozen repayment before first frozen due date. Component signature is an observation, not a proven cause."
+        }
+      ],
+      "next_check": "Capture first failing transaction; distinguish temporary schedule prefix from final posting and inspect dates.",
+      "fix_references": [],
+      "change_tracker_ids": [],
+      "verification_evidence": [],
+      "loans": {
+        "loan:3": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:9": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:10": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:15": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:18": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:331": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:400": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:575": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:653": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:677": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:680": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:894": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:901": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:903": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:904": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:907": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:916": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:924": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:928": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:939": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1036": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1040": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1059": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1084": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1270": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1330": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1458": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1671": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1743": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1781": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1942": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1957": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:2396": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:2430": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:2435": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:2519": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:2586": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:2588": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:2653": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:2704": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:2705": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:2706": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        }
+      },
+      "history": [
+        {
+          "at": "2026-10-27T14:52:47.276473+00:00",
+          "source_key": null,
+          "status": null,
+          "note": "Baseline classification: 42 failed loans; 25 have first frozen repayment before first frozen due date. Component signature is an observation, not a proven cause.",
+          "evidence": null,
+          "hypothesis": null,
+          "next_check": null,
+          "owner": null,
+          "fix_reference": null,
+          "change_tracker_id": null
+        },
+        {
+          "at": "2026-10-27T14:52:47.279576+00:00",
+          "source_key": null,
+          "status": null,
+          "note": null,
+          "evidence": null,
+          "hypothesis": "Provisional: early-date repayments may encounter an incomplete recalculation schedule; identify the actual failing event and processor context before attributing cause.",
+          "next_check": null,
+          "owner": null,
+          "fix_reference": null,
+          "change_tracker_id": null
+        }
+      ]
+    },
+    "principal+interest+fees": {
+      "status": "untriaged",
+      "owner": "",
+      "hypothesis": "Provisional: early-date schedule availability and named fee availability may interact; test them independently.",
+      "findings": [
+        {
+          "at": "2026-10-27T14:52:47.277562+00:00",
+          "note": "Baseline classification: 24 failed loans; 22 have first frozen repayment before first frozen due date. Component signature is an observation, not a proven cause."
+        }
+      ],
+      "next_check": "Inspect early-date schedule availability and the named fee charge independently.",
+      "fix_references": [],
+      "change_tracker_ids": [],
+      "verification_evidence": [],
+      "loans": {
+        "loan:23": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:98": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:131": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:179": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:232": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:234": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:238": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:320": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:354": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:489": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:490": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:546": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:698": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:699": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:856": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:881": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:884": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:945": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:953": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1024": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1117": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1180": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1438": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1610": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        }
+      },
+      "history": [
+        {
+          "at": "2026-10-27T14:52:47.277569+00:00",
+          "source_key": null,
+          "status": null,
+          "note": "Baseline classification: 24 failed loans; 22 have first frozen repayment before first frozen due date. Component signature is an observation, not a proven cause.",
+          "evidence": null,
+          "hypothesis": null,
+          "next_check": null,
+          "owner": null,
+          "fix_reference": null,
+          "change_tracker_id": null
+        },
+        {
+          "at": "2026-10-27T14:52:47.280549+00:00",
+          "source_key": null,
+          "status": null,
+          "note": null,
+          "evidence": null,
+          "hypothesis": "Provisional: early-date schedule availability and named fee availability may interact; test them independently.",
+          "next_check": null,
+          "owner": null,
+          "fix_reference": null,
+          "change_tracker_id": null
+        }
+      ]
+    },
+    "principal+penalties": {
+      "status": "untriaged",
+      "owner": "",
+      "hypothesis": "",
+      "findings": [
+        {
+          "at": "2026-10-27T14:52:47.278594+00:00",
+          "note": "Baseline classification: 7 failed loans; 0 have first frozen repayment before first frozen due date. Component signature is an observation, not a proven cause."
+        }
+      ],
+      "next_check": "Separate provisional early principal handling from penalty availability; preserve both source components.",
+      "fix_references": [],
+      "change_tracker_ids": [],
+      "verification_evidence": [],
+      "loans": {
+        "loan:383": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:441": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:442": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:766": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1398": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1828": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        },
+        "loan:1889": {
+          "status": "untriaged",
+          "notes": [],
+          "verification_evidence": [],
+          "target_loan_id": null
+        }
+      },
+      "history": [
+        {
+          "at": "2026-10-27T14:52:47.278597+00:00",
+          "source_key": null,
+          "status": null,
+          "note": "Baseline classification: 7 failed loans; 0 have first frozen repayment before first frozen due date. Component signature is an observation, not a proven cause.",
+          "evidence": null,
+          "hypothesis": null,
+          "next_check": null,
+          "owner": null,
+          "fix_reference": null,
+          "change_tracker_id": null
+        }
+      ]
+    }
+  },
+  "observed_issues": [
+    {
+      "issue": "Family-reference label alias missing (CUÑANA)",
+      "fix_status": "Recovered",
+      "verification": "2,056 reference rows reconciled",
+      "next_step": "No further recovery indicated by this snapshot",
+      "source_keys": [],
+      "scope": "Family-reference service; one unmapped label",
+      "affected_count": null,
+      "fix_references": [
+        "7868ef043ef97c686df4f3cdf94db4d18a4b8a93"
+      ],
+      "evidence": "operator-investigation.json (2026-10-26 interrupted cycle)"
+    },
+    {
+      "issue": "Planner/apply quarantine validation differs",
+      "fix_status": "Committed; recovery passed guard",
+      "verification": "Guard passed; entire loan replay remains incomplete",
+      "next_step": "Retain planner/apply completeness parity in regression coverage",
+      "source_keys": [
+        "loan:5"
+      ],
+      "scope": "Not enumerated",
+      "affected_count": null,
+      "fix_references": [
+        "7868ef043ef97c686df4f3cdf94db4d18a4b8a93"
+      ],
+      "evidence": "operator-investigation.json (2026-10-26 interrupted cycle)"
+    },
+    {
+      "issue": "Missing source insurance/surcharge final metrics",
+      "fix_status": "Quarantined; source evidence incomplete",
+      "verification": "13 snapshots contain null components; no invented zero values",
+      "next_step": "Obtain reviewed source targets or retain explicit quarantine",
+      "source_keys": [
+        "loan:5",
+        "loan:7",
+        "loan:21",
+        "loan:1262",
+        "loan:1562",
+        "loan:1685",
+        "loan:1723",
+        "loan:2120",
+        "loan:2157",
+        "loan:2414",
+        "loan:2544",
+        "loan:2585",
+        "loan:2730"
+      ],
+      "scope": "Not enumerated",
+      "affected_count": 13,
+      "fix_references": [],
+      "evidence": "operator-investigation.json (2026-10-26 interrupted cycle)"
+    },
+    {
+      "issue": "Refinancing preview persistence failure",
+      "fix_status": "Unresolved backend defect",
+      "verification": "Same constraint confirmed for loan:283 and loan:1784; six other HTTP 500s are candidates",
+      "next_step": "Isolate preview from managed entities; verify create, disbursement and direct quote paths",
+      "source_keys": [
+        "loan:103",
+        "loan:125",
+        "loan:139",
+        "loan:159",
+        "loan:172",
+        "loan:1784",
+        "loan:200",
+        "loan:283"
+      ],
+      "scope": "Not enumerated",
+      "affected_count": 8,
+      "fix_references": [],
+      "evidence": "operator-investigation.json (2026-10-26 interrupted cycle)"
+    },
+    {
+      "issue": "EMI below regenerated installment interest",
+      "fix_status": "Unresolved; separate diagnosis required",
+      "verification": "Nine transaction failures; eight have planned terminal adjustments, causality unproven",
+      "next_step": "Capture failing event and regenerated schedule before changing terms",
+      "source_keys": [
+        "loan:177",
+        "loan:300",
+        "loan:459",
+        "loan:516",
+        "loan:555",
+        "loan:771",
+        "loan:780",
+        "loan:781",
+        "loan:865"
+      ],
+      "scope": "Not enumerated",
+      "affected_count": 9,
+      "fix_references": [],
+      "evidence": "Cycle item errors and frozen loan lifecycle features"
+    },
+    {
+      "issue": "Inactive historical insurance charge omitted by verifier",
+      "fix_status": "Committed; workflow recovery pending",
+      "verification": "6/6 read-only verifier checks passed; replay not reconciled",
+      "next_step": "Verify repaired verifier under newly loaded process and reconcile affected histories",
+      "source_keys": [
+        "loan:372",
+        "loan:379",
+        "loan:61",
+        "loan:651",
+        "loan:661",
+        "loan:815"
+      ],
+      "scope": "Not enumerated",
+      "affected_count": 6,
+      "fix_references": [
+        "327f7c09b503ea81fec8b177fc98b17b9bcd5dc6"
+      ],
+      "evidence": "operator-investigation.json (2026-10-26 interrupted cycle)"
+    },
+    {
+      "issue": "Contractual maturity changes accounting class",
+      "fix_status": "Blocked by term-account guard; unresolved",
+      "verification": "Frozen maturity and target maturity differ",
+      "next_step": "Trace schedule regeneration and preserve frozen contractual maturity",
+      "source_keys": [
+        "loan:999"
+      ],
+      "scope": "Not enumerated",
+      "affected_count": 1,
+      "fix_references": [],
+      "evidence": "operator-investigation.json (2026-10-26 interrupted cycle)"
+    },
+    {
+      "issue": "Exactly-one-cent terminal adjustment skipped",
+      "fix_status": "Committed; runtime recovery pending",
+      "verification": "Focused regressions passed; interrupted items remain failed",
+      "next_step": "Verify closure and exact balances under repaired writer",
+      "source_keys": [
+        "loan:1909",
+        "loan:2024",
+        "loan:2051",
+        "loan:2462",
+        "loan:2511",
+        "loan:2513"
+      ],
+      "scope": "Not enumerated",
+      "affected_count": 6,
+      "fix_references": [
+        "65037a62583c83b0a8ce84a56a65b4ab4445809e"
+      ],
+      "evidence": "operator-investigation.json (2026-10-26 interrupted cycle)"
+    },
+    {
+      "issue": "SIGTERM waits for queued loan workers",
+      "fix_status": "Diagnosed; cancellation repair open",
+      "verification": "Continued work observed after documented stop",
+      "next_step": "Add cooperative cancellation, bounded submissions and durable outcome handling",
+      "source_keys": [],
+      "scope": "Workflow runner / loan executor",
+      "affected_count": null,
+      "fix_references": [],
+      "evidence": "operator-investigation.json (2026-10-26 interrupted cycle)"
+    },
+    {
+      "issue": "Dependency and cohort failure propagation",
+      "fix_status": "Blocked consequences; underlying fixes pending",
+      "verification": "118 dependency, 17 transfer-cohort and 8 component blocks",
+      "next_step": "Resolve root failures and verify affected chains; do not count as 143 independent defects",
+      "source_keys": [
+        "loan:1014",
+        "loan:1017",
+        "loan:1038",
+        "loan:1066",
+        "loan:1078",
+        "loan:1094",
+        "loan:1122",
+        "loan:1154",
+        "loan:1157",
+        "loan:1158",
+        "loan:1162",
+        "loan:1165",
+        "loan:1184",
+        "loan:1187",
+        "loan:1190",
+        "loan:1196",
+        "loan:1205",
+        "loan:1210",
+        "loan:1211",
+        "loan:1253",
+        "loan:1276",
+        "loan:1301",
+        "loan:1339",
+        "loan:1369",
+        "loan:1394",
+        "loan:1410",
+        "loan:1413",
+        "loan:1414",
+        "loan:1415",
+        "loan:1416",
+        "loan:1431",
+        "loan:1432",
+        "loan:1460",
+        "loan:1475",
+        "loan:1479",
+        "loan:1485",
+        "loan:1499",
+        "loan:1509",
+        "loan:1517",
+        "loan:1525",
+        "loan:1544",
+        "loan:1553",
+        "loan:1578",
+        "loan:1597",
+        "loan:1600",
+        "loan:1636",
+        "loan:1646",
+        "loan:1660",
+        "loan:1663",
+        "loan:1666",
+        "loan:1692",
+        "loan:1724",
+        "loan:1729",
+        "loan:1734",
+        "loan:1739",
+        "loan:1741",
+        "loan:1757",
+        "loan:1759",
+        "loan:1763",
+        "loan:1780",
+        "loan:1789",
+        "loan:1790",
+        "loan:1825",
+        "loan:1841",
+        "loan:1848",
+        "loan:1883",
+        "loan:1922",
+        "loan:1923",
+        "loan:1935",
+        "loan:1999",
+        "loan:202",
+        "loan:2069",
+        "loan:2234",
+        "loan:2257",
+        "loan:2304",
+        "loan:2356",
+        "loan:2424",
+        "loan:2429",
+        "loan:2540",
+        "loan:2541",
+        "loan:2672",
+        "loan:2685",
+        "loan:2716",
+        "loan:341",
+        "loan:366",
+        "loan:408",
+        "loan:479",
+        "loan:534",
+        "loan:552",
+        "loan:565",
+        "loan:577",
+        "loan:601",
+        "loan:622",
+        "loan:631",
+        "loan:650",
+        "loan:655",
+        "loan:667",
+        "loan:694",
+        "loan:708",
+        "loan:740",
+        "loan:747",
+        "loan:753",
+        "loan:757",
+        "loan:775",
+        "loan:792",
+        "loan:804",
+        "loan:812",
+        "loan:818",
+        "loan:841",
+        "loan:875",
+        "loan:917",
+        "loan:932",
+        "loan:937",
+        "loan:947",
+        "loan:95",
+        "loan:991",
+        "loan:996",
+        "loan:997",
+        "loan:101",
+        "loan:115",
+        "loan:1274",
+        "loan:1441",
+        "loan:1654",
+        "loan:2",
+        "loan:363",
+        "loan:553",
+        "loan:623",
+        "loan:687",
+        "loan:688",
+        "loan:805",
+        "loan:869",
+        "loan:921",
+        "loan:940",
+        "loan:987",
+        "loan:990",
+        "loan:1178",
+        "loan:1482",
+        "loan:1897",
+        "loan:1962",
+        "loan:2055",
+        "loan:2165",
+        "loan:2265",
+        "loan:2402"
+      ],
+      "scope": "Not enumerated",
+      "affected_count": 143,
+      "fix_references": [],
+      "evidence": "Cycle blocked items, frozen depends_on edges and loans.py propagation paths"
+    },
+    {
+      "issue": "DTE executor shares wait-on-stop pattern",
+      "fix_status": "Potential similar issue; unverified",
+      "verification": "Same context-manager/submission pattern found; not observed executing in this cycle",
+      "next_step": "Cover DTE cancellation in isolated regression/integration checks",
+      "source_keys": [],
+      "scope": "DTE history executor",
+      "affected_count": null,
+      "fix_references": [],
+      "evidence": "arissto_sync/dte_history.py executor code review"
+    },
+    {
+      "issue": "Interrupted parent/child status and outcome coverage disagree",
+      "fix_status": "Reporting/recovery gap observed",
+      "verification": "Parent interrupted; loan child running; 1,293 actions lack recorded outcomes",
+      "next_step": "Reconcile target identities before recovery; improve terminal status and outcome reporting",
+      "source_keys": [],
+      "scope": "Parent workflow, loan child and frozen plan",
+      "affected_count": null,
+      "fix_references": [],
+      "evidence": "Preserved cycle state and plan/item comparison"
+    },
+    {
+      "issue": "First native COB and final metrics await completed migration",
+      "fix_status": "Pending prerequisite; no fix verified",
+      "verification": "Final metric alignment not reached; COB not run",
+      "next_step": "Complete and reconcile composed financial migration before COB or final metric correction",
+      "source_keys": [],
+      "scope": "Financial workflow / first native COB",
+      "affected_count": null,
+      "fix_references": [],
+      "evidence": "operator-investigation.json (2026-10-26 interrupted cycle)"
+    }
+  ],
+  "issue_register_note": "Observed issue scope and fix statuses are the preserved investigation snapshot, not a fresh runtime verification. Allocation rows derive from the evolving pattern journal. Other rows should be updated with dated evidence as investigation progresses. Counts overlap and are not additive."
+}

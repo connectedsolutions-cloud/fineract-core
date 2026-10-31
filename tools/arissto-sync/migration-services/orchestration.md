@@ -525,3 +525,15 @@ timer: operations must complete the production-like gates, bootstrap accepted
 production checkpoints, review the immutable plan, and explicitly select the
 full workflow in the deployment environment. Parallel root execution remains
 out of scope.
+
+## Explicit local applicant quarantine acceptance
+
+A local resumed plan can retain specific unmapped `007` applicant quarantines
+without blocking the fully reconciled imported-client population. Repeat
+`--accept-client-applicant-quarantine SOURCE_KEY` on `workflow plan` with the
+failed parent run and same cycle. Review the frozen `accepted_applicant_quarantines`
+and `client_owner_keys` before start. The planner and executor validate the
+exact exceptions and all successful clients; unrelated failures stay blocking.
+See the [client quarantine contract](clients/contract.md#readiness-and-quarantine).
+This option never changes the applicant items, admits production exceptions,
+resets the tenant, or grants a blanket quarantine waiver.

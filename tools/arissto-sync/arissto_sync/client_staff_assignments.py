@@ -294,7 +294,10 @@ def _matches(current: dict[str, Any], normalized: dict[str, Any]) -> bool:
 def build_client_staff_assignment_plan(
     settings: Settings, state: State, contract: ClientStaffAssignmentContract,
     source_keys: list[str] | None = None,
+    owner_keys: set[str] | None = None,
 ) -> tuple[str, dict[str, Any]]:
+    if source_keys is not None and owner_keys is not None:
+        raise ValueError("Assignment planning accepts source keys or parent client keys, not both")
     inspection = inspect_client_staff_assignments(settings, contract)
     if not settings.target.pg_url:
         raise RuntimeError("Target PostgreSQL URL is required for assignment planning")
@@ -308,6 +311,10 @@ def build_client_staff_assignment_plan(
                 rows.extend(matches)
         else:
             rows = extract_assignments(source, contract)
+            if owner_keys is not None:
+                rows = [row for row in rows if contract.source_key(row) in owner_keys]
+                if {contract.source_key(row) for row in rows} != owner_keys:
+                    raise RuntimeError("Parent client scope contains missing assignment owners")
     with postgres_connection(settings.target.pg_url) as target_db:
         targets = _target_rows(target_db, contract) if inspection["ready"] else {}
         staff = _staff_by_external(target_db, contract)
@@ -360,7 +367,12 @@ def build_client_staff_assignment_plan(
         "schema_signature": inspection["schema_signature"], "depends_on": contract.raw["depends_on"],
         "applicable": inspection["ready"] and missing_dependencies == 0,
         "readiness_blocker_count": len(inspection["blockers"]) + missing_dependencies,
-        "scope": {"mode": "explicit-source-keys" if source_keys else "full-block", "entity_count": len(rows)},
+        "scope": {
+            "mode": "explicit-source-keys" if source_keys else
+                    "parent-client-source-keys" if owner_keys is not None else "full-block",
+            "entity_count": len(rows),
+            **({"owner_count": len(owner_keys)} if owner_keys is not None else {}),
+        },
         "counts": dict(counts), "actions": actions,
     }
     plan_id = state.save_plan(

@@ -29,5 +29,8 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
  * @since 2.0.0
  */
 public interface CashierRepository extends JpaRepository<Cashier, Long>, JpaSpecificationExecutor<Cashier> {
-    // no added behavior
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select c from Cashier c where c.staff.id = :staffId order by c.id")
+    java.util.List<Cashier> findByStaffIdForRefinancingUpdate(@org.springframework.data.repository.query.Param("staffId") Long staffId);
 }

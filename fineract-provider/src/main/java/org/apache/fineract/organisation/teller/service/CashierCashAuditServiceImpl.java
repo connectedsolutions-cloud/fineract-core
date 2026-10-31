@@ -51,16 +51,16 @@ public class CashierCashAuditServiceImpl implements CashierCashAuditService {
                 SELECT c.id, c.start_date, c.end_date, c.opening_balance
                 FROM m_cashiers c JOIN m_tellers t ON t.id = c.teller_id
                 WHERE c.id = ? AND t.id = ?
-                """, (rs, rowNum) -> new Session(JdbcSupport.getLocalDate(rs, "start_date"),
-                JdbcSupport.getLocalDate(rs, "end_date"), rs.getBigDecimal("opening_balance")), cashierId, tellerId);
+                """, (rs, rowNum) -> new Session(JdbcSupport.getLocalDate(rs, "start_date"), JdbcSupport.getLocalDate(rs, "end_date"),
+                rs.getBigDecimal("opening_balance")), cashierId, tellerId);
         if (sessions.isEmpty()) {
             throw new CashierNotFoundException(cashierId);
         }
         final Session session = sessions.get(0);
         final List<CashierCashAuditData.Event> events = new ArrayList<>();
         addTellerEvents(events, cashierId, currencyCode, session);
-        addProductEvents(events, "LOAN", "m_loan_transaction", "loan_transaction_type_enum", "m_loan", "loan_id", cashierId,
-                currencyCode, session);
+        addProductEvents(events, "LOAN", "m_loan_transaction", "loan_transaction_type_enum", "m_loan", "loan_id", cashierId, currencyCode,
+                session);
         addProductEvents(events, "SAVINGS", "m_savings_account_transaction", "savings_transaction_type_enum", "m_savings_account",
                 "savings_account_id", cashierId, currencyCode, session);
         addClientEvents(events, cashierId, currencyCode, session);
@@ -77,16 +77,17 @@ public class CashierCashAuditServiceImpl implements CashierCashAuditService {
                 case OUT -> cashPayouts = cashPayouts.add(event.amount());
                 case SETTLE -> settlements = settlements.add(event.amount());
                 case UNVERIFIED -> unverified++;
-                default -> { }
+                default -> {
+                }
             }
         }
         BigDecimal opening = session.openingCash() == null ? BigDecimal.ZERO : session.openingCash();
         BigDecimal expected = opening.add(allocations).add(cashReceipts).subtract(cashPayouts).subtract(settlements);
         int candidates = countUnattributedCandidates(cashierId, currencyCode);
-        BigDecimal legacyExpected = opening.add(tellerReadPlatformService.retrieveCashierTransactionsWithSummary(cashierId, false,
-                null, null, currencyCode, SearchParameters.builder().limit(1).build()).getNetCash());
-        return new CashierCashAuditData(tellerId, cashierId, currencyCode, Instant.now(), opening, allocations, cashReceipts,
-                cashPayouts, settlements, expected, legacyExpected, unverified, candidates, List.copyOf(events));
+        BigDecimal legacyExpected = opening.add(tellerReadPlatformService.retrieveCashierTransactionsWithSummary(cashierId, false, null,
+                null, currencyCode, SearchParameters.builder().limit(1).build()).getNetCash());
+        return new CashierCashAuditData(tellerId, cashierId, currencyCode, Instant.now(), opening, allocations, cashReceipts, cashPayouts,
+                settlements, expected, legacyExpected, unverified, candidates, List.copyOf(events));
     }
 
     private void addTellerEvents(List<CashierCashAuditData.Event> events, Long cashierId, String currencyCode, Session session) {
@@ -116,12 +117,15 @@ public class CashierCashAuditServiceImpl implements CashierCashAuditService {
             String accountTable, String accountColumn, Long cashierId, String currencyCode, Session session) {
         // Identifiers are fixed constants at each call site, never request input.
         final String sql = "SELECT tx.id, tx.transaction_date, tx.amount, tx.is_reversed, e.enum_value, "
-                + "tx.payment_detail_id, pt.is_cash_payment FROM " + table + " tx "
-                + "JOIN " + accountTable + " account_ ON account_.id = tx." + accountColumn + " "
+                + "tx.payment_detail_id, pt.is_cash_payment FROM " + table + " tx " + "JOIN " + accountTable
+                + " account_ ON account_.id = tx." + accountColumn + " "
                 + "LEFT JOIN r_enum_value e ON e.enum_id = tx.transaction_type_enum AND e.enum_name = ? "
                 + "LEFT JOIN m_payment_detail pd ON pd.id = tx.payment_detail_id "
-                + "LEFT JOIN m_payment_type pt ON pt.id = pd.payment_type_id "
-                + "WHERE tx.cashier_id = ? AND account_.currency_code = ? ORDER BY tx.transaction_date, tx.id";
+                + "LEFT JOIN m_payment_type pt ON pt.id = pd.payment_type_id " + "WHERE tx.cashier_id = ? AND account_.currency_code = ? "
+                + ("LOAN".equals(source)
+                        ? "AND NOT EXISTS (SELECT 1 FROM m_loan_refinancing_operation_transaction refi WHERE refi.transaction_id=tx.id) "
+                        : "")
+                + "ORDER BY tx.transaction_date, tx.id";
         events.addAll(jdbcTemplate.query(sql, (rs, rowNum) -> {
             String operation = rs.getString("enum_value");
             boolean reversed = rs.getBoolean("is_reversed");
@@ -212,13 +216,15 @@ public class CashierCashAuditServiceImpl implements CashierCashAuditService {
 
     private int candidateCount(String table, String accountTable, String accountColumn, Long cashierId, String currencyCode) {
         final String sql = "SELECT COUNT(*) FROM " + table + " tx JOIN m_cashiers c ON c.id = ? "
-                + "JOIN m_appuser u ON u.id = tx.created_by AND u.staff_id = c.staff_id "
-                + "JOIN " + accountTable + " account_ ON account_.id = tx." + accountColumn + " "
-                + "JOIN m_payment_detail pd ON pd.id = tx.payment_detail_id "
+                + "JOIN m_appuser u ON u.id = tx.created_by AND u.staff_id = c.staff_id " + "JOIN " + accountTable
+                + " account_ ON account_.id = tx." + accountColumn + " " + "JOIN m_payment_detail pd ON pd.id = tx.payment_detail_id "
                 + "JOIN m_payment_type pt ON pt.id = pd.payment_type_id "
                 + "WHERE tx.cashier_id IS NULL AND account_.currency_code = ? AND tx.is_reversed = false "
                 + "AND pt.is_cash_payment = true AND tx.transaction_date >= c.start_date "
-                + "AND (c.end_date IS NULL OR tx.transaction_date <= c.end_date)";
+                + "AND (c.end_date IS NULL OR tx.transaction_date <= c.end_date) "
+                + ("m_loan_transaction".equals(table)
+                        ? "AND NOT EXISTS (SELECT 1 FROM m_loan_refinancing_operation_transaction refi WHERE refi.transaction_id=tx.id)"
+                        : "");
         return jdbcTemplate.queryForObject(sql, Integer.class, cashierId, currencyCode);
     }
 

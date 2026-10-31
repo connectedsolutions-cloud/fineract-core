@@ -943,6 +943,42 @@ public class CommandWrapperBuilder {
         return this;
     }
 
+    public CommandWrapperBuilder payoutRefinance(final Long loanId) {
+        this.actionName = "PAYOUTREFINANCE";
+        this.entityName = "LOAN";
+        this.entityId = loanId;
+        this.loanId = loanId;
+        this.href = "/loans/" + loanId + "?command=payoutRefinance";
+        return this;
+    }
+
+    public CommandWrapperBuilder returnRefinance(final Long loanId) {
+        this.actionName = "RETURNREFINANCE";
+        this.entityName = "LOAN";
+        this.entityId = loanId;
+        this.loanId = loanId;
+        this.href = "/loans/" + loanId + "?command=returnRefinance";
+        return this;
+    }
+
+    public CommandWrapperBuilder freezeMora(final Long loanId) {
+        this.actionName = "FREEZEMORA";
+        this.entityName = "LOAN";
+        this.entityId = loanId;
+        this.loanId = loanId;
+        this.href = "/loans/" + loanId + "?command=freezeMora";
+        return this;
+    }
+
+    public CommandWrapperBuilder unfreezeMora(final Long loanId) {
+        this.actionName = "UNFREEZEMORA";
+        this.entityName = "LOAN";
+        this.entityId = loanId;
+        this.loanId = loanId;
+        this.href = "/loans/" + loanId + "?command=unfreezeMora";
+        return this;
+    }
+
     public CommandWrapperBuilder freezeLoan(final Long loanId) {
         this.actionName = "FREEZE";
         this.entityName = "LOAN";
@@ -1021,6 +1057,15 @@ public class CommandWrapperBuilder {
         this.entityId = null;
         this.loanId = loanId;
         this.href = "/loans/" + loanId + "/transactions/template?command=waiveinterest";
+        return this;
+    }
+
+    public CommandWrapperBuilder sourceExactWaiveInterestTransaction(final Long loanId) {
+        this.actionName = "SOURCEEXACTWAIVEINTEREST";
+        this.entityName = "LOAN";
+        this.entityId = null;
+        this.loanId = loanId;
+        this.href = "/loans/" + loanId + "/transactions?command=sourceExactWaiveInterest";
         return this;
     }
 

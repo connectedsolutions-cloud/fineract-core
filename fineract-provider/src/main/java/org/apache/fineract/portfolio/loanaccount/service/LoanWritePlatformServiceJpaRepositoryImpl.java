@@ -56,6 +56,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.fineract.accounting.cutoff.AccountingCutoffMigrationValidationService;
+import org.apache.fineract.accounting.journalentry.service.RefinancingJournalContext;
 import org.apache.fineract.cob.exceptions.AccountLockCannotBeOverruledException;
 import org.apache.fineract.cob.service.LoanAccountLockService;
 import org.apache.fineract.infrastructure.codes.domain.CodeValue;
@@ -168,6 +169,7 @@ import org.apache.fineract.portfolio.loanaccount.domain.LoanCharge;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanDisbursementDetails;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanEvent;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanLifecycleStateMachine;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanRefinancingOperation;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRefinancingSettlement;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallment;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallmentRepository;
@@ -181,12 +183,14 @@ import org.apache.fineract.portfolio.loanaccount.domain.LoanTermVariationType;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTermVariations;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTopupDetails;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
-import org.apache.fineract.portfolio.loanaccount.domain.LoanTransferAmounts;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRelation;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRelationRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRelationTypeEnum;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepository;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanTransferAmounts;
+import org.apache.fineract.portfolio.loanaccount.domain.RefinancingOriginationContext;
+import org.apache.fineract.portfolio.loanaccount.domain.RefinancingUndoContext;
 import org.apache.fineract.portfolio.loanaccount.domain.SourceExactRepaymentAllocation;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.MoneyHolder;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.TransactionCtx;
@@ -294,6 +298,8 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     private final ReprocessLoanTransactionsService reprocessLoanTransactionsService;
     private final LoanAccountService loanAccountService;
     private final LoanJournalEntryPoster journalEntryPoster;
+    private final LoanRefinancingSurplusService refinancingSurplusService;
+    private final LoanRefinancingOperationService refinancingOperationService;
     private final LoanAdjustmentService loanAdjustmentService;
     private final LoanMapper loanMapper;
     private final LoanTransactionProcessingService loanTransactionProcessingService;
@@ -346,6 +352,25 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
 
     private CommandProcessingResult disburseLoanInternal(final Long loanId, final JsonCommand command, final Boolean isAccountTransfer,
             final Boolean isWithoutAutoPayment, final boolean sourceExactTopup) {
+        Loan loan = loanAssembler.assembleFrom(loanId);
+        if (sourceExactTopup || !loan.isTopup()) {
+            return performDisbursement(loanId, command, isAccountTransfer, isWithoutAutoPayment, sourceExactTopup);
+        }
+        loanTransactionValidator.validateDisbursement(command, isAccountTransfer, loanId);
+        boolean retained = Boolean.TRUE
+                .equals(command.booleanObjectValueOfParameterNamed(LoanApiConstants.applyRefinancingSurplusAsRepayment));
+        LocalDate date = command.localDateValueOfParameterNamed("actualDisbursementDate");
+        var start = refinancingOperationService.begin(loan, isAccountTransfer, retained, date);
+        try (var accounting = RefinancingJournalContext.open(loanId, refinancingOperationService.operationLoanIds(loan), date);
+                var origination = RefinancingOriginationContext.open(loanId)) {
+            CommandProcessingResult result = performDisbursement(loanId, command, isAccountTransfer, isWithoutAutoPayment, false);
+            refinancingOperationService.complete(start, loan, accounting);
+            return result;
+        }
+    }
+
+    private CommandProcessingResult performDisbursement(final Long loanId, final JsonCommand command, final Boolean isAccountTransfer,
+            final Boolean isWithoutAutoPayment, final boolean sourceExactTopup) {
         if (sourceExactTopup) {
             loanTransactionValidator.validateSourceExactTopupDisbursement(command, loanId);
         } else {
@@ -357,6 +382,13 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                 && (loan.getExternalId().isEmpty() || !isSourceExactScheduleExternalId(loan.getExternalId().getValue()))) {
             throw new GeneralPlatformDomainRuleException("error.msg.loan.source.exact.refinancing.repair.successor.invalid",
                     "Historical refinancing requires an Arissto successor loan");
+        }
+        final boolean applyRefinancingSurplus = Boolean.TRUE
+                .equals(command.booleanObjectValueOfParameterNamed(LoanApiConstants.applyRefinancingSurplusAsRepayment));
+        refinancingSurplusService.validateRequest(loan, applyRefinancingSurplus, sourceExactTopup);
+        if (applyRefinancingSurplus && !canDisburse(loan)) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.refinancing.surplus.requires.disbursement",
+                    "Retained refinancing proceeds require a loan eligible for disbursement");
         }
         initializeLegacySourceExactRefinancing(loan, command, sourceExactTopup);
 
@@ -391,7 +423,8 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         final Map<String, Object> changes = new LinkedHashMap<>();
 
         final PaymentDetail paymentDetail = this.paymentDetailWritePlatformService.createAndPersistPaymentDetail(command, changes);
-        if (paymentDetail != null && paymentDetail.getPaymentType() != null && paymentDetail.getPaymentType().getIsCashPayment()) {
+        if (!RefinancingJournalContext.isOrigination(loanId) && !applyRefinancingSurplus && paymentDetail != null
+                && paymentDetail.getPaymentType() != null && paymentDetail.getPaymentType().getIsCashPayment()) {
             BigDecimal transactionAmount = command.bigDecimalValueOfParameterNamed("transactionAmount");
             this.cashierTransactionDataValidator.validateOnLoanDisbursal(currentUser, loan.getCurrencyCode(), transactionAmount);
         }
@@ -404,6 +437,8 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         final Locale locale = command.extractLocale();
         final DateTimeFormatter fmt = DateTimeFormatter.ofPattern(command.dateFormat()).withLocale(locale);
 
+        LoanTransaction surplusDisbursement = null;
+        Money surplusRepaymentAmount = Money.zero(loan.getCurrency());
         if (canDisburse(loan)) {
             // Get netDisbursalAmount from disbursal screen field.
             final BigDecimal netDisbursalAmount = command
@@ -504,12 +539,39 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                         "Source-exact top-up disbursement requires a native top-up loan");
             }
 
+            if (applyRefinancingSurplus) {
+                final BigDecimal charges = loanChargeService.deriveSumTotalChargesDueAtDisbursementForNetDisbursal(loan,
+                        actualDisbursementDate);
+                surplusRepaymentAmount = refinancingSurplusService.repaymentAmount(amountToDisburse, charges);
+                surplusDisbursement = refinancingSurplusService.createDisbursement(loan, surplusRepaymentAmount, actualDisbursementDate,
+                        txnExternalId);
+                // Charges keep their existing fund-source accounting. Only available proceeds use the transfer clearing
+                // account.
+                amountToDisburse = Money.of(loan.getCurrency(), charges);
+            }
             LoanTransaction disbursementTransaction = null;
-            if (isAccountTransfer) {
-                disburseLoanToSavings(loan, command, amountToDisburse, paymentDetail);
+            if (isAccountTransfer && !applyRefinancingSurplus) {
+                Money savingsAmount = amountToDisburse;
+                if (RefinancingJournalContext.isOrigination(loanId)) {
+                    BigDecimal charges = loanChargeService.deriveSumTotalChargesDueAtDisbursementForNetDisbursal(loan,
+                            actualDisbursementDate);
+                    savingsAmount = refinancingSurplusService.repaymentAmount(amountToDisburse, charges);
+                    if (charges.signum() > 0) {
+                        LoanTransaction chargeFunded = LoanTransaction.disbursement(loan, Money.of(loan.getCurrency(), charges),
+                                paymentDetail, actualDisbursementDate, ExternalId.generate(), loan.getTotalOverpaidAsMoney());
+                        chargeFunded.updateLoan(loan);
+                        loan.addLoanTransaction(chargeFunded);
+                        loanTransactionRepository.saveAndFlush(chargeFunded);
+                        journalEntryPoster.postJournalEntriesForLoanTransaction(chargeFunded, false, false);
+                    }
+                }
+                if (savingsAmount.isGreaterThanZero()) {
+                    disburseLoanToSavings(loan, command, savingsAmount, paymentDetail);
+                }
             } else if (!loan.isTopup() || amountToDisburse.isGreaterThanZero()) {
                 disbursementTransaction = LoanTransaction.disbursement(loan, amountToDisburse, paymentDetail, actualDisbursementDate,
-                        txnExternalId, loan.getTotalOverpaidAsMoney());
+                        applyRefinancingSurplus && surplusDisbursement != null ? ExternalId.generate() : txnExternalId,
+                        loan.getTotalOverpaidAsMoney());
                 disbursementTransaction.updateLoan(loan);
                 loan.addLoanTransaction(disbursementTransaction);
                 loanTransactionRepository.saveAndFlush(disbursementTransaction);
@@ -522,8 +584,8 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                 recalculateSchedule = true;
             }
 
-            final boolean scheduleRevisionRequired = regenerateScheduleOnDisbursement(command, loan, recalculateSchedule, scheduleGeneratorDTO,
-                    nextPossibleRepaymentDate, rescheduledRepaymentDate);
+            final boolean scheduleRevisionRequired = regenerateScheduleOnDisbursement(command, loan, recalculateSchedule,
+                    scheduleGeneratorDTO, nextPossibleRepaymentDate, rescheduledRepaymentDate);
             boolean downPaymentEnabled = loan.getLoanProductRelatedDetail().isEnableDownPayment();
             if (loan.isInterestBearingAndInterestRecalculationEnabled() || downPaymentEnabled) {
                 createAndSaveLoanScheduleArchive(loan, scheduleGeneratorDTO);
@@ -532,6 +594,10 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                     scheduleGeneratorDTO, !scheduleRevisionRequired && loan.isEarlyDisbursementBeforeExpected(actualDisbursementDate));
             final BigDecimal totalDueAtDisbursement = loanChargeService.deriveSumTotalChargesDueAtDisbursementForNetDisbursal(loan,
                     actualDisbursementDate);
+            if (applyRefinancingSurplus && amountToDisburse.getAmount().compareTo(totalDueAtDisbursement) != 0) {
+                throw new GeneralPlatformDomainRuleException("error.msg.loan.refinancing.surplus.charges.changed",
+                        "Disbursement charges changed while calculating the retained refinancing proceeds");
+            }
             loan.setNetDisbursalAmount(amountToDisburse.getAmount().subtract(totalDueAtDisbursement));
 
             loanAccrualsProcessingService.reprocessExistingAccruals(loan, true);
@@ -606,6 +672,18 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                     AccountTransferType.CHARGE_PAYMENT.getValue(), null, null, ExternalId.empty(), null, null, fromSavingsAccount,
                     isRegularTransaction, isExceptionForBalanceCheck);
             this.accountTransfersWritePlatformService.transferFunds(accountTransferDTO);
+        }
+        if (applyRefinancingSurplus) {
+            final LoanTransaction surplusRepayment = refinancingSurplusService.applyRepayment(loan, surplusDisbursement,
+                    surplusRepaymentAmount, actualDisbursementDate, locale, fmt);
+            loan.setNetDisbursalAmount(BigDecimal.ZERO);
+            changes.put(LoanApiConstants.applyRefinancingSurplusAsRepayment, true);
+            changes.put("refinancingSurplusRepaymentAmount", surplusRepaymentAmount.getAmount());
+            if (surplusRepayment != null) {
+                changes.put("refinancingSurplusRepaymentTransactionId", surplusRepayment.getId());
+            }
+            changes.put(PARAM_STATUS, LoanEnumerations.status(loan.getLoanStatus()));
+            saveAndFlushLoanWithDataIntegrityViolationChecks(loan);
         }
         updateRecurringCalendarDatesForInterestRecalculation(loan);
         loanAccrualsProcessingService.processAccrualsOnInterestRecalculation(loan, loan.isInterestBearingAndInterestRecalculationEnabled(),
@@ -701,7 +779,8 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                 externalId = ExternalId.generate();
             }
             final LocalDate interestAppliedDate = loan.isEarlyDisbursementBeforeExpected(actualDisbursementDate1)
-                    ? loan.getRepaymentScheduleStartDate() : actualDisbursementDate1;
+                    ? loan.getRepaymentScheduleStartDate()
+                    : actualDisbursementDate1;
             final LoanTransaction interestAppliedTransaction = LoanTransaction.accrueInterest(loan.getOffice(), loan, interestApplied,
                     interestAppliedDate, externalId);
             loan.addLoanTransaction(interestAppliedTransaction);
@@ -976,7 +1055,31 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     @Transactional
     @Override
     public CommandProcessingResult undoLoanDisbursal(final Long loanId, final JsonCommand command) {
+        Loan successor = loanAssembler.assembleFrom(loanId);
+        if (!successor.isTopup()) {
+            return performUndoLoanDisbursal(loanId, command);
+        }
+        LocalDate date = command.localDateValueOfParameterNamed("transactionDate");
+        String reason = command.stringValueOfParameterNamed("note");
+        if (date == null || reason == null || reason.isBlank() || reason.length() > 1000) {
+            throw new GeneralPlatformDomainRuleException("error.msg.loan.refinancing.reversal.reason.required",
+                    "Refinance reversal requires an effective date and reason");
+        }
+        LoanRefinancingOperation operation = refinancingOperationService.prepareUndo(successor, date);
+        if (operation.isReversed()) {
+            return new CommandProcessingResultBuilder().withLoanId(loanId).withEntityId(loanId).with(Map.of("alreadyReversed", true))
+                    .build();
+        }
+        try (var accounting = RefinancingJournalContext.reverse(loanId, refinancingOperationService.operationLoanIds(successor),
+                operation.getTransactionIds(), date); var undo = RefinancingUndoContext.open(loanId)) {
+            refinancingOperationService.reversePredecessors(successor, operation, command, date);
+            CommandProcessingResult result = performUndoLoanDisbursal(loanId, command);
+            refinancingOperationService.finishUndo(operation, date);
+            return result;
+        }
+    }
 
+    private CommandProcessingResult performUndoLoanDisbursal(final Long loanId, final JsonCommand command) {
         Loan loan = this.loanAssembler.assembleFrom(loanId);
         checkClientOrGroupActive(loan);
         if (loan.isChargedOff()) {
@@ -1001,7 +1104,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         loanAccrualsProcessingService.reprocessExistingAccruals(loan, true);
 
         if (!changes.isEmpty()) {
-            if (loan.isTopup() && loan.getClientId() != null) {
+            if (loan.isTopup() && loan.getClientId() != null && !RefinancingUndoContext.permits(loanId)) {
                 final Long loanIdToClose = loan.getTopupLoanDetails().getLoanIdToClose();
                 final LocalDate expectedDisbursementDate = command
                         .localDateValueOfParameterNamed(LoanApiConstants.expectedDisbursementDateParameterName);
@@ -1762,6 +1865,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     private CommandProcessingResult adjustLoanTransaction(final Long loanId, final Long transactionId, final JsonCommand command,
             final boolean sourceExactReversal) {
 
+        refinancingOperationService.assertIndependentAdjustmentAllowed(transactionId);
         this.loanTransactionValidator.validateTransaction(command.json());
         LoanTransaction transactionToAdjust = this.loanTransactionRepository.findByIdAndLoanId(command.entityId(), command.getLoanId())
                 .orElseThrow(() -> new LoanTransactionNotFoundException(command.entityId(), command.getLoanId()));
@@ -4041,6 +4145,12 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     private void reverseExistingTransactions(final Loan loan) {
         final Collection<LoanTransaction> retainTransactions = new ArrayList<>();
         for (final LoanTransaction transaction : loan.getLoanTransactions()) {
+            if (RefinancingUndoContext.permits(loan.getId()) && transaction.isReversed()) {
+                if (transaction.getId() != null) {
+                    retainTransactions.add(transaction);
+                }
+                continue;
+            }
             loanChargeValidator.validateRepaymentTypeTransactionNotBeforeAChargeRefund(transaction.getLoan(), transaction, "reversed");
             transaction.reverse();
             journalEntryPoster.postJournalEntriesForLoanTransaction(transaction, false, false);

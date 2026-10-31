@@ -92,6 +92,8 @@ class ServiceRuntime:
     dte_controls: DteApplyControls | None = None
     accounting_periods: tuple[str, ...] = ()
     run_mode: str | None = None
+    accepted_applicant_quarantines: list[dict[str, str]] | None = None
+    client_owner_keys: list[str] | None = None
 
     def __post_init__(self) -> None:
         self.contracts: dict[str, Any] = {
@@ -237,12 +239,24 @@ class ServiceRuntime:
         if block == MEMBERSHIP_BLOCK:
             return build_membership_plan(self.settings, self.state, contract, None)
         if block == CLIENT_STAFF_ASSIGNMENT_BLOCK:
+            if self.client_owner_keys is not None:
+                return build_client_staff_assignment_plan(
+                    self.settings, self.state, contract, owner_keys=set(self.client_owner_keys)
+                )
             return build_client_staff_assignment_plan(self.settings, self.state, contract, None)
         if block == EMPLOYEE_BLOCK:
             return build_employee_plan(self.settings, self.state, contract, None)
         if block in {FAMILY_REFERENCES_BLOCK, PERSONAL_FAMILY_REFERENCES_BLOCK}:
+            if self.client_owner_keys is not None:
+                return build_family_reference_plan(
+                    self.settings, self.state, contract, owner_keys=set(self.client_owner_keys)
+                )
             return build_family_reference_plan(self.settings, self.state, contract, None)
         if block == PEP_BLOCK:
+            if self.client_owner_keys is not None:
+                return build_pep_plan(
+                    self.settings, self.state, contract, owner_keys=set(self.client_owner_keys)
+                )
             return build_pep_plan(self.settings, self.state, contract, None)
         if block == "clients":
             return build_plan(self.settings, self.state, contract, None)
@@ -339,6 +353,9 @@ class ServiceRuntime:
         if block == DTE_HISTORY_BLOCK:
             return reconcile_dte_history(self.settings, self.state, contract, run_id)
         if block == "clients":
+            if self.accepted_applicant_quarantines:
+                return reconcile(self.settings, self.state, contract, run_id,
+                                 self.accepted_applicant_quarantines)
             return reconcile(self.settings, self.state, contract, run_id)
         raise ValueError(f"No runtime adapter for service: {block}")
 

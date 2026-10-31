@@ -211,13 +211,15 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
                     }
 
                     saveAllDebitOrCreditEntries(journalEntryCommand, office, paymentDetail, currencyCode, transactionDate,
-                            journalEntryCommand.getCredits(), transactionId, JournalEntryType.CREDIT, referenceNumber, externalAssetOwner, voucher);
+                            journalEntryCommand.getCredits(), transactionId, JournalEntryType.CREDIT, referenceNumber, externalAssetOwner,
+                            voucher);
                 } else {
                     final GLAccount creditAccountHead = accountingRule.getAccountToCredit();
                     validateGLAccountForTransaction(creditAccountHead);
                     validateDebitOrCreditArrayForExistingGLAccount(creditAccountHead, journalEntryCommand.getCredits());
                     saveAllDebitOrCreditEntries(journalEntryCommand, office, paymentDetail, currencyCode, transactionDate,
-                            journalEntryCommand.getCredits(), transactionId, JournalEntryType.CREDIT, referenceNumber, externalAssetOwner, voucher);
+                            journalEntryCommand.getCredits(), transactionId, JournalEntryType.CREDIT, referenceNumber, externalAssetOwner,
+                            voucher);
                 }
 
                 if (accountingRule.getAccountToDebit() == null) {
@@ -231,21 +233,25 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
                     }
 
                     saveAllDebitOrCreditEntries(journalEntryCommand, office, paymentDetail, currencyCode, transactionDate,
-                            journalEntryCommand.getDebits(), transactionId, JournalEntryType.DEBIT, referenceNumber, externalAssetOwner, voucher);
+                            journalEntryCommand.getDebits(), transactionId, JournalEntryType.DEBIT, referenceNumber, externalAssetOwner,
+                            voucher);
                 } else {
                     final GLAccount debitAccountHead = accountingRule.getAccountToDebit();
                     validateGLAccountForTransaction(debitAccountHead);
                     validateDebitOrCreditArrayForExistingGLAccount(debitAccountHead, journalEntryCommand.getDebits());
                     saveAllDebitOrCreditEntries(journalEntryCommand, office, paymentDetail, currencyCode, transactionDate,
-                            journalEntryCommand.getDebits(), transactionId, JournalEntryType.DEBIT, referenceNumber, externalAssetOwner, voucher);
+                            journalEntryCommand.getDebits(), transactionId, JournalEntryType.DEBIT, referenceNumber, externalAssetOwner,
+                            voucher);
                 }
             } else {
 
                 saveAllDebitOrCreditEntries(journalEntryCommand, office, paymentDetail, currencyCode, transactionDate,
-                        journalEntryCommand.getDebits(), transactionId, JournalEntryType.DEBIT, referenceNumber, externalAssetOwner, voucher);
+                        journalEntryCommand.getDebits(), transactionId, JournalEntryType.DEBIT, referenceNumber, externalAssetOwner,
+                        voucher);
 
                 saveAllDebitOrCreditEntries(journalEntryCommand, office, paymentDetail, currencyCode, transactionDate,
-                        journalEntryCommand.getCredits(), transactionId, JournalEntryType.CREDIT, referenceNumber, externalAssetOwner, voucher);
+                        journalEntryCommand.getCredits(), transactionId, JournalEntryType.CREDIT, referenceNumber, externalAssetOwner,
+                        voucher);
 
             }
 
@@ -712,7 +718,8 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
     private void saveAllDebitOrCreditEntries(final JournalEntryCommand command, final Office office, final PaymentDetail paymentDetail,
             final String currencyCode, final LocalDate transactionDate,
             final SingleDebitOrCreditEntryCommand[] singleDebitOrCreditEntryCommands, final String transactionId,
-            final JournalEntryType type, final String referenceNumber, final ExternalAssetOwner externalAssetOwner, final GlVoucher voucher) {
+            final JournalEntryType type, final String referenceNumber, final ExternalAssetOwner externalAssetOwner,
+            final GlVoucher voucher) {
         final boolean manualEntry = true;
         for (final SingleDebitOrCreditEntryCommand singleDebitOrCreditEntryCommand : singleDebitOrCreditEntryCommands) {
             final GLAccount glAccount = this.glAccountRepository.findById(singleDebitOrCreditEntryCommand.getGlAccountId())
@@ -906,6 +913,11 @@ public class JournalEntryWritePlatformServiceJpaRepositoryImpl implements Journa
     public void createJournalEntriesForLoanTransaction(final LoanTransaction loanTransaction, final boolean isAccountTransfer,
             final boolean isLoanToLoanTransfer, final Long overrideLoanTransactionIdForGL) {
         final Loan loan = loanTransaction.getLoan();
+        if (RefinancingJournalContext.suppress(loanTransaction.getId())) {
+            return;
+        }
+        RefinancingJournalContext.register(loan.getId(), loanTransaction.getId(), loanTransaction.getTypeOf().getValue(),
+                loanTransaction.getTransactionDate(), isLoanToLoanTransfer);
 
         // Check if accounting is enabled for this loan
         if (!loan.isCashBasedAccountingEnabledOnLoanProduct() && !loan.isUpfrontAccrualAccountingEnabledOnLoanProduct()

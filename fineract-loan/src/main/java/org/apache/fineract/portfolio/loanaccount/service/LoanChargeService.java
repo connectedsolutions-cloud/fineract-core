@@ -360,7 +360,13 @@ public class LoanChargeService {
     public BigDecimal deriveSumTotalChargesDueAtDisbursementForNetDisbursal(final Loan loan, final LocalDate date) {
         BigDecimal total = BigDecimal.ZERO;
         for (final LoanCharge loanCharge : loan.getActiveCharges()) {
-            if (!loanCharge.isDueAtDisbursement()) {
+            if (!loanCharge.isDueAtDisbursement()
+                    && !(org.apache.fineract.portfolio.loanaccount.domain.RefinancingOriginationContext.applies(loan.getId())
+                            && loanCharge.getChargeTimeType().isAvailableAtCashier())) {
+                continue;
+            }
+            if (org.apache.fineract.portfolio.loanaccount.domain.RefinancingOriginationContext.applies(loan.getId())
+                    && loanCharge.isWaived()) {
                 continue;
             }
             final BigDecimal amt = loanCharge.amount();

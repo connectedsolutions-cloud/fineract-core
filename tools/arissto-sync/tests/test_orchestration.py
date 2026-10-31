@@ -1444,6 +1444,7 @@ class WorkflowStateTests(unittest.TestCase):
         runtime_type.assert_called_once_with(
             self.settings, self.state, LoanApplyControls(workers=4, pause_seconds=45, recovery_attempts=5),
             DteApplyControls(workers=2, batch_size=500), (), None,
+            accepted_applicant_quarantines=None, client_owner_keys=None,
         )
 
     def test_workflow_plan_freezes_loan_runtime_controls(self):
@@ -1551,6 +1552,54 @@ class WorkflowStateTests(unittest.TestCase):
             child_cutoff = self.state.plan(step["plan_id"])["document"]["accounting_cutoff"]
             self.assertEqual(child_cutoff["configuration_revision"], 2)
             self.assertEqual(child_cutoff["configuration_hash"], "cutoff-hash")
+
+    def test_resumed_plan_freezes_only_explicit_applicant_quarantines(self):
+        with patch("arissto_sync.orchestration.preflight", return_value={"ok": True}):
+            parent_plan_id, _ = build_workflow_plan(
+                self.settings, self.state, "local-party-profile", self.cycle_id,
+            )
+        parent_run_id = self.state.create_workflow_run(self.state.workflow_plan(parent_plan_id))
+        action = {"source_key": "q", "source_hash": "hash", "action": "quarantine",
+                  "reason": "unmapped_client_type_status:007"}
+        client_plan_id = self.state.save_plan(
+            self.settings.target.fingerprint, "clients", "source", "contract-clients",
+            {"applicable": True, "actions": [action]},
+        )
+        child_id = self.state.start_run(self.state.plan(client_plan_id))
+        self.state.record_item(child_id, "q", "quarantine", "hash", "quarantined",
+                               error_code="ClientDataIssue:unmapped_client_type_status:007")
+        self.state.record_item(child_id, "valid", "create", "validhash", "succeeded", target_id="1")
+        self.state.finish_run(child_id, "completed_with_errors", {"quarantined": 1, "create": 1})
+        step = self.state.workflow_steps(parent_run_id)[0]
+        self.state.update_workflow_step(step["id"], status="failed", phase="reconcile",
+                                       plan_id=client_plan_id, child_run_id=child_id, finish=True)
+        self.state.finish_workflow_run(parent_run_id, "failed", {})
+        runtime = Mock()
+        runtime.reconcile.return_value = {"ok": True, "counts": {"matched": 1, "quarantined": 1, "accepted_quarantined": 1}}
+        with (patch("arissto_sync.orchestration.preflight", return_value={"ok": True}),
+              patch("arissto_sync.orchestration.ServiceRuntime", return_value=runtime)):
+            plan_id, document = build_workflow_plan(
+                self.settings, self.state, "local-party-profile", self.cycle_id,
+                resume_from_run_id=parent_run_id, accept_client_applicant_quarantines=["q"],
+            )
+            self.assertEqual(document["accepted_applicant_quarantines"], [{
+                "source_key": "q", "source_hash": "hash",
+                "error_code": "ClientDataIssue:unmapped_client_type_status:007",
+            }])
+            self.assertEqual(document["satisfied_services"]["clients"]["child_run_id"], child_id)
+            self.assertEqual(document["client_owner_keys"], ["valid"])
+            self.assertEqual(self.state.run_items(child_id)[0]["status"], "quarantined")
+            runtime.reconcile.return_value = {"ok": False}
+            with self.assertRaisesRegex(ValueError, "beyond the approved"):
+                build_workflow_plan(
+                    self.settings, self.state, "local-party-profile", self.cycle_id,
+                    resume_from_run_id=parent_run_id, accept_client_applicant_quarantines=["q"],
+                )
+            with self.assertRaisesRegex(ValueError, "existing unmapped-007"):
+                build_workflow_plan(
+                    self.settings, self.state, "local-party-profile", self.cycle_id,
+                    resume_from_run_id=parent_run_id, accept_client_applicant_quarantines=["absent"],
+                )
 
     def test_resumed_plan_validates_and_skips_reconciled_parent_service(self):
         with patch("arissto_sync.orchestration.preflight", return_value={"ok": True}):

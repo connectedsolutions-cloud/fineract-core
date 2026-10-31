@@ -17,6 +17,14 @@ The dashboard shows preserved cycles and workflow runs, the latest attempt for
 each service, run-level metrics, and a paginated/filterable failure ledger. The
 "All attempts" filter reveals the complete retry history.
 
+Each service card keeps its frozen planned total and shows succeeded and failed
+item counts for the latest service execution on every dashboard refresh. Counts
+come directly from committed item results, including while apply is running.
+Recovered items count as succeeded; unchanged items appear separately. Blocked,
+quarantined, and planning/reconciliation failures remain in the failure ledger
+and are not counted as failed writes. Retry counts describe the latest execution,
+not a sum of earlier executions.
+
 The failure ledger distinguishes retryable system failures from structural
 data, validation, configuration, and target-state failures. Unknown signatures
 that recur unchanged are marked persistent rather than automatically declared
@@ -54,3 +62,17 @@ Planning can read Arissto and local Fineract during preflight; launching starts
 the existing detached orchestrator and can write synchronized records to local
 Fineract. Cross-origin requests are rejected and every POST requires the
 per-process launch token.
+
+## Active-loan metric reporting
+
+Loan-run detail prioritizes the eight active-loan handover metrics. Expected
+schedule/calendar differences remain in collapsed reference details and do not
+increase metric mismatch counts. Other integrity failures retain their original
+reconciliation behavior. New reconciliations record identified insurance owed at
+the source-through date separately from future scheduled insurance. An older run
+without that evidence displays an unknown split, never an inferred zero.
+
+The dashboard reads the stored reconciliation only; it does not refresh live
+loan balances. After handover, the native Balance Cartera and Detalle de Saldos
+reports use Fineract operational data. See the project-global
+[active reporting contract](../../../../docs/ACTIVE_LOAN_REPORTING.md).

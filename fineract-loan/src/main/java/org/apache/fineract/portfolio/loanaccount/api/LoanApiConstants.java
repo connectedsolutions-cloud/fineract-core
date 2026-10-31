@@ -180,6 +180,7 @@ public interface LoanApiConstants {
     String refinancingSourcePayoffDate = "sourcePayoffDate";
     String sourceExactRefinancingQuoteDate = "sourceExactRefinancingQuoteDate";
     String topupAmount = "topupAmount";
+    String applyRefinancingSurplusAsRepayment = "applyRefinancingSurplusAsRepayment";
 
     String statusAttributeName = "status";
     String subStatusAttributeName = "subStatus";

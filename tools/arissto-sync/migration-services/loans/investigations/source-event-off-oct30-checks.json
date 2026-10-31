@@ -1,0 +1,1943 @@
+{
+  "observed_on": "2026-10-30",
+  "namespace": "source-off-oct30",
+  "target": "local",
+  "tenant": "default",
+  "database": "fineract_default",
+  "target_fingerprint": "264d304e2927f694",
+  "Arissto through": "2026-09-02",
+  "Fineract starts": "2026-09-03",
+  "plan_sha256": "104d36a07cc1a221000fb0f459113aa96c03233c76d506856e6e538ead28ae4b",
+  "source_api_arithmetic_passed": 414,
+  "persisted_passed": 53,
+  "failed": 0,
+  "observed_loan_days": 51,
+  "proof_client_id": 1045,
+  "proof_products": {
+    "monthly": 7,
+    "daily": 8
+  },
+  "cases": [
+    {
+      "source_loan": "2430",
+      "source_movement": "0000032966",
+      "source_due_date": "2026-10-15",
+      "source_payment_date": "2026-10-12",
+      "offset_days": -3,
+      "synthetic_payment_date": "2026-09-05",
+      "fineract_loan_id": 520
+    },
+    {
+      "source_loan": "2612",
+      "source_movement": "0000031887",
+      "source_due_date": "2026-09-27",
+      "source_payment_date": "2026-09-29",
+      "offset_days": 2,
+      "synthetic_payment_date": "2026-09-10",
+      "fineract_loan_id": 521
+    },
+    {
+      "source_loan": "2647",
+      "source_movement": "0000032865",
+      "source_due_date": "2026-10-01",
+      "source_payment_date": "2026-10-09",
+      "offset_days": 8,
+      "synthetic_payment_date": "2026-09-16",
+      "fineract_loan_id": 522
+    }
+  ],
+  "checks": [
+    {
+      "check": "source:2430:no_restructuring",
+      "passed": true
+    },
+    {
+      "check": "source:2430:not_reversed",
+      "passed": true
+    },
+    {
+      "check": "source:2430:principal_movement_matches_close",
+      "passed": true
+    },
+    {
+      "check": "source:2430:provision_uses_actual_principal",
+      "passed": true
+    },
+    {
+      "check": "source:2430:provision_formula_matches",
+      "passed": true
+    },
+    {
+      "check": "source:2430:unfrozen",
+      "passed": true
+    },
+    {
+      "check": "source:2430:rate_stable",
+      "passed": true
+    },
+    {
+      "check": "source:2430:principal_crosses_selected_due_amount",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-03:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-03:principal",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-03:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-03:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-03:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-03:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-03:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-04:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-04:principal",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-04:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-04:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-04:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-04:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-04:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-05:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-05:principal",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-05:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-05:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-05:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-05:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-05:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-06:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-06:principal",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-06:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-06:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-06:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-06:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-06:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-07:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-07:principal",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-07:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-07:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-07:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-07:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-07:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-08:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-08:principal",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-08:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-08:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-08:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-08:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-08:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-09:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-09:principal",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-09:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-09:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-09:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-09:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-09:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-10:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-10:principal",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-10:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-10:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-10:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-10:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-10:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-11:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-11:principal",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-11:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-11:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-11:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-11:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-11:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-12:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-12:principal",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-12:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-12:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-12:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-12:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-12:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-13:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-13:principal",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-13:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-13:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-13:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-13:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-13:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-14:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-14:principal",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-14:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-14:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-14:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-14:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-14:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-15:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-15:principal",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-15:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-15:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-15:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-15:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-15:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-16:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-16:principal",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-16:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-16:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-16:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-16:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-16:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-17:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-17:principal",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-17:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-17:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-17:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-17:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-17:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-18:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-18:principal",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-18:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-18:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-18:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-18:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-18:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-19:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-19:principal",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-19:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-19:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-19:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-19:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-09-19:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2430:one_ordinary_repayment",
+      "passed": true
+    },
+    {
+      "check": "2430:repayment_principal_allocation",
+      "passed": true
+    },
+    {
+      "check": "2430:repayment_interest_allocation",
+      "passed": true
+    },
+    {
+      "check": "2430:contractual_future_forecast_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2430:early_late_direction",
+      "passed": true
+    },
+    {
+      "check": "2430:principal_payment_reduces_later_interest",
+      "passed": true
+    },
+    {
+      "check": "2430:native_accrual_excludes_opening_interest",
+      "passed": true
+    },
+    {
+      "check": "source:2612:no_restructuring",
+      "passed": true
+    },
+    {
+      "check": "source:2612:not_reversed",
+      "passed": true
+    },
+    {
+      "check": "source:2612:principal_movement_matches_close",
+      "passed": true
+    },
+    {
+      "check": "source:2612:provision_uses_actual_principal",
+      "passed": true
+    },
+    {
+      "check": "source:2612:provision_formula_matches",
+      "passed": true
+    },
+    {
+      "check": "source:2612:unfrozen",
+      "passed": true
+    },
+    {
+      "check": "source:2612:rate_stable",
+      "passed": true
+    },
+    {
+      "check": "source:2612:principal_crosses_selected_due_amount",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-03:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-03:principal",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-03:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-03:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-03:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-03:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-03:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-04:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-04:principal",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-04:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-04:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-04:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-04:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-04:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-05:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-05:principal",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-05:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-05:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-05:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-05:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-05:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-06:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-06:principal",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-06:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-06:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-06:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-06:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-06:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-07:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-07:principal",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-07:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-07:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-07:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-07:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-07:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-08:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-08:principal",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-08:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-08:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-08:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-08:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-08:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-09:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-09:principal",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-09:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-09:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-09:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-09:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-09:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-10:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-10:principal",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-10:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-10:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-10:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-10:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-10:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-11:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-11:principal",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-11:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-11:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-11:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-11:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-11:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-12:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-12:principal",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-12:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-12:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-12:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-12:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-12:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-13:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-13:principal",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-13:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-13:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-13:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-13:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-13:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-14:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-14:principal",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-14:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-14:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-14:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-14:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-14:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-15:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-15:principal",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-15:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-15:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-15:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-15:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-15:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-16:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-16:principal",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-16:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-16:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-16:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-16:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-16:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-17:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-17:principal",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-17:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-17:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-17:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-17:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-17:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-18:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-18:principal",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-18:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-18:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-18:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-18:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-18:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-19:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-19:principal",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-19:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-19:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-19:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-19:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-09-19:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2612:one_ordinary_repayment",
+      "passed": true
+    },
+    {
+      "check": "2612:repayment_principal_allocation",
+      "passed": true
+    },
+    {
+      "check": "2612:repayment_interest_allocation",
+      "passed": true
+    },
+    {
+      "check": "2612:contractual_future_forecast_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2612:early_late_direction",
+      "passed": true
+    },
+    {
+      "check": "2612:principal_payment_reduces_later_interest",
+      "passed": true
+    },
+    {
+      "check": "2612:native_accrual_excludes_opening_interest",
+      "passed": true
+    },
+    {
+      "check": "source:2647:no_restructuring",
+      "passed": true
+    },
+    {
+      "check": "source:2647:not_reversed",
+      "passed": true
+    },
+    {
+      "check": "source:2647:principal_movement_matches_close",
+      "passed": true
+    },
+    {
+      "check": "source:2647:provision_uses_actual_principal",
+      "passed": true
+    },
+    {
+      "check": "source:2647:provision_formula_matches",
+      "passed": true
+    },
+    {
+      "check": "source:2647:unfrozen",
+      "passed": true
+    },
+    {
+      "check": "source:2647:rate_stable",
+      "passed": true
+    },
+    {
+      "check": "source:2647:principal_crosses_selected_due_amount",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-03:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-03:principal",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-03:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-03:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-03:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-03:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-03:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-04:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-04:principal",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-04:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-04:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-04:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-04:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-04:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-05:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-05:principal",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-05:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-05:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-05:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-05:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-05:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-06:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-06:principal",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-06:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-06:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-06:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-06:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-06:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-07:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-07:principal",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-07:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-07:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-07:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-07:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-07:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-08:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-08:principal",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-08:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-08:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-08:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-08:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-08:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-09:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-09:principal",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-09:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-09:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-09:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-09:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-09:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-10:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-10:principal",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-10:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-10:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-10:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-10:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-10:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-11:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-11:principal",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-11:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-11:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-11:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-11:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-11:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-12:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-12:principal",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-12:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-12:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-12:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-12:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-12:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-13:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-13:principal",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-13:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-13:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-13:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-13:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-13:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-14:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-14:principal",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-14:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-14:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-14:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-14:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-14:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-15:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-15:principal",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-15:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-15:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-15:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-15:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-15:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-16:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-16:principal",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-16:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-16:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-16:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-16:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-16:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-17:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-17:principal",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-17:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-17:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-17:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-17:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-17:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-18:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-18:principal",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-18:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-18:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-18:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-18:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-18:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-19:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-19:principal",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-19:interest_paid",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-19:interest_outstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-19:earned_interest",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-19:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-09-19:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2647:one_ordinary_repayment",
+      "passed": true
+    },
+    {
+      "check": "2647:repayment_principal_allocation",
+      "passed": true
+    },
+    {
+      "check": "2647:repayment_interest_allocation",
+      "passed": true
+    },
+    {
+      "check": "2647:contractual_future_forecast_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2647:early_late_direction",
+      "passed": true
+    },
+    {
+      "check": "2647:principal_payment_reduces_later_interest",
+      "passed": true
+    },
+    {
+      "check": "2647:native_accrual_excludes_opening_interest",
+      "passed": true
+    },
+    {
+      "check": "protected:loans",
+      "passed": true
+    },
+    {
+      "check": "protected:transactions",
+      "passed": true
+    },
+    {
+      "check": "protected:schedule",
+      "passed": true
+    },
+    {
+      "check": "protected:charges",
+      "passed": true
+    },
+    {
+      "check": "protected:journals",
+      "passed": true
+    },
+    {
+      "check": "protected:clients",
+      "passed": true
+    },
+    {
+      "check": "protected:products",
+      "passed": true
+    },
+    {
+      "check": "tenant_controls_unchanged",
+      "passed": true
+    },
+    {
+      "check": "scheduler_restored",
+      "passed": true
+    },
+    {
+      "check": "all_days_completed",
+      "passed": true
+    },
+    {
+      "check": "repeat_cob_unchanged",
+      "passed": true
+    },
+    {
+      "check": "repeat_cob_gl_unchanged",
+      "passed": true
+    },
+    {
+      "check": "read_only_database_inspection",
+      "passed": true
+    },
+    {
+      "check": "default_database",
+      "passed": true
+    },
+    {
+      "check": "2430:identity",
+      "passed": true
+    },
+    {
+      "check": "2430:flag_off",
+      "passed": true
+    },
+    {
+      "check": "2430:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2430:persisted_principalOutstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:persisted_interestPaid",
+      "passed": true
+    },
+    {
+      "check": "2430:persisted_interestOutstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:one_migration_baseline",
+      "passed": true
+    },
+    {
+      "check": "2430:product_flag_off",
+      "passed": true
+    },
+    {
+      "check": "2430:one_repayment",
+      "passed": true
+    },
+    {
+      "check": "2430:one_disbursement",
+      "passed": true
+    },
+    {
+      "check": "2430:accruals_match_earned_excluding_opening",
+      "passed": true
+    },
+    {
+      "check": "2430:native_accruals_after_boundary",
+      "passed": true
+    },
+    {
+      "check": "2430:has_journals",
+      "passed": true
+    },
+    {
+      "check": "2430:no_source_owned_gl",
+      "passed": true
+    },
+    {
+      "check": "2430:balanced_gl_per_transaction",
+      "passed": true
+    },
+    {
+      "check": "2430:ordinary_income_matches_native_accrual",
+      "passed": true
+    },
+    {
+      "check": "2612:identity",
+      "passed": true
+    },
+    {
+      "check": "2612:flag_off",
+      "passed": true
+    },
+    {
+      "check": "2612:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2612:persisted_principalOutstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:persisted_interestPaid",
+      "passed": true
+    },
+    {
+      "check": "2612:persisted_interestOutstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:one_migration_baseline",
+      "passed": true
+    },
+    {
+      "check": "2612:product_flag_off",
+      "passed": true
+    },
+    {
+      "check": "2612:one_repayment",
+      "passed": true
+    },
+    {
+      "check": "2612:one_disbursement",
+      "passed": true
+    },
+    {
+      "check": "2612:accruals_match_earned_excluding_opening",
+      "passed": true
+    },
+    {
+      "check": "2612:native_accruals_after_boundary",
+      "passed": true
+    },
+    {
+      "check": "2612:has_journals",
+      "passed": true
+    },
+    {
+      "check": "2612:no_source_owned_gl",
+      "passed": true
+    },
+    {
+      "check": "2612:balanced_gl_per_transaction",
+      "passed": true
+    },
+    {
+      "check": "2612:ordinary_income_matches_native_accrual",
+      "passed": true
+    },
+    {
+      "check": "2647:identity",
+      "passed": true
+    },
+    {
+      "check": "2647:flag_off",
+      "passed": true
+    },
+    {
+      "check": "2647:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:closed_date",
+      "passed": true
+    },
+    {
+      "check": "2647:persisted_principalOutstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:persisted_interestPaid",
+      "passed": true
+    },
+    {
+      "check": "2647:persisted_interestOutstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:one_migration_baseline",
+      "passed": true
+    },
+    {
+      "check": "2647:product_flag_off",
+      "passed": true
+    },
+    {
+      "check": "2647:one_repayment",
+      "passed": true
+    },
+    {
+      "check": "2647:one_disbursement",
+      "passed": true
+    },
+    {
+      "check": "2647:accruals_match_earned_excluding_opening",
+      "passed": true
+    },
+    {
+      "check": "2647:native_accruals_after_boundary",
+      "passed": true
+    },
+    {
+      "check": "2647:has_journals",
+      "passed": true
+    },
+    {
+      "check": "2647:no_source_owned_gl",
+      "passed": true
+    },
+    {
+      "check": "2647:balanced_gl_per_transaction",
+      "passed": true
+    },
+    {
+      "check": "2647:ordinary_income_matches_native_accrual",
+      "passed": true
+    }
+  ],
+  "protected_unchanged": {
+    "loans": true,
+    "transactions": true,
+    "schedule": true,
+    "charges": true,
+    "journals": true,
+    "clients": true,
+    "products": true
+  },
+  "repeat_cob_unchanged": true,
+  "repeat_cob_gl_unchanged": true,
+  "controls_unchanged": true,
+  "scheduler_restored": true,
+  "synthetic_adaptation": "Source rate, pre-event actual principal, principal reduction and early/late day offset are preserved. Opening interest is synthetic 10.00; dates and native two-installment schedules are synthetic. Ordinary repayment amount covers independently computed native interest plus source principal reduction. This is not source cash/history/schedule parity.",
+  "scope_exclusions": [
+    "mora",
+    "insurance",
+    "fees",
+    "pauses",
+    "waivers",
+    "historical reversals",
+    "full source-history replay",
+    "native flag activation"
+  ]
+}

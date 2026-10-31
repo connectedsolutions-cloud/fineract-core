@@ -43,6 +43,8 @@ import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanCharge;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanChargePaidBy;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallment;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanTermVariationType;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanTermVariations;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransaction;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionType;
 import org.apache.fineract.portfolio.loanaccount.domain.SourceExactRepaymentAllocation;
@@ -161,6 +163,23 @@ class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest {
     }
 
     @Test
+    void repaymentDuringInterestPauseDoesNotMaterializePostDueInterest() {
+        final LoanTermVariations pause = mock(LoanTermVariations.class);
+        when(pause.isActive()).thenReturn(true);
+        when(pause.getTermType()).thenReturn(LoanTermVariationType.INTEREST_PAUSE);
+        when(pause.getTermApplicableFrom()).thenReturn(DUE_DATE.plusDays(1));
+        when(pause.getDateValue()).thenReturn(DUE_DATE.plusDays(30));
+        when(loan.getLoanTermVariations()).thenReturn(List.of(pause));
+        final LoanRepaymentScheduleInstallment installment = installment(new BigDecimal("350.00"), new BigDecimal("12.08"));
+        final LoanTransaction repayment = repayment(DUE_DATE.plusDays(1), new BigDecimal("39.79"));
+
+        processor.processTransaction(repayment, CURRENCY, List.of(installment), new HashSet<>(), null);
+
+        assertMoney("12.08", repayment.getInterestPortion(CURRENCY));
+        assertNull(installment.getPostDueInterestCharged());
+    }
+
+    @Test
     void advanceRemainderPaysNextPrincipalBeforeFutureInstallmentFee() {
         final LoanRepaymentScheduleInstallment firstInstallment = installment(1, LocalDate.of(2026, 6, 13), DUE_DATE,
                 new BigDecimal("24.04"), new BigDecimal("12.08"), new BigDecimal("0.21"));
@@ -265,6 +284,22 @@ class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest {
                 DUE_DATE.plusDays(3));
 
         assertMoney("2.42", accrued);
+    }
+
+    @Test
+    void postMaturityAccrualResumesWithoutCatchingUpPausedDays() {
+        final LoanTermVariations pause = mock(LoanTermVariations.class);
+        when(pause.isActive()).thenReturn(true);
+        when(pause.getTermType()).thenReturn(LoanTermVariationType.INTEREST_PAUSE);
+        when(pause.getTermApplicableFrom()).thenReturn(DUE_DATE.plusDays(1));
+        when(pause.getDateValue()).thenReturn(DUE_DATE.plusDays(2));
+        when(loan.getLoanTermVariations()).thenReturn(List.of(pause));
+        final LoanRepaymentScheduleInstallment installment = installment(new BigDecimal("350.00"), new BigDecimal("12.08"));
+
+        final Money accrued = new PostDueAccruedInterestCalculator().calculateAccruableThrough(loan, CURRENCY, List.of(installment),
+                DUE_DATE.plusDays(4));
+
+        assertMoney("1.61", accrued);
     }
 
     @Test
@@ -519,8 +554,8 @@ class CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessorTest {
         final LoanRepaymentScheduleInstallment installment = installment(1, LocalDate.of(2026, 2, 6), LocalDate.of(2026, 10, 21),
                 new BigDecimal("30.00"), new BigDecimal("10.00"));
         final LoanTransaction repayment = repayment(LocalDate.of(2026, 7, 11), new BigDecimal("35.00"));
-        repayment.markAsSourceExactAllocation(new SourceExactRepaymentAllocation(new BigDecimal("25.26"), new BigDecimal("9.74"),
-                BigDecimal.ZERO, BigDecimal.ZERO));
+        repayment.markAsSourceExactAllocation(
+                new SourceExactRepaymentAllocation(new BigDecimal("25.26"), new BigDecimal("9.74"), BigDecimal.ZERO, BigDecimal.ZERO));
 
         processor.processTransaction(repayment, CURRENCY, List.of(installment), new HashSet<>(), null);
 

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.9.xsd">
+ <changeSet id="0441-refinancing-operation-provenance" author="credesal" dbms="postgresql">
+  <sql splitStatements="true"><![CDATA[
+CREATE TABLE m_loan_refinancing_operation (
+ id BIGSERIAL PRIMARY KEY, version BIGINT NOT NULL DEFAULT 0,
+ loan_id BIGINT NOT NULL REFERENCES m_loan(id), office_id BIGINT NOT NULL REFERENCES m_office(id),
+ operation_date DATE NOT NULL, currency_code VARCHAR(3) NOT NULL,
+ proceeds_mode VARCHAR(20) NOT NULL CHECK (proceeds_mode IN ('CASH','SAVINGS','RETAINED','LEGACY')),
+ payout_entitlement NUMERIC(19,6) NOT NULL DEFAULT 0 CHECK (payout_entitlement>=0),
+ delivered_amount NUMERIC(19,6) NOT NULL DEFAULT 0 CHECK (delivered_amount>=0),
+ returned_amount NUMERIC(19,6) NOT NULL DEFAULT 0 CHECK (returned_amount>=0 AND returned_amount<=delivered_amount),
+ voucher_id BIGINT REFERENCES credesal_gl_voucher(id), reversed BOOLEAN NOT NULL DEFAULT FALSE,
+ reversal_date DATE, legacy BOOLEAN NOT NULL DEFAULT FALSE,
+ CHECK (proceeds_mode<>'CASH' OR delivered_amount<=payout_entitlement)
+);
+CREATE UNIQUE INDEX uq_refinancing_active_loan ON m_loan_refinancing_operation(loan_id) WHERE reversed=FALSE;
+CREATE INDEX ix_refinancing_operation_loan ON m_loan_refinancing_operation(loan_id,id);
+CREATE TABLE m_loan_refinancing_operation_transaction (
+ operation_id BIGINT NOT NULL REFERENCES m_loan_refinancing_operation(id),
+ transaction_id BIGINT NOT NULL REFERENCES m_loan_transaction(id), PRIMARY KEY(operation_id,transaction_id)
+);
+CREATE TABLE m_loan_refinancing_operation_journal (
+ operation_id BIGINT NOT NULL REFERENCES m_loan_refinancing_operation(id),
+ journal_entry_id BIGINT NOT NULL REFERENCES acc_gl_journal_entry(id), PRIMARY KEY(operation_id,journal_entry_id)
+);
+CREATE TABLE m_loan_refinancing_cash_movement (
+ id BIGSERIAL PRIMARY KEY, operation_id BIGINT NOT NULL REFERENCES m_loan_refinancing_operation(id),
+ external_id VARCHAR(100) NOT NULL UNIQUE, movement_type VARCHAR(10) NOT NULL CHECK (movement_type IN ('PAYOUT','RETURN')),
+ amount NUMERIC(19,6) NOT NULL CHECK (amount>0), movement_date DATE NOT NULL,
+ cashier_transaction_id BIGINT UNIQUE REFERENCES m_cashier_transactions(id),
+ voucher_id BIGINT REFERENCES credesal_gl_voucher(id), created_by BIGINT NOT NULL REFERENCES m_appuser(id), note VARCHAR(1000) NOT NULL
+);
+INSERT INTO m_permission(grouping,code,entity_name,action_name,can_maker_checker)
+ VALUES ('loan','PAYOUTREFINANCE_LOAN','LOAN','PAYOUTREFINANCE',TRUE),
+        ('loan','RETURNREFINANCE_LOAN','LOAN','RETURNREFINANCE',TRUE)
+ ON CONFLICT (code) DO NOTHING;
+  ]]></sql>
+ </changeSet>
+ <changeSet id="0441-canonical-teller-cash-detail" author="credesal" dbms="postgresql">
+  <sql><![CDATA[
+UPDATE acc_gl_financial_activity_account f SET gl_account_id=target.id
+ FROM acc_gl_account target, acc_gl_account old
+ WHERE f.financial_activity_type=102 AND f.gl_account_id=old.id AND old.gl_code='111001'
+ AND target.gl_code='1110010199' AND target.classification_enum=1 AND target.account_usage=1 AND target.disabled=FALSE;
+  ]]></sql>
+ </changeSet>
+</databaseChangeLog>

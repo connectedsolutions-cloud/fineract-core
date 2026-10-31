@@ -328,6 +328,7 @@ function renderDetail() {
       <article class="metric"><div class="metric-label">Failed entities</div><div class="metric-value">${failedEntities}</div></article>
       <article class="metric"><div class="metric-label">Failure records</div><div class="metric-value">${countLatest()}</div></article>
     </div>
+    ${loanMetricPanel(state.detail.loan_reporting)}
     <section class="assessment">
       <div class="assessment-copy">
         <p class="eyebrow">Retry assessment</p>
@@ -347,6 +348,11 @@ function renderDetail() {
         <article class="step-card ${escapeHtml(step.status)}">
           <div class="step-name">${escapeHtml(step.service_id)}</div><div class="step-phase">${escapeHtml(step.phase)}</div>
           <div class="step-items"><strong>${itemCount(step.sync_item_count)}</strong><span>sync items</span>${Number.isInteger(step.processed_item_count) && step.processed_item_count !== step.sync_item_count ? `<small>${itemCount(step.processed_item_count)} recorded so far</small>` : ""}</div>
+          <div class="step-outcomes" aria-label="Latest service execution item results">
+            <div class="step-succeeded"><strong>${itemCount(step.succeeded_item_count)}</strong><span>Succeeded</span></div>
+            <div class="step-failed"><strong>${itemCount(step.failed_item_count)}</strong><span>Failed</span></div>
+          </div>
+          ${step.unchanged_item_count ? `<div class="step-unchanged">${itemCount(step.unchanged_item_count)} unchanged</div>` : ""}
           <div class="step-bottom"><span class="step-status">${escapeHtml(step.status)}</span><span class="step-attempt">Service execution ${step.attempt}</span></div>
         </article>`).join("")}</div>
     </section>

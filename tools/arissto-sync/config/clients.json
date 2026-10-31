@@ -11,7 +11,8 @@
     "group": "tipo_cliente",
     "status_map": {
       "001": "socio",
-      "003": "cliente"
+      "003": "cliente",
+      "007": "cliente"
     },
     "combined": {
       "base_status": "001",
@@ -148,7 +149,7 @@
       "periodicidad_retiro": {"source": "ID_PERIODICIDAD_OP_AHO_RETIRO", "type": "text", "disposition": "excluded", "ownership": "legacy-owned"}
     }
   },
-  "status": {"001": "active", "003": "active"},
+  "status": {"001": "active", "003": "active", "007": "pending"},
   "create_defaults": {"active": true, "legalFormId": 1},
   "office_mapping": {"001": 1, "002": 2},
   "activation_floor_by_branch": {"001": "2022-12-10", "002": "2024-11-27"},

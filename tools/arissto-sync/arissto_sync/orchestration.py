@@ -811,9 +811,16 @@ def build_workflow_plan(
     resume_from_run_id: str | None = None,
     run_mode: str | None = None,
     production_confirmation: str | None = None,
+    accept_client_applicant_quarantines: list[str] | None = None,
 ) -> tuple[str, dict[str, Any]]:
     resolved_run_mode = run_mode or ("resumed" if resume_from_run_id else "fresh-clean")
     release = os.getenv("ARISSTO_SYNC_RELEASE", "").strip()
+    accepted_applicants: list[dict[str, str]] = []
+    client_owner_keys: list[str] | None = None
+    if accept_client_applicant_quarantines and (
+        settings.target.name != "local" or resolved_run_mode != "resumed" or not resume_from_run_id
+    ):
+        raise ValueError("Applicant acceptance requires a local resumed plan with a parent run")
     if resume_from_run_id and resolved_run_mode != "resumed":
         raise ValueError("A parent workflow run requires run_mode resumed")
     if settings.target.name == "local":
@@ -882,14 +889,57 @@ def build_workflow_plan(
         parent_plan = state.workflow_plan(parent_run["workflow_plan_id"])
         if parent_plan["document"].get("accounting_cutoff") != state.accounting_cutoff:
             raise ValueError("Parent workflow run uses a different accounting cutoff")
+        parent_steps = _latest_steps(state, resume_from_run_id)
+        if accept_client_applicant_quarantines:
+            if "clients" not in report["ordered_services"]:
+                raise ValueError("Applicant acceptance requires the clients prerequisite")
+            client_step = parent_steps.get("clients", {})
+            child_id = client_step.get("child_run_id")
+            if not child_id:
+                raise ValueError("Parent clients step has no child run to validate")
+            requested_keys = set(accept_client_applicant_quarantines)
+            if len(requested_keys) != len(accept_client_applicant_quarantines):
+                raise ValueError("Duplicate applicant quarantine key")
+            child = state.run(child_id)
+            child_plan = state.plan(child["plan_id"])
+            actions = {action["source_key"]: action for action in child_plan["document"]["actions"]}
+            items = {item["source_key"]: item for item in state.run_items(child_id)}
+            for key in sorted(requested_keys):
+                item, action = items.get(key, {}), actions.get(key, {})
+                if not (
+                    child["block"] == "clients"
+                    and child["target_fingerprint"] == settings.target.fingerprint
+                    and item.get("status") == "quarantined" and not item.get("target_id")
+                    and action.get("action") == "quarantine"
+                    and action.get("reason") == "unmapped_client_type_status:007"
+                    and item.get("error_code") == "ClientDataIssue:unmapped_client_type_status:007"
+                    and item.get("source_hash") == action.get("source_hash")
+                ):
+                    raise ValueError("Acceptance must name an existing unmapped-007 applicant quarantine")
+                accepted_applicants.append({
+                    "source_key": key, "source_hash": item["source_hash"],
+                    "error_code": item["error_code"],
+                })
+            validation = ServiceRuntime(
+                settings, state, accepted_applicant_quarantines=accepted_applicants
+            ).reconcile("clients", child_id)
+            if not validation.get("ok"):
+                raise ValueError("Client reconciliation has failures beyond the approved applicants")
+            client_owner_keys = sorted(
+                key for key, item in items.items()
+                if item["status"] in {"succeeded", "recovered", "unchanged"} and item.get("target_id")
+            )
+            if not client_owner_keys or validation.get("counts", {}).get("matched") != len(client_owner_keys):
+                raise ValueError("Approved continuation must reconcile every imported client")
         requested = set(selected_services or ())
-        for service_id, step in _latest_steps(state, resume_from_run_id).items():
+        for service_id, step in parent_steps.items():
             if service_id not in report["ordered_services"] or service_id in requested:
                 continue
             if (
-                step["status"] == "completed"
+                (step["status"] == "completed"
+                 and step.get("summary", {}).get("reconciliation_ok") is True
+                 or service_id == "clients" and bool(accepted_applicants))
                 and step.get("child_run_id")
-                and step.get("summary", {}).get("reconciliation_ok") is True
             ):
                 satisfied_services[service_id] = {
                     "workflow_run_id": resume_from_run_id,
@@ -954,6 +1004,8 @@ def build_workflow_plan(
         "run_mode": resolved_run_mode,
         "release": release or "development",
         "service_checkpoints": service_checkpoints,
+        "accepted_applicant_quarantines": accepted_applicants,
+        "client_owner_keys": client_owner_keys,
         "runtime_controls": {
             "loans": {
                 "workers": loan_controls.workers,
@@ -1304,6 +1356,8 @@ def _execute_workflow(
     runtime = ServiceRuntime(
         settings, state, loan_controls, dte_controls,
         tuple(frozen_accounting.get("source_periods", ())), run_mode,
+        accepted_applicant_quarantines=plan["document"].get("accepted_applicant_quarantines"),
+        client_owner_keys=plan["document"].get("client_owner_keys"),
     )
     dependencies = _dependencies()
     failures_by_service: dict[str, list[str]] = defaultdict(list)
@@ -1434,6 +1488,9 @@ def _execute_workflow(
                             "satisfied_by_parent_workflow_run": satisfied["workflow_run_id"],
                             "parent_child_run_id": satisfied["child_run_id"],
                             "execution_action": "validated-and-skipped",
+                            "accepted_applicant_quarantines": reconciliation.get(
+                                "accepted_applicant_quarantines", []
+                            ),
                         }
                         state.update_workflow_step(
                             step["id"], status="completed", phase="completed",

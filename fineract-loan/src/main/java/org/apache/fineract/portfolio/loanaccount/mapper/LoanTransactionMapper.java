@@ -62,6 +62,7 @@ public interface LoanTransactionMapper {
     @Mapping(target = "currency", source = "loan.currency")
     @Mapping(target = "possibleNextRepaymentDate", ignore = true)
     @Mapping(target = "availableDisbursementAmountWithOverApplied", ignore = true)
+    @Mapping(target = "canApplyRefinancingSurplusAsRepayment", ignore = true)
     @Mapping(target = "rowIndex", ignore = true)
     @Mapping(target = "dateFormat", ignore = true)
     @Mapping(target = "locale", ignore = true)

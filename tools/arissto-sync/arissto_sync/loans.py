@@ -9309,6 +9309,12 @@ def reconcile_loans(
 
     from . import loan_continuation_schedule
     continuation_rows = loan_continuation_schedule.load(settings, list(actions.values()))
+    from .loan_metric_reporting import build_active_metric_report, load_insurance_breakdown
+
+    insurance_breakdown = load_insurance_breakdown(
+        settings, list(actions.values()), plan["document"].get("migration_cutover_date")
+    )
+    metric_observations = []
     for item in items:
         action = actions.get(item["source_key"])
         if action is None:
@@ -9349,6 +9355,10 @@ def reconcile_loans(
                     k: frozen[k] for k in ("cutoffDate", "insuranceChargeId", "recurringInsuranceChargeId")})
                 actual_metrics = observed_amounts(observed["metrics"])
                 target_metrics = metric_amounts(frozen["targets"])
+                metric_observations.append({
+                    "source_key": item["source_key"], "target_id": int(loan["id"]),
+                    "actual": actual_metrics, "insurance": insurance_breakdown.get(action["external_id"]),
+                })
                 for metric in target_metrics:
                     if actual_metrics[metric] != target_metrics[metric]:
                         mismatches.append({"source_key": item["source_key"], "kind": "final_metric:" + metric,
@@ -9940,7 +9950,7 @@ def reconcile_loans(
             })
 
     ok = not mismatches and not any(row["status"] in {"failed", "blocked"} for row in failed_or_quarantined)
-    return {
+    result = {
         "run_id": run_id,
         "ok": ok,
         "counts": dict(counts),
@@ -9949,6 +9959,9 @@ def reconcile_loans(
         "variances": variances,
         "adjustments": adjustments,
     }
+    result["metric_observations"] = metric_observations
+    result["active_metric_report"] = build_active_metric_report(list(actions.values()), result)
+    return result
 
 
 def compact_loan_reconciliation_report(
@@ -10001,6 +10014,7 @@ def compact_loan_reconciliation_report(
     })
     return {
         "run_id": result.get("run_id"),
+        "active_metric_report": result.get("active_metric_report"),
         "ok": bool(result.get("ok")),
         "counts": dict(result.get("counts") or {}),
         "blocking_mismatch_count": len(mismatches),

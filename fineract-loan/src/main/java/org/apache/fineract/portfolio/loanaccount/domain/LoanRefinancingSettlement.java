@@ -114,6 +114,14 @@ public class LoanRefinancingSettlement extends AbstractPersistableCustom<Long> {
         return closureLoanId;
     }
 
+    public Long getRepaymentTransactionId() {
+        return repaymentTransactionId;
+    }
+
+    public BigDecimal getSettlementAmount() {
+        return settlementAmount;
+    }
+
     public String getSettlementType() {
         return settlementType;
     }

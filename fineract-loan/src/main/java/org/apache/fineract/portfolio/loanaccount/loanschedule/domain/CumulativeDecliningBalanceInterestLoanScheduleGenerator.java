@@ -21,6 +21,7 @@ package org.apache.fineract.portfolio.loanaccount.loanschedule.domain;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -29,6 +30,7 @@ import org.apache.fineract.infrastructure.core.service.DateUtils;
 import org.apache.fineract.organisation.monetary.domain.Money;
 import org.apache.fineract.organisation.monetary.mapper.CurrencyMapper;
 import org.apache.fineract.portfolio.loanaccount.data.LoanTermVariationsData;
+import org.apache.fineract.portfolio.loanaccount.domain.CredesalInterestPausePeriods;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepository;
 import org.apache.fineract.portfolio.loanproduct.domain.AmortizationMethod;
 import org.springframework.stereotype.Component;
@@ -186,6 +188,18 @@ public class CumulativeDecliningBalanceInterestLoanScheduleGenerator extends Abs
         // adjust if needed
         principalForThisInstallment = loanApplicationTerms.adjustPrincipalIfLastRepaymentPeriod(principalForThisInstallment,
                 totalCumulativePrincipalToDate, periodNumber);
+
+        // Cumulative COB accrual spreads an installment's interest evenly over its calendar days. Use that same
+        // basis for the pause, and preserve contractual principal instead of accelerating source-exact installments.
+        final var pauses = CredesalInterestPausePeriods.fromData(loanApplicationTerms.getLoanTermVariations().getInterestPauseVariations());
+        if (!pauses.isEmpty() && periodStartDate.isBefore(periodEndDate)) {
+            final long totalDays = ChronoUnit.DAYS.between(periodStartDate, periodEndDate);
+            final long chargeableDays = CredesalInterestPausePeriods.chargeableDays(periodStartDate, periodEndDate, pauses);
+            if (chargeableDays < totalDays) {
+                interestForThisInstallment = Money.of(interestForThisInstallment.getCurrency(), interestForThisInstallment.getAmount()
+                        .multiply(BigDecimal.valueOf(chargeableDays), mc).divide(BigDecimal.valueOf(totalDays), mc), mc);
+            }
+        }
 
         PrincipalInterest principalInterest = new PrincipalInterest(principalForThisInstallment, interestForThisInstallment,
                 interestBroughtFowardDueToGrace);

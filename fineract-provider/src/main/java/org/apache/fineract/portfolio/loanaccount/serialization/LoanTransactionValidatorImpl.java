@@ -209,6 +209,13 @@ public class LoanTransactionValidatorImpl implements LoanTransactionValidator {
                 }
             }
 
+            if (command.parameterExists(LoanApiConstants.applyRefinancingSurplusAsRepayment)) {
+                final Boolean applySurplus = this.fromApiJsonHelper.extractBooleanNamed(LoanApiConstants.applyRefinancingSurplusAsRepayment,
+                        element);
+                baseDataValidator.reset().parameter(LoanApiConstants.applyRefinancingSurplusAsRepayment).value(applySurplus).notNull()
+                        .validateForBooleanValue();
+            }
+
             validatePaymentDetails(baseDataValidator, element);
 
             if (command.parameterExists("postDatedChecks")) {
@@ -1207,6 +1214,7 @@ public class LoanTransactionValidatorImpl implements LoanTransactionValidator {
                     LoanApiConstants.principalDisbursedParameterName, LoanApiConstants.fixedEmiAmountParameterName,
                     LoanApiConstants.postDatedChecks, LoanApiConstants.disbursementNetDisbursalAmountParameterName));
         }
+        disbursementParameters.add(LoanApiConstants.applyRefinancingSurplusAsRepayment);
         return disbursementParameters;
     }
 

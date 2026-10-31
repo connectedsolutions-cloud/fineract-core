@@ -451,8 +451,14 @@
     <include file="parts/0429_daily_movement_account_level.xml" relativeToChangelogFile="true" />
     <include file="parts/0430_align_loan_overdue_principal.xml" relativeToChangelogFile="true" />
     <include file="parts/0431_add_loan_mora_terms.xml" relativeToChangelogFile="true" />
+    <include file="parts/0432_add_mora_freeze_permissions.xml" relativeToChangelogFile="true" />
     <include file="parts/0433_add_loan_mora_terms_audit_columns.xml" relativeToChangelogFile="true" />
     <include file="parts/0434_add_source_exact_freeze_history_permission.xml" relativeToChangelogFile="true" />
+    <include file="parts/0435_add_source_exact_waive_interest_permission.xml" relativeToChangelogFile="true" />
     <include file="parts/0436_final_loan_metric_alignment.xml" relativeToChangelogFile="true" />
     <include file="parts/0437_loan_metric_interest_forecast.xml" relativeToChangelogFile="true" />
+    <include file="parts/0438_native_loan_report_metrics.xml" relativeToChangelogFile="true" />
+    <include file="parts/0439_active_loan_arrears_metrics.xml" relativeToChangelogFile="true" />
+    <include file="parts/0440_active_loan_portfolio_metrics.xml" relativeToChangelogFile="true" />
+    <include file="parts/0441_refinancing_operations.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

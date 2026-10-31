@@ -1,0 +1,1501 @@
+{
+  "tenant": "default",
+  "database": "fineract_default",
+  "tag": "REFISURPLUS-E2E-20261030-A",
+  "clientId": 1044,
+  "cases": {
+    "retained": {
+      "predecessorId": 510,
+      "successorId": 511,
+      "assertions": {
+        "predecessorClosed": true,
+        "payoff": "4264.78",
+        "fee": "0",
+        "expectedRemainder": "1735.22",
+        "retained": true,
+        "passed": true
+      },
+      "newPrincipal": 6000.0,
+      "netPayout": 0.0,
+      "principalPaid": 1568.07,
+      "principalOutstanding": 4431.93,
+      "transactions": [
+        {
+          "id": 20484,
+          "type": "Disbursement",
+          "amount": 4264.78,
+          "principal": 0,
+          "interest": 0,
+          "fees": 0
+        },
+        {
+          "id": 20487,
+          "type": "Disbursement",
+          "amount": 1735.22,
+          "principal": 0,
+          "interest": 0,
+          "fees": 0
+        },
+        {
+          "id": 20488,
+          "type": "Repayment",
+          "amount": 1735.22,
+          "principal": 1568.07,
+          "interest": 167.15,
+          "fees": 0
+        }
+      ],
+      "journalRows": [
+        {
+          "id": 167986,
+          "transaction_id": "L20484",
+          "loan_transaction_id": 20484,
+          "loan_id": 511,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "4264.780000",
+          "reversed": false,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "account_name": "OTORGAMIENTOS ORIGINALES"
+        },
+        {
+          "id": 167987,
+          "transaction_id": "L20484",
+          "loan_transaction_id": 20484,
+          "loan_id": 511,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "4264.780000",
+          "reversed": false,
+          "account_id": 5,
+          "gl_code": "111001",
+          "account_name": "CAJA"
+        },
+        {
+          "id": 167988,
+          "transaction_id": "L20485",
+          "loan_transaction_id": 20485,
+          "loan_id": 510,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "reversed": false,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "account_name": "OTORGAMIENTOS ORIGINALES"
+        },
+        {
+          "id": 167989,
+          "transaction_id": "L20485",
+          "loan_transaction_id": 20485,
+          "loan_id": 510,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "reversed": false,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "account_name": "interes por cobrar"
+        },
+        {
+          "id": 167990,
+          "transaction_id": "L20485",
+          "loan_transaction_id": 20485,
+          "loan_id": 510,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "4264.780000",
+          "reversed": false,
+          "account_id": 5,
+          "gl_code": "111001",
+          "account_name": "CAJA"
+        },
+        {
+          "id": 167991,
+          "transaction_id": "L20486",
+          "loan_transaction_id": 20486,
+          "loan_id": 510,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "reversed": false,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "account_name": "interes por cobrar"
+        },
+        {
+          "id": 167992,
+          "transaction_id": "L20486",
+          "loan_transaction_id": 20486,
+          "loan_id": 510,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "reversed": false,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "account_name": "INTERESES PERCIBIDOS"
+        },
+        {
+          "id": 167993,
+          "transaction_id": "L20487",
+          "loan_transaction_id": 20487,
+          "loan_id": 511,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "1735.220000",
+          "reversed": false,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "account_name": "OTORGAMIENTOS ORIGINALES"
+        },
+        {
+          "id": 167994,
+          "transaction_id": "L20487",
+          "loan_transaction_id": 20487,
+          "loan_id": 511,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "1735.220000",
+          "reversed": false,
+          "account_id": 5,
+          "gl_code": "111001",
+          "account_name": "CAJA"
+        },
+        {
+          "id": 167995,
+          "transaction_id": "L20488",
+          "loan_transaction_id": 20488,
+          "loan_id": 511,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "1568.070000",
+          "reversed": false,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "account_name": "OTORGAMIENTOS ORIGINALES"
+        },
+        {
+          "id": 167996,
+          "transaction_id": "L20488",
+          "loan_transaction_id": 20488,
+          "loan_id": 511,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "167.150000",
+          "reversed": false,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "account_name": "interes por cobrar"
+        },
+        {
+          "id": 167997,
+          "transaction_id": "L20488",
+          "loan_transaction_id": 20488,
+          "loan_id": 511,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "1735.220000",
+          "reversed": false,
+          "account_id": 5,
+          "gl_code": "111001",
+          "account_name": "CAJA"
+        }
+      ],
+      "debits": "12264.780000",
+      "credits": "12264.780000",
+      "balancedByTransaction": true,
+      "surplusClearingZeroAccounts": [
+        "111001"
+      ],
+      "netByAccount": {
+        "1141030101": "431.930000",
+        "111001": "0.000000",
+        "1520": "-167.150000",
+        "611001010001": "-264.780000"
+      },
+      "cashNet": "0.000000",
+      "schedulePaidTotals": {
+        "principal_paid": "1568.070000",
+        "interest_paid": "167.150000"
+      },
+      "scheduleMatchesRepayment": true,
+      "exactSurplusLedgerLegsVerified": true
+    },
+    "payout-control": {
+      "predecessorId": 512,
+      "successorId": 513,
+      "assertions": {
+        "predecessorClosed": true,
+        "payoff": "4264.78",
+        "fee": "0",
+        "expectedRemainder": "1735.22",
+        "retained": false,
+        "passed": true
+      },
+      "newPrincipal": 6000.0,
+      "netPayout": 1735.22,
+      "principalPaid": 0.0,
+      "principalOutstanding": 6000.0,
+      "transactions": [
+        {
+          "id": 20490,
+          "type": "Disbursement",
+          "amount": 4264.78,
+          "principal": 0,
+          "interest": 0,
+          "fees": 0
+        },
+        {
+          "id": 20493,
+          "type": "Disbursement",
+          "amount": 1735.22,
+          "principal": 0,
+          "interest": 0,
+          "fees": 0
+        }
+      ],
+      "journalRows": [
+        {
+          "id": 168000,
+          "transaction_id": "L20490",
+          "loan_transaction_id": 20490,
+          "loan_id": 513,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "4264.780000",
+          "reversed": false,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "account_name": "OTORGAMIENTOS ORIGINALES"
+        },
+        {
+          "id": 168001,
+          "transaction_id": "L20490",
+          "loan_transaction_id": 20490,
+          "loan_id": 513,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "4264.780000",
+          "reversed": false,
+          "account_id": 5,
+          "gl_code": "111001",
+          "account_name": "CAJA"
+        },
+        {
+          "id": 168002,
+          "transaction_id": "L20491",
+          "loan_transaction_id": 20491,
+          "loan_id": 512,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "reversed": false,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "account_name": "OTORGAMIENTOS ORIGINALES"
+        },
+        {
+          "id": 168003,
+          "transaction_id": "L20491",
+          "loan_transaction_id": 20491,
+          "loan_id": 512,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "reversed": false,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "account_name": "interes por cobrar"
+        },
+        {
+          "id": 168004,
+          "transaction_id": "L20491",
+          "loan_transaction_id": 20491,
+          "loan_id": 512,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "4264.780000",
+          "reversed": false,
+          "account_id": 5,
+          "gl_code": "111001",
+          "account_name": "CAJA"
+        },
+        {
+          "id": 168005,
+          "transaction_id": "L20492",
+          "loan_transaction_id": 20492,
+          "loan_id": 512,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "reversed": false,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "account_name": "interes por cobrar"
+        },
+        {
+          "id": 168006,
+          "transaction_id": "L20492",
+          "loan_transaction_id": 20492,
+          "loan_id": 512,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "reversed": false,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "account_name": "INTERESES PERCIBIDOS"
+        },
+        {
+          "id": 168007,
+          "transaction_id": "L20493",
+          "loan_transaction_id": 20493,
+          "loan_id": 513,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "1735.220000",
+          "reversed": false,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "account_name": "OTORGAMIENTOS ORIGINALES"
+        },
+        {
+          "id": 168008,
+          "transaction_id": "L20493",
+          "loan_transaction_id": 20493,
+          "loan_id": 513,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "1735.220000",
+          "reversed": false,
+          "account_id": 2483,
+          "gl_code": "14",
+          "account_name": "Cash & Fund Sources"
+        }
+      ],
+      "debits": "10529.560000",
+      "credits": "10529.560000",
+      "balancedByTransaction": true,
+      "surplusClearingZeroAccounts": [],
+      "netByAccount": {
+        "1141030101": "2000.000000",
+        "111001": "0.000000",
+        "1520": "0.000000",
+        "611001010001": "-264.780000",
+        "14": "-1735.220000"
+      },
+      "cashNet": "-1735.220000",
+      "schedulePaidTotals": {
+        "principal_paid": "0",
+        "interest_paid": "0"
+      },
+      "scheduleMatchesRepayment": true
+    },
+    "retained-with-fee": {
+      "predecessorId": 514,
+      "successorId": 515,
+      "assertions": {
+        "predecessorClosed": true,
+        "payoff": "4264.78",
+        "fee": "100",
+        "expectedRemainder": "1635.22",
+        "retained": true,
+        "passed": true
+      },
+      "newPrincipal": 6000.0,
+      "netPayout": 0.0,
+      "principalPaid": 1468.07,
+      "principalOutstanding": 4531.93,
+      "transactions": [
+        {
+          "id": 20495,
+          "type": "Disbursement",
+          "amount": 4264.78,
+          "principal": 0,
+          "interest": 0,
+          "fees": 0
+        },
+        {
+          "id": 20498,
+          "type": "Disbursement",
+          "amount": 1635.22,
+          "principal": 0,
+          "interest": 0,
+          "fees": 0
+        },
+        {
+          "id": 20499,
+          "type": "Disbursement",
+          "amount": 100.0,
+          "principal": 0,
+          "interest": 0,
+          "fees": 0
+        },
+        {
+          "id": 20500,
+          "type": "Repayment (at time of disbursement)",
+          "amount": 100.0,
+          "principal": 0,
+          "interest": 0,
+          "fees": 100.0
+        },
+        {
+          "id": 20501,
+          "type": "Repayment",
+          "amount": 1635.22,
+          "principal": 1468.07,
+          "interest": 167.15,
+          "fees": 0
+        }
+      ],
+      "journalRows": [
+        {
+          "id": 168011,
+          "transaction_id": "L20495",
+          "loan_transaction_id": 20495,
+          "loan_id": 515,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "4264.780000",
+          "reversed": false,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "account_name": "OTORGAMIENTOS ORIGINALES"
+        },
+        {
+          "id": 168012,
+          "transaction_id": "L20495",
+          "loan_transaction_id": 20495,
+          "loan_id": 515,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "4264.780000",
+          "reversed": false,
+          "account_id": 5,
+          "gl_code": "111001",
+          "account_name": "CAJA"
+        },
+        {
+          "id": 168013,
+          "transaction_id": "L20496",
+          "loan_transaction_id": 20496,
+          "loan_id": 514,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "reversed": false,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "account_name": "OTORGAMIENTOS ORIGINALES"
+        },
+        {
+          "id": 168014,
+          "transaction_id": "L20496",
+          "loan_transaction_id": 20496,
+          "loan_id": 514,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "reversed": false,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "account_name": "interes por cobrar"
+        },
+        {
+          "id": 168015,
+          "transaction_id": "L20496",
+          "loan_transaction_id": 20496,
+          "loan_id": 514,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "4264.780000",
+          "reversed": false,
+          "account_id": 5,
+          "gl_code": "111001",
+          "account_name": "CAJA"
+        },
+        {
+          "id": 168016,
+          "transaction_id": "L20497",
+          "loan_transaction_id": 20497,
+          "loan_id": 514,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "reversed": false,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "account_name": "interes por cobrar"
+        },
+        {
+          "id": 168017,
+          "transaction_id": "L20497",
+          "loan_transaction_id": 20497,
+          "loan_id": 514,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "reversed": false,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "account_name": "INTERESES PERCIBIDOS"
+        },
+        {
+          "id": 168018,
+          "transaction_id": "L20498",
+          "loan_transaction_id": 20498,
+          "loan_id": 515,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "1635.220000",
+          "reversed": false,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "account_name": "OTORGAMIENTOS ORIGINALES"
+        },
+        {
+          "id": 168019,
+          "transaction_id": "L20498",
+          "loan_transaction_id": 20498,
+          "loan_id": 515,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "1635.220000",
+          "reversed": false,
+          "account_id": 5,
+          "gl_code": "111001",
+          "account_name": "CAJA"
+        },
+        {
+          "id": 168020,
+          "transaction_id": "L20499",
+          "loan_transaction_id": 20499,
+          "loan_id": 515,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "100.000000",
+          "reversed": false,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "account_name": "OTORGAMIENTOS ORIGINALES"
+        },
+        {
+          "id": 168021,
+          "transaction_id": "L20499",
+          "loan_transaction_id": 20499,
+          "loan_id": 515,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "100.000000",
+          "reversed": false,
+          "account_id": 2483,
+          "gl_code": "14",
+          "account_name": "Cash & Fund Sources"
+        },
+        {
+          "id": 168022,
+          "transaction_id": "L20500",
+          "loan_transaction_id": 20500,
+          "loan_id": 515,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "100.000000",
+          "reversed": false,
+          "account_id": 1833,
+          "gl_code": "6110010800",
+          "account_name": "AN\u00c1LISIS Y ESTRUCTURA DE CR\u00c9DITO"
+        },
+        {
+          "id": 168023,
+          "transaction_id": "L20500",
+          "loan_transaction_id": 20500,
+          "loan_id": 515,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "100.000000",
+          "reversed": false,
+          "account_id": 2483,
+          "gl_code": "14",
+          "account_name": "Cash & Fund Sources"
+        },
+        {
+          "id": 168024,
+          "transaction_id": "L20501",
+          "loan_transaction_id": 20501,
+          "loan_id": 515,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "1468.070000",
+          "reversed": false,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "account_name": "OTORGAMIENTOS ORIGINALES"
+        },
+        {
+          "id": 168025,
+          "transaction_id": "L20501",
+          "loan_transaction_id": 20501,
+          "loan_id": 515,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "167.150000",
+          "reversed": false,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "account_name": "interes por cobrar"
+        },
+        {
+          "id": 168026,
+          "transaction_id": "L20501",
+          "loan_transaction_id": 20501,
+          "loan_id": 515,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "1635.220000",
+          "reversed": false,
+          "account_id": 5,
+          "gl_code": "111001",
+          "account_name": "CAJA"
+        }
+      ],
+      "debits": "12264.780000",
+      "credits": "12264.780000",
+      "balancedByTransaction": true,
+      "surplusClearingZeroAccounts": [
+        "111001"
+      ],
+      "netByAccount": {
+        "1141030101": "531.930000",
+        "111001": "0.000000",
+        "1520": "-167.150000",
+        "611001010001": "-264.780000",
+        "14": "0.000000",
+        "6110010800": "-100.000000"
+      },
+      "cashNet": "0.000000",
+      "schedulePaidTotals": {
+        "principal_paid": "1468.070000",
+        "interest_paid": "167.150000"
+      },
+      "scheduleMatchesRepayment": true,
+      "exactSurplusLedgerLegsVerified": true
+    },
+    "undo-check": {
+      "predecessorId": 516,
+      "successorId": 517,
+      "assertions": {
+        "predecessorClosed": true,
+        "payoff": "4264.78",
+        "fee": "100",
+        "expectedRemainder": "1635.22",
+        "retained": true,
+        "passed": true
+      },
+      "newPrincipal": 6000.0,
+      "netPayout": 0.0,
+      "principalPaid": 1468.07,
+      "principalOutstanding": 4531.93,
+      "transactions": [
+        {
+          "id": 20503,
+          "type": "Disbursement",
+          "amount": 4264.78,
+          "principal": 0,
+          "interest": 0,
+          "fees": 0
+        },
+        {
+          "id": 20506,
+          "type": "Disbursement",
+          "amount": 1635.22,
+          "principal": 0,
+          "interest": 0,
+          "fees": 0
+        },
+        {
+          "id": 20507,
+          "type": "Disbursement",
+          "amount": 100.0,
+          "principal": 0,
+          "interest": 0,
+          "fees": 0
+        },
+        {
+          "id": 20508,
+          "type": "Repayment (at time of disbursement)",
+          "amount": 100.0,
+          "principal": 0,
+          "interest": 0,
+          "fees": 100.0
+        },
+        {
+          "id": 20509,
+          "type": "Repayment",
+          "amount": 1635.22,
+          "principal": 1468.07,
+          "interest": 167.15,
+          "fees": 0
+        }
+      ],
+      "journalRows": [
+        {
+          "id": 168029,
+          "transaction_id": "L20503",
+          "loan_transaction_id": 20503,
+          "loan_id": 517,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "4264.780000",
+          "reversed": false,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "account_name": "OTORGAMIENTOS ORIGINALES"
+        },
+        {
+          "id": 168030,
+          "transaction_id": "L20503",
+          "loan_transaction_id": 20503,
+          "loan_id": 517,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "4264.780000",
+          "reversed": false,
+          "account_id": 5,
+          "gl_code": "111001",
+          "account_name": "CAJA"
+        },
+        {
+          "id": 168031,
+          "transaction_id": "L20504",
+          "loan_transaction_id": 20504,
+          "loan_id": 516,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "reversed": false,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "account_name": "OTORGAMIENTOS ORIGINALES"
+        },
+        {
+          "id": 168032,
+          "transaction_id": "L20504",
+          "loan_transaction_id": 20504,
+          "loan_id": 516,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "reversed": false,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "account_name": "interes por cobrar"
+        },
+        {
+          "id": 168033,
+          "transaction_id": "L20504",
+          "loan_transaction_id": 20504,
+          "loan_id": 516,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "4264.780000",
+          "reversed": false,
+          "account_id": 5,
+          "gl_code": "111001",
+          "account_name": "CAJA"
+        },
+        {
+          "id": 168034,
+          "transaction_id": "L20505",
+          "loan_transaction_id": 20505,
+          "loan_id": 516,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "reversed": false,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "account_name": "interes por cobrar"
+        },
+        {
+          "id": 168035,
+          "transaction_id": "L20505",
+          "loan_transaction_id": 20505,
+          "loan_id": 516,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "reversed": false,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "account_name": "INTERESES PERCIBIDOS"
+        },
+        {
+          "id": 168036,
+          "transaction_id": "L20506",
+          "loan_transaction_id": 20506,
+          "loan_id": 517,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "1635.220000",
+          "reversed": false,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "account_name": "OTORGAMIENTOS ORIGINALES"
+        },
+        {
+          "id": 168037,
+          "transaction_id": "L20506",
+          "loan_transaction_id": 20506,
+          "loan_id": 517,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "1635.220000",
+          "reversed": false,
+          "account_id": 5,
+          "gl_code": "111001",
+          "account_name": "CAJA"
+        },
+        {
+          "id": 168038,
+          "transaction_id": "L20507",
+          "loan_transaction_id": 20507,
+          "loan_id": 517,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "100.000000",
+          "reversed": false,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "account_name": "OTORGAMIENTOS ORIGINALES"
+        },
+        {
+          "id": 168039,
+          "transaction_id": "L20507",
+          "loan_transaction_id": 20507,
+          "loan_id": 517,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "100.000000",
+          "reversed": false,
+          "account_id": 2483,
+          "gl_code": "14",
+          "account_name": "Cash & Fund Sources"
+        },
+        {
+          "id": 168040,
+          "transaction_id": "L20508",
+          "loan_transaction_id": 20508,
+          "loan_id": 517,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "100.000000",
+          "reversed": false,
+          "account_id": 1833,
+          "gl_code": "6110010800",
+          "account_name": "AN\u00c1LISIS Y ESTRUCTURA DE CR\u00c9DITO"
+        },
+        {
+          "id": 168041,
+          "transaction_id": "L20508",
+          "loan_transaction_id": 20508,
+          "loan_id": 517,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "100.000000",
+          "reversed": false,
+          "account_id": 2483,
+          "gl_code": "14",
+          "account_name": "Cash & Fund Sources"
+        },
+        {
+          "id": 168042,
+          "transaction_id": "L20509",
+          "loan_transaction_id": 20509,
+          "loan_id": 517,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "1468.070000",
+          "reversed": false,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "account_name": "OTORGAMIENTOS ORIGINALES"
+        },
+        {
+          "id": 168043,
+          "transaction_id": "L20509",
+          "loan_transaction_id": 20509,
+          "loan_id": 517,
+          "entry_date": "2026-10-30",
+          "type_enum": 1,
+          "amount": "167.150000",
+          "reversed": false,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "account_name": "interes por cobrar"
+        },
+        {
+          "id": 168044,
+          "transaction_id": "L20509",
+          "loan_transaction_id": 20509,
+          "loan_id": 517,
+          "entry_date": "2026-10-30",
+          "type_enum": 2,
+          "amount": "1635.220000",
+          "reversed": false,
+          "account_id": 5,
+          "gl_code": "111001",
+          "account_name": "CAJA"
+        }
+      ],
+      "debits": "12264.780000",
+      "credits": "12264.780000",
+      "balancedByTransaction": true,
+      "surplusClearingZeroAccounts": [
+        "111001"
+      ],
+      "netByAccount": {
+        "1141030101": "531.930000",
+        "111001": "0.000000",
+        "1520": "-167.150000",
+        "611001010001": "-264.780000",
+        "14": "0.000000",
+        "6110010800": "-100.000000"
+      },
+      "cashNet": "0.000000",
+      "schedulePaidTotals": {
+        "principal_paid": "1468.070000",
+        "interest_paid": "167.150000"
+      },
+      "scheduleMatchesRepayment": true,
+      "exactSurplusLedgerLegsVerified": true
+    }
+  },
+  "financialActivityMappings": [
+    {
+      "financial_activity_type": 100,
+      "id": 5,
+      "gl_code": "111001",
+      "name": "CAJA"
+    },
+    {
+      "financial_activity_type": 101,
+      "id": 13,
+      "gl_code": "1110010302",
+      "name": "BOVEDA"
+    },
+    {
+      "financial_activity_type": 102,
+      "id": 5,
+      "gl_code": "111001",
+      "name": "CAJA"
+    },
+    {
+      "financial_activity_type": 103,
+      "id": 2483,
+      "gl_code": "14",
+      "name": "Cash & Fund Sources"
+    },
+    {
+      "financial_activity_type": 200,
+      "id": 1360,
+      "gl_code": "213005",
+      "name": "TRANSFERENCIAS DE FONDOS"
+    },
+    {
+      "financial_activity_type": 201,
+      "id": 1483,
+      "gl_code": "2220040100",
+      "name": "DIVIDENDOS"
+    },
+    {
+      "financial_activity_type": 202,
+      "id": 2517,
+      "gl_code": "222099910201",
+      "name": "DESEMBOLSO DE CREDITOS EN EFECTIVO"
+    },
+    {
+      "financial_activity_type": 300,
+      "id": 2516,
+      "gl_code": "33",
+      "name": "contra- cuenta de apertura"
+    }
+  ],
+  "atomicFailure": {
+    "predecessorId": 518,
+    "successorId": 519,
+    "expectedErrorCode": "error.msg.loan.refinancing.surplus.insufficient.for.charges",
+    "assertions": {
+      "passed": true,
+      "predecessorActive": true,
+      "predecessorPrincipalOutstanding": 4000.0,
+      "predecessorPrincipalPaid": 0.0,
+      "successorWaitingForDisbursal": true,
+      "successorHasNoTransactions": true
+    },
+    "refinanceJournalCount": 0
+  },
+  "undoGuard": {
+    "predecessorId": 516,
+    "successorId": 517,
+    "expectedErrorCode": "error.msg.loan.undo.disbursal.not.allowed.on.topup.loan",
+    "assertions": {
+      "passed": true,
+      "nativeUndoRejectedWithoutChanges": true,
+      "predecessorStillClosed": true,
+      "successorStillActive": true
+    }
+  },
+  "retainedTransferLinks": [
+    {
+      "from_loan_account_id": 511,
+      "to_loan_account_id": 511,
+      "from_loan_transaction_id": 20487,
+      "to_loan_transaction_id": 20488,
+      "amount": "1735.220000",
+      "is_reversed": false,
+      "description": "Refinancing surplus repayment"
+    },
+    {
+      "from_loan_account_id": 515,
+      "to_loan_account_id": 515,
+      "from_loan_transaction_id": 20498,
+      "to_loan_transaction_id": 20501,
+      "amount": "1635.220000",
+      "is_reversed": false,
+      "description": "Refinancing surplus repayment"
+    },
+    {
+      "from_loan_account_id": 517,
+      "to_loan_account_id": 517,
+      "from_loan_transaction_id": 20506,
+      "to_loan_transaction_id": 20509,
+      "amount": "1635.220000",
+      "is_reversed": false,
+      "description": "Refinancing surplus repayment"
+    }
+  ],
+  "journalEntryTypeEnum": {
+    "1": "CREDIT",
+    "2": "DEBIT"
+  },
+  "testedOn": "2026-10-30",
+  "scope": "Live local default Fineract API to PostgreSQL verification; browser interaction was not exercised.",
+  "testLoanIds": [
+    510,
+    511,
+    512,
+    513,
+    514,
+    515,
+    516,
+    517,
+    518,
+    519
+  ],
+  "testChargeId": 13,
+  "finalApiHealthCheck": {
+    "loanId": 511,
+    "status": "Active"
+  },
+  "comparisonAccountReadback": {
+    "observedOn": "2026-10-30",
+    "tenant": "default",
+    "accounts": [
+      {
+        "id": 5,
+        "gl_code": "111001",
+        "name": "CAJA",
+        "classification_enum": 1,
+        "account_usage": 2,
+        "disabled": false,
+        "parent_id": 4
+      },
+      {
+        "id": 2528,
+        "gl_code": "1110010199",
+        "name": "CAJA",
+        "classification_enum": 1,
+        "account_usage": 1,
+        "disabled": false,
+        "parent_id": 5
+      },
+      {
+        "id": 331,
+        "gl_code": "1141030101",
+        "name": "OTORGAMIENTOS ORIGINALES",
+        "classification_enum": 1,
+        "account_usage": 1,
+        "disabled": false,
+        "parent_id": 330
+      },
+      {
+        "id": 337,
+        "gl_code": "1141039901",
+        "name": "INTERESES Y OTROS POR COBRAR",
+        "classification_enum": 1,
+        "account_usage": 1,
+        "disabled": false,
+        "parent_id": 330
+      },
+      {
+        "id": 340,
+        "gl_code": "1141040101",
+        "name": "OTORGAMIENTOS ORIGINALES",
+        "classification_enum": 1,
+        "account_usage": 1,
+        "disabled": false,
+        "parent_id": 339
+      },
+      {
+        "id": 346,
+        "gl_code": "1141049901",
+        "name": "INTERESES Y OTROS POR COBRAR",
+        "classification_enum": 1,
+        "account_usage": 1,
+        "disabled": false,
+        "parent_id": 339
+      },
+      {
+        "id": 396,
+        "gl_code": "1142030101",
+        "name": "OTORGAMIENTOS ORIGINALES",
+        "classification_enum": 1,
+        "account_usage": 1,
+        "disabled": false,
+        "parent_id": 395
+      },
+      {
+        "id": 402,
+        "gl_code": "1142039901",
+        "name": "INTERESES Y OTROS POR COBRAR",
+        "classification_enum": 1,
+        "account_usage": 1,
+        "disabled": false,
+        "parent_id": 395
+      },
+      {
+        "id": 406,
+        "gl_code": "114204010101",
+        "name": "CAPITAL CREDITOS DE CONSUMO",
+        "classification_enum": 1,
+        "account_usage": 1,
+        "disabled": false,
+        "parent_id": 405
+      },
+      {
+        "id": 414,
+        "gl_code": "1142049901",
+        "name": "INTERESES Y OTROS POR COBRAR",
+        "classification_enum": 1,
+        "account_usage": 1,
+        "disabled": false,
+        "parent_id": 404
+      },
+      {
+        "id": 2485,
+        "gl_code": "1510",
+        "name": "transferencias",
+        "classification_enum": 1,
+        "account_usage": 1,
+        "disabled": false,
+        "parent_id": 2484
+      },
+      {
+        "id": 2486,
+        "gl_code": "1520",
+        "name": "interes por cobrar",
+        "classification_enum": 1,
+        "account_usage": 1,
+        "disabled": false,
+        "parent_id": 2484
+      },
+      {
+        "id": 1506,
+        "gl_code": "222007020102",
+        "name": "SEGURO DE DEUDA",
+        "classification_enum": 2,
+        "account_usage": 1,
+        "disabled": false,
+        "parent_id": 1504
+      },
+      {
+        "id": 1518,
+        "gl_code": "2220990201",
+        "name": "D\u00c9BITO FISCAL",
+        "classification_enum": 2,
+        "account_usage": 1,
+        "disabled": false,
+        "parent_id": 1515
+      },
+      {
+        "id": 2517,
+        "gl_code": "222099910201",
+        "name": "DESEMBOLSO DE CREDITOS EN EFECTIVO",
+        "classification_enum": 2,
+        "account_usage": 1,
+        "disabled": false,
+        "parent_id": 1520
+      },
+      {
+        "id": 1826,
+        "gl_code": "611001010003",
+        "name": "INTERESES MORATORIOS",
+        "classification_enum": 4,
+        "account_usage": 1,
+        "disabled": false,
+        "parent_id": 1823
+      },
+      {
+        "id": 1830,
+        "gl_code": "6110010500",
+        "name": "COMISIONES POR OTORGAMIENTO",
+        "classification_enum": 4,
+        "account_usage": 1,
+        "disabled": false,
+        "parent_id": 1822
+      },
+      {
+        "id": 1833,
+        "gl_code": "6110010800",
+        "name": "AN\u00c1LISIS Y ESTRUCTURA DE CR\u00c9DITO",
+        "classification_enum": 4,
+        "account_usage": 1,
+        "disabled": false,
+        "parent_id": 1822
+      }
+    ],
+    "activities": [
+      {
+        "financial_activity_type": 100,
+        "gl_code": "111001",
+        "name": "CAJA"
+      },
+      {
+        "financial_activity_type": 102,
+        "gl_code": "111001",
+        "name": "CAJA"
+      },
+      {
+        "financial_activity_type": 202,
+        "gl_code": "222099910201",
+        "name": "DESEMBOLSO DE CREDITOS EN EFECTIVO"
+      }
+    ],
+    "product4AccountingMappings": {
+      "fundSourceAccount": {
+        "id": 2483,
+        "name": "Cash & Fund Sources",
+        "glCode": "14"
+      },
+      "loanPortfolioAccount": {
+        "id": 331,
+        "name": "OTORGAMIENTOS ORIGINALES",
+        "glCode": "1141030101"
+      },
+      "transfersInSuspenseAccount": {
+        "id": 2485,
+        "name": "transferencias",
+        "glCode": "1510"
+      },
+      "receivableInterestAccount": {
+        "id": 2486,
+        "name": "interes por cobrar",
+        "glCode": "1520"
+      },
+      "receivableFeeAccount": {
+        "id": 2487,
+        "name": "comisiones por cobrar",
+        "glCode": "1530"
+      },
+      "receivablePenaltyAccount": {
+        "id": 2488,
+        "name": "penalidades por cobrar",
+        "glCode": "1540"
+      },
+      "interestOnLoanAccount": {
+        "id": 1824,
+        "name": "INTERESES PERCIBIDOS",
+        "glCode": "611001010001"
+      },
+      "incomeFromFeeAccount": {
+        "id": 1833,
+        "name": "AN\u00c1LISIS Y ESTRUCTURA DE CR\u00c9DITO",
+        "glCode": "6110010800"
+      },
+      "incomeFromPenaltyAccount": {
+        "id": 1826,
+        "name": "INTERESES MORATORIOS",
+        "glCode": "611001010003"
+      },
+      "incomeFromRecoveryAccount": {
+        "id": 2508,
+        "name": "Ingreso por recuperaci\u00f3n - capital ",
+        "glCode": "6440"
+      },
+      "incomeFromChargeOffFeesAccount": {
+        "id": 2504,
+        "name": "Ingreso por Comisi\u00f3n - contra - incobrable",
+        "glCode": "6422"
+      },
+      "incomeFromChargeOffInterestAccount": {
+        "id": 2501,
+        "name": "Ingreso por Interes - contra - incobrable",
+        "glCode": "6412"
+      },
+      "incomeFromChargeOffPenaltyAccount": {
+        "id": 2507,
+        "name": "Ingreso por penalidades - contra - incobrable",
+        "glCode": "6432"
+      },
+      "incomeFromGoodwillCreditInterestAccount": {
+        "id": 2500,
+        "name": "Ingreso por Interes - contra - condonacion",
+        "glCode": "6411"
+      },
+      "incomeFromGoodwillCreditFeesAccount": {
+        "id": 2503,
+        "name": "Ingreso por Comisi\u00f3n - contra - condonaci\u00f3n",
+        "glCode": "6421"
+      },
+      "incomeFromGoodwillCreditPenaltyAccount": {
+        "id": 2506,
+        "name": "Ingreso por penalidades - contra - condonaci\u00f3n",
+        "glCode": "6431"
+      },
+      "writeOffAccount": {
+        "id": 2512,
+        "name": "perdida de credito - incobrable",
+        "glCode": "73"
+      },
+      "goodwillCreditAccount": {
+        "id": 2515,
+        "name": "costo - condonaci\u00f3n",
+        "glCode": "76"
+      },
+      "chargeOffExpenseAccount": {
+        "id": 2513,
+        "name": "costo - credito inactivo",
+        "glCode": "74"
+      },
+      "chargeOffFraudExpenseAccount": {
+        "id": 2514,
+        "name": "costo - fraude inactivo",
+        "glCode": "75"
+      },
+      "overpaymentLiabilityAccount": {
+        "id": 2518,
+        "name": "REINTEGRO POR EXEDENTE EN PAGO DE CUOTA",
+        "glCode": "2220070302"
+      }
+    },
+    "product6AccountingMappings": {
+      "fundSourceAccount": {
+        "id": 2483,
+        "name": "Cash & Fund Sources",
+        "glCode": "14"
+      },
+      "loanPortfolioAccount": {
+        "id": 340,
+        "name": "OTORGAMIENTOS ORIGINALES",
+        "glCode": "1141040101"
+      },
+      "transfersInSuspenseAccount": {
+        "id": 2485,
+        "name": "transferencias",
+        "glCode": "1510"
+      },
+      "receivableInterestAccount": {
+        "id": 2486,
+        "name": "interes por cobrar",
+        "glCode": "1520"
+      },
+      "receivableFeeAccount": {
+        "id": 2487,
+        "name": "comisiones por cobrar",
+        "glCode": "1530"
+      },
+      "receivablePenaltyAccount": {
+        "id": 2488,
+        "name": "penalidades por cobrar",
+        "glCode": "1540"
+      },
+      "interestOnLoanAccount": {
+        "id": 1824,
+        "name": "INTERESES PERCIBIDOS",
+        "glCode": "611001010001"
+      },
+      "incomeFromFeeAccount": {
+        "id": 1833,
+        "name": "AN\u00c1LISIS Y ESTRUCTURA DE CR\u00c9DITO",
+        "glCode": "6110010800"
+      },
+      "incomeFromPenaltyAccount": {
+        "id": 1826,
+        "name": "INTERESES MORATORIOS",
+        "glCode": "611001010003"
+      },
+      "incomeFromRecoveryAccount": {
+        "id": 2508,
+        "name": "Ingreso por recuperaci\u00f3n - capital ",
+        "glCode": "6440"
+      },
+      "incomeFromChargeOffFeesAccount": {
+        "id": 2504,
+        "name": "Ingreso por Comisi\u00f3n - contra - incobrable",
+        "glCode": "6422"
+      },
+      "incomeFromChargeOffInterestAccount": {
+        "id": 2501,
+        "name": "Ingreso por Interes - contra - incobrable",
+        "glCode": "6412"
+      },
+      "incomeFromChargeOffPenaltyAccount": {
+        "id": 2507,
+        "name": "Ingreso por penalidades - contra - incobrable",
+        "glCode": "6432"
+      },
+      "incomeFromGoodwillCreditInterestAccount": {
+        "id": 2500,
+        "name": "Ingreso por Interes - contra - condonacion",
+        "glCode": "6411"
+      },
+      "incomeFromGoodwillCreditFeesAccount": {
+        "id": 2503,
+        "name": "Ingreso por Comisi\u00f3n - contra - condonaci\u00f3n",
+        "glCode": "6421"
+      },
+      "incomeFromGoodwillCreditPenaltyAccount": {
+        "id": 2506,
+        "name": "Ingreso por penalidades - contra - condonaci\u00f3n",
+        "glCode": "6431"
+      },
+      "writeOffAccount": {
+        "id": 2512,
+        "name": "perdida de credito - incobrable",
+        "glCode": "73"
+      },
+      "goodwillCreditAccount": {
+        "id": 2515,
+        "name": "costo - condonaci\u00f3n",
+        "glCode": "76"
+      },
+      "chargeOffExpenseAccount": {
+        "id": 2513,
+        "name": "costo - credito inactivo",
+        "glCode": "74"
+      },
+      "chargeOffFraudExpenseAccount": {
+        "id": 2514,
+        "name": "costo - fraude inactivo",
+        "glCode": "75"
+      },
+      "overpaymentLiabilityAccount": {
+        "id": 2518,
+        "name": "REINTEGRO POR EXEDENTE EN PAGO DE CUOTA",
+        "glCode": "2220070302"
+      }
+    }
+  }
+}

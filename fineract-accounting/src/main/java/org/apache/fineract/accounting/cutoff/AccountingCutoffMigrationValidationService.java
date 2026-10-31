@@ -33,4 +33,15 @@ public class AccountingCutoffMigrationValidationService {
         }
         return cutoff.getCutoffDate();
     }
+
+    public void requireSourceOwnedDate(final LocalDate transactionDate) {
+        final AccountingCutoffConfiguration cutoff = repository.findByIdForUpdate(AccountingCutoffConfiguration.SINGLETON_ID)
+                .orElseThrow(() -> new GeneralPlatformDomainRuleException("error.msg.accounting.cutoff.not.configured",
+                        "The tenant accounting cutoff has not been configured"));
+        if (transactionDate == null || cutoff.getLifecycleState() != AccountingCutoffLifecycleState.ACTIVE
+                || !transactionDate.isBefore(cutoff.getCutoffDate())) {
+            throw new GeneralPlatformDomainRuleException("error.msg.accounting.cutoff.migration.date.invalid",
+                    "The migration adjustment must be dated before the active accounting cutoff");
+        }
+    }
 }

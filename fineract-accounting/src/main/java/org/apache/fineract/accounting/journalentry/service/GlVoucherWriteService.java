@@ -52,8 +52,8 @@ public class GlVoucherWriteService {
             code = null;
         }
         String concept = StringUtils.firstNonBlank(sourceHeaderConcept, sourceHeaderDescription);
-        GlVoucher voucher = GlVoucher.create(code, concept, "ARISSTO_HISTORICAL_GL_IMPORT", "HISTORICAL_JOURNAL",
-                "ARISSTO_JOURNAL", sourceJournalId, null);
+        GlVoucher voucher = GlVoucher.create(code, concept, "ARISSTO_HISTORICAL_GL_IMPORT", "HISTORICAL_JOURNAL", "ARISSTO_JOURNAL",
+                sourceJournalId, null);
         if ("003".equals(sourceJournalType)) {
             voucher.markAnnualClosing();
         }
@@ -67,6 +67,8 @@ public class GlVoucherWriteService {
             throw new IllegalArgumentException("Native voucher route, concept and source pointer are required");
         }
         NativeRouteRule rule = switch (operationType) {
+            case "REFINANCE_ORIGINATION" -> new NativeRouteRule("4", "REFINANCING_OPERATION");
+            case "REFINANCE_PAYOUT", "REFINANCE_CASH_RETURN" -> new NativeRouteRule("3", "REFINANCING_CASH_MOVEMENT");
             case "TELLER_ALLOCATE", "TELLER_SETTLE" -> new NativeRouteRule("3", "CASHIER_TRANSACTION");
             case "TELLER_TO_VAULT", "VAULT_TO_TELLER" -> new NativeRouteRule("20", "TELLER_VAULT_TRANSFER");
             case "COMITE_VAULT_RECEPTION" -> new NativeRouteRule("20", "COMITE_SESSION");

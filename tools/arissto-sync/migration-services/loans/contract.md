@@ -33,6 +33,7 @@ Unsupported temporal histories retain quarantine. All eight final metrics are
 aligned after migration mutations; exact source/native schedule equality is
 not an interest-recalculation activation gate.
 
+
 ## Scope and ownership
 
 The loans service is the sole migration owner of native Fineract loans and their
@@ -359,12 +360,80 @@ advance principal. This preserves the source priority of insurance before
 interest and principal while preventing future interest or insurance from
 being consumed before advance principal.
 
+The [component alignment extension](alignment.md) specifies shared pause
+bounds, evidence-based method selection, historical replay ordering and
+component reconciliation. It distinguishes required integration from
+implemented primitives and does not waive the gates below.
+
+Interest pauses for these cumulative, non-recalculating loans retain this
+product contract. The loan-level pause behavior and operator conditions are
+documented in [Credesal interest pause](../../../../../docs/CREDESAL_INTEREST_PAUSE.md); migration
+does not convert the product or loan to a progressive schedule. A verified
+source interest-pause interval must be frozen in the loan plan and installed
+after disbursement but before historical repayment replay and accrual catch-up,
+so neither path charges paused days. Reconciliation must verify the installed
+interval and the source-close accrued-interest amount. The current public
+`/interest-pauses` method rejects a start on or before the Fineract business
+date, so a permission-gated historical import method is still required;
+silently omitting a verified pause is not an acceptable cutover. Do not map
+every `AFI_BLOQUEO_CUENTA` freeze to this method without review: observed
+freezes suppress mora as well as ordinary interest, while this method only
+pauses ordinary interest.
+
 Post-due interest uses the outstanding principal immediately before the
 repayment, the loan's annual nominal rate, and its configured days-in-year
 basis. It is not added on an exact installment due date, does not apply before
 the first due date, and is not applied to flat-interest or non-daily-interest
 loans. Replay removes previously derived post-due interest before recalculating
 transactions, preventing duplicate materialization after reversal or replay.
+
+Moratory interest (`interés por mora`) is a separate penalty obligation. The
+cross-project rule is recorded in [Credesal daily mora](../../../../../docs/CREDESAL_DAILY_MORA.md).
+The reviewed source formula for current active loans is 0.42% per month divided by
+30, applied to each overdue installment's unpaid principal for its eligible
+days and rounded per installment. Arissto can increase normal interest and
+`SALDO_MORA` on the same days; the normal post-due interest rule above must not
+be removed merely to introduce mora. The source retains historical loan-level
+rates of 2% and exceptional zero rates, so a product default cannot replace
+the approved rate carried by each migrated loan.
+
+The product prerequisite requires one active `Interes por mora` loan penalty
+definition with charge time 19, flat calculation type 1, and product-level
+monthly rate 0.42. Its amount is the monthly **percentage**, while daily COB
+creates dated flat loan charges only for the change in the calculated balance.
+The product includes that charge and maps it to penalty income GL
+`611001010003`. An insurance-only migration product can receive this exact
+charge and mapping through a reviewed `update-product` plan. The custom
+delinquency-range and native recurring overdue-installment charges have
+different formulas and are not substitutes.
+
+Each migrated loan carries its approved source mora rate, grace days, last
+source mora payment date, source mora balance, and explicit first Fineract day
+in `credesal_loan_mora_terms`. The source balance and rate come from the
+completed Arissto close on the last source-owned day; missing active-loan
+snapshots quarantine the loan. The same completed close supplies observed due
+principal and carried interest. `SALDO_INTERES_PENDIENTE` is already within
+`SALDO_INTERES` and must not be added again. Under the approved native
+recalculation policy, source interest, due-principal and derived-schedule
+comparisons are reported as variances. They do not trigger an opening-interest
+waiver or the former blanket active-loan alignment quarantine. Exact metric
+alignment belongs to separate future tools and a separate sync step; see the
+[activation contract](interest-recalculation-default.md).
+
+Loan migration adjustments dated before `T` must use the Arissto operational
+migration accounting origin, which suppresses native GL. The accounting
+service owns historical source journals. The former `sourceExactWaiveInterest`
+opening experiment remains historical proof only and is not called by normal
+recalculation replay. Existing opening mora uses `sourceExactAddCharge`. The
+source-owned opening mora is recorded as a dated historical penalty charge,
+and Fineract COB reconciles its mora-specific outstanding charges with the
+Arissto-style cumulative calculation. These include unpaid historical penalty
+allocations from repayment replay as well as the source opening charge; both
+must be counted before posting a new daily difference. This handles positive
+daily changes and
+downward changes after principal or mora payments. The regular post-due
+interest rule remains a separate normal-interest component. Source evidence is in
+[`mora-y-cargos-de-creditos.md`](../../../../../../credesal-db-space/docs/learnings/mora-y-cargos-de-creditos.md).
 
 The permission-gated source-exact repayment path also covers a historical
 repayment dated before the first due date of the currently imported schedule.
@@ -1433,10 +1502,38 @@ carried interest without payment is classified as
 interest is `pending_interest_due_relief`. Same-close payments, multiple
 revisions, or a changed plan remain `mixed_or_unresolved`. Classification
 does not authorize a Fineract write. The isolated `2331` native waiver proved
-the total-interest delta but failed the due-effect and source-GL gates; the
-`2558` pending-interest event has no accepted native command yet. The loans
-writer must never infer waiver or repayment amount from an overdue-interest
-delta or a last-payment-date field alone. See
+the $32.79 total-interest delta. In the sandbox trial it also credited
+interest receivable and debited credit-loss expense $32.79; Arissto's inspected
+edit-day provision continued normally, and all receivable credits on that
+close tied to movement subledger lines. Source loan `2331` had no edit-day
+movement. For loan sync, `waiveinterest` is a candidate operational mechanism
+if it reproduces the carried-interest balance at cutover and does not get
+undone by transaction replay or future COB. Compare due principal and accrued
+interest after the complete event replay; do not gate this loan decision on
+the shape of historical GL entries. The separate accounting service owns the
+historical journals. The ordinary `WAIVEINTERESTPORTION` handler calls the
+loan write service directly and does not enter
+`AccountingOperationalMigrationService`; the historical import needs a
+guarded command under that context. The equivalent `2254` reduction needs
+the same loan-state proof. The
+[source accrual and accounting trace](../../../../../../credesal-db-space/docs/learnings/loan-interest-accrual-accounting.md)
+shows the ordinary provision journal was created after the edit and that
+each edited loan had a positive, `CONTABILIZA=1` `FNC_PROVISIONES` row before
+that journal. The journal equals the rounded sum of high-precision FNC accruals
+for its close, and the loans' cumulative provisions still increased.
+
+Arissto `SALDO_VENCIDO_INTERES` and `SALDO_INTERES_PENDIENTE` are source observations,
+not Fineract import targets or native-command acceptance gates. The `2558`
+pending-interest edit needs no Fineract due-state event: its inspected edit-day
+GL contains ordinary provision and movement-backed collection entries, with
+no separate due-only posting. The loans writer must never infer a waiver or
+repayment amount from an overdue-interest delta or a last-payment-date field
+alone. Before accepting a balance-reducing interest adjustment, establish the
+source carried-interest change and compare the resulting Fineract accrued
+interest at cutover and after the first COB. Historical GL ownership remains
+an independent accounting-service invariant, not a loan-state acceptance
+gate.
+See
 [loan-history-canaries.md](loan-history-canaries.md) for the measured effects
 and outstanding native-mechanism gate.
 

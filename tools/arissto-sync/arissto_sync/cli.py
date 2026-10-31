@@ -385,6 +385,11 @@ def parser() -> argparse.ArgumentParser:
         help="include one service and its prerequisites; repeat to select more services",
     )
     workflow_plan.add_argument("--cycle")
+    workflow_plan.add_argument(
+        "--accept-client-applicant-quarantine", action="append",
+        dest="accept_client_applicant_quarantines",
+        help="local resumed plan only: retain this exact unmapped-007 applicant quarantine while validating imported clients; repeat per approved key",
+    )
     workflow_plan.add_argument("--target", choices=("local", "prod"), required=True)
     workflow_plan.add_argument("--run-mode", choices=("fresh-clean", "full-resync", "resumed", "carry-forward"))
     workflow_plan.add_argument("--confirm-production")
@@ -968,6 +973,9 @@ def main(argv=None) -> int:
                     resume_from_run_id=getattr(args, "resume_from_workflow_run", None),
                     run_mode=args.run_mode,
                     production_confirmation=args.confirm_production,
+                    accept_client_applicant_quarantines=getattr(
+                        args, "accept_client_applicant_quarantines", None
+                    ),
                 )
                 if args.workflow_command == "run":
                     workflow_run_id = state.create_workflow_run(state.workflow_plan(plan_id))

@@ -156,6 +156,8 @@ import org.apache.fineract.portfolio.loanaccount.service.LoanOfficerService;
 import org.apache.fineract.portfolio.loanaccount.service.LoanOriginalApprovalSubmissionSnapshotHelper;
 import org.apache.fineract.portfolio.loanaccount.service.LoanReadPlatformService;
 import org.apache.fineract.portfolio.loanaccount.service.LoanReadPlatformServiceImpl;
+import org.apache.fineract.portfolio.loanaccount.service.LoanRefinancingOperationService;
+import org.apache.fineract.portfolio.loanaccount.service.LoanRefinancingSurplusService;
 import org.apache.fineract.portfolio.loanaccount.service.LoanRefundService;
 import org.apache.fineract.portfolio.loanaccount.service.LoanRepaymentScheduleService;
 import org.apache.fineract.portfolio.loanaccount.service.LoanScheduleService;
@@ -330,7 +332,7 @@ public class LoanAccountConfiguration {
             LoanDownPaymentTransactionValidator loanDownPaymentTransactionValidator, LoanChargeValidator loanChargeValidator,
             LoanScheduleService loanScheduleService, ReprocessLoanTransactionsService reprocessLoanTransactionsService,
             LoanAccountService loanAccountService, LoanAdjustmentService loanAdjustmentService, LoanChargeService loanChargeService,
-            LoanJournalEntryPoster loanJournalEntryPoster) {
+            LoanJournalEntryPoster loanJournalEntryPoster, JdbcTemplate jdbcTemplate) {
         return new LoanChargeWritePlatformServiceImpl(loanChargeApiJsonValidator, loanAssembler, chargeRepository,
                 businessEventNotifierService, loanTransactionRepository, accountTransfersWritePlatformService, loanRepositoryWrapper,
                 loanAccountDomainService, loanChargeRepository, loanWritePlatformService, loanUtilService, loanChargeReadPlatformService,
@@ -338,7 +340,7 @@ public class LoanAccountConfiguration {
                 loanRepaymentScheduleTransactionProcessorFactory, externalIdFactory, accountTransferDetailRepository, loanChargeAssembler,
                 paymentDetailWritePlatformService, noteRepository, loanAccrualsProcessingService, loanDownPaymentTransactionValidator,
                 loanChargeValidator, loanScheduleService, reprocessLoanTransactionsService, loanAccountService, loanAdjustmentService,
-                loanChargeService, loanJournalEntryPoster);
+                loanChargeService, loanJournalEntryPoster, jdbcTemplate);
     }
 
     @Bean
@@ -458,7 +460,8 @@ public class LoanAccountConfiguration {
             LoanDisbursementService loanDisbursementService, LoanScheduleService loanScheduleService,
             LoanChargeValidator loanChargeValidator, LoanSimulationValidator loanSimulationValidator, LoanOfficerService loanOfficerService,
             ReprocessLoanTransactionsService reprocessLoanTransactionsService, LoanAccountService loanAccountService,
-            LoanJournalEntryPoster journalEntryPoster, LoanAdjustmentService loanAdjustmentService, LoanMapper loanMapper,
+            LoanJournalEntryPoster journalEntryPoster, LoanRefinancingSurplusService refinancingSurplusService,
+            LoanRefinancingOperationService refinancingOperationService, LoanAdjustmentService loanAdjustmentService, LoanMapper loanMapper,
             LoanTransactionProcessingService loanTransactionProcessingService, final LoanBalanceService loanBalanceService,
             LoanTransactionService loanTransactionService, LoanChargeService loanChargeService,
             AccountingCutoffMigrationValidationService accountingCutoffMigrationValidationService,
@@ -476,9 +479,9 @@ public class LoanAccountConfiguration {
                 loanAccrualTransactionBusinessEventService, errorHandler, loanDownPaymentHandlerService, loanTransactionAssembler,
                 loanAccrualsProcessingService, loanOfficerValidator, loanDownPaymentTransactionValidator, loanDisbursementService,
                 loanScheduleService, loanChargeValidator, loanSimulationValidator, loanOfficerService, reprocessLoanTransactionsService,
-                loanAccountService, journalEntryPoster, loanAdjustmentService, loanMapper, loanTransactionProcessingService,
-                loanBalanceService, loanTransactionService, loanChargeService, accountingCutoffMigrationValidationService,
-                loanOriginalApprovalSubmissionSnapshotHelper);
+                loanAccountService, journalEntryPoster, refinancingSurplusService, refinancingOperationService, loanAdjustmentService,
+                loanMapper, loanTransactionProcessingService, loanBalanceService, loanTransactionService, loanChargeService,
+                accountingCutoffMigrationValidationService, loanOriginalApprovalSubmissionSnapshotHelper);
     }
 
     @Bean

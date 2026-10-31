@@ -360,7 +360,8 @@ def target_client_index(conn: Any, external_ids: list[str]) -> tuple[dict[str, d
         if current and current["id"] != identifier:
             raise RuntimeError(f"duplicate_target_external_id:{key}")
         if current is None:
-            current = {"id": identifier, "externalId": key, "active": int(status_enum) == 300, "tags": []}
+            current = {"id": identifier, "externalId": key, "active": int(status_enum) == 300,
+                       "status": {"id": int(status_enum)}, "tags": []}
             by_external[key] = current
             by_id[identifier] = current
         if tag_id is not None:
@@ -438,9 +439,11 @@ def build_plan(settings: Settings, state: State, contract: ClientContract,
         target_id = link["target_id"] if link else (prior["target_id"] if prior else None)
         current = resolve_indexed_client_identity(api, contract, row, by_external, by_id, target_id)
         target_id = str(current["id"]) if current else None
-        activation_required = bool(current and contract.import_active and not current.get("active"))
+        activation_required = bool(current and contract.import_active_for(row) and not current.get("active"))
         tag_update_required = bool(current and not contract.client_type_tag_matches(row, current, catalogs))
         status_action = contract.status_action(row)
+        if current and status_action == "pending" and int((current.get("status") or {}).get("id") or 0) != 100:
+            issue = issue or "pending_client_status_conflict"
         if issue:
             action = "quarantine"
         elif status_action == "deactivate" and target_id:
@@ -531,12 +534,14 @@ def apply_plan(settings: Settings, state: State, contract: ClientContract, plan_
                 elif effective_action == "update":
                     if not target_id: raise RuntimeError("missing_target_id")
                     current = api.get_client(target_id)
+                    if contract.status_action(rows[0]) == "pending" and int((current.get("status") or {}).get("id") or 0) != 100:
+                        raise RuntimeError("pending_client_status_conflict")
                     api.update_client(target_id, client_update_api_payload(core, current, payload.get("client_type_tag")))
                 elif effective_action == "deactivate":
                     reason = contract.raw.get("deactivation", {}).get("closure_reason_id")
                     if not reason: raise RuntimeError("deactivation_closure_reason_not_configured")
                     api.deactivate_client(target_id, int(reason), date.today().isoformat())
-                if effective_action == "update" and contract.import_active:
+                if effective_action == "update" and contract.import_active_for(rows[0]):
                     current = api.get_client(target_id)
                     if not current.get("active"):
                         api.activate_client(target_id, core["activationDate"])
@@ -562,6 +567,7 @@ def apply_plan(settings: Settings, state: State, contract: ClientContract, plan_
                 safe_message = message if message in {
                     "source_changed_after_plan", "client_create_defaults_not_configured",
                     "missing_target_id", "deactivation_closure_reason_not_configured", "client_identity_collision",
+                    "pending_client_status_conflict",
                 } or isinstance(exc, ClientDataIssue) else "redacted"
                 code = f"{type(exc).__name__}:{safe_message}"[:240]
                 state.record_item(run_id, key, action["action"], action["source_hash"], "failed", target_id, code)
@@ -624,9 +630,10 @@ def values_match(actual: Any, expected: Any) -> bool:
 
 
 def target_payload_matches(conn: Any, target_id: str, payload: dict[str, Any], expected_active: bool = False) -> bool:
-    if expected_active:
+    expected_status = payload.get("expected_status", 300 if expected_active else None)
+    if expected_status is not None:
         status = conn.execute("SELECT status_enum FROM m_client WHERE id=%s", (int(target_id),)).fetchone()
-        if not status or int(status[0]) != 300:
+        if not status or int(status[0]) != expected_status:
             return False
     core_columns = {key: column for key, column in CORE_COLUMNS.items() if key in payload["core"]}
     if core_columns:
@@ -761,7 +768,8 @@ def load_target_payload_snapshots(conn: Any, expected: dict[str, dict[str, Any]]
 
 def snapshot_payload_matches(snapshot: dict[str, Any], payload: dict[str, Any],
                              expected_active: bool = False) -> bool:
-    if expected_active and snapshot["status_enum"] != 300:
+    expected_status = payload.get("expected_status", 300 if expected_active else None)
+    if expected_status is not None and snapshot["status_enum"] != expected_status:
         return False
     for key, expected_value in payload["core"].items():
         if key in CORE_COLUMNS and not values_match(snapshot["core"].get(key), expected_value):
@@ -788,7 +796,8 @@ def snapshot_payload_matches(snapshot: dict[str, Any], payload: dict[str, Any],
     return True
 
 
-def reconcile(settings: Settings, state: State, contract: ClientContract, run_id: str) -> dict[str, Any]:
+def reconcile(settings: Settings, state: State, contract: ClientContract, run_id: str,
+              accepted_applicant_quarantines: list[dict[str, str]] | None = None) -> dict[str, Any]:
     run = state.run(run_id)
     if run["target_fingerprint"] != settings.target.fingerprint:
         raise RuntimeError("Run belongs to a different target")
@@ -800,6 +809,13 @@ def reconcile(settings: Settings, state: State, contract: ClientContract, run_id
     with postgres_connection(settings.target.pg_url) as conn:
         catalogs = TargetCatalogs.from_postgres(conn)
     items = state.run_items(run_id)
+    accepted = {entry["source_key"]: entry for entry in (accepted_applicant_quarantines or [])}
+    if accepted and settings.target.name != "local":
+        raise ValueError("Applicant quarantine acceptance is local-only")
+    if len(accepted) != len(accepted_applicant_quarantines or []):
+        raise ValueError("Duplicate applicant quarantine acceptance")
+    if set(accepted) - {item["source_key"] for item in items if item["status"] == "quarantined"}:
+        raise ValueError("Accepted applicant quarantine is absent from this child run")
     results = Counter()
     # Load source and target state in bulk, then compare entirely in memory.
     with source_connection(settings.source) as source, postgres_connection(settings.target.pg_url) as target:
@@ -811,7 +827,39 @@ def reconcile(settings: Settings, state: State, contract: ClientContract, run_id
         pending: list[tuple[dict[str, Any], str]] = []
         for item in items:
             if item["status"] == "failed": results["failed"] += 1; continue
-            if item["status"] == "quarantined": results["quarantined"] += 1; continue
+            if item["status"] == "quarantined":
+                results["quarantined"] += 1
+                approval = accepted.get(item["source_key"])
+                row = source_by_key.get(item["source_key"])
+                if approval is not None:
+                    reason = "unmapped_client_type_status:007"
+                    expected_hash = hashlib.sha256(
+                        f"{contract.contract_hash}:{item['source_key']}:{reason}".encode()
+                    ).hexdigest()
+                    valid = (
+                        row is not None and not item.get("target_id")
+                        and approval.get("source_hash") == item["source_hash"] == expected_hash
+                        and approval.get("error_code") == item.get("error_code")
+                        == f"ClientDataIssue:{reason}"
+                        and str(row.get(contract.raw["source"]["status_key"], "")).strip() == "007"
+                    )
+                    # Re-read both the current classification issue and target absence.
+                    if valid:
+                        try:
+                            contract.hash_row(row, catalogs)
+                            valid = False
+                        except ClientDataIssue as exc:
+                            valid = str(exc) == reason
+                        except Exception:
+                            valid = False
+                    if valid:
+                        by_external, _ = target_client_index(target, [
+                            contract.external_id(row), contract.legacy_external_id(row)
+                        ])
+                        valid = not by_external
+                    if valid:
+                        results["accepted_quarantined"] += 1
+                continue
             if not item["target_id"]: results["unresolved"] += 1; continue
             try:
                 row = source_by_key.get(item["source_key"])
@@ -836,6 +884,9 @@ def reconcile(settings: Settings, state: State, contract: ClientContract, run_id
             matches = snapshot_payload_matches(snapshot, expected[target_id], contract.import_active)
             results["matched" if matches else "mismatched"] += 1
     return {"run_id": run_id, "status": run["status"], "counts": dict(results),
-            "ok": not results["failed"] and not results["quarantined"] and not results["missing"]
+            "accepted_applicant_quarantines": list(accepted.values()),
+            "ok": not results["failed"]
+                  and results["quarantined"] == results["accepted_quarantined"]
+                  and not results["missing"]
                   and not results["unresolved"] and not results["source_changed"] and not results["mismatched"]
                   and not results["reconcile_error"]}

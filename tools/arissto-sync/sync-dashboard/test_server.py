@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import subprocess
 import sys
@@ -15,6 +16,7 @@ from server import (
     Launcher,
     Store,
     attach_step_item_counts,
+    attach_live_item_counts,
     classify_failure,
     readonly_connection,
 )
@@ -58,6 +60,79 @@ class FakeLauncher(Launcher):
 
 
 class DashboardStoreTest(unittest.TestCase):
+    def test_live_counts_refresh_before_child_run_is_attached(self):
+        from arissto_sync.state import SCHEMA
+        connection = sqlite3.connect(":memory:")
+        self.addCleanup(connection.close)
+        connection.row_factory = sqlite3.Row
+        connection.executescript(SCHEMA)
+        connection.execute("INSERT INTO runs VALUES(?,?,?,?,?,?,?,?)",
+            ("child", "plan", "target", "clients", "2026-10-29T12:01:00", None, "running", "{}"))
+        # A finished earlier execution of the same plan must not leak into this one.
+        connection.execute("INSERT INTO runs VALUES(?,?,?,?,?,?,?,?)",
+            ("old", "plan", "target", "clients", "2026-10-29T11:00:00", None, "failed", "{}"))
+        for index, status in enumerate(["succeeded", "recovered", "failed", "blocked", "unchanged", "quarantined"]):
+            connection.execute("INSERT INTO items VALUES(?,?,?,?,?,?,?)",
+                ("child", str(index), "write", "hash", None, status, None))
+        connection.execute("INSERT INTO items VALUES(?,?,?,?,?,?,?)",
+            ("old", "old", "write", "hash", None, "failed", None))
+        step = {"workflow_run_id": "workflow", "service_id": "clients", "attempt": 1,
+                "plan_id": "plan", "phase": "apply", "started_at": "2026-10-29T12:00:00"}
+        attach_live_item_counts(connection, step)
+        self.assertEqual((step["succeeded_item_count"], step["failed_item_count"],
+                          step["unchanged_item_count"], step["processed_item_count"]), (2, 1, 1, 6))
+        connection.execute("UPDATE items SET status='succeeded' WHERE run_id='child' AND status='failed'")
+        attach_live_item_counts(connection, step)
+        self.assertEqual((step["succeeded_item_count"], step["failed_item_count"]), (3, 0))
+        # Attached runs work after completion too.
+        step.update(child_run_id="child", phase="completed")
+        attach_live_item_counts(connection, step)
+        self.assertEqual(step["succeeded_item_count"], 3)
+        # Queued services show zeros, never counts from a previous execution.
+        step.update(child_run_id=None, phase="pending")
+        attach_live_item_counts(connection, step)
+        self.assertEqual((step["succeeded_item_count"], step["failed_item_count"]), (0, 0))
+        self.assertIsNone(step["processed_item_count"])
+        # A live retry may not yet have its prior plan attached.
+        connection.execute("INSERT INTO workflow_steps "
+            "(id,workflow_run_id,service_id,ordinal,attempt,status,phase,plan_id) "
+            "VALUES('prior','workflow','clients',1,1,'failed','apply','plan')")
+        step.update(plan_id=None, attempt=2, phase="apply")
+        attach_live_item_counts(connection, step)
+        self.assertEqual(step["succeeded_item_count"], 3)
+
+    def test_run_detail_exposes_only_active_metric_comparison_from_recorded_reconciliation(self):
+        from arissto_sync.loan_metric_alignment import METRICS
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'state.sqlite3'
+            conn=sqlite3.connect(path)
+            conn.executescript("""
+              CREATE TABLE workflow_runs(id TEXT,summary TEXT);
+              CREATE TABLE workflow_steps(id TEXT,workflow_run_id TEXT,service_id TEXT,ordinal INT,attempt INT,child_run_id TEXT,plan_id TEXT,summary TEXT);
+              CREATE TABLE plans(id TEXT,document TEXT);
+              CREATE TABLE items(run_id TEXT,status TEXT);
+              CREATE TABLE workflow_failures(workflow_run_id TEXT,workflow_step_id TEXT,service_id TEXT,item_status TEXT,source_key TEXT,fingerprint TEXT);
+              CREATE TABLE workflow_events(sequence INT,workflow_run_id TEXT,service_id TEXT,attempt INT,phase TEXT,event_type TEXT,status TEXT,severity TEXT,source_key TEXT,error_code TEXT,message TEXT,created_at TEXT);
+              CREATE TABLE reconciliations(run_id TEXT,summary TEXT);
+            """)
+            actions=[{'entity_type':'loan','source_key':'loan:1','action':'create-loan',
+                'lifecycle':{'expected':{'source_state':'1'},'final_metric_alignment':{'targets':dict.fromkeys(METRICS,'1.00')}}}]
+            result={'ok':True,'counts':{'continuation_schedules_reconciled':1},'mismatches':[],
+                'variances':[{'source_key':'loan:1','kind':'schedule_due_date','classification':'verified_final_continuation_schedule_variance'}]}
+            conn.execute("INSERT INTO workflow_runs VALUES('workflow','{}')")
+            conn.execute("INSERT INTO workflow_steps VALUES('step','workflow','loans',1,1,'child','plan','{}')")
+            conn.execute('INSERT INTO plans VALUES(?,?)',('plan',json.dumps({'actions':actions})))
+            conn.execute('INSERT INTO reconciliations VALUES(?,?)',('child',json.dumps(result)))
+            conn.commit();conn.close()
+            store=Store(Path(directory))
+            with patch.object(store,'state_path',return_value=path),patch.object(store,'cycle',return_value={'id':'cycle'}):
+                detail=store.run_detail('cycle','workflow')
+            report=detail['loan_reporting']
+            self.assertEqual((report['active_loans'],report['matched'],report['mismatched']),(1,8,0))
+            self.assertEqual(report['reference_details']['expected_schedule_count'],1)
+            self.assertEqual(report['insurance_breakdowns_verified'],0)
+            self.assertNotIn('_plan_document',detail['latest_steps'][0])
+
     def test_full_sync_is_marked_as_dashboard_default(self):
         launcher = Launcher(FakeStore(), Path("/tmp/arissto-sync"))
         registry = {

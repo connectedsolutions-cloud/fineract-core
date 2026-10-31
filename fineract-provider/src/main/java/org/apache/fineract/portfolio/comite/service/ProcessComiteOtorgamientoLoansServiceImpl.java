@@ -110,6 +110,9 @@ public class ProcessComiteOtorgamientoLoansServiceImpl implements ProcessComiteO
             log.debug("[COMTE-DEBUG] processOneLoan skip (not cash) sessionId={} loanId={}", sessionId, loanId);
             return;
         }
+        if (loan.isTopup()) {
+            return;
+        }
         if (loan.isComitePreProcessed()) {
             log.debug("[COMTE-DEBUG] processOneLoan skip (already pre-processed) sessionId={} loanId={}", sessionId, loanId);
             return;

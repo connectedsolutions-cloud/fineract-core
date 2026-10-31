@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+ <changeSet id="0438-native-loan-report-metrics" author="credesal" dbms="postgresql">
+ <sql splitStatements="false" stripComments="false"><![CDATA[
+-- Native operational projections. No migration target/audit JSON is read.
+CREATE OR REPLACE FUNCTION credesal_currency_amount(value NUMERIC)
+RETURNS NUMERIC LANGUAGE SQL IMMUTABLE PARALLEL SAFE AS $money$
+    SELECT ROUND(COALESCE(value,0),2) - CASE
+        WHEN MOD(ABS(COALESCE(value,0))*100,1)=0.5
+         AND MOD(TRUNC(ABS(COALESCE(value,0))*100),2)=0
+        THEN SIGN(value)*0.01 ELSE 0 END
+$money$;
+
+CREATE OR REPLACE FUNCTION credesal_native_loan_metrics(p_loan_id BIGINT, p_as_of_date DATE)
+RETURNS TABLE (
+    loan_id BIGINT, metric_date DATE,
+    paid_principal NUMERIC, outstanding_principal NUMERIC,
+    paid_interest NUMERIC, accrued_interest NUMERIC, due_principal NUMERIC,
+    mora NUMERIC, insurance_paid NUMERIC, insurance_owed NUMERIC,
+    future_insurance NUMERIC, scheduled_fee_outstanding NUMERIC,
+    other_fee_outstanding NUMERIC, projection_available BOOLEAN, native_state_date DATE
+) LANGUAGE SQL STABLE AS $metrics$
+WITH state_date AS (
+    SELECT GREATEST(l.disbursedon_date,l.last_closed_business_date,
+        (SELECT MAX(r.duedate) FROM m_loan_repayment_schedule r
+          WHERE r.loan_id=l.id AND r.migration_metric_baseline),
+        (SELECT MAX(GREATEST(t.transaction_date,t.reversed_on_date)) FROM m_loan_transaction t
+          WHERE t.loan_id=l.id)) AS native_state_date
+      FROM m_loan l WHERE l.id=p_loan_id
+), schedule_values AS (
+    SELECT COALESCE(SUM(r.principal_amount-COALESCE(r.principal_completed_derived,0)
+                          -COALESCE(r.principal_writtenoff_derived,0))
+                    FILTER (WHERE r.duedate<=p_as_of_date),0) AS due_principal,
+           COALESCE(SUM(CASE
+               WHEN r.duedate<=p_as_of_date+1 THEN
+                   COALESCE(r.interest_amount,0)-COALESCE(r.interest_completed_derived,0)
+                   -COALESCE(r.interest_waived_derived,0)-COALESCE(r.interest_writtenoff_derived,0)
+               WHEN r.fromdate<=p_as_of_date+1 AND r.duedate>r.fromdate THEN
+                   credesal_currency_amount(GREATEST(
+                       COALESCE(r.interest_amount,0)*(p_as_of_date+1-r.fromdate)::NUMERIC
+                           /(r.duedate-r.fromdate)
+                       -COALESCE(r.interest_completed_derived,0)-COALESCE(r.interest_waived_derived,0),0))
+               ELSE 0 END),0) AS accrued_interest
+      FROM m_loan_repayment_schedule r WHERE r.loan_id=p_loan_id
+), identified_charges AS (
+    SELECT c.*,
+           (definition.charge_calculation_enum=8
+            OR definition.name='Arissto historical debt-insurance allocation')
+               AND NOT c.is_penalty AS is_insurance
+      FROM m_loan_charge c JOIN m_charge definition ON definition.id=c.charge_id
+     WHERE c.loan_id=p_loan_id AND c.is_active
+), installment_due AS (
+    SELECT i.loan_charge_id,
+           SUM(credesal_currency_amount(i.amount_outstanding_derived))
+               FILTER (WHERE r.duedate<=p_as_of_date) AS due_amount,
+           SUM(credesal_currency_amount(i.amount_outstanding_derived))
+               FILTER (WHERE r.duedate>p_as_of_date) AS future_amount
+      FROM m_loan_installment_charge i
+      JOIN m_loan_repayment_schedule r ON r.id=i.loan_schedule_id
+      JOIN identified_charges c ON c.id=i.loan_charge_id
+     GROUP BY i.loan_charge_id
+), charge_values AS (
+    SELECT c.*,
+           CASE WHEN c.charge_time_enum=8 THEN COALESCE(i.due_amount,0)
+                WHEN c.due_for_collection_as_of_date<=p_as_of_date
+                THEN credesal_currency_amount(c.amount_outstanding_derived) ELSE 0 END AS due_amount,
+           CASE WHEN c.charge_time_enum=8 THEN COALESCE(i.future_amount,0)
+                WHEN c.due_for_collection_as_of_date>p_as_of_date
+                THEN credesal_currency_amount(c.amount_outstanding_derived) ELSE 0 END AS future_amount
+      FROM identified_charges c LEFT JOIN installment_due i ON i.loan_charge_id=c.id
+), charges AS (
+    SELECT COALESCE(SUM(due_amount) FILTER (WHERE is_penalty),0) AS mora,
+           COALESCE(SUM(credesal_currency_amount(amount_paid_derived)) FILTER (WHERE is_insurance),0) AS insurance_paid,
+           COALESCE(SUM(due_amount) FILTER (WHERE is_insurance),0) AS insurance_owed,
+           COALESCE(SUM(future_amount) FILTER (WHERE is_insurance),0) AS future_insurance,
+           COALESCE(SUM(credesal_currency_amount(amount_outstanding_derived))
+                       FILTER (WHERE NOT is_penalty AND NOT is_insurance),0) AS other_fee_outstanding
+      FROM charge_values
+)
+SELECT l.id,p_as_of_date,
+       CASE WHEN p_as_of_date>=state.native_state_date THEN credesal_currency_amount(l.principal_repaid_derived) END,
+       CASE WHEN p_as_of_date>=state.native_state_date THEN credesal_currency_amount(l.principal_outstanding_derived) END,
+       CASE WHEN p_as_of_date>=state.native_state_date THEN credesal_currency_amount(l.interest_repaid_derived) END,
+       CASE WHEN p_as_of_date>=state.native_state_date THEN credesal_currency_amount(s.accrued_interest) END,CASE WHEN p_as_of_date>=state.native_state_date THEN credesal_currency_amount(s.due_principal) END,
+       CASE WHEN p_as_of_date>=state.native_state_date THEN credesal_currency_amount(c.mora) END,CASE WHEN p_as_of_date>=state.native_state_date THEN credesal_currency_amount(c.insurance_paid) END,
+       CASE WHEN p_as_of_date>=state.native_state_date THEN credesal_currency_amount(c.insurance_owed) END,CASE WHEN p_as_of_date>=state.native_state_date THEN credesal_currency_amount(c.future_insurance) END,
+       CASE WHEN p_as_of_date>=state.native_state_date THEN credesal_currency_amount(l.fee_charges_outstanding_derived) END,
+       CASE WHEN p_as_of_date>=state.native_state_date THEN credesal_currency_amount(c.other_fee_outstanding) END,
+       p_as_of_date>=state.native_state_date AS projection_available,state.native_state_date
+  FROM m_loan l CROSS JOIN schedule_values s CROSS JOIN charges c CROSS JOIN state_date state WHERE l.id=p_loan_id
+$metrics$;
+
+ ]]></sql></changeSet>
+</databaseChangeLog>

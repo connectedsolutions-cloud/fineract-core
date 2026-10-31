@@ -167,6 +167,7 @@ import org.apache.fineract.portfolio.loanaccount.repository.LoanCapitalizedIncom
 import org.apache.fineract.portfolio.loanaccount.rescheduleloan.domain.LoanTermVariationsRepository;
 import org.apache.fineract.portfolio.loanaccount.service.GLIMAccountInfoReadPlatformService;
 import org.apache.fineract.portfolio.loanaccount.service.LoanChargeReadPlatformService;
+import org.apache.fineract.portfolio.loanaccount.service.LoanMoraFreezeWritePlatformService;
 import org.apache.fineract.portfolio.loanaccount.service.LoanReadPlatformService;
 import org.apache.fineract.portfolio.loanaccount.service.LoanSummaryDataProvider;
 import org.apache.fineract.portfolio.loanaccount.service.LoanSummaryProviderDelegate;
@@ -321,6 +322,7 @@ public class LoansApiResource {
     private final LoanSummaryProviderDelegate loanSummaryProviderDelegate;
     private final LoanCapitalizedIncomeBalanceRepository loanCapitalizedIncomeBalanceRepository;
     private final LoanApprovedAmountHistoryRepository loanApprovedAmountHistoryRepository;
+    private final LoanMoraFreezeWritePlatformService loanMoraFreezeService;
     private final LoanFreezeHistoryRepository loanFreezeHistoryRepository;
     private final LoanRepositoryWrapper loanRepositoryWrapper;
     private final JournalEntryWritePlatformService journalEntryWritePlatformService;
@@ -842,6 +844,15 @@ public class LoansApiResource {
         loanRepositoryWrapper.findOneWithNotFoundDetection(loanId);
         final List<LoanFreezeHistoryData> history = loanFreezeHistoryRepository.findDataByLoanIdOrderByEffectiveDateAscIdAsc(loanId);
         return toApiJsonSerializer.serialize(history);
+    }
+
+    @GET
+    @Path("{loanId}/mora-freeze")
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Retrieve mora-only freeze state and ordered history")
+    public String getMoraFreeze(@PathParam("loanId") final Long loanId) {
+        context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME_FOR_PERMISSIONS);
+        return toApiJsonSerializer.serialize(loanMoraFreezeService.read(loanId));
     }
 
     // External id related APIs
@@ -1448,6 +1459,14 @@ public class LoansApiResource {
             commandRequest = builder.materializeSourceExactAccruals(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "sourceExactFreezeHistory")) {
             commandRequest = builder.importSourceExactFreezeHistory(resolvedLoanId).build();
+        } else if (CommandParameterUtil.is(commandParam, "payoutRefinance")) {
+            commandRequest = builder.payoutRefinance(resolvedLoanId).build();
+        } else if (CommandParameterUtil.is(commandParam, "returnRefinance")) {
+            commandRequest = builder.returnRefinance(resolvedLoanId).build();
+        } else if (CommandParameterUtil.is(commandParam, "freezeMora")) {
+            commandRequest = builder.freezeMora(resolvedLoanId).build();
+        } else if (CommandParameterUtil.is(commandParam, "unfreezeMora")) {
+            commandRequest = builder.unfreezeMora(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "freeze")) {
             commandRequest = builder.freezeLoan(resolvedLoanId).build();
         } else if (CommandParameterUtil.is(commandParam, "disburseToSavings")) {

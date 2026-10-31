@@ -155,8 +155,8 @@ public class AccountingProcessorHelper {
             throw new IllegalStateException("Term-based portfolio accounting has no short-term account mapping");
         }
         final org.apache.fineract.portfolio.loanaccount.domain.Loan loan = this.loanRepositoryWrapper.findOneWithNotFoundDetection(loanId);
-        if (loan.getPortfolioAccountGlId() == null && this.journalEntryRepository.countUnreversedEntriesForEntity(loanId,
-                PortfolioProductType.LOAN.getValue()) > 0) {
+        if (loan.getPortfolioAccountGlId() == null
+                && this.journalEntryRepository.countUnreversedEntriesForEntity(loanId, PortfolioProductType.LOAN.getValue()) > 0) {
             throw new IllegalStateException("Existing loan journals require a reviewed portfolio-account migration");
         }
         final ProductToGLAccountMapping shortInterestMapping = this.accountMappingRepository.findCoreProductToFinAccountMapping(productId,
@@ -1293,8 +1293,8 @@ public class AccountingProcessorHelper {
                     .orElseThrow(() -> new IllegalStateException("Selected loan interest receivable GL account no longer exists"));
         }
         if (accountMappingTypeId == AccrualAccountsForLoan.INTEREST_RECEIVABLE.getValue()) {
-            final ProductToGLAccountMapping longInterestMapping = this.accountMappingRepository.findCoreProductToFinAccountMapping(loanProductId,
-                    PortfolioProductType.LOAN.getValue(), AccrualAccountsForLoan.LONG_TERM_INTEREST_RECEIVABLE.getValue());
+            final ProductToGLAccountMapping longInterestMapping = this.accountMappingRepository.findCoreProductToFinAccountMapping(
+                    loanProductId, PortfolioProductType.LOAN.getValue(), AccrualAccountsForLoan.LONG_TERM_INTEREST_RECEIVABLE.getValue());
             if (longInterestMapping != null) {
                 throw new IllegalStateException("Term-based interest receivable account was not selected before posting");
             }
@@ -1529,6 +1529,9 @@ public class AccountingProcessorHelper {
     }
 
     public JournalEntry persistJournalEntry(JournalEntry journalEntry) {
+        if (RefinancingJournalContext.capture(journalEntry)) {
+            return journalEntry;
+        }
         return journalEntryPersistenceService.saveAndFlush(journalEntry);
     }
 
@@ -1541,6 +1544,15 @@ public class AccountingProcessorHelper {
             final Long chargeId = chargePaymentDTO.getChargeId();
             final GLAccount account = getLinkedGLAccountForLoanCharges(loanProductId, accountMappingTypeId, chargeId);
             BigDecimal amount = chargePaymentDTO.getAmount();
+            if (RefinancingJournalContext.isOrigination(loanId)) {
+                var charge = chargeRepositoryWrapper.findOneWithNotFoundDetection(chargeId);
+                if (org.apache.fineract.portfolio.charge.domain.ChargeCalculationType.fromInt(charge.getChargeCalculation())
+                        .isPercentageOfAmountReduceDisbursal() && charge.getTaxGroup() != null) {
+                    var loan = loanRepositoryWrapper.findOneWithNotFoundDetection(loanId);
+                    amount = org.apache.fineract.portfolio.tax.service.TaxUtils.incomeAmount(amount, transactionDate,
+                            charge.getTaxGroup().getTaxGroupMappings(), loan.getCurrency().getDigitsAfterDecimal());
+                }
+            }
 
             // When account is null (e.g. available-at-cashier charge with no GL set), skip GL posting for that side
             if (account != null) {

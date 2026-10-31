@@ -44,13 +44,14 @@ import org.apache.fineract.infrastructure.event.business.domain.loan.LoanSchedul
 import org.apache.fineract.infrastructure.event.business.service.BusinessEventNotifierService;
 import org.apache.fineract.portfolio.common.service.Validator;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
+import org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallment;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepositoryWrapper;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanTermVariations;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor;
-import org.apache.fineract.portfolio.loanproduct.domain.InterestCalculationPeriodMethod;
 import org.apache.fineract.portfolio.loanaccount.rescheduleloan.domain.LoanTermVariationsRepository;
 import org.apache.fineract.portfolio.loanaccount.service.LoanAssembler;
 import org.apache.fineract.portfolio.loanaccount.service.LoanScheduleService;
+import org.apache.fineract.portfolio.loanproduct.domain.InterestCalculationPeriodMethod;
 import org.springframework.transaction.annotation.Transactional;
 
 @AllArgsConstructor
@@ -115,16 +116,17 @@ public class InterestPauseWritePlatformServiceImpl implements InterestPauseWrite
                 .orElseThrow(() -> new GeneralPlatformDomainRuleException("error.msg.variation.not.found",
                         "Variation not found for the given loan ID"));
 
-        if (isMigratedCredesalCumulativeLoan(loan) && !variation.getTermApplicableFrom().isAfter(DateUtils.getBusinessLocalDate())) {
+        if (isCredesalCumulativeLoan(loan) && !variation.getTermApplicableFrom().isAfter(DateUtils.getBusinessLocalDate())) {
             throw new GeneralPlatformDomainRuleException("interest.pause.started.cannot.be.deleted",
                     "A Credesal interest pause that has already started cannot be deleted.");
         }
 
+        final List<HistoricalInstallment> historicalSchedule = historicalSchedule(loan, variation.getTermApplicableFrom());
         loanTermVariationsRepository.delete(variation);
         loan.getLoanTermVariations().remove(variation);
 
-        if (!isMigratedCredesalCumulativeLoan(loan)) {
-            loanScheduleService.regenerateScheduleWithReprocessingTransactions(loan);
+        if (scheduledInterestIsAffected(loan, variation.getTermApplicableFrom())) {
+            regenerateAndAssertHistoricalSchedule(loan, variation.getTermApplicableFrom(), historicalSchedule);
         }
 
         businessEventNotifierService.notifyPostBusinessEvent(new LoanScheduleVariationsDeletedBusinessEvent(loan));
@@ -145,20 +147,24 @@ public class InterestPauseWritePlatformServiceImpl implements InterestPauseWrite
                 .orElseThrow(() -> new GeneralPlatformDomainRuleException("error.msg.variation.not.found",
                         "Variation not found for the given loan ID"));
 
-        if (isMigratedCredesalCumulativeLoan(loan) && !variation.getTermApplicableFrom().isAfter(DateUtils.getBusinessLocalDate())) {
+        if (isCredesalCumulativeLoan(loan) && !variation.getTermApplicableFrom().isAfter(DateUtils.getBusinessLocalDate())) {
             throw new GeneralPlatformDomainRuleException("interest.pause.started.cannot.be.updated",
                     "A Credesal interest pause that has already started cannot be updated.");
         }
 
         validateInterestPauseDates(loan, startDate, endDate, dateFormat, locale, variation.getId());
 
+        final LocalDate previousStartDate = variation.getTermApplicableFrom();
+        final LocalDate protectedStartDate = previousStartDate.isBefore(startDate) ? previousStartDate : startDate;
+        final List<HistoricalInstallment> historicalSchedule = historicalSchedule(loan, protectedStartDate);
+
         variation.setTermApplicableFrom(startDate);
         variation.setDateValue(endDate);
 
         LoanTermVariations updatedVariation = loanTermVariationsRepository.save(variation);
 
-        if (!isMigratedCredesalCumulativeLoan(loan)) {
-            loanScheduleService.regenerateScheduleWithReprocessingTransactions(loan);
+        if (scheduledInterestIsAffected(loan, previousStartDate) || scheduledInterestIsAffected(loan, startDate)) {
+            regenerateAndAssertHistoricalSchedule(loan, protectedStartDate, historicalSchedule);
         }
 
         businessEventNotifierService.notifyPostBusinessEvent(new LoanScheduleVariationsAddedBusinessEvent(loan));
@@ -173,14 +179,16 @@ public class InterestPauseWritePlatformServiceImpl implements InterestPauseWrite
         validateActiveLoan(loan);
         validateInterestPauseDates(loan, startDate, endDate, dateFormat, locale, null);
 
+        final List<HistoricalInstallment> historicalSchedule = historicalSchedule(loan, startDate);
+
         final LoanTermVariations variation = new LoanTermVariations(INTEREST_PAUSE.getValue(), startDate, BigDecimal.ZERO, endDate, false,
                 loan);
 
         final LoanTermVariations savedVariation = loanTermVariationsRepository.saveAndFlush(variation);
         loan.getLoanTermVariations().add(savedVariation);
 
-        if (!isMigratedCredesalCumulativeLoan(loan)) {
-            loanScheduleService.regenerateScheduleWithReprocessingTransactions(loan);
+        if (scheduledInterestIsAffected(loan, startDate)) {
+            regenerateAndAssertHistoricalSchedule(loan, startDate, historicalSchedule);
         }
 
         businessEventNotifierService.notifyPostBusinessEvent(new LoanScheduleVariationsAddedBusinessEvent(loan));
@@ -206,8 +214,8 @@ public class InterestPauseWritePlatformServiceImpl implements InterestPauseWrite
                     startDate, loan.getSubmittedOnDate());
         }
 
-        final boolean migrated = isMigratedCredesalCumulativeLoan(loan);
-        if (!migrated && endDate.isAfter(loan.getMaturityDate())) {
+        final boolean credesalCumulative = isCredesalCumulativeLoan(loan);
+        if (!credesalCumulative && endDate.isAfter(loan.getMaturityDate())) {
             throw new GeneralPlatformDomainRuleException("interest.pause.end.date.after.loan.maturity.date", String
                     .format("Interest pause end date (%s) cannot be later than loan maturity date (%s).", endDate, loan.getMaturityDate()),
                     endDate, loan.getMaturityDate());
@@ -219,9 +227,9 @@ public class InterestPauseWritePlatformServiceImpl implements InterestPauseWrite
                     endDate, startDate);
         }
 
-        if (!PROGRESSIVE.equals(loan.getLoanRepaymentScheduleDetail().getLoanScheduleType()) && !migrated) {
-            throw new GeneralPlatformDomainRuleException("loan.must.be.progressive",
-                    "Interest pause is only supported for progressive loans.");
+        if (!PROGRESSIVE.equals(loan.getLoanRepaymentScheduleDetail().getLoanScheduleType()) && !credesalCumulative) {
+            throw new GeneralPlatformDomainRuleException("loan.must.be.progressive", "Interest pause is supported for progressive loans or"
+                    + " Credesal cumulative loans with daily declining-balance interest.");
         }
 
         if (!loan.isInterestBearing()) {
@@ -229,18 +237,18 @@ public class InterestPauseWritePlatformServiceImpl implements InterestPauseWrite
                     "Interest pause is only supported for interest bearing loans.");
         }
 
-        if (!loan.getLoanRepaymentScheduleDetail().isInterestRecalculationEnabled() && !migrated) {
+        if (!loan.getLoanRepaymentScheduleDetail().isInterestRecalculationEnabled() && !credesalCumulative) {
             throw new GeneralPlatformDomainRuleException("loan.must.have.recalculate.interest.enabled",
                     "Interest pause is only supported for loans with recalculate interest enabled.");
         }
 
         // Historical accounting and source-exact repayment allocations must not be repriced by a backdated pause.
-        if (migrated && !startDate.isAfter(DateUtils.getBusinessLocalDate())) {
+        if (credesalCumulative && !startDate.isAfter(DateUtils.getBusinessLocalDate())) {
             throw new GeneralPlatformDomainRuleException("interest.pause.start.date.must.follow.business.date",
                     "Credesal interest pauses must start after the current business date.");
         }
 
-        if (migrated && loan.getRepaymentScheduleInstallments().stream().filter(installment -> !installment.isAdditional())
+        if (credesalCumulative && loan.getRepaymentScheduleInstallments().stream().filter(installment -> !installment.isAdditional())
                 .anyMatch(installment -> installment.getFromDate() != null && installment.getFromDate().isBefore(endDate)
                         && !installment.getDueDate().isBefore(startDate) && (positive(installment.getInterestPaid())
                                 || positive(installment.getInterestWaived()) || positive(installment.getInterestWrittenOff())))) {
@@ -262,21 +270,62 @@ public class InterestPauseWritePlatformServiceImpl implements InterestPauseWrite
         }
     }
 
-    private boolean isMigratedCredesalCumulativeLoan(final Loan loan) {
-        // Only the initialized migration baseline earns actual-principal interest without
-        // regenerating its schedule. Other loan types retain their existing behavior.
+    private boolean isCredesalCumulativeLoan(final Loan loan) {
         return CUMULATIVE.equals(loan.getLoanRepaymentScheduleDetail().getLoanScheduleType())
                 && CredesalAccruedInterestLoanRepaymentScheduleTransactionProcessor.STRATEGY_CODE
                         .equals(loan.transactionProcessingStrategy())
                 && loan.getLoanRepaymentScheduleDetail().getInterestMethod() != null
                 && loan.getLoanRepaymentScheduleDetail().getInterestMethod().isDecliningBalance()
-                && InterestCalculationPeriodMethod.DAILY.equals(loan.getLoanRepaymentScheduleDetail().getInterestCalculationPeriodMethod())
-                && loan.getRepaymentScheduleInstallments().stream().anyMatch(
-                        installment -> installment.isMigrationMetricBaseline() && installment.getMigrationInterestForecast() != null);
+                && InterestCalculationPeriodMethod.DAILY.equals(loan.getLoanRepaymentScheduleDetail().getInterestCalculationPeriodMethod());
+    }
+
+    private record HistoricalInstallment(Integer number, LocalDate dueDate, BigDecimal principal, BigDecimal interest, BigDecimal fee,
+            BigDecimal penalty) {
+    }
+
+    private List<HistoricalInstallment> historicalSchedule(final Loan loan, final LocalDate pauseStart) {
+        if (!isCredesalCumulativeLoan(loan)) {
+            return List.of();
+        }
+        return loan.getRepaymentScheduleInstallments().stream().filter(installment -> installment.getDueDate().isBefore(pauseStart))
+                .map(installment -> new HistoricalInstallment(installment.getInstallmentNumber(), installment.getDueDate(),
+                        normalized(installment.getPrincipal()), normalized(installment.getInterestCharged()),
+                        normalized(installment.getFeeChargesCharged()), normalized(installment.getPenaltyCharges())))
+                .toList();
+    }
+
+    private BigDecimal normalized(final BigDecimal amount) {
+        return (amount == null ? BigDecimal.ZERO : amount).stripTrailingZeros();
     }
 
     private boolean positive(final BigDecimal amount) {
         return amount != null && amount.signum() > 0;
+    }
+
+    private void assertHistoricalScheduleUnchanged(final Loan loan, final LocalDate pauseStart,
+            final List<HistoricalInstallment> historicalSchedule) {
+        if (isCredesalCumulativeLoan(loan) && !historicalSchedule.equals(historicalSchedule(loan, pauseStart))) {
+            throw new GeneralPlatformDomainRuleException("interest.pause.changes.historical.schedule",
+                    "The Credesal interest pause would change installments before its start date.");
+        }
+    }
+
+    private boolean scheduledInterestIsAffected(final Loan loan, final LocalDate pauseStart) {
+        if (isCredesalCumulativeLoan(loan) && loan.getRepaymentScheduleInstallments().stream()
+                .anyMatch(installment -> installment.isMigrationMetricBaseline() && installment.getMigrationInterestForecast() != null)) {
+            // An aligned loan earns actual-principal interest through its baseline calculator,
+            // which reads pause periods directly. Regeneration would destroy that accepted state.
+            return false;
+        }
+        return !isCredesalCumulativeLoan(loan) || loan.getRepaymentScheduleInstallments().stream()
+                .filter(installment -> !installment.isAdditional()).map(LoanRepaymentScheduleInstallment::getDueDate)
+                .max(LocalDate::compareTo).map(lastDueDate -> !lastDueDate.isBefore(pauseStart)).orElse(false);
+    }
+
+    private void regenerateAndAssertHistoricalSchedule(final Loan loan, final LocalDate pauseStart,
+            final List<HistoricalInstallment> historicalSchedule) {
+        loanScheduleService.regenerateScheduleWithReprocessingTransactions(loan);
+        assertHistoricalScheduleUnchanged(loan, pauseStart, historicalSchedule);
     }
 
     private void validateActiveLoan(Loan loan) {

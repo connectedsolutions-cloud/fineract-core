@@ -1,0 +1,5274 @@
+{
+  "observed_on": "2026-10-30",
+  "namespace": "hist-prog-oct30",
+  "tenant": "default",
+  "target_fingerprint": "264d304e2927f694",
+  "plan_sha256": "a82de2eca836f5e119fb37da0e8c03597d16ae8155446cf61122eab175915172",
+  "source_Arissto_through": "2026-10-13",
+  "source_Fineract_starts": "2026-10-14",
+  "source_progression_through": "2026-10-29",
+  "target_Arissto_through": "2026-09-02",
+  "target_Fineract_starts": "2026-09-03",
+  "shift_days": 41,
+  "native_api_ledger_passed": 969,
+  "persisted_passed": 78,
+  "native_failed": 0,
+  "exact_source_parity_matches": 74,
+  "exact_source_parity_differences": 70,
+  "summary": {
+    "2430": {
+      "loan_id": 523,
+      "observed_days": 16,
+      "source_principal_matches": 16,
+      "source_interest_matches": 12,
+      "source_mora_matches": 16,
+      "source_mora_positive_days": 0,
+      "native_mora_positive_days": 0,
+      "ordinary_interest_within_one_cent_days": 16,
+      "full_repayment_count": 2
+    },
+    "2612": {
+      "loan_id": 524,
+      "observed_days": 16,
+      "source_principal_matches": 16,
+      "source_interest_matches": 8,
+      "source_mora_matches": 2,
+      "source_mora_positive_days": 14,
+      "native_mora_positive_days": 11,
+      "ordinary_interest_within_one_cent_days": 16,
+      "full_repayment_count": 9
+    },
+    "2647": {
+      "loan_id": 525,
+      "observed_days": 16,
+      "source_principal_matches": 0,
+      "source_interest_matches": 0,
+      "source_mora_matches": 4,
+      "source_mora_positive_days": 6,
+      "native_mora_positive_days": 11,
+      "ordinary_interest_within_one_cent_days": 0,
+      "full_repayment_count": 10
+    }
+  },
+  "checks": [
+    {
+      "check": "2430:initial_recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:handoff:outstandingPrincipal",
+      "passed": true
+    },
+    {
+      "check": "2430:handoff:paidPrincipal",
+      "passed": true
+    },
+    {
+      "check": "2430:handoff:paidInterest",
+      "passed": true
+    },
+    {
+      "check": "2430:handoff:accruedInterest",
+      "passed": true
+    },
+    {
+      "check": "2430:handoff:mora",
+      "passed": true
+    },
+    {
+      "check": "2430:historical_count",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-14:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-14:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-14:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-14:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-14:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-14:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-14:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-14:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-14:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-14:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-14:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-14:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-14:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-14:cash:0000029511",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-14:cash:0000032966",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-15:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-15:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-15:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-15:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-15:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-15:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-15:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-15:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-15:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-15:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-15:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-15:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-15:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-15:cash:0000029511",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-15:cash:0000032966",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-16:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-16:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-16:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-16:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-16:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-16:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-16:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-16:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-16:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-16:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-16:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-16:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-16:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-16:cash:0000029511",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-16:cash:0000032966",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-17:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-17:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-17:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-17:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-17:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-17:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-17:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-17:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-17:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-17:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-17:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-17:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-17:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-17:cash:0000029511",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-17:cash:0000032966",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-18:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-18:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-18:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-18:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-18:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-18:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-18:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-18:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-18:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-18:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-18:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-18:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-18:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-18:cash:0000029511",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-18:cash:0000032966",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-19:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-19:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-19:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-19:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-19:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-19:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-19:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-19:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-19:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-19:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-19:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-19:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-19:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-19:cash:0000029511",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-19:cash:0000032966",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-20:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-20:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-20:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-20:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-20:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-20:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-20:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-20:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-20:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-20:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-20:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-20:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-20:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-20:cash:0000029511",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-20:cash:0000032966",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-21:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-21:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-21:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-21:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-21:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-21:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-21:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-21:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-21:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-21:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-21:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-21:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-21:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-21:cash:0000029511",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-21:cash:0000032966",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-22:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-22:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-22:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-22:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-22:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-22:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-22:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-22:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-22:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-22:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-22:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-22:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-22:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-22:cash:0000029511",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-22:cash:0000032966",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-23:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-23:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-23:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-23:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-23:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-23:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-23:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-23:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-23:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-23:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-23:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-23:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-23:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-23:cash:0000029511",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-23:cash:0000032966",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-24:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-24:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-24:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-24:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-24:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-24:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-24:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-24:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-24:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-24:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-24:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-24:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-24:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-24:cash:0000029511",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-24:cash:0000032966",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-25:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-25:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-25:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-25:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-25:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-25:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-25:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-25:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-25:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-25:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-25:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-25:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-25:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-25:cash:0000029511",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-25:cash:0000032966",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-26:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-26:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-26:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-26:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-26:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-26:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-26:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-26:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-26:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-26:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-26:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-26:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-26:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-26:cash:0000029511",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-26:cash:0000032966",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-27:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-27:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-27:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-27:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-27:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-27:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-27:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-27:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-27:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-27:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-27:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-27:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-27:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-27:cash:0000029511",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-27:cash:0000032966",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-28:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-28:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-28:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-28:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-28:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-28:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-28:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-28:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-28:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-28:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-28:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-28:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-28:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-28:cash:0000029511",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-28:cash:0000032966",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-29:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-29:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-29:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-29:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-29:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-29:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-29:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-29:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-29:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-29:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-29:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-29:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-29:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-29:cash:0000029511",
+      "passed": true
+    },
+    {
+      "check": "2430:2026-10-29:cash:0000032966",
+      "passed": true
+    },
+    {
+      "check": "2612:initial_recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:handoff:outstandingPrincipal",
+      "passed": true
+    },
+    {
+      "check": "2612:handoff:paidPrincipal",
+      "passed": true
+    },
+    {
+      "check": "2612:handoff:paidInterest",
+      "passed": true
+    },
+    {
+      "check": "2612:handoff:accruedInterest",
+      "passed": true
+    },
+    {
+      "check": "2612:handoff:mora",
+      "passed": true
+    },
+    {
+      "check": "2612:historical_count",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:cash:0000031644",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:cash:0000031716",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:cash:0000031887",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:cash:0000032359",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:cash:0000032579",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:cash:0000032688",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:cash:0000032833",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:cash:0000032984",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-14:cash:0000033117",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:cash:0000031644",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:cash:0000031716",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:cash:0000031887",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:cash:0000032359",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:cash:0000032579",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:cash:0000032688",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:cash:0000032833",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:cash:0000032984",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-15:cash:0000033117",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:cash:0000031644",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:cash:0000031716",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:cash:0000031887",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:cash:0000032359",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:cash:0000032579",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:cash:0000032688",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:cash:0000032833",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:cash:0000032984",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-16:cash:0000033117",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:cash:0000031644",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:cash:0000031716",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:cash:0000031887",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:cash:0000032359",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:cash:0000032579",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:cash:0000032688",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:cash:0000032833",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:cash:0000032984",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-17:cash:0000033117",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:cash:0000031644",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:cash:0000031716",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:cash:0000031887",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:cash:0000032359",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:cash:0000032579",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:cash:0000032688",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:cash:0000032833",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:cash:0000032984",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-18:cash:0000033117",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:cash:0000031644",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:cash:0000031716",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:cash:0000031887",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:cash:0000032359",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:cash:0000032579",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:cash:0000032688",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:cash:0000032833",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:cash:0000032984",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-19:cash:0000033117",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:cash:0000031644",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:cash:0000031716",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:cash:0000031887",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:cash:0000032359",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:cash:0000032579",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:cash:0000032688",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:cash:0000032833",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:cash:0000032984",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-20:cash:0000033117",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:cash:0000031644",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:cash:0000031716",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:cash:0000031887",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:cash:0000032359",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:cash:0000032579",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:cash:0000032688",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:cash:0000032833",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:cash:0000032984",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-21:cash:0000033117",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:cash:0000031644",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:cash:0000031716",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:cash:0000031887",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:cash:0000032359",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:cash:0000032579",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:cash:0000032688",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:cash:0000032833",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:cash:0000032984",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-22:cash:0000033117",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:cash:0000031644",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:cash:0000031716",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:cash:0000031887",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:cash:0000032359",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:cash:0000032579",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:cash:0000032688",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:cash:0000032833",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:cash:0000032984",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-23:cash:0000033117",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:cash:0000031644",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:cash:0000031716",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:cash:0000031887",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:cash:0000032359",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:cash:0000032579",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:cash:0000032688",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:cash:0000032833",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:cash:0000032984",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-24:cash:0000033117",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:cash:0000031644",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:cash:0000031716",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:cash:0000031887",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:cash:0000032359",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:cash:0000032579",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:cash:0000032688",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:cash:0000032833",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:cash:0000032984",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-25:cash:0000033117",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:cash:0000031644",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:cash:0000031716",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:cash:0000031887",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:cash:0000032359",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:cash:0000032579",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:cash:0000032688",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:cash:0000032833",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:cash:0000032984",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-26:cash:0000033117",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:cash:0000031644",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:cash:0000031716",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:cash:0000031887",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:cash:0000032359",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:cash:0000032579",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:cash:0000032688",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:cash:0000032833",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:cash:0000032984",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-27:cash:0000033117",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:cash:0000031644",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:cash:0000031716",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:cash:0000031887",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:cash:0000032359",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:cash:0000032579",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:cash:0000032688",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:cash:0000032833",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:cash:0000032984",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-28:cash:0000033117",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:cash:0000031644",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:cash:0000031716",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:cash:0000031887",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:cash:0000032359",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:cash:0000032579",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:cash:0000032688",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:cash:0000032833",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:cash:0000032984",
+      "passed": true
+    },
+    {
+      "check": "2612:2026-10-29:cash:0000033117",
+      "passed": true
+    },
+    {
+      "check": "2647:initial_recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:handoff:outstandingPrincipal",
+      "passed": true
+    },
+    {
+      "check": "2647:handoff:paidPrincipal",
+      "passed": true
+    },
+    {
+      "check": "2647:handoff:paidInterest",
+      "passed": true
+    },
+    {
+      "check": "2647:handoff:accruedInterest",
+      "passed": true
+    },
+    {
+      "check": "2647:handoff:mora",
+      "passed": true
+    },
+    {
+      "check": "2647:historical_count",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:cash:0000032665",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:cash:0000032760",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:cash:0000032865",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:cash:0000032943",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:cash:0000033179",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-14:cash:0000033270",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:cash:0000032665",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:cash:0000032760",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:cash:0000032865",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:cash:0000032943",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:cash:0000033179",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-15:cash:0000033270",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:cash:0000032665",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:cash:0000032760",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:cash:0000032865",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:cash:0000032943",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:cash:0000033179",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:cash:0000033270",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-16:cash:0000033427",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:cash:0000032665",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:cash:0000032760",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:cash:0000032865",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:cash:0000032943",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:cash:0000033179",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:cash:0000033270",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-17:cash:0000033427",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:cash:0000032665",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:cash:0000032760",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:cash:0000032865",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:cash:0000032943",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:cash:0000033179",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:cash:0000033270",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-18:cash:0000033427",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:cash:0000032665",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:cash:0000032760",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:cash:0000032865",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:cash:0000032943",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:cash:0000033179",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:cash:0000033270",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-19:cash:0000033427",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:cash:0000032665",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:cash:0000032760",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:cash:0000032865",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:cash:0000032943",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:cash:0000033179",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:cash:0000033270",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:cash:0000033427",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-20:cash:0000033756",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:cash:0000032665",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:cash:0000032760",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:cash:0000032865",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:cash:0000032943",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:cash:0000033179",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:cash:0000033270",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:cash:0000033427",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-21:cash:0000033756",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:cash:0000032665",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:cash:0000032760",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:cash:0000032865",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:cash:0000032943",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:cash:0000033179",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:cash:0000033270",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:cash:0000033427",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-22:cash:0000033756",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:cash:0000032665",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:cash:0000032760",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:cash:0000032865",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:cash:0000032943",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:cash:0000033179",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:cash:0000033270",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:cash:0000033427",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:cash:0000033756",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-23:cash:0000034095",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:cash:0000032665",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:cash:0000032760",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:cash:0000032865",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:cash:0000032943",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:cash:0000033179",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:cash:0000033270",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:cash:0000033427",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:cash:0000033756",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-24:cash:0000034095",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:cash:0000032665",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:cash:0000032760",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:cash:0000032865",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:cash:0000032943",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:cash:0000033179",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:cash:0000033270",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:cash:0000033427",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:cash:0000033756",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-25:cash:0000034095",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:cash:0000032665",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:cash:0000032760",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:cash:0000032865",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:cash:0000032943",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:cash:0000033179",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:cash:0000033270",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:cash:0000033427",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:cash:0000033756",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-26:cash:0000034095",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:cash:0000032665",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:cash:0000032760",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:cash:0000032865",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:cash:0000032943",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:cash:0000033179",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:cash:0000033270",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:cash:0000033427",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:cash:0000033756",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:cash:0000034095",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-27:cash:0000034363",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:cash:0000032665",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:cash:0000032760",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:cash:0000032865",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:cash:0000032943",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:cash:0000033179",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:cash:0000033270",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:cash:0000033427",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:cash:0000033756",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:cash:0000034095",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-28:cash:0000034363",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:recalculation_off",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:historical_unchanged",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:principal_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:interest_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:ordinary_interest_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:ordinary_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:accruals_only_native_owned_dates",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:mora_daily_assessment",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:mora_daily_identity_unique",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:mora_outstanding_arithmetic",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:mora_paid_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:mora_accrual_ledger",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:full_cash_history_count",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:cash:0000032665",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:cash:0000032760",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:cash:0000032865",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:cash:0000032943",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:cash:0000033179",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:cash:0000033270",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:cash:0000033427",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:cash:0000033756",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:cash:0000034095",
+      "passed": true
+    },
+    {
+      "check": "2647:2026-10-29:cash:0000034363",
+      "passed": true
+    },
+    {
+      "check": "2647:native-payment:0000033270:cash_conserved",
+      "passed": true
+    },
+    {
+      "check": "2647:native-payment:0000033427:cash_conserved",
+      "passed": true
+    },
+    {
+      "check": "2647:native-payment:0000033756:cash_conserved",
+      "passed": true
+    },
+    {
+      "check": "2647:native-payment:0000034095:cash_conserved",
+      "passed": true
+    },
+    {
+      "check": "2647:native-payment:0000034363:cash_conserved",
+      "passed": true
+    },
+    {
+      "check": "protected:loans",
+      "passed": true
+    },
+    {
+      "check": "protected:transactions",
+      "passed": true
+    },
+    {
+      "check": "protected:schedule",
+      "passed": true
+    },
+    {
+      "check": "protected:loan_charges",
+      "passed": true
+    },
+    {
+      "check": "protected:journals",
+      "passed": true
+    },
+    {
+      "check": "protected:clients",
+      "passed": true
+    },
+    {
+      "check": "protected:products",
+      "passed": true
+    },
+    {
+      "check": "protected:mora_terms",
+      "passed": true
+    },
+    {
+      "check": "tenant_metadata_unchanged",
+      "passed": true
+    },
+    {
+      "check": "scheduler_restored",
+      "passed": true
+    },
+    {
+      "check": "full_progression_completed",
+      "passed": true
+    },
+    {
+      "check": "repeat_gl_unchanged",
+      "passed": true
+    },
+    {
+      "check": "repeat_loan_state_unchanged",
+      "passed": true
+    },
+    {
+      "check": "default_database",
+      "passed": true
+    },
+    {
+      "check": "read_only_audit",
+      "passed": true
+    },
+    {
+      "check": "2430:identity",
+      "passed": true
+    },
+    {
+      "check": "2430:flag_off",
+      "passed": true
+    },
+    {
+      "check": "2430:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2430:persisted_principalOutstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:persisted_interestPaid",
+      "passed": true
+    },
+    {
+      "check": "2430:persisted_interestOutstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:persisted_penaltyChargesPaid",
+      "passed": true
+    },
+    {
+      "check": "2430:persisted_penaltyChargesOutstanding",
+      "passed": true
+    },
+    {
+      "check": "2430:product_flag_off",
+      "passed": true
+    },
+    {
+      "check": "2430:one_baseline",
+      "passed": true
+    },
+    {
+      "check": "2430:all_source_cash_events",
+      "passed": true
+    },
+    {
+      "check": "2430:cash:0000029511",
+      "passed": true
+    },
+    {
+      "check": "2430:cash:0000032966",
+      "passed": true
+    },
+    {
+      "check": "2430:only_native_accrual_dates",
+      "passed": true
+    },
+    {
+      "check": "2430:journals_present",
+      "passed": true
+    },
+    {
+      "check": "2430:balanced_gl_each_transaction",
+      "passed": true
+    },
+    {
+      "check": "2430:no_source_owned_gl",
+      "passed": true
+    },
+    {
+      "check": "2430:ordinary_income_equals_native_accrual",
+      "passed": true
+    },
+    {
+      "check": "2430:mora_income_equals_native_accrual",
+      "passed": true
+    },
+    {
+      "check": "2430:opening_interest_not_rerecognized",
+      "passed": true
+    },
+    {
+      "check": "2612:identity",
+      "passed": true
+    },
+    {
+      "check": "2612:flag_off",
+      "passed": true
+    },
+    {
+      "check": "2612:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2612:persisted_principalOutstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:persisted_interestPaid",
+      "passed": true
+    },
+    {
+      "check": "2612:persisted_interestOutstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:persisted_penaltyChargesPaid",
+      "passed": true
+    },
+    {
+      "check": "2612:persisted_penaltyChargesOutstanding",
+      "passed": true
+    },
+    {
+      "check": "2612:product_flag_off",
+      "passed": true
+    },
+    {
+      "check": "2612:one_baseline",
+      "passed": true
+    },
+    {
+      "check": "2612:all_source_cash_events",
+      "passed": true
+    },
+    {
+      "check": "2612:cash:0000031644",
+      "passed": true
+    },
+    {
+      "check": "2612:cash:0000031716",
+      "passed": true
+    },
+    {
+      "check": "2612:cash:0000031887",
+      "passed": true
+    },
+    {
+      "check": "2612:cash:0000032359",
+      "passed": true
+    },
+    {
+      "check": "2612:cash:0000032579",
+      "passed": true
+    },
+    {
+      "check": "2612:cash:0000032688",
+      "passed": true
+    },
+    {
+      "check": "2612:cash:0000032833",
+      "passed": true
+    },
+    {
+      "check": "2612:cash:0000032984",
+      "passed": true
+    },
+    {
+      "check": "2612:cash:0000033117",
+      "passed": true
+    },
+    {
+      "check": "2612:only_native_accrual_dates",
+      "passed": true
+    },
+    {
+      "check": "2612:journals_present",
+      "passed": true
+    },
+    {
+      "check": "2612:balanced_gl_each_transaction",
+      "passed": true
+    },
+    {
+      "check": "2612:no_source_owned_gl",
+      "passed": true
+    },
+    {
+      "check": "2612:ordinary_income_equals_native_accrual",
+      "passed": true
+    },
+    {
+      "check": "2612:mora_income_equals_native_accrual",
+      "passed": true
+    },
+    {
+      "check": "2612:opening_interest_not_rerecognized",
+      "passed": true
+    },
+    {
+      "check": "2647:identity",
+      "passed": true
+    },
+    {
+      "check": "2647:flag_off",
+      "passed": true
+    },
+    {
+      "check": "2647:simulation_retained",
+      "passed": true
+    },
+    {
+      "check": "2647:persisted_principalOutstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:persisted_interestPaid",
+      "passed": true
+    },
+    {
+      "check": "2647:persisted_interestOutstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:persisted_penaltyChargesPaid",
+      "passed": true
+    },
+    {
+      "check": "2647:persisted_penaltyChargesOutstanding",
+      "passed": true
+    },
+    {
+      "check": "2647:product_flag_off",
+      "passed": true
+    },
+    {
+      "check": "2647:one_baseline",
+      "passed": true
+    },
+    {
+      "check": "2647:all_source_cash_events",
+      "passed": true
+    },
+    {
+      "check": "2647:cash:0000032665",
+      "passed": true
+    },
+    {
+      "check": "2647:cash:0000032760",
+      "passed": true
+    },
+    {
+      "check": "2647:cash:0000032865",
+      "passed": true
+    },
+    {
+      "check": "2647:cash:0000032943",
+      "passed": true
+    },
+    {
+      "check": "2647:cash:0000033179",
+      "passed": true
+    },
+    {
+      "check": "2647:cash:0000033270",
+      "passed": true
+    },
+    {
+      "check": "2647:cash:0000033427",
+      "passed": true
+    },
+    {
+      "check": "2647:cash:0000033756",
+      "passed": true
+    },
+    {
+      "check": "2647:cash:0000034095",
+      "passed": true
+    },
+    {
+      "check": "2647:cash:0000034363",
+      "passed": true
+    },
+    {
+      "check": "2647:only_native_accrual_dates",
+      "passed": true
+    },
+    {
+      "check": "2647:journals_present",
+      "passed": true
+    },
+    {
+      "check": "2647:balanced_gl_each_transaction",
+      "passed": true
+    },
+    {
+      "check": "2647:no_source_owned_gl",
+      "passed": true
+    },
+    {
+      "check": "2647:ordinary_income_equals_native_accrual",
+      "passed": true
+    },
+    {
+      "check": "2647:mora_income_equals_native_accrual",
+      "passed": true
+    },
+    {
+      "check": "2647:opening_interest_not_rerecognized",
+      "passed": true
+    },
+    {
+      "check": "2647:first_native_cash_goes_to_older_principal",
+      "passed": true
+    }
+  ],
+  "source_parity": [
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-14",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-14",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-14",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-15",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-15",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-15",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-16",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-16",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-16",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-17",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-17",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-17",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-18",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-18",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-18",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-19",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-19",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-19",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-20",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-20",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-20",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-21",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-21",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-21",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-22",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-22",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-22",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-23",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-23",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-23",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-24",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-24",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-24",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-25",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-25",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-25",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-26",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-26",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-26",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-27",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-27",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-27",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-28",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-28",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-28",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-29",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-29",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2430",
+      "source_day": "2026-10-29",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-14",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-14",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-14",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-15",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-15",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-15",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-16",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-16",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-16",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-17",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-17",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-17",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-18",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-18",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-18",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-19",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-19",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-19",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-20",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-20",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-20",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-21",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-21",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-21",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-22",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-22",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-22",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-23",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-23",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-23",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-24",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-24",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-24",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-25",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-25",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-25",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-26",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-26",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-26",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-27",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-27",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-27",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-28",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-28",
+      "metric": "ordinary_interest",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-28",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-29",
+      "metric": "principal",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-29",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2612",
+      "source_day": "2026-10-29",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-14",
+      "metric": "principal",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-14",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-14",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-15",
+      "metric": "principal",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-15",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-15",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-16",
+      "metric": "principal",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-16",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-16",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-17",
+      "metric": "principal",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-17",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-17",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-18",
+      "metric": "principal",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-18",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-18",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-19",
+      "metric": "principal",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-19",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-19",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-20",
+      "metric": "principal",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-20",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-20",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-21",
+      "metric": "principal",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-21",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-21",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-22",
+      "metric": "principal",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-22",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-22",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-23",
+      "metric": "principal",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-23",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-23",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-24",
+      "metric": "principal",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-24",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-24",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-25",
+      "metric": "principal",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-25",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-25",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-26",
+      "metric": "principal",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-26",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-26",
+      "metric": "mora",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-27",
+      "metric": "principal",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-27",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-27",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-28",
+      "metric": "principal",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-28",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-28",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-29",
+      "metric": "principal",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-29",
+      "metric": "ordinary_interest",
+      "exact_match": false,
+      "within_one_cent": false
+    },
+    {
+      "source_loan": "2647",
+      "source_day": "2026-10-29",
+      "metric": "mora",
+      "exact_match": true,
+      "within_one_cent": true
+    }
+  ],
+  "historical_preservation": {
+    "2430": true,
+    "2612": true,
+    "2647": true
+  },
+  "protected_unchanged": {
+    "loans": true,
+    "transactions": true,
+    "schedule": true,
+    "loan_charges": true,
+    "journals": true,
+    "clients": true,
+    "products": true,
+    "mora_terms": true
+  },
+  "metadata_unchanged": true,
+  "scheduler_restored": true,
+  "repeat_gl_unchanged": true,
+  "repeat_loan_state_unchanged": true,
+  "future_insurance_scope": "Historical insurance cash and charge ownership preserved; no new recurring insurance assessment. This experiment focuses on ordinary interest/mora.",
+  "source_cleanliness_limit": "No unexplained changes found in available records; unlogged/same-day offsetting manual edits cannot be excluded."
+}

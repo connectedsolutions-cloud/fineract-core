@@ -11,6 +11,7 @@ import re
 import secrets
 import sqlite3
 import subprocess
+import sys
 import threading
 from datetime import datetime
 from http import HTTPStatus
@@ -24,7 +25,10 @@ from zoneinfo import ZoneInfo
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 DEFAULT_STATE_DIR = HERE.parent / ".arissto-sync"
-STATIC_FILES = {"/": "index.html", "/app.js": "app.js", "/styles.css": "styles.css", "/og.svg": "og.svg"}
+sys.path.insert(0,str(ROOT))
+from arissto_sync.loan_metric_reporting import build_active_metric_report
+
+STATIC_FILES = {"/": "index.html", "/app.js": "app.js", "/loan-metrics.js": "loan-metrics.js", "/styles.css": "styles.css", "/og.svg": "og.svg"}
 SAFE_IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9._-]{0,79}$")
 SAFE_PLAN_ID = re.compile(r"^[a-f0-9]{32}$")
 LAUNCH_CONFIRMATION = "LAUNCH LOCAL SYNC"
@@ -159,6 +163,38 @@ def attach_step_item_counts(step: dict[str, Any]) -> None:
     step["sync_item_count"] = planned_count if planned_count is not None else applied_count
 
 
+def attach_live_item_counts(connection: sqlite3.Connection, step: dict[str, Any]) -> None:
+    """Read committed item outcomes for this service execution, including live apply."""
+    child_run_id = step.get("child_run_id")
+    if not child_run_id and step.get("phase") == "apply" and step.get("started_at"):
+        # The orchestrator attaches child_run_id only after apply/retry returns.
+        # A retry can also reuse the previous execution's frozen plan.
+        plan_id = step.get("plan_id")
+        if not plan_id:
+            previous = row(connection,
+                "SELECT plan_id FROM workflow_steps WHERE workflow_run_id=? "
+                "AND service_id=? AND attempt<? AND plan_id IS NOT NULL "
+                "ORDER BY attempt DESC LIMIT 1",
+                (step["workflow_run_id"], step["service_id"], step["attempt"]))
+            plan_id = previous["plan_id"] if previous else None
+        if plan_id:
+            child = row(connection,
+                "SELECT id FROM runs WHERE plan_id=? AND started_at>=? "
+                "ORDER BY started_at DESC,rowid DESC LIMIT 1",
+                (plan_id, step["started_at"]))
+            child_run_id = child["id"] if child else None
+            if not step.get("_plan_document"):
+                plan = row(connection, "SELECT document FROM plans WHERE id=?", (plan_id,))
+                step["_plan_document"] = plan["document"] if plan else None
+    counts = {item["status"]: item["count"] for item in rows(connection,
+        "SELECT status,COUNT(*) AS count FROM items WHERE run_id=? GROUP BY status",
+        (child_run_id,))} if child_run_id else {}
+    step["processed_item_count"] = sum(counts.values()) if child_run_id else None
+    step["succeeded_item_count"] = counts.get("succeeded", 0) + counts.get("recovered", 0)
+    step["failed_item_count"] = counts.get("failed", 0)
+    step["unchanged_item_count"] = counts.get("unchanged", 0)
+
+
 class Store:
     def __init__(self, state_dir: Path):
         self.state_dir = state_dir.resolve()
@@ -250,6 +286,8 @@ class Store:
                 """,
                 (run_id, run_id),
             )
+            for step in latest_steps:
+                attach_live_item_counts(connection, step)
             summary = rows(
                 connection,
                 """
@@ -307,6 +345,16 @@ class Store:
                 """,
                 (run_id, run_id),
             )
+        loan_reporting = None
+        with readonly_connection(self.state_path(cycle_id)) as connection:
+            for step in latest_steps:
+                if step.get('service_id')!='loans' or not step.get('child_run_id'):continue
+                saved=row(connection,'SELECT summary FROM reconciliations WHERE run_id=?',(step['child_run_id'],))
+                document=step.get('_plan_document')
+                document=json.loads(document) if isinstance(document,str) else document
+                if saved and document:
+                    result=json.loads(saved['summary'])
+                    loan_reporting=result.get('active_metric_report') or build_active_metric_report(document.get('actions',[]),result)
         decode_json_fields(run, "summary")
         for step in steps + latest_steps:
             decode_json_fields(step, "summary")
@@ -327,6 +375,7 @@ class Store:
             "recent_events": recent_events,
             "execution_summary": execution_summary,
             "retry_analysis": retry_analysis,
+            "loan_reporting": loan_reporting,
         }
 
     def failures(self, cycle_id: str, run_id: str, query: dict[str, list[str]]) -> dict[str, Any]:

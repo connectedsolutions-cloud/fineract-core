@@ -80,6 +80,9 @@ public class LoanTransactionData implements Serializable {
     private final BigDecimal availableDisbursementAmountWithOverApplied;
 
     @Setter
+    private Boolean canApplyRefinancingSurplusAsRepayment;
+
+    @Setter
     private Collection<LoanChargePaidByData> loanChargePaidByList;
 
     // templates

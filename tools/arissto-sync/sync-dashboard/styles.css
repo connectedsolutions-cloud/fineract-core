@@ -239,3 +239,17 @@ th:nth-child(1) { width: 13%; } th:nth-child(2) { width: 19%; } th:nth-child(3) 
   .table-wrap { overflow-x: auto; }
   table { min-width: 720px; }
 }
+
+.loan-metric-report details { margin-top: 16px; padding: 12px; border: 1px solid #d9dfeb; border-radius: 8px; }
+.loan-metric-report summary { cursor: pointer; font-weight: 600; }
+.loan-metric-report .table-scroll { overflow-x: auto; }
+.loan-metric-report table { width: 100%; border-collapse: collapse; }
+.loan-metric-report th,.loan-metric-report td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #d9dfeb; }
+
+.step-items { flex-wrap: wrap; }
+.step-outcomes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.step-outcomes strong { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+.step-outcomes span { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+.step-succeeded strong { color: var(--green); }
+.step-failed strong { color: var(--red); }
+.step-unchanged { margin-top: 8px; color: var(--muted); font-size: 10px; }

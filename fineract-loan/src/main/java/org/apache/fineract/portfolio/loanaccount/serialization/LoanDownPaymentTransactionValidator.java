@@ -109,13 +109,14 @@ public final class LoanDownPaymentTransactionValidator {
                 }
             }
             case LOAN_DISBURSAL_UNDO -> {
-                if (!loan.isOpen()) {
+                if (!loan.isOpen() && !org.apache.fineract.portfolio.loanaccount.domain.RefinancingUndoContext.permits(loan.getId())) {
                     final String defaultUserMessage = "Loan Undo disbursal is not allowed. Loan Account is not active.";
                     final ApiParameterError error = ApiParameterError.generalError("error.msg.loan.undo.disbursal.account.is.not.active",
                             defaultUserMessage);
                     dataValidationErrors.add(error);
                 }
-                if (loan.isOpen() && loan.isTopup()) {
+                if (loan.isOpen() && loan.isTopup()
+                        && !org.apache.fineract.portfolio.loanaccount.domain.RefinancingUndoContext.permits(loan.getId())) {
                     final String defaultUserMessage = "Loan Undo disbursal is not allowed on Topup Loans";
                     final ApiParameterError error = ApiParameterError
                             .generalError("error.msg.loan.undo.disbursal.not.allowed.on.topup.loan", defaultUserMessage);

@@ -61,9 +61,9 @@ interest, and all other product or calculated records.
 | `NUMERO_AFILIACION` | `m_client.external_id` | Globally unique canonical client key, stored without a prefix |
 
 Branch `001` maps to office `1` and branch `002` maps to office `2`. New
-clients are active and use `legalFormId=1` (`PERSON`). Source relationship
-classes `001` (`SOCIO`) and `003` (`CLIENTE`) are both included in this
-approved all-active import policy.
+clients use `legalFormId=1` (`PERSON`). Relationship classes `001` (`SOCIO`)
+and `003` (`CLIENTE`) are active; `007` (`ASPIRANTE`) uses the `cliente` tag
+and native Pending status, as defined below.
 
 `ID_SOCIO` is not copied to `accountNo`; Fineract owns its account number.
 
@@ -167,7 +167,8 @@ Each imported client has exactly one active Fineract tag in group
 
 | Arissto rule | Fineract tag |
 |---|---|
-| `AFI_SOCIO.ID_ESTADO_SOCIO = 003` | `cliente` |
+| `AFI_SOCIO.ID_ESTADO_SOCIO = 003` | `cliente` (active client) |
+| `ID_ESTADO_SOCIO = 007` | `cliente` (pending client) |
 | `ID_ESTADO_SOCIO = 001` and no matching originated credit | `socio` |
 | `ID_ESTADO_SOCIO = 001` and a matching `CRD_CARTERA` row exists | `cliente-socio` |
 
@@ -320,6 +321,41 @@ Run:
 Do not apply unless `ready: true` and the global `blockers` list is empty.
 Source catalog results with `plan_behavior: quarantine` are per-client data
 warnings rather than blockers for every valid client.
+
+### Applicant lifecycle policy — approved 2026-10-29
+
+This policy supersedes the October 28 decision to quarantine `007` applicants.
+It implements the [project requirement](../../../../../docs/ARISSTO_APPLICANT_CLIENT_LIFECYCLE.md).
+`AFI_SOCIO.ID_ESTADO_SOCIO = 007` maps to `tipo_cliente=cliente` and native
+Fineract Pending (`m_client.status_enum=100`). It is an explicit mapping, never
+a fallback for other unknown relationship codes. `001` and `003` keep their
+existing active-import behavior.
+
+Creates send `active=false` and omit `activationDate`. When present,
+`FECHA_REGISTRO` supplies `submittedOnDate`; its absence does not require an
+activation date for a pending applicant. Existing pending applicants stay
+pending on update and interrupted-create recovery; no activation command is
+issued. Reconciliation requires exactly status `100`, rather than accepting
+any inactive status such as closed, rejected or withdrawn. The expected pending
+status participates in the normalized source hash. A matching repeated plan
+is unchanged. Source promotion to `003` or `001` changes that hash, updates the
+same external-ID client, and follows the existing activation-date contract.
+
+An existing non-pending target with source `007` is a
+`pending_client_status_conflict`: planning quarantines it, and apply rechecks
+before any update. The service never closes or demotes an active client to
+satisfy a source classification regression. Other identity, KYC, catalog,
+relationship and data checks remain strict.
+
+The earlier `--accept-client-applicant-quarantine` local resumed-plan exception
+remains historical recovery support for its original frozen contract. It does
+not override a contract hash change or admit stale plans. Normal new plans now
+create pending applicant clients, so downstream owner references can resolve
+through their client mappings. This change does not itself resume, reset or
+replay an existing workflow or rewrite historical failure records.
+
+Source classification/lifecycle evidence belongs to the
+[client research note](../../../../../../credesal-db-space/docs/learnings/clientes.md#current-relationship-class-population--2026-10-28).
 
 After adopting the permissive DUI/email policy, the aggregate read-only audit
 of all 1,029 source rows produces:
@@ -530,9 +566,9 @@ missing or multiple `tipo_cliente` assignments. Automated coverage for client
 type derivation, unrelated-tag preservation, exact reconciliation, and the
 subsequent affiliation-ID transition brings the current suite to 38 tests.
 
-The approved active-import policy treats every Arissto client as active in
-Fineract, including clients with current loans, clients eligible for future
-loans, and delinquent clients requiring legal follow-up.
+The approved active-import policy treats `001`/`003` Arissto clients as active
+in Fineract, including borrowers and delinquent clients requiring legal
+follow-up. The `007` pending-applicant policy above is the explicit exception.
 `AFI_SOCIO.FECHA_REGISTRO` is the required source for Fineract
 `m_client.activation_date`: all 1,029 source rows populate it, and Arissto
 creates the record after approval and document completion. Existing mapped

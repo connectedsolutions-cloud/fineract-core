@@ -1,0 +1,5830 @@
+{
+  "environment": "disposable clone of local default; original default/sandbox unchanged",
+  "date": "2026-10-30",
+  "cases": {
+    "retained": {
+      "loanId": 524,
+      "operationId": 1,
+      "mode": "RETAINED",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "0.000000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168167,
+          "loan_id": 523,
+          "loan_transaction_id": 20574,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168192,
+          "voucher_id": null,
+          "ref_num": "2026102856",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168168,
+          "loan_id": 523,
+          "loan_transaction_id": 20574,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168193,
+          "voucher_id": null,
+          "ref_num": "2026102856",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168169,
+          "loan_id": 523,
+          "loan_transaction_id": 20573,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168194,
+          "voucher_id": 1,
+          "ref_num": "2026102857",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168170,
+          "loan_id": 523,
+          "loan_transaction_id": 20573,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168195,
+          "voucher_id": 1,
+          "ref_num": "2026102857",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168171,
+          "loan_id": 524,
+          "loan_transaction_id": 20576,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1568.070000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168196,
+          "voucher_id": 1,
+          "ref_num": "2026102857",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168172,
+          "loan_id": 524,
+          "loan_transaction_id": 20576,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "167.150000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168197,
+          "voucher_id": 1,
+          "ref_num": "2026102857",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168173,
+          "loan_id": 524,
+          "loan_transaction_id": 20572,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168198,
+          "voucher_id": 1,
+          "ref_num": "2026102857",
+          "gl_code": "1141030101"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168192,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 523,
+          "loan_transaction_id": 20574,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102864"
+        },
+        {
+          "id": 168193,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 523,
+          "loan_transaction_id": 20574,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102864"
+        },
+        {
+          "id": 168194,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 523,
+          "loan_transaction_id": 20573,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102864"
+        },
+        {
+          "id": 168195,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 523,
+          "loan_transaction_id": 20573,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102864"
+        },
+        {
+          "id": 168196,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 524,
+          "loan_transaction_id": 20576,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "1568.070000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102864"
+        },
+        {
+          "id": 168197,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 524,
+          "loan_transaction_id": 20576,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "167.150000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102864"
+        },
+        {
+          "id": 168198,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 524,
+          "loan_transaction_id": 20572,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102864"
+        }
+      ],
+      "undoVerified": {
+        "oldActive": true,
+        "newApproved": true,
+        "restoredOutstanding": 4264.78,
+        "repeatedUndoIdempotent": true
+      }
+    },
+    "payout": {
+      "loanId": 526,
+      "operationId": 2,
+      "mode": "CASH",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "1735.220000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168176,
+          "loan_id": 525,
+          "loan_transaction_id": 20580,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168199,
+          "voucher_id": null,
+          "ref_num": "2026102859",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168177,
+          "loan_id": 525,
+          "loan_transaction_id": 20580,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168200,
+          "voucher_id": null,
+          "ref_num": "2026102859",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168178,
+          "loan_id": 525,
+          "loan_transaction_id": 20579,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168201,
+          "voucher_id": 2,
+          "ref_num": "2026102860",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168179,
+          "loan_id": 525,
+          "loan_transaction_id": 20579,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168202,
+          "voucher_id": 2,
+          "ref_num": "2026102860",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168180,
+          "loan_id": 526,
+          "loan_transaction_id": 20578,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168203,
+          "voucher_id": 2,
+          "ref_num": "2026102860",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168181,
+          "loan_id": 526,
+          "loan_transaction_id": 20578,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1735.220000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168204,
+          "voucher_id": 2,
+          "ref_num": "2026102860",
+          "gl_code": "222099910201"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168199,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 525,
+          "loan_transaction_id": 20580,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102865"
+        },
+        {
+          "id": 168200,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 525,
+          "loan_transaction_id": 20580,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102865"
+        },
+        {
+          "id": 168201,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 525,
+          "loan_transaction_id": 20579,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102865"
+        },
+        {
+          "id": 168202,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 525,
+          "loan_transaction_id": 20579,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102865"
+        },
+        {
+          "id": 168203,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 526,
+          "loan_transaction_id": 20578,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102865"
+        },
+        {
+          "id": 168204,
+          "account_id": 2517,
+          "gl_code": "222099910201",
+          "loan_id": 526,
+          "loan_transaction_id": 20578,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "1735.220000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102865"
+        }
+      ],
+      "undoVerified": {
+        "oldActive": true,
+        "newApproved": true,
+        "restoredOutstanding": 4264.78,
+        "repeatedUndoIdempotent": true
+      }
+    },
+    "retained-fee": {
+      "loanId": 528,
+      "operationId": 3,
+      "mode": "RETAINED",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "0.000000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168184,
+          "loan_id": 527,
+          "loan_transaction_id": 20585,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168205,
+          "voucher_id": null,
+          "ref_num": "2026102862",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168185,
+          "loan_id": 527,
+          "loan_transaction_id": 20585,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168206,
+          "voucher_id": null,
+          "ref_num": "2026102862",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168186,
+          "loan_id": 527,
+          "loan_transaction_id": 20584,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168207,
+          "voucher_id": 3,
+          "ref_num": "2026102863",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168187,
+          "loan_id": 527,
+          "loan_transaction_id": 20584,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168208,
+          "voucher_id": 3,
+          "ref_num": "2026102863",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168188,
+          "loan_id": 528,
+          "loan_transaction_id": 20588,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "100.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168209,
+          "voucher_id": 3,
+          "ref_num": "2026102863",
+          "gl_code": "6110010800"
+        },
+        {
+          "id": 168189,
+          "loan_id": 528,
+          "loan_transaction_id": 20589,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1468.070000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168210,
+          "voucher_id": 3,
+          "ref_num": "2026102863",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168190,
+          "loan_id": 528,
+          "loan_transaction_id": 20589,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "167.150000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168211,
+          "voucher_id": 3,
+          "ref_num": "2026102863",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168191,
+          "loan_id": 528,
+          "loan_transaction_id": 20583,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168212,
+          "voucher_id": 3,
+          "ref_num": "2026102863",
+          "gl_code": "1141030101"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168205,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 527,
+          "loan_transaction_id": 20585,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102866"
+        },
+        {
+          "id": 168206,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 527,
+          "loan_transaction_id": 20585,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102866"
+        },
+        {
+          "id": 168207,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 527,
+          "loan_transaction_id": 20584,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102866"
+        },
+        {
+          "id": 168208,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 527,
+          "loan_transaction_id": 20584,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102866"
+        },
+        {
+          "id": 168209,
+          "account_id": 1833,
+          "gl_code": "6110010800",
+          "loan_id": 528,
+          "loan_transaction_id": 20588,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "100.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102866"
+        },
+        {
+          "id": 168210,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 528,
+          "loan_transaction_id": 20589,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "1468.070000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102866"
+        },
+        {
+          "id": 168211,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 528,
+          "loan_transaction_id": 20589,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "167.150000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102866"
+        },
+        {
+          "id": 168212,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 528,
+          "loan_transaction_id": 20583,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102866"
+        }
+      ],
+      "undoVerified": {
+        "oldActive": true,
+        "newApproved": true,
+        "restoredOutstanding": 4264.78,
+        "repeatedUndoIdempotent": true
+      }
+    },
+    "partial-cash": {
+      "loanId": 530,
+      "operationId": 4,
+      "mode": "CASH",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "1735.220000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168217,
+          "loan_id": 529,
+          "loan_transaction_id": 20593,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168229,
+          "voucher_id": null,
+          "ref_num": "2026102869",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168218,
+          "loan_id": 529,
+          "loan_transaction_id": 20593,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168230,
+          "voucher_id": null,
+          "ref_num": "2026102869",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168219,
+          "loan_id": 529,
+          "loan_transaction_id": 20592,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168231,
+          "voucher_id": 8,
+          "ref_num": "2026102870",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168220,
+          "loan_id": 529,
+          "loan_transaction_id": 20592,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168232,
+          "voucher_id": 8,
+          "ref_num": "2026102870",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168221,
+          "loan_id": 530,
+          "loan_transaction_id": 20591,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168233,
+          "voucher_id": 8,
+          "ref_num": "2026102870",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168222,
+          "loan_id": 530,
+          "loan_transaction_id": 20591,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1735.220000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168234,
+          "voucher_id": 8,
+          "ref_num": "2026102870",
+          "gl_code": "222099910201"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168229,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 529,
+          "loan_transaction_id": 20593,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102874"
+        },
+        {
+          "id": 168230,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 529,
+          "loan_transaction_id": 20593,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102874"
+        },
+        {
+          "id": 168231,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 529,
+          "loan_transaction_id": 20592,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102874"
+        },
+        {
+          "id": 168232,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 529,
+          "loan_transaction_id": 20592,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102874"
+        },
+        {
+          "id": 168233,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 530,
+          "loan_transaction_id": 20591,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102874"
+        },
+        {
+          "id": 168234,
+          "account_id": 2517,
+          "gl_code": "222099910201",
+          "loan_id": 530,
+          "loan_transaction_id": 20591,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "1735.220000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102874"
+        }
+      ],
+      "cashVerified": {
+        "partialPayout": "100",
+        "returns": [
+          "40",
+          "60"
+        ],
+        "duplicatePayoutIdempotent": true,
+        "overReturnBlocked": true,
+        "undoBeforeReturnBlocked": true,
+        "furtherPayoutAfterReturnBlocked": true,
+        "removedFromQueueAfterReturn": true,
+        "cashierBalanceReconciled": true,
+        "undoAfterReturnPassed": true
+      },
+      "cashMovements": [
+        {
+          "id": 1,
+          "movement_type": "PAYOUT",
+          "amount": "100.000000",
+          "cashier_transaction_id": 14
+        },
+        {
+          "id": 2,
+          "movement_type": "RETURN",
+          "amount": "40.000000",
+          "cashier_transaction_id": 15
+        },
+        {
+          "id": 3,
+          "movement_type": "RETURN",
+          "amount": "60.000000",
+          "cashier_transaction_id": 16
+        }
+      ],
+      "actualCashPostingPairsVerified": true
+    },
+    "later-payment": {
+      "loanId": 534,
+      "operationId": 6,
+      "mode": "CASH",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "1735.220000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168241,
+          "loan_id": 533,
+          "loan_transaction_id": 20602,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168251,
+          "voucher_id": null,
+          "ref_num": "2026102877",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168242,
+          "loan_id": 533,
+          "loan_transaction_id": 20602,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168252,
+          "voucher_id": null,
+          "ref_num": "2026102877",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168243,
+          "loan_id": 533,
+          "loan_transaction_id": 20601,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168253,
+          "voucher_id": 13,
+          "ref_num": "2026102878",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168244,
+          "loan_id": 533,
+          "loan_transaction_id": 20601,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168254,
+          "voucher_id": 13,
+          "ref_num": "2026102878",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168245,
+          "loan_id": 534,
+          "loan_transaction_id": 20600,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168255,
+          "voucher_id": 13,
+          "ref_num": "2026102878",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168246,
+          "loan_id": 534,
+          "loan_transaction_id": 20600,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1735.220000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168256,
+          "voucher_id": 13,
+          "ref_num": "2026102878",
+          "gl_code": "222099910201"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168251,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 533,
+          "loan_transaction_id": 20602,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102881"
+        },
+        {
+          "id": 168252,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 533,
+          "loan_transaction_id": 20602,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102881"
+        },
+        {
+          "id": 168253,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 533,
+          "loan_transaction_id": 20601,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102881"
+        },
+        {
+          "id": 168254,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 533,
+          "loan_transaction_id": 20601,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102881"
+        },
+        {
+          "id": 168255,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 534,
+          "loan_transaction_id": 20600,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102881"
+        },
+        {
+          "id": 168256,
+          "account_id": 2517,
+          "gl_code": "222099910201",
+          "loan_id": 534,
+          "loan_transaction_id": 20600,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "1735.220000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102881"
+        }
+      ],
+      "laterPaymentBlockerVerified": true
+    },
+    "late-undo-failure": {
+      "loanId": 536,
+      "operationId": 7,
+      "mode": "CASH",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "1735.220000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168259,
+          "loan_id": 535,
+          "loan_transaction_id": 20608,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168265,
+          "voucher_id": null,
+          "ref_num": "2026102883",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168260,
+          "loan_id": 535,
+          "loan_transaction_id": 20608,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168266,
+          "voucher_id": null,
+          "ref_num": "2026102883",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168261,
+          "loan_id": 535,
+          "loan_transaction_id": 20607,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168267,
+          "voucher_id": 15,
+          "ref_num": "2026102884",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168262,
+          "loan_id": 535,
+          "loan_transaction_id": 20607,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168268,
+          "voucher_id": 15,
+          "ref_num": "2026102884",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168263,
+          "loan_id": 536,
+          "loan_transaction_id": 20606,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168269,
+          "voucher_id": 15,
+          "ref_num": "2026102884",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168264,
+          "loan_id": 536,
+          "loan_transaction_id": 20606,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1735.220000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168270,
+          "voucher_id": 15,
+          "ref_num": "2026102884",
+          "gl_code": "222099910201"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168265,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 535,
+          "loan_transaction_id": 20608,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102885"
+        },
+        {
+          "id": 168266,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 535,
+          "loan_transaction_id": 20608,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102885"
+        },
+        {
+          "id": 168267,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 535,
+          "loan_transaction_id": 20607,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102885"
+        },
+        {
+          "id": 168268,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 535,
+          "loan_transaction_id": 20607,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102885"
+        },
+        {
+          "id": 168269,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 536,
+          "loan_transaction_id": 20606,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102885"
+        },
+        {
+          "id": 168270,
+          "account_id": 2517,
+          "gl_code": "222099910201",
+          "loan_id": 536,
+          "loan_transaction_id": 20606,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "1735.220000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102885"
+        }
+      ],
+      "lateFailureRollbackVerified": true
+    },
+    "consolidation": {
+      "loanId": 539,
+      "operationId": 8,
+      "mode": "RETAINED",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "0.000000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168275,
+          "loan_id": 537,
+          "loan_transaction_id": 20614,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "66.200000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168286,
+          "voucher_id": null,
+          "ref_num": "2026102888",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168276,
+          "loan_id": 537,
+          "loan_transaction_id": 20614,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "66.200000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168287,
+          "voucher_id": null,
+          "ref_num": "2026102888",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168277,
+          "loan_id": 538,
+          "loan_transaction_id": 20617,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "132.390000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168288,
+          "voucher_id": null,
+          "ref_num": "2026102889",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168278,
+          "loan_id": 538,
+          "loan_transaction_id": 20617,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "132.390000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168289,
+          "voucher_id": null,
+          "ref_num": "2026102889",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168279,
+          "loan_id": 537,
+          "loan_transaction_id": 20613,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168290,
+          "voucher_id": 18,
+          "ref_num": "2026102890",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168280,
+          "loan_id": 537,
+          "loan_transaction_id": 20613,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "66.200000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168291,
+          "voucher_id": 18,
+          "ref_num": "2026102890",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168281,
+          "loan_id": 538,
+          "loan_transaction_id": 20616,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "2000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168292,
+          "voucher_id": 18,
+          "ref_num": "2026102890",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168282,
+          "loan_id": 538,
+          "loan_transaction_id": 20616,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "132.390000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168293,
+          "voucher_id": 18,
+          "ref_num": "2026102890",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168283,
+          "loan_id": 539,
+          "loan_transaction_id": 20619,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "2550.460000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168294,
+          "voucher_id": 18,
+          "ref_num": "2026102890",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168284,
+          "loan_id": 539,
+          "loan_transaction_id": 20619,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "250.950000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168295,
+          "voucher_id": 18,
+          "ref_num": "2026102890",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168285,
+          "loan_id": 539,
+          "loan_transaction_id": 20612,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168296,
+          "voucher_id": 18,
+          "ref_num": "2026102890",
+          "gl_code": "1141030101"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168286,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 537,
+          "loan_transaction_id": 20614,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "66.200000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102891"
+        },
+        {
+          "id": 168287,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 537,
+          "loan_transaction_id": 20614,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "66.200000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102891"
+        },
+        {
+          "id": 168288,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 538,
+          "loan_transaction_id": 20617,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "132.390000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102891"
+        },
+        {
+          "id": 168289,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 538,
+          "loan_transaction_id": 20617,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "132.390000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102891"
+        },
+        {
+          "id": 168290,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 537,
+          "loan_transaction_id": 20613,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "1000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102891"
+        },
+        {
+          "id": 168291,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 537,
+          "loan_transaction_id": 20613,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "66.200000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102891"
+        },
+        {
+          "id": 168292,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 538,
+          "loan_transaction_id": 20616,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "2000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102891"
+        },
+        {
+          "id": 168293,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 538,
+          "loan_transaction_id": 20616,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "132.390000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102891"
+        },
+        {
+          "id": 168294,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 539,
+          "loan_transaction_id": 20619,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "2550.460000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102891"
+        },
+        {
+          "id": 168295,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 539,
+          "loan_transaction_id": 20619,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "250.950000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102891"
+        },
+        {
+          "id": 168296,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 539,
+          "loan_transaction_id": 20612,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102891"
+        }
+      ],
+      "consolidationUndoVerified": true
+    },
+    "fee-vat": {
+      "loanId": 541,
+      "operationId": 12,
+      "mode": "RETAINED",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "0.000000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168334,
+          "loan_id": 540,
+          "loan_transaction_id": 20640,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168343,
+          "voucher_id": null,
+          "ref_num": "2026102902",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168335,
+          "loan_id": 540,
+          "loan_transaction_id": 20640,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168344,
+          "voucher_id": null,
+          "ref_num": "2026102902",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168336,
+          "loan_id": 540,
+          "loan_transaction_id": 20639,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168345,
+          "voucher_id": 24,
+          "ref_num": "2026102903",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168337,
+          "loan_id": 540,
+          "loan_transaction_id": 20639,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168346,
+          "voucher_id": 24,
+          "ref_num": "2026102903",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168338,
+          "loan_id": 541,
+          "loan_transaction_id": 20643,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "100.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168347,
+          "voucher_id": 24,
+          "ref_num": "2026102903",
+          "gl_code": "6110010800"
+        },
+        {
+          "id": 168339,
+          "loan_id": 541,
+          "loan_transaction_id": 20643,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "13.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168348,
+          "voucher_id": 24,
+          "ref_num": "2026102903",
+          "gl_code": "2220990201"
+        },
+        {
+          "id": 168340,
+          "loan_id": 541,
+          "loan_transaction_id": 20644,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1455.070000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168349,
+          "voucher_id": 24,
+          "ref_num": "2026102903",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168341,
+          "loan_id": 541,
+          "loan_transaction_id": 20644,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "167.150000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168350,
+          "voucher_id": 24,
+          "ref_num": "2026102903",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168342,
+          "loan_id": 541,
+          "loan_transaction_id": 20638,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168351,
+          "voucher_id": 24,
+          "ref_num": "2026102903",
+          "gl_code": "1141030101"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168343,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 540,
+          "loan_transaction_id": 20640,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102904"
+        },
+        {
+          "id": 168344,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 540,
+          "loan_transaction_id": 20640,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102904"
+        },
+        {
+          "id": 168345,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 540,
+          "loan_transaction_id": 20639,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102904"
+        },
+        {
+          "id": 168346,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 540,
+          "loan_transaction_id": 20639,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102904"
+        },
+        {
+          "id": 168347,
+          "account_id": 1833,
+          "gl_code": "6110010800",
+          "loan_id": 541,
+          "loan_transaction_id": 20643,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "100.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102904"
+        },
+        {
+          "id": 168348,
+          "account_id": 1518,
+          "gl_code": "2220990201",
+          "loan_id": 541,
+          "loan_transaction_id": 20643,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "13.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102904"
+        },
+        {
+          "id": 168349,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 541,
+          "loan_transaction_id": 20644,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "1455.070000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102904"
+        },
+        {
+          "id": 168350,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 541,
+          "loan_transaction_id": 20644,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "167.150000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102904"
+        },
+        {
+          "id": 168351,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 541,
+          "loan_transaction_id": 20638,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102904"
+        }
+      ],
+      "taxAndUndoVerified": true,
+      "vatLiabilityVerified": true
+    },
+    "native-savings": {
+      "loanId": 543,
+      "operationId": 10,
+      "mode": "SAVINGS",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "0.000000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168304,
+          "loan_id": 542,
+          "loan_transaction_id": 20631,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168314,
+          "voucher_id": null,
+          "ref_num": "2026102894",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168305,
+          "loan_id": 542,
+          "loan_transaction_id": 20631,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168315,
+          "voucher_id": null,
+          "ref_num": "2026102894",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168308,
+          "loan_id": 542,
+          "loan_transaction_id": 20630,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168316,
+          "voucher_id": 20,
+          "ref_num": "2026102896",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168309,
+          "loan_id": 542,
+          "loan_transaction_id": 20630,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168317,
+          "voucher_id": 20,
+          "ref_num": "2026102896",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168310,
+          "loan_id": 543,
+          "loan_transaction_id": 20632,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1735.220000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168318,
+          "voucher_id": 20,
+          "ref_num": "2026102896",
+          "gl_code": "213005"
+        },
+        {
+          "id": 168311,
+          "loan_id": 543,
+          "loan_transaction_id": 20629,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168319,
+          "voucher_id": 20,
+          "ref_num": "2026102896",
+          "gl_code": "1141030101"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168314,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 542,
+          "loan_transaction_id": 20631,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102897"
+        },
+        {
+          "id": 168315,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 542,
+          "loan_transaction_id": 20631,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102897"
+        },
+        {
+          "id": 168316,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 542,
+          "loan_transaction_id": 20630,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102897"
+        },
+        {
+          "id": 168317,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 542,
+          "loan_transaction_id": 20630,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102897"
+        },
+        {
+          "id": 168318,
+          "account_id": 1360,
+          "gl_code": "213005",
+          "loan_id": 543,
+          "loan_transaction_id": 20632,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "1735.220000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102897"
+        },
+        {
+          "id": 168319,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 543,
+          "loan_transaction_id": 20629,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102897"
+        }
+      ],
+      "nativeSavingsDepositAndUndoVerified": true
+    },
+    "canonical-short-long": {
+      "loanId": 545,
+      "operationId": 11,
+      "mode": "CASH",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "3735.220000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168322,
+          "loan_id": 544,
+          "loan_transaction_id": 20636,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168328,
+          "voucher_id": null,
+          "ref_num": "2026102899",
+          "gl_code": "1141039901"
+        },
+        {
+          "id": 168323,
+          "loan_id": 544,
+          "loan_transaction_id": 20636,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168329,
+          "voucher_id": null,
+          "ref_num": "2026102899",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168324,
+          "loan_id": 544,
+          "loan_transaction_id": 20635,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168330,
+          "voucher_id": 22,
+          "ref_num": "2026102900",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168325,
+          "loan_id": 544,
+          "loan_transaction_id": 20635,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168331,
+          "voucher_id": 22,
+          "ref_num": "2026102900",
+          "gl_code": "1141039901"
+        },
+        {
+          "id": 168326,
+          "loan_id": 545,
+          "loan_transaction_id": 20634,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "8000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168332,
+          "voucher_id": 22,
+          "ref_num": "2026102900",
+          "gl_code": "1142030101"
+        },
+        {
+          "id": 168327,
+          "loan_id": 545,
+          "loan_transaction_id": 20634,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "3735.220000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168333,
+          "voucher_id": 22,
+          "ref_num": "2026102900",
+          "gl_code": "222099910201"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168328,
+          "account_id": 337,
+          "gl_code": "1141039901",
+          "loan_id": 544,
+          "loan_transaction_id": 20636,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102901"
+        },
+        {
+          "id": 168329,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 544,
+          "loan_transaction_id": 20636,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102901"
+        },
+        {
+          "id": 168330,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 544,
+          "loan_transaction_id": 20635,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102901"
+        },
+        {
+          "id": 168331,
+          "account_id": 337,
+          "gl_code": "1141039901",
+          "loan_id": 544,
+          "loan_transaction_id": 20635,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102901"
+        },
+        {
+          "id": 168332,
+          "account_id": 396,
+          "gl_code": "1142030101",
+          "loan_id": 545,
+          "loan_transaction_id": 20634,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "8000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102901"
+        },
+        {
+          "id": 168333,
+          "account_id": 2517,
+          "gl_code": "222099910201",
+          "loan_id": 545,
+          "loan_transaction_id": 20634,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "3735.220000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102901"
+        }
+      ],
+      "canonicalShortToLongUndoVerified": true,
+      "canonicalTermAccountsVerified": true
+    },
+    "committee-fee-vat": {
+      "loanId": 547,
+      "operationId": 13,
+      "mode": "RETAINED",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "0.000000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168354,
+          "loan_id": 546,
+          "loan_transaction_id": 20648,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168363,
+          "voucher_id": null,
+          "ref_num": "2026102906",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168355,
+          "loan_id": 546,
+          "loan_transaction_id": 20648,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168364,
+          "voucher_id": null,
+          "ref_num": "2026102906",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168356,
+          "loan_id": 546,
+          "loan_transaction_id": 20647,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168365,
+          "voucher_id": 26,
+          "ref_num": "2026102907",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168357,
+          "loan_id": 546,
+          "loan_transaction_id": 20647,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168366,
+          "voucher_id": 26,
+          "ref_num": "2026102907",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168358,
+          "loan_id": 547,
+          "loan_transaction_id": 20651,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "100.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168367,
+          "voucher_id": 26,
+          "ref_num": "2026102907",
+          "gl_code": "6110010800"
+        },
+        {
+          "id": 168359,
+          "loan_id": 547,
+          "loan_transaction_id": 20651,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "13.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168368,
+          "voucher_id": 26,
+          "ref_num": "2026102907",
+          "gl_code": "2220990201"
+        },
+        {
+          "id": 168360,
+          "loan_id": 547,
+          "loan_transaction_id": 20652,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1455.070000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168369,
+          "voucher_id": 26,
+          "ref_num": "2026102907",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168361,
+          "loan_id": 547,
+          "loan_transaction_id": 20652,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "167.150000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168370,
+          "voucher_id": 26,
+          "ref_num": "2026102907",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168362,
+          "loan_id": 547,
+          "loan_transaction_id": 20646,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168371,
+          "voucher_id": 26,
+          "ref_num": "2026102907",
+          "gl_code": "1141030101"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168363,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 546,
+          "loan_transaction_id": 20648,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102908"
+        },
+        {
+          "id": 168364,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 546,
+          "loan_transaction_id": 20648,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102908"
+        },
+        {
+          "id": 168365,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 546,
+          "loan_transaction_id": 20647,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102908"
+        },
+        {
+          "id": 168366,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 546,
+          "loan_transaction_id": 20647,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102908"
+        },
+        {
+          "id": 168367,
+          "account_id": 1833,
+          "gl_code": "6110010800",
+          "loan_id": 547,
+          "loan_transaction_id": 20651,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "100.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102908"
+        },
+        {
+          "id": 168368,
+          "account_id": 1518,
+          "gl_code": "2220990201",
+          "loan_id": 547,
+          "loan_transaction_id": 20651,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "13.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102908"
+        },
+        {
+          "id": 168369,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 547,
+          "loan_transaction_id": 20652,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "1455.070000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102908"
+        },
+        {
+          "id": 168370,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 547,
+          "loan_transaction_id": 20652,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "167.150000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102908"
+        },
+        {
+          "id": 168371,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 547,
+          "loan_transaction_id": 20646,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102908"
+        }
+      ],
+      "taxAndUndoVerified": true,
+      "vatLiabilityVerified": true
+    },
+    "reduce-fee-vat": {
+      "loanId": 549,
+      "operationId": 14,
+      "mode": "RETAINED",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "0.000000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168374,
+          "loan_id": 548,
+          "loan_transaction_id": 20656,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168383,
+          "voucher_id": null,
+          "ref_num": "2026102910",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168375,
+          "loan_id": 548,
+          "loan_transaction_id": 20656,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168384,
+          "voucher_id": null,
+          "ref_num": "2026102910",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168376,
+          "loan_id": 548,
+          "loan_transaction_id": 20655,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168385,
+          "voucher_id": 28,
+          "ref_num": "2026102911",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168377,
+          "loan_id": 548,
+          "loan_transaction_id": 20655,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168386,
+          "voucher_id": 28,
+          "ref_num": "2026102911",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168378,
+          "loan_id": 549,
+          "loan_transaction_id": 20659,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "104.400000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168387,
+          "voucher_id": 28,
+          "ref_num": "2026102911",
+          "gl_code": "6110010800"
+        },
+        {
+          "id": 168379,
+          "loan_id": 549,
+          "loan_transaction_id": 20659,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "15.600000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168388,
+          "voucher_id": 28,
+          "ref_num": "2026102911",
+          "gl_code": "2220990201"
+        },
+        {
+          "id": 168380,
+          "loan_id": 549,
+          "loan_transaction_id": 20660,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1448.070000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168389,
+          "voucher_id": 28,
+          "ref_num": "2026102911",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168381,
+          "loan_id": 549,
+          "loan_transaction_id": 20660,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "167.150000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168390,
+          "voucher_id": 28,
+          "ref_num": "2026102911",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168382,
+          "loan_id": 549,
+          "loan_transaction_id": 20654,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168391,
+          "voucher_id": 28,
+          "ref_num": "2026102911",
+          "gl_code": "1141030101"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168383,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 548,
+          "loan_transaction_id": 20656,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102912"
+        },
+        {
+          "id": 168384,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 548,
+          "loan_transaction_id": 20656,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102912"
+        },
+        {
+          "id": 168385,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 548,
+          "loan_transaction_id": 20655,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102912"
+        },
+        {
+          "id": 168386,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 548,
+          "loan_transaction_id": 20655,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102912"
+        },
+        {
+          "id": 168387,
+          "account_id": 1833,
+          "gl_code": "6110010800",
+          "loan_id": 549,
+          "loan_transaction_id": 20659,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "104.400000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102912"
+        },
+        {
+          "id": 168388,
+          "account_id": 1518,
+          "gl_code": "2220990201",
+          "loan_id": 549,
+          "loan_transaction_id": 20659,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "15.600000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102912"
+        },
+        {
+          "id": 168389,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 549,
+          "loan_transaction_id": 20660,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "1448.070000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102912"
+        },
+        {
+          "id": 168390,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 549,
+          "loan_transaction_id": 20660,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "167.150000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102912"
+        },
+        {
+          "id": 168391,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 549,
+          "loan_transaction_id": 20654,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102912"
+        }
+      ],
+      "taxAndUndoVerified": true,
+      "vatLiabilityVerified": true
+    },
+    "zero-remainder": {
+      "loanId": 551,
+      "operationId": 15,
+      "mode": "RETAINED",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "0.000000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168394,
+          "loan_id": 550,
+          "loan_transaction_id": 20664,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168399,
+          "voucher_id": null,
+          "ref_num": "2026102914",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168395,
+          "loan_id": 550,
+          "loan_transaction_id": 20664,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168400,
+          "voucher_id": null,
+          "ref_num": "2026102914",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168396,
+          "loan_id": 550,
+          "loan_transaction_id": 20663,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168401,
+          "voucher_id": 30,
+          "ref_num": "2026102915",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168397,
+          "loan_id": 550,
+          "loan_transaction_id": 20663,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168402,
+          "voucher_id": 30,
+          "ref_num": "2026102915",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168398,
+          "loan_id": 551,
+          "loan_transaction_id": 20662,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "4264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168403,
+          "voucher_id": 30,
+          "ref_num": "2026102915",
+          "gl_code": "1141030101"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168399,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 550,
+          "loan_transaction_id": 20664,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102916"
+        },
+        {
+          "id": 168400,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 550,
+          "loan_transaction_id": 20664,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102916"
+        },
+        {
+          "id": 168401,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 550,
+          "loan_transaction_id": 20663,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102916"
+        },
+        {
+          "id": 168402,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 550,
+          "loan_transaction_id": 20663,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102916"
+        },
+        {
+          "id": 168403,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 551,
+          "loan_transaction_id": 20662,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "4264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102916"
+        }
+      ],
+      "zeroRemainderVerified": true
+    },
+    "predecessor-prior-payment": {
+      "loanId": 553,
+      "operationId": 16,
+      "mode": "CASH",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "2235.220000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168409,
+          "loan_id": 552,
+          "loan_transaction_id": 20669,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168415,
+          "voucher_id": null,
+          "ref_num": "2026102919",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168410,
+          "loan_id": 552,
+          "loan_transaction_id": 20669,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168416,
+          "voucher_id": null,
+          "ref_num": "2026102919",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168411,
+          "loan_id": 552,
+          "loan_transaction_id": 20668,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "3540.770000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168417,
+          "voucher_id": 32,
+          "ref_num": "2026102920",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168412,
+          "loan_id": 552,
+          "loan_transaction_id": 20668,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "224.010000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168418,
+          "voucher_id": 32,
+          "ref_num": "2026102920",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168413,
+          "loan_id": 553,
+          "loan_transaction_id": 20667,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168419,
+          "voucher_id": 32,
+          "ref_num": "2026102920",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168414,
+          "loan_id": 553,
+          "loan_transaction_id": 20667,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "2235.220000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168420,
+          "voucher_id": 32,
+          "ref_num": "2026102920",
+          "gl_code": "222099910201"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168415,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 552,
+          "loan_transaction_id": 20669,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102921"
+        },
+        {
+          "id": 168416,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 552,
+          "loan_transaction_id": 20669,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102921"
+        },
+        {
+          "id": 168417,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 552,
+          "loan_transaction_id": 20668,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "3540.770000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102921"
+        },
+        {
+          "id": 168418,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 552,
+          "loan_transaction_id": 20668,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "224.010000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102921"
+        },
+        {
+          "id": 168419,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 553,
+          "loan_transaction_id": 20667,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102921"
+        },
+        {
+          "id": 168420,
+          "account_id": 2517,
+          "gl_code": "222099910201",
+          "loan_id": 553,
+          "loan_transaction_id": 20667,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "2235.220000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102921"
+        }
+      ],
+      "priorRepaymentPreservedVerified": true
+    },
+    "late-db-failure": {
+      "loanId": 555,
+      "operationId": 17,
+      "mode": "CASH",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "1735.220000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168423,
+          "loan_id": 554,
+          "loan_transaction_id": 20674,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168435,
+          "voucher_id": null,
+          "ref_num": "2026102923",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168424,
+          "loan_id": 554,
+          "loan_transaction_id": 20674,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168436,
+          "voucher_id": null,
+          "ref_num": "2026102923",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168425,
+          "loan_id": 554,
+          "loan_transaction_id": 20673,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168437,
+          "voucher_id": 34,
+          "ref_num": "2026102924",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168426,
+          "loan_id": 554,
+          "loan_transaction_id": 20673,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168438,
+          "voucher_id": 34,
+          "ref_num": "2026102924",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168427,
+          "loan_id": 555,
+          "loan_transaction_id": 20672,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168439,
+          "voucher_id": 34,
+          "ref_num": "2026102924",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168428,
+          "loan_id": 555,
+          "loan_transaction_id": 20672,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1735.220000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168440,
+          "voucher_id": 34,
+          "ref_num": "2026102924",
+          "gl_code": "222099910201"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168435,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 554,
+          "loan_transaction_id": 20674,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102925"
+        },
+        {
+          "id": 168436,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 554,
+          "loan_transaction_id": 20674,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102925"
+        },
+        {
+          "id": 168437,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 554,
+          "loan_transaction_id": 20673,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102925"
+        },
+        {
+          "id": 168438,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 554,
+          "loan_transaction_id": 20673,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102925"
+        },
+        {
+          "id": 168439,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 555,
+          "loan_transaction_id": 20672,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102925"
+        },
+        {
+          "id": 168440,
+          "account_id": 2517,
+          "gl_code": "222099910201",
+          "loan_id": 555,
+          "loan_transaction_id": 20672,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "1735.220000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102925"
+        }
+      ],
+      "lateDatabaseFailureRollbackVerified": true
+    },
+    "insurance-liability": {
+      "loanId": 557,
+      "operationId": 18,
+      "mode": "RETAINED",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "0.000000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168443,
+          "loan_id": 556,
+          "loan_transaction_id": 20679,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168451,
+          "voucher_id": null,
+          "ref_num": "2026102927",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168444,
+          "loan_id": 556,
+          "loan_transaction_id": 20679,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168452,
+          "voucher_id": null,
+          "ref_num": "2026102927",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168445,
+          "loan_id": 556,
+          "loan_transaction_id": 20678,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168453,
+          "voucher_id": 37,
+          "ref_num": "2026102928",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168446,
+          "loan_id": 556,
+          "loan_transaction_id": 20678,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168454,
+          "voucher_id": 37,
+          "ref_num": "2026102928",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168447,
+          "loan_id": 557,
+          "loan_transaction_id": 20682,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "80.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168455,
+          "voucher_id": 37,
+          "ref_num": "2026102928",
+          "gl_code": "222007020102"
+        },
+        {
+          "id": 168448,
+          "loan_id": 557,
+          "loan_transaction_id": 20683,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1488.070000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168456,
+          "voucher_id": 37,
+          "ref_num": "2026102928",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168449,
+          "loan_id": 557,
+          "loan_transaction_id": 20683,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "167.150000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168457,
+          "voucher_id": 37,
+          "ref_num": "2026102928",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168450,
+          "loan_id": 557,
+          "loan_transaction_id": 20677,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168458,
+          "voucher_id": 37,
+          "ref_num": "2026102928",
+          "gl_code": "1141030101"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168451,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 556,
+          "loan_transaction_id": 20679,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102929"
+        },
+        {
+          "id": 168452,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 556,
+          "loan_transaction_id": 20679,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102929"
+        },
+        {
+          "id": 168453,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 556,
+          "loan_transaction_id": 20678,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102929"
+        },
+        {
+          "id": 168454,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 556,
+          "loan_transaction_id": 20678,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102929"
+        },
+        {
+          "id": 168455,
+          "account_id": 1506,
+          "gl_code": "222007020102",
+          "loan_id": 557,
+          "loan_transaction_id": 20682,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "80.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102929"
+        },
+        {
+          "id": 168456,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 557,
+          "loan_transaction_id": 20683,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "1488.070000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102929"
+        },
+        {
+          "id": 168457,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 557,
+          "loan_transaction_id": 20683,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "167.150000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102929"
+        },
+        {
+          "id": 168458,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 557,
+          "loan_transaction_id": 20677,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102929"
+        }
+      ],
+      "insuranceLiabilityVerified": true
+    },
+    "full-cash": {
+      "loanId": 559,
+      "operationId": 19,
+      "mode": "CASH",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "1735.220000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168461,
+          "loan_id": 558,
+          "loan_transaction_id": 20687,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168471,
+          "voucher_id": null,
+          "ref_num": "2026102931",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168462,
+          "loan_id": 558,
+          "loan_transaction_id": 20687,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168472,
+          "voucher_id": null,
+          "ref_num": "2026102931",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168463,
+          "loan_id": 558,
+          "loan_transaction_id": 20686,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168473,
+          "voucher_id": 39,
+          "ref_num": "2026102932",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168464,
+          "loan_id": 558,
+          "loan_transaction_id": 20686,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168474,
+          "voucher_id": 39,
+          "ref_num": "2026102932",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168465,
+          "loan_id": 559,
+          "loan_transaction_id": 20685,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168475,
+          "voucher_id": 39,
+          "ref_num": "2026102932",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168466,
+          "loan_id": 559,
+          "loan_transaction_id": 20685,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1735.220000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168476,
+          "voucher_id": 39,
+          "ref_num": "2026102932",
+          "gl_code": "222099910201"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168471,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 558,
+          "loan_transaction_id": 20687,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102935"
+        },
+        {
+          "id": 168472,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 558,
+          "loan_transaction_id": 20687,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102935"
+        },
+        {
+          "id": 168473,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 558,
+          "loan_transaction_id": 20686,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102935"
+        },
+        {
+          "id": 168474,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 558,
+          "loan_transaction_id": 20686,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102935"
+        },
+        {
+          "id": 168475,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 559,
+          "loan_transaction_id": 20685,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102935"
+        },
+        {
+          "id": 168476,
+          "account_id": 2517,
+          "gl_code": "222099910201",
+          "loan_id": 559,
+          "loan_transaction_id": 20685,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "1735.220000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102935"
+        }
+      ],
+      "fullCashDeliveryReturnUndoVerified": true,
+      "cashMovements": [
+        {
+          "id": 4,
+          "movement_type": "PAYOUT",
+          "amount": "1735.220000",
+          "cashier_transaction_id": 17
+        },
+        {
+          "id": 5,
+          "movement_type": "RETURN",
+          "amount": "1735.220000",
+          "cashier_transaction_id": 18
+        }
+      ],
+      "actualCashPostingPairsVerified": true
+    },
+    "refinance-chain": {
+      "loanId": 561,
+      "operationId": 20,
+      "mode": "RETAINED",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "0.000000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168479,
+          "loan_id": 560,
+          "loan_transaction_id": 20692,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168544,
+          "voucher_id": null,
+          "ref_num": "2026102937",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168480,
+          "loan_id": 560,
+          "loan_transaction_id": 20692,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168545,
+          "voucher_id": null,
+          "ref_num": "2026102937",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168481,
+          "loan_id": 560,
+          "loan_transaction_id": 20691,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168546,
+          "voucher_id": 43,
+          "ref_num": "2026102938",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168482,
+          "loan_id": 560,
+          "loan_transaction_id": 20691,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168547,
+          "voucher_id": 43,
+          "ref_num": "2026102938",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168483,
+          "loan_id": 561,
+          "loan_transaction_id": 20694,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1568.070000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168548,
+          "voucher_id": 43,
+          "ref_num": "2026102938",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168484,
+          "loan_id": 561,
+          "loan_transaction_id": 20694,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "167.150000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168549,
+          "voucher_id": 43,
+          "ref_num": "2026102938",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168485,
+          "loan_id": 561,
+          "loan_transaction_id": 20690,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168550,
+          "voucher_id": 43,
+          "ref_num": "2026102938",
+          "gl_code": "1141030101"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168544,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 560,
+          "loan_transaction_id": 20692,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102954"
+        },
+        {
+          "id": 168545,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 560,
+          "loan_transaction_id": 20692,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102954"
+        },
+        {
+          "id": 168546,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 560,
+          "loan_transaction_id": 20691,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102954"
+        },
+        {
+          "id": 168547,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 560,
+          "loan_transaction_id": 20691,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102954"
+        },
+        {
+          "id": 168548,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 561,
+          "loan_transaction_id": 20694,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "1568.070000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102954"
+        },
+        {
+          "id": 168549,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 561,
+          "loan_transaction_id": 20694,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "167.150000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102954"
+        },
+        {
+          "id": 168550,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 561,
+          "loan_transaction_id": 20690,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102954"
+        }
+      ],
+      "sameDayChainNativeValidationVerified": true
+    },
+    "refinance-chain-dated": {
+      "loanId": 563,
+      "operationId": 21,
+      "mode": "RETAINED",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "0.000000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168488,
+          "loan_id": 562,
+          "loan_transaction_id": 20698,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.920000",
+          "entry_date": "2026-10-29",
+          "reversed": true,
+          "reversal_id": 168507,
+          "voucher_id": null,
+          "ref_num": "2026102940",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168489,
+          "loan_id": 562,
+          "loan_transaction_id": 20698,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.920000",
+          "entry_date": "2026-10-29",
+          "reversed": true,
+          "reversal_id": 168508,
+          "voucher_id": null,
+          "ref_num": "2026102940",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168490,
+          "loan_id": 562,
+          "loan_transaction_id": 20697,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-29",
+          "reversed": true,
+          "reversal_id": 168509,
+          "voucher_id": 44,
+          "ref_num": "2026102941",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168491,
+          "loan_id": 562,
+          "loan_transaction_id": 20697,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.920000",
+          "entry_date": "2026-10-29",
+          "reversed": true,
+          "reversal_id": 168510,
+          "voucher_id": 44,
+          "ref_num": "2026102941",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168492,
+          "loan_id": 563,
+          "loan_transaction_id": 20700,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1567.930000",
+          "entry_date": "2026-10-29",
+          "reversed": true,
+          "reversal_id": 168511,
+          "voucher_id": 44,
+          "ref_num": "2026102941",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168493,
+          "loan_id": 563,
+          "loan_transaction_id": 20700,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "167.150000",
+          "entry_date": "2026-10-29",
+          "reversed": true,
+          "reversal_id": 168512,
+          "voucher_id": 44,
+          "ref_num": "2026102941",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168494,
+          "loan_id": 563,
+          "loan_transaction_id": 20696,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-29",
+          "reversed": true,
+          "reversal_id": 168513,
+          "voucher_id": 44,
+          "ref_num": "2026102941",
+          "gl_code": "1141030101"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168507,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 562,
+          "loan_transaction_id": 20698,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.920000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102945"
+        },
+        {
+          "id": 168508,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 562,
+          "loan_transaction_id": 20698,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.920000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102945"
+        },
+        {
+          "id": 168509,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 562,
+          "loan_transaction_id": 20697,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102945"
+        },
+        {
+          "id": 168510,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 562,
+          "loan_transaction_id": 20697,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "264.920000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102945"
+        },
+        {
+          "id": 168511,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 563,
+          "loan_transaction_id": 20700,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "1567.930000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102945"
+        },
+        {
+          "id": 168512,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 563,
+          "loan_transaction_id": 20700,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "167.150000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102945"
+        },
+        {
+          "id": 168513,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 563,
+          "loan_transaction_id": 20696,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102945"
+        }
+      ],
+      "reverseChainOrderVerified": true
+    },
+    "refinance-chain-dated-second": {
+      "loanId": 564,
+      "operationId": 22,
+      "mode": "CASH",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "1837.900000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168495,
+          "loan_id": 563,
+          "loan_transaction_id": 20703,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "397.180000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168501,
+          "voucher_id": null,
+          "ref_num": "2026102942",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168496,
+          "loan_id": 563,
+          "loan_transaction_id": 20703,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "397.180000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168502,
+          "voucher_id": null,
+          "ref_num": "2026102942",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168497,
+          "loan_id": 563,
+          "loan_transaction_id": 20702,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4432.070000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168503,
+          "voucher_id": 45,
+          "ref_num": "2026102943",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168498,
+          "loan_id": 563,
+          "loan_transaction_id": 20702,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "230.030000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168504,
+          "voucher_id": 45,
+          "ref_num": "2026102943",
+          "gl_code": "1520"
+        },
+        {
+          "id": 168499,
+          "loan_id": 564,
+          "loan_transaction_id": 20701,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6500.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168505,
+          "voucher_id": 45,
+          "ref_num": "2026102943",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168500,
+          "loan_id": 564,
+          "loan_transaction_id": 20701,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1837.900000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168506,
+          "voucher_id": 45,
+          "ref_num": "2026102943",
+          "gl_code": "222099910201"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168501,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 563,
+          "loan_transaction_id": 20703,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "397.180000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102944"
+        },
+        {
+          "id": 168502,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 563,
+          "loan_transaction_id": 20703,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "397.180000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102944"
+        },
+        {
+          "id": 168503,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 563,
+          "loan_transaction_id": 20702,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "4432.070000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102944"
+        },
+        {
+          "id": 168504,
+          "account_id": 2486,
+          "gl_code": "1520",
+          "loan_id": 563,
+          "loan_transaction_id": 20702,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "230.030000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102944"
+        },
+        {
+          "id": 168505,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 564,
+          "loan_transaction_id": 20701,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "6500.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102944"
+        },
+        {
+          "id": 168506,
+          "account_id": 2517,
+          "gl_code": "222099910201",
+          "loan_id": 564,
+          "loan_transaction_id": 20701,
+          "office_id": 1,
+          "dimensions": {
+            "arisstoCreditLineId": "00010",
+            "arisstoCreditLineTypeId": "001"
+          },
+          "currency_code": "USD",
+          "amount": "1837.900000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102944"
+        }
+      ],
+      "reverseChainOrderVerified": true
+    },
+    "repeatable-standard-payout": {
+      "loanId": 566,
+      "operationId": 23,
+      "mode": "CASH",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "1735.220000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168516,
+          "loan_id": 565,
+          "loan_transaction_id": 20708,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168522,
+          "voucher_id": null,
+          "ref_num": "2026102947",
+          "gl_code": "1141039901"
+        },
+        {
+          "id": 168517,
+          "loan_id": 565,
+          "loan_transaction_id": 20708,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168523,
+          "voucher_id": null,
+          "ref_num": "2026102947",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168518,
+          "loan_id": 565,
+          "loan_transaction_id": 20707,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168524,
+          "voucher_id": 48,
+          "ref_num": "2026102948",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168519,
+          "loan_id": 565,
+          "loan_transaction_id": 20707,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168525,
+          "voucher_id": 48,
+          "ref_num": "2026102948",
+          "gl_code": "1141039901"
+        },
+        {
+          "id": 168520,
+          "loan_id": 566,
+          "loan_transaction_id": 20706,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168526,
+          "voucher_id": 48,
+          "ref_num": "2026102948",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168521,
+          "loan_id": 566,
+          "loan_transaction_id": 20706,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1735.220000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168527,
+          "voucher_id": 48,
+          "ref_num": "2026102948",
+          "gl_code": "222099910201"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168522,
+          "account_id": 337,
+          "gl_code": "1141039901",
+          "loan_id": 565,
+          "loan_transaction_id": 20708,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102949"
+        },
+        {
+          "id": 168523,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 565,
+          "loan_transaction_id": 20708,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102949"
+        },
+        {
+          "id": 168524,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 565,
+          "loan_transaction_id": 20707,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102949"
+        },
+        {
+          "id": 168525,
+          "account_id": 337,
+          "gl_code": "1141039901",
+          "loan_id": 565,
+          "loan_transaction_id": 20707,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102949"
+        },
+        {
+          "id": 168526,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 566,
+          "loan_transaction_id": 20706,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102949"
+        },
+        {
+          "id": 168527,
+          "account_id": 2517,
+          "gl_code": "222099910201",
+          "loan_id": 566,
+          "loan_transaction_id": 20706,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "1735.220000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102949"
+        }
+      ],
+      "repeatableRunnerVerified": true
+    },
+    "repeatable-retained": {
+      "loanId": 568,
+      "operationId": 24,
+      "mode": "RETAINED",
+      "originationBalanced": true,
+      "noCajaOrFundTurnover": true,
+      "oneOriginationJournalNumber": true,
+      "cashPayable": "0.000000",
+      "reversed": true,
+      "exactCounterentriesVerified": true,
+      "journalRows": [
+        {
+          "id": 168530,
+          "loan_id": 567,
+          "loan_transaction_id": 20713,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168537,
+          "voucher_id": null,
+          "ref_num": "2026102951",
+          "gl_code": "1141039901"
+        },
+        {
+          "id": 168531,
+          "loan_id": 567,
+          "loan_transaction_id": 20713,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168538,
+          "voucher_id": null,
+          "ref_num": "2026102951",
+          "gl_code": "611001010001"
+        },
+        {
+          "id": 168532,
+          "loan_id": 567,
+          "loan_transaction_id": 20712,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "4000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168539,
+          "voucher_id": 50,
+          "ref_num": "2026102952",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168533,
+          "loan_id": 567,
+          "loan_transaction_id": 20712,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "264.780000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168540,
+          "voucher_id": 50,
+          "ref_num": "2026102952",
+          "gl_code": "1141039901"
+        },
+        {
+          "id": 168534,
+          "loan_id": 568,
+          "loan_transaction_id": 20715,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "1568.070000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168541,
+          "voucher_id": 50,
+          "ref_num": "2026102952",
+          "gl_code": "1141030101"
+        },
+        {
+          "id": 168535,
+          "loan_id": 568,
+          "loan_transaction_id": 20715,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 1,
+          "amount": "167.150000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168542,
+          "voucher_id": 50,
+          "ref_num": "2026102952",
+          "gl_code": "1141039901"
+        },
+        {
+          "id": 168536,
+          "loan_id": 568,
+          "loan_transaction_id": 20711,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "type_enum": 2,
+          "amount": "6000.000000",
+          "entry_date": "2026-10-30",
+          "reversed": true,
+          "reversal_id": 168543,
+          "voucher_id": 50,
+          "ref_num": "2026102952",
+          "gl_code": "1141030101"
+        }
+      ],
+      "counterentries": [
+        {
+          "id": 168537,
+          "account_id": 337,
+          "gl_code": "1141039901",
+          "loan_id": 567,
+          "loan_transaction_id": 20713,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102953"
+        },
+        {
+          "id": 168538,
+          "account_id": 1824,
+          "gl_code": "611001010001",
+          "loan_id": 567,
+          "loan_transaction_id": 20713,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102953"
+        },
+        {
+          "id": 168539,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 567,
+          "loan_transaction_id": 20712,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "4000.000000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102953"
+        },
+        {
+          "id": 168540,
+          "account_id": 337,
+          "gl_code": "1141039901",
+          "loan_id": 567,
+          "loan_transaction_id": 20712,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "264.780000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102953"
+        },
+        {
+          "id": 168541,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 568,
+          "loan_transaction_id": 20715,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "1568.070000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102953"
+        },
+        {
+          "id": 168542,
+          "account_id": 337,
+          "gl_code": "1141039901",
+          "loan_id": 568,
+          "loan_transaction_id": 20715,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "167.150000",
+          "type_enum": 2,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102953"
+        },
+        {
+          "id": 168543,
+          "account_id": 331,
+          "gl_code": "1141030101",
+          "loan_id": 568,
+          "loan_transaction_id": 20711,
+          "office_id": 1,
+          "dimensions": null,
+          "currency_code": "USD",
+          "amount": "6000.000000",
+          "type_enum": 1,
+          "entry_date": "2026-10-30",
+          "ref_num": "2026102953"
+        }
+      ],
+      "repeatableRunnerVerified": true
+    }
+  },
+  "sourceComparison": "Combined refinance journal, canonical cash/payable, loan/term/office attribution; native payoff/allocation policy preserved.",
+  "verification": {
+    "focusedJavaTestsPassed": 30,
+    "mifosTestsPassed": 15,
+    "angularTemplateCompilationPassed": true,
+    "syntheticRefinanceOperationsVerified": 22,
+    "allSyntheticRefinanceOperationsReversed": true,
+    "originalDefaultSchemaAndFixturesUnchanged": true,
+    "browserInteractionTested": false
+  }
+}
